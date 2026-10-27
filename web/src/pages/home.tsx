@@ -1,4 +1,5 @@
 import { useCtx } from "../context.ts";
+import { useEffect, useRef } from "preact/hooks";
 import { useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 
@@ -30,6 +31,7 @@ export function Home() {
               </>
             )}
           </div>
+          <HeroArt />
         </div>
       </section>
 
@@ -104,5 +106,34 @@ export function Home() {
 
       <HomeFaq />
     </>
+  );
+}
+
+// decoration only: beside the text on wide screens, under the buttons on phones; loaded after the page is
+// up, and still for prefers-reduced-motion
+
+function HeroArt() {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!canvas.current) return;
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const load = () =>
+      import("../hero-art.ts").then((m) => {
+        if (!cancelled && canvas.current) stop = m.start(canvas.current, { reduced });
+      }).catch(() => {});
+    // after the text and buttons are up
+    const timer = window.setTimeout(load, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      stop?.();
+    };
+  }, []);
+  return (
+    <div class="hero__art" aria-hidden="true">
+      <canvas ref={canvas} />
+    </div>
   );
 }
