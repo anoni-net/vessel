@@ -97,6 +97,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .cards--3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
 .tools { gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .card { border: var(--border); border-radius: var(--radius); background: var(--paper); box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.card li { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
 .card--warn { background: var(--warn); }
