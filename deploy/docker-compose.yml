@@ -17,6 +17,12 @@ services:
     env_file: /etc/vessel/db.env
     volumes:
       - db:/var/lib/postgresql
+    # a fresh database takes a few seconds to initialize; migrations and the API wait for it
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vessel -d vessel"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     logging: &logging
       driver: json-file
       options: { max-size: "1m", max-file: "2" }
@@ -24,7 +30,9 @@ services:
   api:
     build: ../api
     restart: unless-stopped
-    depends_on: [db]
+    depends_on: &db
+      db:
+        condition: service_healthy
     env_file: &env /etc/vessel/api.env
     environment: &paths
       VESSEL_SSH_KEY: /run/vessel-ssh/key
@@ -39,7 +47,7 @@ services:
   worker:
     build: ../api
     restart: unless-stopped
-    depends_on: [db]
+    depends_on: *db
     command: ["python", "-m", "app.worker"]
     env_file: *env
     environment: *paths
