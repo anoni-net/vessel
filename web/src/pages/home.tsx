@@ -1,10 +1,12 @@
 import { useCtx } from "../context.ts";
+import { useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
 
 export function Home() {
   const { t, href, locale } = useCtx();
+  const signedIn = useSignedIn();
   const [open, close] = locale === "en" ? [" (", ")"] : ["（", "）"];
   return (
     <>
@@ -14,11 +16,19 @@ export function Home() {
             <span class="pill">{t["home.badge"]}</span>
             <h1>{t["home.title"]}</h1>
             <p class="lead">{t["home.lead"]}</p>
-            <div class="actions">
-              <a class="nb-button nb-button--primary" href={href("/redeem/")}>{t["home.invite"]}</a>
-              <a class="nb-button" href={href("/login/")}>{t["home.login"]}</a>
-            </div>
-            <p class="muted">{t["home.inviteOnly"]}</p>
+            {signedIn ? (
+              <div class="actions">
+                <a class="nb-button nb-button--primary" href={href("/devices/")}>{t["home.devices"]}</a>
+              </div>
+            ) : (
+              <>
+                <div class="actions">
+                  <a class="nb-button nb-button--primary" href={href("/redeem/")}>{t["home.invite"]}</a>
+                  <a class="nb-button" href={href("/login/")}>{t["home.login"]}</a>
+                </div>
+                <p class="muted">{t["home.inviteOnly"]}</p>
+              </>
+            )}
           </div>
         </div>
       </section>

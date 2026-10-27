@@ -129,7 +129,8 @@ test("redeeming and creating a device send each step and its result", async () =
 
 test("errors the pages do not know are sent as other", async () => {
   const [page, sent] = await open(undefined, (method, path) =>
-    path === "/api/login" ? { status: 500, json: { error: "database is on fire" } } : undefined);
+    path === "/api/login" ? { status: 500, json: { error: "database is on fire" } }
+    : path === "/api/me" ? { status: 401, json: { error: "signed_out" } } : undefined);
   await page.goto(ORIGIN + "/login/");
   await page.getByLabel("帳號號碼").fill("1234 5678 9012 3456");
   await page.getByRole("button", { name: "登入" }).last().click();

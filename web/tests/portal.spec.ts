@@ -87,7 +87,13 @@ test("redeem errors are translated", async ({ page }) => {
 });
 
 test("sign in, see devices and usage", async ({ page }) => {
-  await mockApi(page, { "POST /api/login": json({ ok: true }), ...signedIn });
+  // /api/me answers signed_out until the sign-in succeeds, like the backend
+  let inside = false;
+  await mockApi(page, {
+    ...signedIn,
+    "POST /api/login": (route) => { inside = true; return route.fulfill({ json: { ok: true } }); },
+    "GET /api/me": (route) => route.fulfill(inside ? { json: ME } : { status: 401, json: { error: "signed_out" } }),
+  });
   await page.goto("/login/");
   await page.getByLabel("帳號號碼").fill("4821 0937 5564 2018");
   await page.getByRole("button", { name: "登入" }).last().click();
@@ -222,4 +228,32 @@ test("the downloaded account number is marked as UTF-8", async ({ page }) => {
   const bytes = await (await download.createReadStream()).toArray().then((c) => Buffer.concat(c));
   expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
   expect(bytes.subarray(3).toString("utf8")).toBe("Vessel 帳號號碼\r\n4821 0937 5564 2018\r\n");
+});
+
+test("a signed-in visitor is not offered sign-in again", async ({ page }) => {
+  let inside = true;
+  await mockApi(page, {
+    ...signedIn,
+    "GET /api/me": (route) => route.fulfill(inside ? { json: ME } : { status: 401, json: { error: "signed_out" } }),
+    "POST /api/logout": (route) => { inside = false; return route.fulfill({ json: { ok: true } }); },
+  });
+  await page.goto("/");
+  const header = page.locator("header");
+  await expect(header.getByRole("link", { name: "我的裝置" })).toBeVisible();
+  await expect(header.getByRole("link", { name: "登入" })).toHaveCount(0);
+  await expect(page.locator(".hero").getByRole("link", { name: "前往我的裝置" })).toBeVisible();
+  await expect(page.locator(".hero").getByRole("link", { name: "我有邀請碼" })).toHaveCount(0);
+
+  // the sign-in page sends you on, the redeem page warns before making a second account
+  await page.goto("/login/");
+  await expect(page).toHaveURL(/\/devices\/$/);
+  await page.goto("/redeem/");
+  await expect(page.getByText("你目前已經登入。兌換新的邀請碼會建立另一個帳號")).toBeVisible();
+
+  // signing out brings the sign-in links back
+  await page.goto("/account/");
+  await page.getByRole("button", { name: "登出" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(header.getByRole("link", { name: "登入" })).toBeVisible();
+  await expect(page.locator(".hero").getByRole("link", { name: "我有邀請碼" })).toBeVisible();
 });

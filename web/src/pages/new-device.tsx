@@ -5,6 +5,7 @@ import { useCtx } from "../context.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 import { generateKeyPair, generatePresharedKey } from "../keys.ts";
 import { navigate } from "../router.ts";
+import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 
@@ -29,7 +30,10 @@ export function NewDevice() {
   const [config, setConfig] = useState<{ text: string; file: string } | null>(null);
 
   const fail = (x: unknown) => {
-    if (x instanceof ApiError && x.code === "signed_out") return navigate(href("/login/"), true);
+    if (x instanceof ApiError && x.code === "signed_out") {
+      setSignedIn(false);
+      return navigate(href("/login/"), true);
+    }
     setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
   };
 

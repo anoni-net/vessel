@@ -4,12 +4,14 @@ import { useCtx } from "../context.ts";
 import { formatDate } from "../format.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
+import { setSignedIn } from "../session.ts";
 
 /** Links shown on the signed-in pages. */
 export function AccountNav() {
   const { t, href } = useCtx();
   const logout = async () => {
     await api.logout().catch(() => undefined);
+    setSignedIn(false);
     navigate(href("/"));
   };
   return (
@@ -29,7 +31,10 @@ export function Account() {
 
   useEffect(() => {
     api.me().then(setMe).catch((x) => {
-      if (x instanceof ApiError && x.code === "signed_out") navigate(href("/login/"), true);
+      if (x instanceof ApiError && x.code === "signed_out") {
+        setSignedIn(false);
+        navigate(href("/login/"), true);
+      }
       else setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     });
   }, []);

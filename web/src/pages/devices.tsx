@@ -4,6 +4,7 @@ import { useCtx } from "../context.ts";
 import { formatBytes, formatDate } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
+import { setSignedIn } from "../session.ts";
 import { AccountNav } from "./account.tsx";
 
 export function Devices() {
@@ -18,8 +19,10 @@ export function Devices() {
       setMe(m);
       setDevices(d);
     } catch (x) {
-      if (x instanceof ApiError && x.code === "signed_out") navigate(href("/login/"), true);
-      else setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+      if (x instanceof ApiError && x.code === "signed_out") {
+        setSignedIn(false);
+        navigate(href("/login/"), true);
+      } else setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     }
   };
   useEffect(() => {
