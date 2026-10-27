@@ -34,7 +34,9 @@ def schema():
 @pytest.fixture
 def db(schema):
     with psycopg.connect(DB_URL, autocommit=True) as conn:
-        conn.execute("TRUNCATE accounts, invites, sessions, regions, devices, account_usage, device_counters, jobs CASCADE")
+        conn.execute(
+            "TRUNCATE accounts, invites, sessions, regions, devices, account_usage, device_counters, jobs, heartbeats CASCADE"
+        )
         conn.execute("UPDATE settings SET value = '0' WHERE key = 'account_cap'")
         conn.execute("UPDATE settings SET value = 'false' WHERE key = 'redeem_paused'")
         yield conn

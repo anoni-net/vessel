@@ -22,6 +22,7 @@ def tick(conn: psycopg.Connection, usage: bool = True) -> None:
         jobs.enforce_quota(conn, policy.MONTHLY_QUOTA_BYTES)
     jobs.run_due_jobs(conn)
     jobs.clear_stale_results(conn)
+    jobs.beat(conn, "worker")
 
 
 def connect() -> psycopg.Connection:
