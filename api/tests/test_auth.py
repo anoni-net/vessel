@@ -76,7 +76,7 @@ def test_login_rejects_wrong_numbers(client, db):
 def test_login_extends_devices(client, db):
     number = redeem(client, make_invite(db)).json()["account_number"]
     account_id = db.execute("SELECT id FROM accounts").fetchone()[0]
-    db.execute("INSERT INTO regions (id, node_host, endpoint, server_public_key) VALUES ('sg', 'n', 'e:443', 'k')")
+    db.execute("INSERT INTO regions (id, node_host) VALUES ('sg', 'n')")
     db.execute(
         "INSERT INTO devices (id, account_id, region_id, name, public_key, dns_filter, status, expires_on) "
         "VALUES ('d-1', %s, 'sg', 'phone', 'pk', 'none', 'active', current_date + 1)",
@@ -96,7 +96,7 @@ def test_sign_in_rate_limit(client, db):
 def test_delete_account_queues_node_cleanup(client, db):
     redeem(client, make_invite(db))
     account_id = db.execute("SELECT id FROM accounts").fetchone()[0]
-    db.execute("INSERT INTO regions (id, node_host, endpoint, server_public_key) VALUES ('sg', 'n', 'e:443', 'k')")
+    db.execute("INSERT INTO regions (id, node_host) VALUES ('sg', 'n')")
     db.execute(
         "INSERT INTO devices (id, account_id, region_id, name, public_key, dns_filter, status, expires_on) "
         "VALUES ('d-1', %s, 'sg', 'phone', 'pk', 'none', 'active', current_date + 30)",
