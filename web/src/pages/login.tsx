@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
+import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
@@ -16,8 +17,10 @@ export function Login() {
     setErr("");
     try {
       await api.login(number);
+      track("login", { result: "ok" });
       navigate(href("/devices/"));
     } catch (x) {
+      track("login", { result: resultOf(x) });
       setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     } finally {
       setBusy(false);

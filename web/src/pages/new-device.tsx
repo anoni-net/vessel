@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { ApiError, type DnsFilter, type Region, api } from "../api.ts";
+import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 import { generateKeyPair, generatePresharedKey } from "../keys.ts";
@@ -33,6 +34,7 @@ export function NewDevice() {
 
   useEffect(() => {
     api.regions().then(setRegions).catch(fail);
+    track("device-step", { step: "install", platform });
   }, []);
 
   // the private key lives only in this page; warn before it is lost
@@ -46,6 +48,7 @@ export function NewDevice() {
   const go = (s: Step) => {
     setErr("");
     setStep(s);
+    track("device-step", { step: s, platform });
     window.scrollTo(0, 0);
   };
 
@@ -63,12 +66,15 @@ export function NewDevice() {
         node = (await api.deviceConfig(created.id)).config;
       }
       if (!node) {
+        track("device-create", { result: "timeout", platform });
         setErr(errorText(t, "timeout"));
         return;
       }
+      track("device-create", { result: "ok", platform });
       setConfig({ text: buildConfig(node, keys.privateKey, psk), file: configFileName(region, created.id) });
       go("config");
     } catch (x) {
+      track("device-create", { result: resultOf(x), platform });
       fail(x);
     } finally {
       setBusy(false);
@@ -181,6 +187,7 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
   const [showQr, setShowQr] = useState(false);
   const [showText, setShowText] = useState(false);
   const download = () => {
+    track("device-config", { how: "download" });
     const url = URL.createObjectURL(new Blob([config.text], { type: "application/octet-stream" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: config.file });
     a.click();
@@ -196,19 +203,19 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
       <ol class="steps">
         {steps.map((s) => <li>{s}</li>)}
       </ol>
-      <button class="link-button" type="button" aria-expanded={showQr} onClick={() => setShowQr(!showQr)}>
+      <button class="link-button" type="button" aria-expanded={showQr} onClick={() => { if (!showQr) track("device-config", { how: "qr" }); setShowQr(!showQr); }}>
         {showQr ? t["config.qrHide"] : t["config.qrShow"]}
       </button>
       {showQr && (
         // generated locally from the config; nothing in it comes from outside this page
         <div class="qr card" role="img" aria-label={t["config.qrLabel"]} dangerouslySetInnerHTML={{ __html: qrSvg(config.text) }} />
       )}
-      <button class="link-button" type="button" aria-expanded={showText} onClick={() => setShowText(!showText)}>
+      <button class="link-button" type="button" aria-expanded={showText} onClick={() => { if (!showText) track("device-config", { how: "text" }); setShowText(!showText); }}>
         {showText ? t["config.textHide"] : t["config.textShow"]}
       </button>
       {showText && <pre class="config-text" data-testid="config-text">{config.text}</pre>}
       <p class="card card--warn card--flat small">{t["config.warn"]}</p>
-      <a class="nb-button nb-button--ink" href={href("/devices/")}>{t["config.done"]}</a>
+      <a class="nb-button nb-button--ink" href={href("/devices/")} onClick={() => track("device-config", { how: "done" })}>{t["config.done"]}</a>
     </section>
   );
 }
