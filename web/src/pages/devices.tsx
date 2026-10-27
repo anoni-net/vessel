@@ -61,7 +61,8 @@ export function Devices() {
         </div>
         <div class="meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
           aria-label={t["devices.usage"]}>
-          <div style={{ width: `${pct}%` }} />
+          {/* any use at all shows a sliver, so a few MB does not look like nothing */}
+          <div style={{ width: me.used_bytes > 0 ? `max(${pct}%, 6px)` : "0" }} />
         </div>
         <p class="muted small">{t["devices.usageNote"]}</p>
       </div>
