@@ -1,0 +1,202 @@
+#!/bin/bash
+# awgctl: manage the peers of a Vessel node (the vessel-node container)
+#
+#   awgctl list [--json]                        peers with DNS filter, last handshake and transfer
+#   awgctl add <name> [filter]                  create a peer with a server-generated key (filter: none|malware|ads),
+#                                               print the path of its client config
+#   awgctl add-pubkey <id> <pubkey> <psk> [filter]
+#                                               create a peer from a browser-generated key; print JSON with
+#                                               everything the client config needs except the private key
+#   awgctl remove <name>                        revoke a peer immediately
+#   awgctl show <name>                          print a client config created by `add`
+#   awgctl usage --json                         transfer counters and when the interface came up
+#   awgctl apply                                rebuild awg0.conf and sync it to the running interface
+#
+# Layout under /opt/vessel-node:
+#   node.env                  NODE_IP and LISTEN_PORT of this node (not in the repo)
+#   server/interface.conf     [Interface] of the server (private key, port, AWG params)
+#   server/client-params.conf AWG params copied into every client config,
+#                             except Jc/Jmin/Jmax/I1 which are randomized per peer
+#   peers/<name>.conf         [Peer] block on the server side
+#   clients/<name>.conf       config from `add` (contains the private key); `add-pubkey` writes none
+#   conf/awg0.conf            generated, mounted into the container
+set -euo pipefail
+
+D=/opt/vessel-node
+C=vessel-node
+IMG=vessel-node:latest
+SUBNET=10.8.1
+# shellcheck source=/dev/null
+. $D/node.env
+: "${NODE_IP:?NODE_IP missing in $D/node.env}" "${LISTEN_PORT:?LISTEN_PORT missing in $D/node.env}"
+# resolver address per DNS filter option, served by unbound inside the container
+declare -A RESOLVER=([none]=10.8.1.1 [malware]=10.8.1.253 [ads]=10.8.1.254)
+
+die() { echo "awgctl: $*" >&2; exit 1; }
+awg_run() { docker run --rm -i --entrypoint awg $IMG "$@"; }
+valid_name() { [[ $1 =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]] || die "name must match [a-z0-9-], up to 32 chars"; }
+valid_key() { [[ $1 =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]] || die "$2 is not a WireGuard key"; }
+valid_filter() { [ -n "${RESOLVER[$1]:-}" ] || die "filter must be one of: ${!RESOLVER[*]}"; }
+
+apply() {
+  umask 077
+  { cat $D/server/interface.conf
+    for f in $D/peers/*.conf; do [ -e "$f" ] && { echo; cat "$f"; }; done
+  } > $D/conf/awg0.conf.new
+  mv $D/conf/awg0.conf.new $D/conf/awg0.conf
+  docker exec $C sh -c 'awg-quick strip /etc/amnezia/amneziawg/awg0.conf > /tmp/strip.conf && awg syncconf awg0 /tmp/strip.conf && rm /tmp/strip.conf'
+}
+
+# Client-only params (the server ignores them), so every peer gets its own values
+# instead of the AmneziaVPN defaults shared by every self-hosted server.
+DNS_NAMES=(www.google.com www.apple.com www.microsoft.com www.wikipedia.org github.com
+  www.youtube.com www.bing.com time.apple.com update.googleapis.com
+  connectivitycheck.gstatic.com www.cloudflare.com play.googleapis.com)
+
+hex() { printf %s "$1" | od -An -tx1 | tr -d ' \n'; }
+
+# I1 shaped as a DNS query: random transaction id, RD flag, one question, EDNS0 OPT record
+dns_query_i1() {
+  local name=${DNS_NAMES[RANDOM % ${#DNS_NAMES[@]}]} qname="" label qtype
+  for label in ${name//./ }; do qname+=$(printf %02x ${#label})$(hex "$label"); done
+  qtype=$(shuf -n1 -e 0001 001c 0041)
+  echo "<r 2><b 0x01000001000000000001${qname}00${qtype}00010000291000000000000000>"
+}
+
+# [Interface] lines for a client, without Address/DNS/PrivateKey/MTU
+client_params() {
+  local jmin
+  jmin=$(shuf -i 8-40 -n1)
+  grep -v -E '^(Jc|Jmin|Jmax|I[1-5]) ' $D/server/client-params.conf
+  printf 'Jc = %s\nJmin = %s\nJmax = %s\nI1 = %s\n' \
+    "$(shuf -i 3-8 -n1)" "$jmin" "$(( jmin + $(shuf -i 20-200 -n1) ))" "$(dns_query_i1)"
+}
+
+next_ip() {
+  local used n
+  used=$(grep -h '^AllowedIPs' $D/peers/*.conf 2>/dev/null | sed -E "s/.*$SUBNET\.([0-9]+)\/32/\1/")
+  # .250-.254 are reserved for the node's own services
+  for n in $(seq 2 249); do
+    grep -qx "$n" <<<"$used" || { echo "$SUBNET.$n"; return; }
+  done
+  die "no free address in $SUBNET.0/24"
+}
+
+# write peers/<name>.conf; prints the peer's tunnel address
+new_peer() { # name filter pubkey psk
+  local ip
+  ip=$(next_ip)
+  umask 077
+  printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32\n' \
+    "$1" "$2" "$3" "$4" "$ip" > $D/peers/$1.conf
+  echo "$ip"
+}
+
+peer_table() { # name<TAB>filter<TAB>pubkey for every peer file
+  local f
+  for f in $D/peers/*.conf; do
+    [ -e "$f" ] || continue
+    printf '%s\t%s\t%s\n' "$(basename "$f" .conf)" \
+      "$(awk -F'=' '/^# dns=/{print $2}' "$f")" "$(awk -F' = ' '/^PublicKey/{print $2}' "$f")"
+  done
+}
+
+cmd=${1:-}; name=${2:-}
+case $cmd in
+  list|usage)
+    json=0; [ "$name" = "--json" ] && json=1
+    [ "$cmd" = usage ] && json=1
+    started=$(docker inspect -f '{{.State.StartedAt}}' $C)
+    { peer_table; echo "--"; docker exec $C awg show awg0 dump | tail -n +2; } |
+      CMD=$cmd JSON=$json STARTED=$started python3 -c '
+import json, os, sys, time
+peers, dump = {}, {}
+lines = sys.stdin.read().splitlines()
+sep = lines.index("--")
+for l in lines[:sep]:
+    name, flt, pub = l.split("\t")
+    peers[pub] = (name, flt)
+for l in lines[sep + 1:]:
+    f = l.split("\t")
+    dump[f[0]] = {"address": f[3].removesuffix("/32"), "latest_handshake": int(f[4]), "rx": int(f[5]), "tx": int(f[6])}
+rows = []
+for pub, (name, flt) in sorted(peers.items(), key=lambda kv: kv[1][0]):
+    d = dump.get(pub, {"address": None, "latest_handshake": 0, "rx": 0, "tx": 0})
+    rows.append({"name": name, "filter": flt, "public_key": pub, **d})
+if os.environ["JSON"] == "1":
+    if os.environ["CMD"] == "usage":
+        rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake")} for r in rows]
+        print(json.dumps({"interface_started": os.environ["STARTED"], "peers": rows}))
+    else:
+        print(json.dumps(rows))
+else:
+    def size(n):
+        for u in ("B", "K", "M", "G", "T"):
+            if n < 1024: return f"{n:.0f}{u}" if u == "B" else f"{n:.1f}{u}"
+            n /= 1024
+        return f"{n:.1f}P"
+    now = time.time()
+    for r in rows:
+        hs = "never" if not r["latest_handshake"] else str(int(now - r["latest_handshake"])) + "s ago"
+        print("%-16s %-8s %-14s handshake %-12s rx %-10s tx %s" % (r["name"], r["filter"], r["address"] or "-", hs, size(r["rx"]), size(r["tx"])))
+'
+    ;;
+  add)
+    valid_name "$name"
+    filter=${3:-none}
+    valid_filter "$filter"
+    [ -e $D/peers/$name.conf ] && die "$name already exists"
+    priv=$(awg_run genkey </dev/null); pub=$(echo "$priv" | awg_run pubkey); psk=$(awg_run genpsk </dev/null)
+    srv_pub=$(docker exec $C awg show awg0 public-key)
+    ip=$(new_peer "$name" "$filter" "$pub" "$psk")
+    umask 077
+    { printf '[Interface]\nAddress = %s/32\nDNS = %s\nPrivateKey = %s\nMTU = 1280\n' "$ip" "${RESOLVER[$filter]}" "$priv"
+      client_params
+      printf '\n[Peer]\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = %s:%s\nPersistentKeepalive = 25-35\n' \
+        "$srv_pub" "$psk" "$NODE_IP" "$LISTEN_PORT"
+    } > $D/clients/$name.conf
+    apply
+    echo "$D/clients/$name.conf"
+    ;;
+  add-pubkey)
+    valid_name "$name"
+    pub=${3:-}; psk=${4:-}; filter=${5:-none}
+    valid_key "$pub" "public key"; valid_key "$psk" "preshared key"; valid_filter "$filter"
+    [ -e $D/peers/$name.conf ] && die "$name already exists"
+    grep -qxF "PublicKey = $pub" $D/peers/*.conf 2>/dev/null && die "public key already in use"
+    srv_pub=$(docker exec $C awg show awg0 public-key)
+    ip=$(new_peer "$name" "$filter" "$pub" "$psk")
+    params=$(client_params)
+    apply
+    ADDRESS="$ip/32" DNS="${RESOLVER[$filter]}" SRV_PUB="$srv_pub" ENDPOINT="$NODE_IP:$LISTEN_PORT" PARAMS="$params" NAME="$name" \
+      python3 -c '
+import json, os
+iface = {"Address": os.environ["ADDRESS"], "DNS": os.environ["DNS"], "MTU": "1280"}
+for line in os.environ["PARAMS"].splitlines():
+    k, _, v = line.partition(" = ")
+    iface[k] = v
+peer = {"PublicKey": os.environ["SRV_PUB"], "AllowedIPs": "0.0.0.0/0, ::/0",
+        "Endpoint": os.environ["ENDPOINT"], "PersistentKeepalive": "25-35"}
+print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer}))
+'
+    ;;
+  remove)
+    valid_name "$name"
+    [ -e $D/peers/$name.conf ] || die "$name not found"
+    rm -f $D/peers/$name.conf $D/clients/$name.conf
+    apply
+    echo "removed $name"
+    ;;
+  show)
+    valid_name "$name"
+    [ -e $D/clients/$name.conf ] || die "no client config for $name (peers from add-pubkey have none)"
+    cat $D/clients/$name.conf
+    ;;
+  apply)
+    apply
+    ;;
+  *)
+    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+    ;;
+esac
