@@ -27,3 +27,15 @@ export function splitLocale(pathname: string): [Locale, string] {
 export function messagesOf(locale: Locale): Record<MessageKey, string> {
   return MESSAGES[locale];
 }
+
+/** Fill {name} placeholders. */
+export function fmt(text: string, vars: Record<string, string | number>): string {
+  return text.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
+}
+
+export type T = Record<MessageKey, string>;
+
+export function errorText(t: T, code: string): string {
+  const key = `errors.${code}` as MessageKey;
+  return key in t ? t[key] : t["errors.unknown"];
+}

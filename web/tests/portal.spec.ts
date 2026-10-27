@@ -1,0 +1,126 @@
+import { type Page, type Route, expect, test } from "@playwright/test";
+
+const ME = { created_on: "2026-10-27", last_login_on: "2026-10-27", device_limit: 3, monthly_quota_bytes: 50e9, used_bytes: 4.2e9 };
+const DEVICES = [
+  { id: "d-aaa", name: "phone", region: "sg", dns_filter: "ads", status: "active", created_on: "2026-10-27", expires_on: "2026-11-26" },
+  { id: "d-bbb", name: "laptop", region: "sg", dns_filter: "none", status: "suspended", created_on: "2026-10-27", expires_on: "2026-11-26" },
+];
+
+type Handler = (route: Route) => Promise<void> | void;
+
+/** Mock /api/*. Every state-changing request must carry X-Vessel-Request. */
+async function mockApi(page: Page, handlers: Record<string, Handler>) {
+  const seen: string[] = [];
+  await page.route("**/api/**", async (route) => {
+    const req = route.request();
+    const key = `${req.method()} ${new URL(req.url()).pathname}`;
+    seen.push(key);
+    if (req.method() !== "GET") expect(req.headers()["x-vessel-request"]).toBe("1");
+    const handler = handlers[key];
+    if (handler) return handler(route);
+    return route.fulfill({ status: 404, json: { error: "not_found" } });
+  });
+  return seen;
+}
+
+const json = (body: unknown, status = 200): Handler => (route) => route.fulfill({ status, json: body });
+const signedIn = { "GET /api/me": json(ME), "GET /api/devices": json(DEVICES) };
+
+async function noSideways(page: Page) {
+  const [sw, w] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(sw).toBeLessThanOrEqual(w);
+}
+
+test("home page in three languages", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vessel");
+  await expect(page.getByRole("link", { name: "我有邀請碼" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant-TW");
+  await noSideways(page);
+  await page.getByRole("link", { name: "English" }).click();
+  await expect(page).toHaveURL(/\/en\/$/);
+  await expect(page.getByRole("link", { name: "I have an invite code" })).toBeVisible();
+  await page.getByRole("link", { name: "简体中文" }).click();
+  await expect(page.getByRole("link", { name: "我有邀请码" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans-CN");
+});
+
+test("redeem shows the number once and gates continue", async ({ page }) => {
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018" }), ...signedIn });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("abcd-efgh-jkmn-pqrs");
+  await page.getByRole("button", { name: "兌換" }).click();
+  await expect(page.getByTestId("account-number")).toHaveText("4821 0937 5564 2018");
+  await noSideways(page);
+  const go = page.getByRole("button", { name: /繼續|勾選/ });
+  await expect(go).toBeDisabled();
+  await page.getByLabel("我已經把號碼存在安全的地方").check();
+  await page.getByRole("button", { name: "繼續" }).click();
+  await expect(page).toHaveURL(/\/devices\/$/);
+  await expect(page.getByRole("heading", { name: "我的裝置" })).toBeVisible();
+});
+
+test("redeem errors are translated", async ({ page }) => {
+  await mockApi(page, { "POST /api/redeem": json({ error: "invalid_invite" }, 400) });
+  await page.goto("/en/redeem/");
+  await page.getByLabel("Invite code").fill("nope");
+  await page.getByRole("button", { name: "Redeem" }).click();
+  await expect(page.getByRole("alert")).toHaveText("The invite code is wrong, already used or expired.");
+});
+
+test("sign in, see devices and usage", async ({ page }) => {
+  await mockApi(page, { "POST /api/login": json({ ok: true }), ...signedIn });
+  await page.goto("/login/");
+  await page.getByLabel("帳號號碼").fill("4821 0937 5564 2018");
+  await page.getByRole("button", { name: "登入" }).last().click();
+  const list = page.getByTestId("device-list");
+  await expect(list.getByText("phone")).toBeVisible();
+  await expect(list.getByText("使用中")).toBeVisible();
+  await expect(list.getByText("本月額度已經用完，下個月自動恢復。")).toBeVisible();
+  await expect(page.getByText("4.2 GB / 50 GB")).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "8");
+  await noSideways(page);
+});
+
+test("wrong account number", async ({ page }) => {
+  await mockApi(page, { "POST /api/login": json({ error: "invalid_number" }, 401) });
+  await page.goto("/login/");
+  await page.getByLabel("帳號號碼").fill("0000 0000 0000 0000");
+  await page.getByRole("button", { name: "登入" }).last().click();
+  await expect(page.getByRole("alert")).toHaveText("帳號號碼不正確。");
+});
+
+test("signed-out visitors are sent to sign in", async ({ page }) => {
+  await mockApi(page, { "GET /api/me": json({ error: "signed_out" }, 401), "GET /api/devices": json({ error: "signed_out" }, 401) });
+  await page.goto("/zh-cn/devices/");
+  await expect(page).toHaveURL(/\/zh-cn\/login\/$/);
+});
+
+test("delete a device", async ({ page }) => {
+  let deleted = false;
+  await mockApi(page, {
+    "GET /api/me": json(ME),
+    "GET /api/devices": (route) => route.fulfill({ json: deleted ? DEVICES.slice(1) : DEVICES }),
+    "DELETE /api/devices/d-aaa": (route) => { deleted = true; return route.fulfill({ json: { ok: true } }); },
+  });
+  await page.goto("/devices/");
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "刪除" }).first().click();
+  await expect(page.getByTestId("device-list").getByText("phone")).toHaveCount(0);
+});
+
+test("delete the account needs the checkbox", async ({ page }) => {
+  const seen = await mockApi(page, { ...signedIn, "DELETE /api/account": json({ ok: true }) });
+  await page.goto("/account/");
+  const del = page.getByRole("button", { name: "刪除帳號" });
+  await expect(del).toBeDisabled();
+  await page.getByLabel("我了解，帳號刪除之後無法復原").check();
+  await del.click();
+  await expect(page).toHaveURL(/\/$/);
+  expect(seen).toContain("DELETE /api/account");
+});
+
+test("unknown pages", async ({ page }) => {
+  await page.goto("/nope/");
+  await expect(page.getByRole("heading", { name: "找不到這一頁" })).toBeVisible();
+});

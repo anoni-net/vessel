@@ -8,10 +8,10 @@
 |---|---|---|
 | `node/` | 節點的容器與 `awgctl`，說明見 `node/README.md` | `bash -n`、`shellcheck -S warning` |
 | `api/` | 入口網站的後端，FastAPI 與 PostgreSQL 18 | `uv sync`、`uv run pytest -q`、`uv run ruff check .`、`uv run python -m app.migrate` |
-| `web/` | 入口網站的前端，Vite、Preact、TypeScript | `npm ci`、`npm run dev`、`npm run typecheck`、`npm run build` |
+| `web/` | 入口網站的前端，Vite、Preact、TypeScript | `npm ci`、`npm run dev`、`npm run typecheck`、`npm run build`、`npm test` |
 | `deploy/` | 後端的 compose、nginx 設定範例、環境變數範例 | |
 
-開發時前端用 `npm run dev`，`/api/` 會轉到 `127.0.0.1:8090` 的後端。
+開發時前端用 `npm run dev`，`/api/` 會轉到 `127.0.0.1:8090` 的後端。前端的 Playwright 測試用 `page.route` 模擬後端，只需要建置好的前端，在桌機與手機兩種尺寸各執行一次。改了畫面之後，在手機尺寸實際截圖看過再送出。
 
 後端的測試要連真的 PostgreSQL，用環境變數 `VESSEL_TEST_DATABASE_URL` 指定，測試會重建它的 `public` schema，不要指到正式的資料庫。沒有設定時，需要資料庫的測試會跳過。
 

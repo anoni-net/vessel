@@ -24,6 +24,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
 
   api:
     runs-on: ubuntu-latest
