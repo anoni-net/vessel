@@ -18,7 +18,7 @@ export const faqAnchor = (id: Question) => `q-${id}`;
 
 function Questions({ ids }: { ids: readonly Question[] }) {
   const { t } = useCtx();
-  const target = location.hash.slice(1);
+  const target = typeof location === "undefined" ? "" : location.hash.slice(1);
   return (
     <div class="faq">
       {ids.map((id) => (

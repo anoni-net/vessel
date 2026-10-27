@@ -242,5 +242,11 @@
   "nav.footer": "页脚链接",
   "legal.updated": "最后更新：{date}",
   "home.devices": "前往我的设备",
-  "redeem.signedIn": "你目前已经登录。兑换新的邀请码会创建另一个账号，并切换到那个账号。"
+  "redeem.signedIn": "你目前已经登录。兑换新的邀请码会创建另一个账号，并切换到那个账号。",
+  "meta.faq": "Vessel 的常见问题，包含邀请码、AmneziaWG 的安装、每月额度与隐私。",
+  "meta.terms": "Vessel 使用条款的草稿，包含禁止的用途、额度与期限，以及服务无法追查个别账号的原因。",
+  "meta.privacy": "Vessel 隐私政策的草稿，列出服务保存与不保存的数据、经手数据的第三方与备份的期限。",
+  "meta.redeem": "用邀请码创建 Vessel 账号，不需要 email 或电话。",
+  "meta.login": "用 16 位数的账号号码登录 Vessel。",
+  "meta.ogAlt": "Vessel：anoni.net 架设的 VPN"
 }

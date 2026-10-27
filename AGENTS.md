@@ -11,6 +11,8 @@
 | `web/` | 入口網站的前端，Vite、Preact、TypeScript | `npm ci`、`npm run dev`、`npm run typecheck`、`npm run build`、`npm test` |
 | `deploy/` | 後端的 compose、部署腳本、nginx 設定範例，部署步驟見 `deploy/README.md` | `deploy/deploy.sh` |
 
+`npm run build` 建置之後會預先渲染每一頁（`web/scripts/prerender.mjs`），每個語系、每個頁面各有一份帶著自己標題、描述與連結預覽的 HTML，另外產生 `404.html`、`robots.txt` 與 `sitemap.xml`。正式網站的 nginx 只回應這些檔案，其他路徑回 404，所以新增頁面時要加進 `web/src/seo.ts` 的 `PUBLIC_PAGES`（可以被搜尋到）或 `PRIVATE_PAGES`（要登入，標成 `noindex`），清單跟 App 的路由對不上時建置會失敗。
+
 開發時前端用 `npm run dev`，`/api/` 會轉到 `127.0.0.1:8090` 的後端。前端的 Playwright 測試用 `page.route` 模擬後端，只需要建置好的前端，在桌機與手機兩種尺寸各執行一次。改了畫面之後，在手機尺寸實際截圖看過再送出。
 
 後端的測試要連真的 PostgreSQL，用環境變數 `VESSEL_TEST_DATABASE_URL` 指定，測試會重建它的 `public` schema，不要指到正式的資料庫。沒有設定時，需要資料庫的測試會跳過。

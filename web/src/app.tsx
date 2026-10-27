@@ -10,6 +10,7 @@ import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
 import { Legal, NotFound } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
+import { titleOf } from "./seo.ts";
 import { checkSession, useSignedIn } from "./session.ts";
 import { useEffect, useState } from "preact/hooks";
 
@@ -62,8 +63,12 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/privacy/": ["privacy.title", () => <Legal doc="privacy" titleKey="privacy.title" />],
 };
 
-export function App() {
-  const [locale, rest] = splitLocale(usePath());
+// scripts/prerender.mjs checks these against the page lists in seo.ts, since nginx serves only prerendered pages
+export const ROUTE_PATHS = Object.keys(ROUTES);
+
+/** `url` is the page to render when prerendering; in the browser the location decides. */
+export function App({ url }: { url?: string } = {}) {
+  const [locale, rest] = splitLocale(usePath(url));
   const t = messagesOf(locale);
   const path = normalizePath(rest);
   const route = ROUTES[path];
@@ -78,8 +83,10 @@ export function App() {
     if (route) trackView(path);
   }, [locale, path]);
 
-  document.documentElement.lang = HTML_LANG[locale];
-  document.title = route && path !== "/" ? `${t[route[0]]} · Vessel` : path === "/" ? "Vessel" : `${t["notFound.title"]} · Vessel`;
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = HTML_LANG[locale];
+    document.title = titleOf(locale, path) ?? `${t["notFound.title"]} · Vessel`;
+  }
 
   return (
     <LocaleContext.Provider value={{ locale, t, href }}>

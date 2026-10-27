@@ -242,5 +242,11 @@
   "nav.footer": "Footer",
   "legal.updated": "Last updated: {date}",
   "home.devices": "Go to my devices",
-  "redeem.signedIn": "You are already signed in. Redeeming a new invite code creates another account and switches to it."
+  "redeem.signedIn": "You are already signed in. Redeeming a new invite code creates another account and switches to it.",
+  "meta.faq": "Common questions about Vessel: invite codes, installing AmneziaWG, the monthly allowance and privacy.",
+  "meta.terms": "Draft terms of use for Vessel: prohibited uses, allowance and expiry, and why the service cannot trace individual accounts.",
+  "meta.privacy": "Draft privacy policy for Vessel: what the service keeps and does not keep, the third parties that handle data, and how long backups last.",
+  "meta.redeem": "Create a Vessel account with an invite code. No email address or phone number needed.",
+  "meta.login": "Sign in to Vessel with your 16-digit account number.",
+  "meta.ogAlt": "Vessel, a VPN by anoni.net"
 }

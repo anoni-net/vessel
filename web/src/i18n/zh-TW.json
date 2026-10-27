@@ -242,5 +242,11 @@
   "nav.footer": "頁尾連結",
   "legal.updated": "最後更新：{date}",
   "home.devices": "前往我的裝置",
-  "redeem.signedIn": "你目前已經登入。兌換新的邀請碼會建立另一個帳號，並切換到那個帳號。"
+  "redeem.signedIn": "你目前已經登入。兌換新的邀請碼會建立另一個帳號，並切換到那個帳號。",
+  "meta.faq": "Vessel 的常見問題，包含邀請碼、AmneziaWG 的安裝、每月額度與隱私。",
+  "meta.terms": "Vessel 使用條款的草稿，包含禁止的用途、額度與期限，以及服務無法追查個別帳號的原因。",
+  "meta.privacy": "Vessel 隱私權政策的草稿，列出服務保存與不保存的資料、經手資料的第三方與備份的期限。",
+  "meta.redeem": "用邀請碼建立 Vessel 帳號，不需要 email 或電話。",
+  "meta.login": "用 16 位數的帳號號碼登入 Vessel。",
+  "meta.ogAlt": "Vessel：anoni.net 架設的 VPN"
 }
