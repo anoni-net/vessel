@@ -3,7 +3,7 @@ import type { MessageKey } from "../i18n/index.ts";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "share"],
-  setup: ["app", "ios", "twoDevices", "newPhone", "filter", "trouble", "speed", "cities"],
+  setup: ["protocols", "maker", "app", "ios", "twoDevices", "newPhone", "filter", "trouble", "speed", "cities"],
   rules: ["expire", "quota", "p2p"],
   privacy: ["see", "law", "cloudflare", "delete"],
 } as const;
@@ -11,14 +11,18 @@ const GROUPS = {
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
 
 // the home page shows these; the rest are on /faq/
-const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices", "newPhone", "expire", "quota", "see"];
+const ON_HOME: Question[] = ["invite", "cost", "protocols", "app", "ios", "lost", "twoDevices", "newPhone", "expire", "quota", "see"];
+
+// /faq/#q-protocols opens that answer; the device setup links to it
+export const faqAnchor = (id: Question) => `q-${id}`;
 
 function Questions({ ids }: { ids: readonly Question[] }) {
   const { t } = useCtx();
+  const target = location.hash.slice(1);
   return (
     <div class="faq">
       {ids.map((id) => (
-        <details class="faq__item">
+        <details class="faq__item" id={faqAnchor(id)} open={target === faqAnchor(id)}>
           <summary>{t[`faq.${id}.q` as MessageKey]}</summary>
           <p>{t[`faq.${id}.a` as MessageKey]}</p>
         </details>

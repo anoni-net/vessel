@@ -5,6 +5,7 @@ import { useCtx } from "../context.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 import { generateKeyPair, generatePresharedKey } from "../keys.ts";
 import { navigate } from "../router.ts";
+import { faqAnchor } from "./faq.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
@@ -90,6 +91,7 @@ export function NewDevice() {
         {stepLabel(1)}
         <h1>{t["install.title"]}</h1>
         <p>{t["install.body"]}</p>
+        <p class="small"><a class="strong" href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></p>
         <div class="tabs" role="group" aria-label={t["install.platform"]}>
           {PLATFORMS.map((p) => (
             <button type="button" class={`tab${p === platform ? " tab--on" : ""}`} aria-pressed={p === platform}
