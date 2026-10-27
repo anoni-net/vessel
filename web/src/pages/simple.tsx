@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { useCtx } from "../context.ts";
 import { type Locale, type MessageKey, fmt } from "../i18n/index.ts";
 import type { Block, LegalDoc } from "../legal/types.ts";
+import { Busy, SkLine } from "./skeleton.tsx";
 
 const DOCS = import.meta.glob<{ default: LegalDoc }>("../legal/*.*.ts");
 const LEGAL_PATHS: Record<string, "terms" | "privacy"> = { "/terms/": "terms", "/privacy/": "privacy" };
@@ -35,11 +36,25 @@ export function Legal({ doc, titleKey }: { doc: "terms" | "privacy"; titleKey: M
     <section class="wrap narrow legal">
       <h1>{t[titleKey]}</h1>
       <p class="card card--warn card--flat small">{t["legal.draft"]}</p>
-      {content && (
+      {content ? (
         <>
           <p class="muted small">{fmt(t["legal.updated"], { date: content.updated })}</p>
           {content.blocks.map((b) => <LegalBlock block={b} />)}
         </>
+      ) : (
+        <div class="stack" aria-busy="true">
+          <div class="stack" aria-hidden="true">
+            <SkLine w="short" />
+            <SkLine w="mid" big />
+            <SkLine />
+            <SkLine />
+            <SkLine w="long" />
+            <SkLine w="mid" big />
+            <SkLine />
+            <SkLine w="mid" />
+          </div>
+          <Busy />
+        </div>
       )}
     </section>
   );

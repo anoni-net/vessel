@@ -281,3 +281,54 @@ test("usage shows MB below 1 GB and GB from there on", async ({ page }) => {
   await expect(page.getByText("51 GB / 50 GB", { exact: true })).toBeVisible();
   await expect(page.getByTestId("usage-percent")).toHaveText("102%");
 });
+
+test("signed-in pages keep their shape while loading and reuse what they saw", async ({ page }) => {
+  let meCalls = 0;
+  let devicesCalls = 0;
+  let releaseDevices = () => {};
+  const devicesHeld = new Promise<void>((r) => (releaseDevices = r));
+  const never = new Promise<void>(() => {});
+  await mockApi(page, {
+    // the first answers come back; later ones never do, so whatever shows must come from memory
+    "GET /api/me": async (route) => {
+      if (meCalls++ > 0) await never;
+      await route.fulfill({ json: ME });
+    },
+    "GET /api/devices": async (route) => {
+      await (devicesCalls++ > 0 ? never : devicesHeld);
+      await route.fulfill({ json: DEVICES });
+    },
+    "GET /api/regions": json([{ id: "sg", open: true }]),
+  });
+  await page.goto("/devices/");
+  const main = page.locator("main");
+  await expect(main.locator(".sk").first()).toBeVisible();
+  await expect(main.locator("section")).toHaveAttribute("aria-busy", "true");
+  await expect(main.getByRole("status")).toHaveText("載入中");
+  releaseDevices();
+  await expect(page.getByTestId("device-list").getByText("phone")).toBeVisible();
+  await expect(main.locator(".sk")).toHaveCount(0);
+
+  await page.locator(".subnav").getByRole("link", { name: "帳號" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("帳號");
+  await expect(page.locator(".facts dd").first()).not.toBeEmpty();
+  await page.locator(".subnav").getByRole("link", { name: "我的裝置" }).click();
+  await expect(page.getByTestId("device-list").getByText("laptop")).toBeVisible();
+  await expect(main.locator(".sk")).toHaveCount(0);
+});
+
+test("terms show grey lines until their text arrives", async ({ page }) => {
+  await page.goto("/");
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await page.route(/\/assets\/terms\.zh-TW-.*\.js$/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.locator("footer").getByRole("link", { name: "使用條款" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("使用條款");
+  await expect(page.locator("main .sk").first()).toBeVisible();
+  release();
+  await expect(page.locator("main h2").first()).toBeVisible();
+  await expect(page.locator("main .sk")).toHaveCount(0);
+});

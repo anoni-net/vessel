@@ -9,20 +9,22 @@ import { Faq } from "./pages/faq.tsx";
 import { Home } from "./pages/home.tsx";
 import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
-import { Legal, NotFound } from "./pages/simple.tsx";
+import { loadNewDevice, loadedNewDevice } from "./pages/lazy.ts";
+import { NewDeviceSkeleton } from "./pages/skeleton.tsx";
+import { Legal, NotFound, preloadLegal } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
 import { FAVICON, LOGO } from "./images.ts";
 import { titleOf } from "./seo.ts";
 import { checkSession, useSignedIn } from "./session.ts";
 import { useEffect, useState } from "preact/hooks";
 
-// key generation and the QR code are only needed here, so they load with this page
+// key generation and the QR code are only needed here, so they load with this page (see pages/lazy.ts)
 function NewDevice() {
-  const [Page, setPage] = useState<(() => preact.JSX.Element) | null>(null);
+  const [Page, setPage] = useState(loadedNewDevice);
   useEffect(() => {
-    import("./pages/new-device.tsx").then((m) => setPage(() => m.NewDevice));
+    if (!Page) loadNewDevice().then((p) => setPage(() => p));
   }, []);
-  return Page ? <Page /> : null;
+  return Page ? <Page /> : <NewDeviceSkeleton />;
 }
 
 // Material Design Icons "translate" (Apache 2.0), the icon the news site uses for its language links
@@ -127,8 +129,11 @@ export function App({ url }: { url?: string } = {}) {
           <nav aria-label={t["nav.footer"]} class="site-footer__links">
             <a href={href("/faq/")}>{t["faq.title"]}</a>
             <a href={href("/dns/")}>{t["dns.title"]}</a>
-            <a href={href("/terms/")}>{t["terms.title"]}</a>
-            <a href={href("/privacy/")}>{t["privacy.title"]}</a>
+            {(["/terms/", "/privacy/"] as const).map((p) => {
+              // the text loads with the page; start when the pointer or focus gets to the link
+              const early = () => void preloadLegal(locale, p).catch(() => undefined);
+              return <a href={href(p)} onPointerEnter={early} onFocus={early}>{t[p === "/terms/" ? "terms.title" : "privacy.title"]}</a>;
+            })}
           </nav>
         </div>
         <div class="wrap">

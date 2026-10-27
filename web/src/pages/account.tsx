@@ -1,10 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
-import { ApiError, type Me, api } from "../api.ts";
+import { ApiError, type Me, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate } from "../format.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
+import { Busy, SkCard, SkLine } from "./skeleton.tsx";
 
 /** Links shown on the signed-in pages. */
 export function AccountNav() {
@@ -25,7 +26,7 @@ export function AccountNav() {
 
 export function Account() {
   const { t, href, locale } = useCtx();
-  const [me, setMe] = useState<Me | null>(null);
+  const [me, setMe] = useState<Me | null>(last.me ?? null);
   const [sure, setSure] = useState(false);
   const [err, setErr] = useState("");
 
@@ -48,7 +49,21 @@ export function Account() {
     }
   };
 
-  if (!me) return <section class="wrap narrow">{err ? <p class="error" role="alert">{err}</p> : <p class="muted">{t["loading"]}</p>}</section>;
+  if (err && !me) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
+  if (!me) {
+    return (
+      <section class="wrap narrow stack" aria-busy="true">
+        <AccountNav />
+        <h1>{t["account.title"]}</h1>
+        <div class="stack" aria-hidden="true">
+          <SkLine w="mid" />
+          <SkLine w="mid" />
+          <SkCard lines={["mid", "full", "long", "short"]} />
+        </div>
+        <Busy />
+      </section>
+    );
+  }
 
   return (
     <section class="wrap narrow stack">
