@@ -18,15 +18,30 @@ services:
     build: ../api
     restart: unless-stopped
     depends_on: [db]
-    environment:
+    environment: &env
       VESSEL_DATABASE_URL: postgresql://vessel:${POSTGRES_PASSWORD}@db/vessel
       VESSEL_ACCOUNT_PEPPER: ${VESSEL_ACCOUNT_PEPPER:?}
       VESSEL_HMAC_KEY: ${VESSEL_HMAC_KEY:?}
+      VESSEL_SSH_KEY: /run/vessel-ssh/key
+      VESSEL_SSH_KNOWN_HOSTS: /run/vessel-ssh/known_hosts
+    # the portal's SSH key (pinned to awgctl-remote on every node) and the nodes' host keys
+    volumes: &ssh
+      - ./ssh:/run/vessel-ssh:ro
     ports:
       - "127.0.0.1:8090:8090"
-    logging:
+    logging: &logging
       driver: json-file
       options: { max-size: "1m", max-file: "2" }
+
+  # runs queued node jobs, expires devices and clears unfetched configs every 10 seconds
+  worker:
+    build: ../api
+    restart: unless-stopped
+    depends_on: [db]
+    command: ["python", "-m", "app.worker"]
+    environment: *env
+    volumes: *ssh
+    logging: *logging
 
 volumes:
   db:

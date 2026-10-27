@@ -1,4 +1,6 @@
 FROM python:3.13-slim
+# the API and the worker reach the nodes' awgctl over SSH
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-client && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:0.10.7 /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock ./

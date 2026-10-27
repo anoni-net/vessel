@@ -44,6 +44,14 @@ awgctl remove <名稱>
 
 `usage --json` 的計數在容器重啟時歸零，`interface_started` 讓呼叫端判斷要不要重新累計。
 
+## 入口網站的金鑰
+
+入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`list --json`、`usage --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
+
+```
+command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 tailnet IP>" ssh-ed25519 AAAA... vessel-portal
+```
+
 ## DNS 與過濾
 
 | 位址 | 選項 | 名單 |

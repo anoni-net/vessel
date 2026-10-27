@@ -3,6 +3,8 @@
   python -m app.admin invites create [--count N] [--days D]   print new invite codes, one per line
   python -m app.admin settings [KEY VALUE]                     show or change a setting
   python -m app.admin stats                                    counts only, no per-account data
+  python -m app.admin regions [set ID --node-host HOST (--open|--closed)]
+                                                               list regions, or add/change one
 
 Settings: account_cap (0 means no cap), redeem_paused (true/false).
 """
@@ -26,6 +28,14 @@ def main(argv: list[str] | None = None) -> None:
     st.add_argument("key", nargs="?")
     st.add_argument("value", nargs="?")
     sub.add_parser("stats")
+    rg = sub.add_parser("regions")
+    rg_sub = rg.add_subparsers(dest="action")
+    rs = rg_sub.add_parser("set")
+    rs.add_argument("id")
+    rs.add_argument("--node-host", required=True)
+    state = rs.add_mutually_exclusive_group(required=True)
+    state.add_argument("--open", dest="is_open", action="store_true")
+    state.add_argument("--closed", dest="is_open", action="store_false")
     args = parser.parse_args(argv)
 
     settings = load()
@@ -45,6 +55,15 @@ def main(argv: list[str] | None = None) -> None:
                 conn.execute("UPDATE settings SET value = %s WHERE key = %s", (args.value, args.key))
             for key, value in conn.execute("SELECT key, value FROM settings ORDER BY key"):
                 print(f"{key} = {value}")
+        elif args.cmd == "regions":
+            if args.action == "set":
+                conn.execute(
+                    "INSERT INTO regions (id, node_host, is_open) VALUES (%s, %s, %s) "
+                    "ON CONFLICT (id) DO UPDATE SET node_host = EXCLUDED.node_host, is_open = EXCLUDED.is_open",
+                    (args.id, args.node_host, args.is_open),
+                )
+            for rid, host, is_open in conn.execute("SELECT id, node_host, is_open FROM regions ORDER BY id"):
+                print(f"{rid}  {host}  {'open' if is_open else 'closed'}")
         elif args.cmd == "stats":
             queries = {
                 "accounts": "SELECT count(*) FROM accounts",

@@ -1,0 +1,21 @@
+#!/bin/bash
+# Forced command for the portal's SSH key on a node. The key can run these awgctl calls and nothing else:
+#
+#   add-pubkey <id> <pubkey> <psk> <filter>
+#   remove <id>
+#   list --json
+#   usage --json
+#
+# authorized_keys on the node:
+#   command="/usr/local/sbin/awgctl-remote",restrict,from="<portal host's tailnet IP>" ssh-ed25519 AAAA... vessel-portal
+# awgctl validates ids, keys and filters itself.
+set -euo pipefail
+read -r -a a <<<"${SSH_ORIGINAL_COMMAND:-}"
+case "${a[0]:-}:${#a[@]}" in
+  add-pubkey:5) exec /usr/local/sbin/awgctl add-pubkey "${a[1]}" "${a[2]}" "${a[3]}" "${a[4]}" ;;
+  remove:2)     exec /usr/local/sbin/awgctl remove "${a[1]}" ;;
+  list:2)       [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl list --json ;;
+  usage:2)      [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl usage --json ;;
+esac
+echo "awgctl-remote: command not allowed" >&2
+exit 2
