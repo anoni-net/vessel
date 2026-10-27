@@ -8,15 +8,26 @@ import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
 import { Legal, NotFound } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
+import { useEffect, useState } from "preact/hooks";
+
+// key generation and the QR code are only needed here, so they load with this page
+function NewDevice() {
+  const [Page, setPage] = useState<(() => preact.JSX.Element) | null>(null);
+  useEffect(() => {
+    import("./pages/new-device.tsx").then((m) => setPage(() => m.NewDevice));
+  }, []);
+  return Page ? <Page /> : null;
+}
 
 // pages that need a session show their own account links instead of "sign in"
-const SIGNED_IN = new Set(["/devices/", "/account/"]);
+const SIGNED_IN = new Set(["/devices/", "/devices/new/", "/account/"]);
 
 const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/": ["home.title", () => <Home />],
   "/redeem/": ["redeem.title", () => <Redeem />],
   "/login/": ["login.title", () => <Login />],
   "/devices/": ["devices.title", () => <Devices />],
+  "/devices/new/": ["new.title", () => <NewDevice />],
   "/account/": ["account.title", () => <Account />],
   "/terms/": ["terms.title", () => <Legal titleKey="terms.title" />],
   "/privacy/": ["privacy.title", () => <Legal titleKey="privacy.title" />],

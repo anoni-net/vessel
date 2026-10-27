@@ -101,6 +101,22 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .facts dt { font-weight: 800; }
 .facts dd { margin: 0; }
 
+.block { display: block; }
+.tabs { display: flex; gap: 8px; }
+.tab { flex: 1 1 auto; white-space: nowrap; min-height: 44px; padding: 4px 10px; border: var(--border); border-radius: 12px; background: var(--paper); color: var(--ink); font: inherit; font-size: 15px; font-weight: 800; box-shadow: 2px 2px 0 var(--ink); cursor: pointer; }
+.tab--on { background: var(--accent); }
+.choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 64px; padding: 12px 16px; border: var(--border); border-radius: var(--radius); background: var(--paper); color: var(--ink); font: inherit; text-align: start; box-shadow: var(--shadow); cursor: pointer; }
+.choice:disabled { border-style: dashed; border-color: #a7b5bb; background: var(--grey); color: var(--muted); box-shadow: none; cursor: not-allowed; }
+.choice--radio { flex-direction: row; gap: 12px; box-shadow: none; min-height: 0; }
+.choice--radio input { width: 20px; height: 20px; margin: 4px 0 0; accent-color: var(--ink); flex: none; }
+.choice--on { background: var(--tint); }
+.plain-fieldset { border: none; padding: 0; margin: 0; gap: 8px; }
+.plain-fieldset legend { padding: 0; margin-bottom: 8px; }
+.steps { margin: 0; padding-inline-start: 1.4em; display: flex; flex-direction: column; gap: 6px; }
+.qr { align-self: center; width: min(100%, 280px); padding: 12px; }
+.qr svg { display: block; width: 100%; height: auto; }
+.config-text { margin: 0; padding: 12px; border: 2px solid var(--ink); border-radius: 12px; background: var(--grey); font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+
 /* on phones the header keeps only the wordmark and the button; the anchors repeat what the home page shows */
 @media (max-width: 640px) {
   .site-nav__anchor { display: none; }
