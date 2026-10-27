@@ -4,15 +4,15 @@ import type { MessageKey } from "../i18n/index.ts";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "share"],
-  setup: ["protocols", "maker", "app", "ios", "twoDevices", "newPhone", "filter", "trouble", "speed", "cities"],
-  rules: ["expire", "quota", "p2p"],
+  setup: ["protocols", "maker", "app", "ios", "twoDevices", "newPhone", "filter", "noTraffic", "trouble", "speed", "cities"],
+  rules: ["expire", "expired", "quota", "p2p"],
   privacy: ["see", "law", "cloudflare", "delete"],
 } as const;
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
 
 // the home page shows these; the rest are on /faq/
-const ON_HOME: Question[] = ["invite", "cost", "protocols", "app", "ios", "lost", "twoDevices", "newPhone", "expire", "quota", "see"];
+const ON_HOME: Question[] = ["invite", "cost", "protocols", "app", "ios", "lost", "twoDevices", "newPhone", "noTraffic", "expire", "quota", "see"];
 
 // /faq/#q-protocols opens that answer; the device setup links to it
 export const faqAnchor = (id: Question) => `q-${id}`;
@@ -52,6 +52,11 @@ export function HomeFaq() {
 
 export function Faq() {
   const { t } = useCtx();
+  // a link to one question opens it; hydrating the prerendered page keeps the closed state, so open it here
+  useEffect(() => {
+    const target = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+    if (target instanceof HTMLDetailsElement) target.open = true;
+  }, []);
   return (
     <section class="wrap faq-page">
       <h1>{t["faq.title"]}</h1>
