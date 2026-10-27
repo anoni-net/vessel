@@ -49,7 +49,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .brand__product { padding-inline-start: 14px; border-inline-start: 2px solid var(--ink); font-size: 22px; font-weight: 900; line-height: 1.2; }
 .footer-brand { display: flex; align-items: center; gap: 10px; }
 .footer-brand img { flex: none; }
-.footer-legal { padding-block: 0 24px; font-size: 13px; color: #c3ced3; }
+/* the statistics note and the trademark notice read as one block of small print */
+.footer-legal { padding-block: 0 6px; font-size: 13px; color: #c3ced3; }
+.footer-legal:last-child { padding-bottom: 24px; }
+.section-lead { max-width: 46em; margin: -8px 0 24px; text-wrap: pretty; }
 .site-footer .footer-legal a { color: #c3ced3; }
 .footer-toggle { padding: 0; border: 0; background: none; color: #c3ced3; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }

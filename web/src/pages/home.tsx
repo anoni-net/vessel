@@ -53,6 +53,7 @@ export function Home() {
       <section id="limits" class="band band--grey">
         <div class="wrap">
           <h2>{t["limits.title"]}</h2>
+          <p class="section-lead">{t["limits.lead"]}</p>
           <div class="cards cards--2">
             <div class="card">
               <h3>{t["limits.can"]}</h3>
