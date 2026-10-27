@@ -37,10 +37,10 @@ test("home page in three languages", async ({ page }) => {
   await expect(page.getByRole("link", { name: "我有邀請碼" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant-TW");
   await noSideways(page);
-  await page.getByRole("link", { name: "English" }).click();
+  await page.locator("footer").getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en\/$/);
   await expect(page.getByRole("link", { name: "I have an invite code" })).toBeVisible();
-  await page.getByRole("link", { name: "简体中文" }).click();
+  await page.locator("footer").getByRole("link", { name: "简体中文" }).click();
   await expect(page.getByRole("link", { name: "我有邀请码" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hans-CN");
 });
@@ -58,7 +58,7 @@ test("frequently asked questions", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
   await expect(page.locator("details")).toHaveCount(20);
   await noSideways(page);
-  await page.getByRole("link", { name: "English" }).click();
+  await page.locator("footer").getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en\/faq\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Frequently asked questions");
 });
@@ -151,4 +151,38 @@ test("pages run under the production CSP", async ({ page }) => {
   await page.goto("/redeem/");
   await page.goto("/en/login/");
   expect(violations).toEqual([]);
+});
+
+test("the header links to the same page in the other languages", async ({ page, isMobile }) => {
+  await page.goto("/faq/");
+  const langs = page.getByRole("group", { name: "其他語言" });
+  if (isMobile) {
+    // no room next to the sign-in button on a phone; the footer still has them, and signed-in pages show them
+    await expect(langs).toBeHidden();
+    await mockApi(page, signedIn);
+    await page.goto("/devices/");
+  }
+  await expect(langs.getByRole("link")).toHaveText(["简体", "EN"]);
+  await langs.getByRole("link", { name: "English" }).click();
+  await expect(page).toHaveURL(isMobile ? /\/en\/devices\/$/ : /\/en\/faq\/$/);
+  await expect(page.getByRole("group", { name: "Other languages" }).getByRole("link")).toHaveText(["正體", "简体"]);
+  await expect(page.locator("footer nav", { hasText: "Also in" }).getByRole("link")).toHaveText(["正體中文", "简体中文"]);
+  await noSideways(page);
+});
+
+test("terms and privacy drafts in three languages", async ({ page }) => {
+  for (const [path, heading, contact] of [
+    ["/terms/", "禁止的用途", "whisper@anoni.net"],
+    ["/zh-cn/privacy/", "保存的数据", "whisper@anoni.net"],
+    ["/en/privacy/", "Backups", "whisper@anoni.net"],
+    ["/en/terms/", "Prohibited uses", "whisper@anoni.net"],
+  ]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 2, name: heading, exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: contact })).toHaveAttribute("href", "mailto:whisper@anoni.net");
+    await noSideways(page);
+  }
+  // links inside the text keep the page's language
+  await page.goto("/en/terms/");
+  await expect(page.locator("main").getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", "/en/privacy/");
 });
