@@ -32,7 +32,7 @@ export default {
     { h: "连接期间节点经手的数据" },
     { p: "你连接的时候，节点的内存里会有你当前的 IP，回传数据给你时要用到它。节点也会经手你连往的域名与 IP，但无法取得 HTTPS 连接的内容。这些数据只在连接期间存在内存，不写入硬盘，也不写进任何日志。" },
     { h: "域名过滤" },
-    { p: "创建设备时可以选择是否拦截恶意网站与广告。过滤在节点的解析器上进行，不记录被拦截的域名。拦截恶意网站使用 HaGeZi 的 Threat Intelligence Feeds（mini），屏蔽广告再加上 HaGeZi Multi（Normal），名单每天更新，内容公开在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists)。" },
+    { p: "创建设备时可以选择是否拦截恶意网站与广告。过滤在节点的解析器上进行，不记录被拦截的域名。拦截恶意网站使用 HaGeZi 的 Threat Intelligence Feeds（mini），屏蔽广告再加上 HaGeZi Multi（Normal），名单每 8 小时更新一次，内容公开在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists)。" },
     { h: "统计" },
     { p: "公开页面的浏览次数，以及兑换、登录、创建设备每一步的结果，会发送到 anoni.net 自架的 Umami，用来找出流程中出问题的步骤。每条数据只有页面的路径、语言、取到百位数的屏幕尺寸与步骤的结果，账号号码、设备的名称与设置、密钥都不发送。Umami 根据 IP 推算国家与城市，但不保存 IP。" },
     { p: "浏览器开启 Do Not Track 或 Global Privacy Control 时不发送，也可以在页脚选择不要记录。" },
