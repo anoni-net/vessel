@@ -240,5 +240,7 @@
   "lang.others": "其他語言：",
   "lang.sep": "、",
   "nav.footer": "頁尾連結",
-  "legal.updated": "最後更新：{date}"
+  "legal.updated": "最後更新：{date}",
+  "home.devices": "前往我的裝置",
+  "redeem.signedIn": "你目前已經登入。兌換新的邀請碼會建立另一個帳號，並切換到那個帳號。"
 }

@@ -10,6 +10,7 @@ import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
 import { Legal, NotFound } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
+import { checkSession, useSignedIn } from "./session.ts";
 import { useEffect, useState } from "preact/hooks";
 
 // key generation and the QR code are only needed here, so they load with this page
@@ -67,6 +68,8 @@ export function App() {
   const path = normalizePath(rest);
   const route = ROUTES[path];
   const href = (p: string) => PREFIX[locale] + p;
+  const signedIn = useSignedIn();
+  useEffect(checkSession, []);
   // like the news site: the header and footer link to the same page in the other two languages
   const others = LOCALES.filter((l) => l !== locale);
 
@@ -98,7 +101,9 @@ export function App() {
                 <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-label={LANGUAGE_NAME[l]}>{LANGUAGE_SHORT[l]}</a>
               ))}
             </span>
-            {!SIGNED_IN.has(path) && <a class="nb-button" href={href("/login/")}>{t["nav.login"]}</a>}
+            {!SIGNED_IN.has(path) && (signedIn
+              ? <a class="nb-button" href={href("/devices/")}>{t["nav.devices"]}</a>
+              : <a class="nb-button" href={href("/login/")}>{t["nav.login"]}</a>)}
           </nav>
         </div>
       </header>

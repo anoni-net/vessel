@@ -5,6 +5,7 @@ import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
 import { INVITE, groupedLength, regroup } from "../grouped.ts";
 import { navigate } from "../router.ts";
+import { setSignedIn, useSignedIn } from "../session.ts";
 
 export function Redeem() {
   const { t, href } = useCtx();
@@ -12,6 +13,7 @@ export function Redeem() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [number, setNumber] = useState("");
+  const signedIn = useSignedIn();
 
   if (number) return <AccountNumber number={number} />;
 
@@ -21,6 +23,7 @@ export function Redeem() {
     setErr("");
     try {
       setNumber((await api.redeem(code)).account_number);
+      setSignedIn(true);
       track("redeem", { result: "ok" });
     } catch (x) {
       track("redeem", { result: resultOf(x) });
@@ -33,6 +36,11 @@ export function Redeem() {
   return (
     <section class="wrap narrow">
       <h1>{t["redeem.title"]}</h1>
+      {signedIn && (
+        <p class="card card--warn card--flat small">
+          {t["redeem.signedIn"]} <a class="strong" href={href("/devices/")}>{t["home.devices"]}</a>
+        </p>
+      )}
       <form class="stack" onSubmit={submit}>
         <label for="code" class="strong">{t["redeem.label"]}</label>
         <input id="code" class="nb-input nb-input--code mono" autoComplete="off" autoCapitalize="characters" spellcheck={false}

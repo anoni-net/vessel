@@ -1,16 +1,23 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
 import { ACCOUNT, groupedLength, regroup } from "../grouped.ts";
 import { navigate } from "../router.ts";
+import { setSignedIn, useSignedIn } from "../session.ts";
 
 export function Login() {
   const { t, href } = useCtx();
   const [number, setNumber] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const signedIn = useSignedIn();
+
+  // already signed in: nothing to type
+  useEffect(() => {
+    if (signedIn) navigate(href("/devices/"), true);
+  }, [signedIn]);
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -18,6 +25,7 @@ export function Login() {
     setErr("");
     try {
       await api.login(number);
+      setSignedIn(true);
       track("login", { result: "ok" });
       navigate(href("/devices/"));
     } catch (x) {
