@@ -1,5 +1,5 @@
 """Calling awgctl on a node over SSH. On the node the key is pinned to awgctl-remote, which allows only
-add-pubkey, remove, list --json and usage --json."""
+add-pubkey, remove, suspend, resume, list --json and usage --json."""
 
 import json
 import os
@@ -14,6 +14,8 @@ class NodeError(Exception):
 class Node(Protocol):
     def add_pubkey(self, host: str, device_id: str, public_key: str, psk: str, dns_filter: str) -> dict: ...
     def remove(self, host: str, device_id: str) -> None: ...
+    def suspend(self, host: str, device_id: str) -> None: ...
+    def resume(self, host: str, device_id: str) -> None: ...
     def usage(self, host: str) -> dict: ...
 
 
@@ -46,6 +48,12 @@ class SSHNode:
         except NodeError as e:
             if "not found" not in str(e):
                 raise
+
+    def suspend(self, host, device_id):
+        self._run(host, "suspend", device_id)
+
+    def resume(self, host, device_id):
+        self._run(host, "resume", device_id)
 
     def usage(self, host):
         return json.loads(self._run(host, "usage", "--json"))

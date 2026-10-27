@@ -34,6 +34,8 @@ awgctl list [--json]                          # 名稱、過濾選項、隧道 I
 awgctl add <名稱> [none|malware|ads]          # 由節點產生金鑰，設定檔寫在 clients/
 awgctl add-pubkey <ID> <公鑰> <PSK> [過濾]     # 入口網站用，金鑰在瀏覽器產生
 awgctl usage --json                           # 流量計數與介面啟動的時間
+awgctl suspend <名稱>                         # 額度用完：peer 下線，金鑰留在節點
+awgctl resume <名稱>                          # 恢復暫停的 peer
 awgctl show <名稱>
 awgctl remove <名稱>
 ```
@@ -44,9 +46,11 @@ awgctl remove <名稱>
 
 `usage --json` 的計數在容器重啟時歸零，`interface_started` 讓呼叫端判斷要不要重新累計。
 
+`suspend` 把 peer 的設定搬到 `suspended/`，`resume` 再搬回來。入口網站把 PresharedKey 交給節點之後就不保存，所以暫停與恢復都在節點上完成。兩個指令重複執行都不會出錯，`remove` 也會清掉暫停中的 peer。
+
 ## 入口網站的金鑰
 
-入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`list --json`、`usage --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
+入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`suspend`、`resume`、`list --json`、`usage --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
 
 ```
 command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 tailnet IP>" ssh-ed25519 AAAA... vessel-portal
