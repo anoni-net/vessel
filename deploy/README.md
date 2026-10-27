@@ -52,6 +52,25 @@ deploy/deploy.sh
 
 會拉最新的 main、建置前端、更新 `/srv/vessel/web`、重建映像、先執行遷移，再重啟後端與 worker。`/etc/vessel` 的檔案只有 root 能讀，所以 compose 用 sudo 執行。重啟後端與 worker 不影響已經連上的裝置，連線只經過節點。
 
+## 告警
+
+worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小時沒有讀到任何用量。worker 每完成一輪、每讀完一個節點的用量，都會在 `heartbeats` 表留下時間，後端在 `/internal/health` 回報這些時間與卡住的工作。這個路徑不在 `/api/` 底下，nginx 不轉送，只能從主機連後端的埠。
+
+`deploy/health_warn.py` 讀這個端點，下列情況推播到 ntfy，只在狀態改變時推一次，恢復時再推一次：
+
+- worker 超過 5 分鐘沒有完成一輪
+- 某個節點超過 20 分鐘沒有讀到用量
+- 有節點工作排隊超過 15 分鐘
+- 後端沒有回應
+
+用主機的 crontab 每 10 分鐘執行一次，`VESSEL_HEALTH_URL` 的埠跟 `deploy/.env` 的 `VESSEL_API_PORT` 一致：
+
+```bash
+*/10 * * * * VESSEL_NTFY=http://<ntfy 主機>/<topic> VESSEL_HEALTH_URL=http://127.0.0.1:<VESSEL_API_PORT>/internal/health python3 /home/ubuntu/app/vessel/deploy/health_warn.py >> /home/ubuntu/vessel-health.log 2>&1
+```
+
+加上 `--force` 手動執行一次，可以確認通知收得到。
+
 ## Cloudflare
 
 - 主機名稱經 Cloudflare 代理

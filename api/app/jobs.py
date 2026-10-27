@@ -74,6 +74,14 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
             return "failed" if failed else "queued"
 
 
+def beat(conn: psycopg.Connection, name: str) -> None:
+    """Record that `name` just happened, for /internal/health."""
+    conn.execute(
+        "INSERT INTO heartbeats (name, at) VALUES (%s, now()) ON CONFLICT (name) DO UPDATE SET at = EXCLUDED.at",
+        (name,),
+    )
+
+
 def run_due_jobs(conn: psycopg.Connection, limit: int = 50) -> int:
     ids = [r[0] for r in conn.execute(
         "SELECT id FROM jobs WHERE status = 'queued' AND next_try_at <= now() ORDER BY id LIMIT %s", (limit,)
@@ -107,7 +115,7 @@ def poll_usage(conn: psycopg.Connection) -> None:
     the current value is all new traffic.
     """
     node = get_node()
-    for _region_id, host in conn.execute("SELECT id, node_host FROM regions").fetchall():
+    for region_id, host in conn.execute("SELECT id, node_host FROM regions").fetchall():
         try:
             data = node.usage(host)
         except NodeError:
@@ -144,6 +152,7 @@ def poll_usage(conn: psycopg.Connection) -> None:
                         "tx_bytes = account_usage.tx_bytes + EXCLUDED.tx_bytes",
                         (device[0], d_rx, d_tx),
                     )
+        beat(conn, f"usage:{region_id}")
 
 
 def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
