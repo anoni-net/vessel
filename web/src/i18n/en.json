@@ -9,7 +9,7 @@
   "nav.logout": "Sign out",
   "home.title": "Vessel",
   "home.badge": "Invite only · In testing",
-  "home.lead": "A VPN run by the anoni.net community. The connection is disguised so it is harder to recognize as a VPN, which helps on networks that block VPNs. You sign up without an email address or phone number, and the keys for your connection are made in your own browser, where the service's servers cannot reach them.",
+  "home.lead": "A VPN service run by the anoni.net anonymous network community. Its connections are disguised, so their packets are hard to recognize as VPN traffic and get through more easily on networks that block VPNs. You sign up without an email address or phone number, and the keys for your connection are made in your own browser, so the service's servers never have them.",
   "home.invite": "I have an invite code",
   "home.login": "Sign in",
   "home.inviteOnly": "Invites come from community members only, and places are limited.",
