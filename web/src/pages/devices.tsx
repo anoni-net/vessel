@@ -1,16 +1,19 @@
 import { useEffect, useState } from "preact/hooks";
-import { ApiError, type Device, type Me, api } from "../api.ts";
+import { ApiError, type Device, type Me, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatBytes, formatDate, formatPercent } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { AccountNav } from "./account.tsx";
+import { loadNewDevice, whenIdle } from "./lazy.ts";
+import { Busy, SkButton, SkCard } from "./skeleton.tsx";
 
 export function Devices() {
   const { t, href, locale } = useCtx();
-  const [me, setMe] = useState<Me | null>(null);
-  const [devices, setDevices] = useState<Device[] | null>(null);
+  // what this tab saw last time, if anything, while the page asks again
+  const [me, setMe] = useState<Me | null>(last.me ?? null);
+  const [devices, setDevices] = useState<Device[] | null>(last.devices ?? null);
   const [err, setErr] = useState("");
 
   const load = async () => {
@@ -27,6 +30,8 @@ export function Devices() {
   };
   useEffect(() => {
     load();
+    // the next page most people open from here
+    whenIdle(() => void loadNewDevice().catch(() => undefined));
   }, []);
 
   const remove = async (d: Device) => {
@@ -40,7 +45,21 @@ export function Devices() {
   };
 
   if (err) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
-  if (!me || !devices) return <section class="wrap narrow"><p class="muted">{t["loading"]}</p></section>;
+  if (!me || !devices) {
+    return (
+      <section class="wrap narrow stack" aria-busy="true">
+        <AccountNav />
+        <h1>{t["devices.title"]}</h1>
+        <div class="stack" aria-hidden="true">
+          <SkCard tint size="usage" lines={["mid", "full", "short", "long"]} />
+          <SkCard size="device" lines={["mid", "long", "short"]} />
+          <SkCard size="device" lines={["mid", "long", "short"]} />
+          <SkButton />
+        </div>
+        <Busy />
+      </section>
+    );
+  }
 
   const pct = Math.min(100, Math.round((me.used_bytes / me.monthly_quota_bytes) * 100));
   const share = formatPercent(locale, me.used_bytes, me.monthly_quota_bytes);

@@ -38,6 +38,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .big { font-size: 20px; }
 .strong { font-weight: 800; }
 .center { text-align: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .mono { font-family: var(--mono); }
 .error { color: var(--danger); font-weight: 700; }
 .note { margin-top: 24px; padding: 16px 20px; border: 3px dashed var(--ink); border-radius: 12px; }
@@ -216,6 +217,22 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .site-nav:has(> .nb-button) .site-header__langs { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .nb-button, .nb-input { transition: none; } }
+
+/* Grey blocks in the shape of a page while it loads (pages/skeleton.tsx) */
+.sk { display: block; height: 14px; border-radius: 7px; background: #dfe5e8; animation: sk-pulse 1.6s ease-in-out infinite; }
+.sk--big { height: 24px; }
+.sk--full { width: 100%; }
+.sk--long { width: 82%; }
+.sk--mid { width: 55%; }
+.sk--short { width: 30%; }
+.sk--button { width: 100%; height: 53px; border-radius: 999px; }
+.sk-card { border-color: #dfe5e8; gap: 14px; }
+/* heights of the real usage and device cards on the devices page */
+.sk-card--usage { min-height: 179px; }
+.sk-card--device { min-height: 158px; }
+@media (max-width: 599px) { .sk-card--usage { min-height: 203px; } }
+@keyframes sk-pulse { 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
 @media print {
   body * { visibility: hidden; }
   .printable, .printable * { visibility: visible; }

@@ -6,7 +6,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The last account and device list, kept in this tab's memory (never in storage) so a signed-in page can show
+ * them at once while it asks again. Any change (signing in or out, redeeming, adding or deleting) drops them.
+ */
+export const last: { me?: Me; devices?: Device[] } = {};
+
+export function forgetAccount(): void {
+  delete last.me;
+  delete last.devices;
+}
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
+  if (method !== "GET") forgetAccount();
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
@@ -68,8 +80,17 @@ export const api = {
   redeem: (code: string) => call<{ account_number: string }>("POST", "/redeem", { code }).then((r) => r.data),
   login: (accountNumber: string) => call("POST", "/login", { account_number: accountNumber }),
   logout: () => call("POST", "/logout"),
-  me: () => call<Me>("GET", "/me").then((r) => r.data),
-  devices: () => call<Device[]>("GET", "/devices").then((r) => r.data),
+  me: () =>
+    call<Me>("GET", "/me").then((r) => {
+      // an HTML fallback parses as {}; keep only a real answer
+      if (typeof r.data?.created_on === "string") last.me = r.data;
+      return r.data;
+    }),
+  devices: () =>
+    call<Device[]>("GET", "/devices").then((r) => {
+      if (Array.isArray(r.data)) last.devices = r.data;
+      return r.data;
+    }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   deleteAccount: () => call("DELETE", "/account"),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
