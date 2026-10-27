@@ -11,8 +11,9 @@ export function navigate(to: string, replace = false): void {
   else window.scrollTo(0, 0);
 }
 
-export function usePath(): string {
-  const [path, setPath] = useState(location.pathname);
+/** The current pathname. `initial` is for prerendering, where there is no location. */
+export function usePath(initial?: string): string {
+  const [path, setPath] = useState(initial ?? location.pathname);
   useEffect(() => {
     const update = () => setPath(location.pathname);
     window.addEventListener("popstate", update);
