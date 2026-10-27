@@ -32,9 +32,9 @@ const DESCRIPTIONS: Record<string, MessageKey> = {
 
 // 1200 × 630, made from the site's own card style; hosted on assets.anoni.net, not in the repo
 const OG_IMAGE: Record<Locale, string> = {
-  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-ed326f0e.png",
-  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-f9940e06.png",
-  en: "https://assets.anoni.net/vessel/og-en-ebe39237.png",
+  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-c9448313.png",
+  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-b45ac04f.png",
+  en: "https://assets.anoni.net/vessel/og-en-b9b2e293.png",
 };
 
 const OG_LOCALE: Record<Locale, string> = { "zh-TW": "zh_TW", "zh-CN": "zh_CN", en: "en_US" };

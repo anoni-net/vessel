@@ -8,7 +8,7 @@
   "nav.account": "帳號",
   "nav.logout": "登出",
   "home.title": "Vessel",
-  "home.badge": "邀請制 · 測試中",
+  "home.badge": "封閉測試中",
   "home.lead": "匿名網路社群 anoni.net 架設的 VPN 服務。連線經過偽裝技術後，不容易被認出是 VPN 封包，在會封鎖 VPN 的網路環境中也較容易連上。申請時不需要提供 email 或電話，連線用的金鑰在你自己的瀏覽器裡產生，確保服務的伺服器無法取得。",
   "home.invite": "我有邀請碼",
   "home.login": "登入",
