@@ -119,7 +119,7 @@
   "back": "Back",
   "cancel": "Cancel",
   "install.title": "Install AmneziaWG first",
-  "install.body": "Vessel needs AmneziaWG; the regular WireGuard app cannot connect. If you already have it, update to the latest version first, since older versions cannot connect after importing.",
+  "install.body": "Vessel needs AmneziaWG; the regular WireGuard® app cannot connect. If you already have it, update to the latest version first, since older versions cannot connect after importing.",
   "install.platform": "Choose a platform",
   "install.detected": "Your browser looks like {platform}. Switch if that is wrong.",
   "platform.android": "Android",
@@ -177,5 +177,6 @@
   "errors.node_failed": "The node could not add this device. Delete it and try again.",
   "errors.not_found": "Device not found.",
   "errors.config_gone": "This config was already shown and cannot be fetched again. Delete the device and create it again.",
-  "errors.timeout": "The node is taking too long. The device keeps being set up in the background; check your device list later."
+  "errors.timeout": "The node is taking too long. The device keeps being set up in the background; check your device list later.",
+  "footer.trademarks": "“WireGuard” and the “WireGuard” logo are registered trademarks of Jason A. Donenfeld. AmneziaWG is developed by Amnezia. Vessel is not affiliated with the WireGuard project or with Amnezia."
 }

@@ -119,7 +119,7 @@
   "back": "上一步",
   "cancel": "取消",
   "install.title": "先安裝 AmneziaWG",
-  "install.body": "Vessel 要用 AmneziaWG 才能連線，一般的 WireGuard App 無法使用。已經裝過的話，請先更新到最新版，舊版匯入後會連不上。",
+  "install.body": "Vessel 要用 AmneziaWG 才能連線，一般的 WireGuard® App 無法使用。已經裝過的話，請先更新到最新版，舊版匯入後會連不上。",
   "install.platform": "選擇平台",
   "install.detected": "依你的瀏覽器判斷是 {platform}，不對的話可以切換。",
   "platform.android": "Android",
@@ -177,5 +177,6 @@
   "errors.node_failed": "節點暫時無法加入這台裝置，請刪除它之後再試一次。",
   "errors.not_found": "找不到這台裝置。",
   "errors.config_gone": "這份設定檔已經顯示過，無法再取得。請刪除這台裝置之後重新建立。",
-  "errors.timeout": "節點太久沒有回應，這台裝置會在背景繼續建立，請稍後到裝置清單查看。"
+  "errors.timeout": "節點太久沒有回應，這台裝置會在背景繼續建立，請稍後到裝置清單查看。",
+  "footer.trademarks": "「WireGuard」與 WireGuard 標誌是 Jason A. Donenfeld 的註冊商標。AmneziaWG 由 Amnezia 開發。Vessel 與 WireGuard 專案、Amnezia 都沒有合作關係。"
 }

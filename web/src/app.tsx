@@ -77,6 +77,11 @@ export function App() {
             ))}
           </nav>
         </div>
+        <div class="wrap">
+          <p class="footer-legal">
+            {t["footer.trademarks"]} <a href="https://www.wireguard.com/" target="_blank" rel="noopener">wireguard.com</a>
+          </p>
+        </div>
       </footer>
     </LocaleContext.Provider>
   );
