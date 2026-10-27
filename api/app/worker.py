@@ -4,6 +4,7 @@ Usage: python -m app.worker [--once]"""
 
 import sys
 import time
+import traceback
 
 import psycopg
 
@@ -28,7 +29,13 @@ def main(argv: list[str]) -> None:
         while True:
             now = time.monotonic()
             due = now - last_usage >= USAGE_EVERY
-            tick(conn, usage=due)
+            try:
+                tick(conn, usage=due)
+            except psycopg.Error:
+                # a database hiccup (or a deploy that has not migrated yet) should not kill the worker
+                traceback.print_exc()
+                if "--once" in argv:
+                    raise
             if due:
                 last_usage = now
             if "--once" in argv:

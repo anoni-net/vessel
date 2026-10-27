@@ -10,6 +10,12 @@ git pull --ff-only
 docker run --rm -u "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -v "$PWD/web:/web" -w /web node:22.20-alpine \
   sh -c 'npm ci --no-audit --no-fund && npm run build'
 rsync -a --delete web/dist/ "$WEB_ROOT/"
-(cd deploy && docker compose up -d --build)
-(cd deploy && docker compose exec -T api python -m app.migrate)
+# compose reads the root-only env files in /etc/vessel, so it runs as root
+cd deploy
+sudo docker compose build
+sudo docker compose up -d db
+# migrate before the API and the worker start on the new code
+sudo docker compose run --rm --no-deps api python -m app.migrate
+sudo docker compose up -d
+cd ..
 echo "deployed $(git rev-parse --short HEAD)"
