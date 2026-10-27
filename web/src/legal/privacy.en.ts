@@ -39,7 +39,7 @@ export default {
     { h: "Third parties that handle data" },
     {
       ul: [
-        "Cloudflare: the portal goes through Cloudflare, which can see visitors' IP addresses and the pages they view, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/). Cloudflare's analytics script is turned off for the portal. VPN connections do not go through Cloudflare",
+        "Cloudflare: the portal goes through Cloudflare, which can see visitors' IP addresses and the pages they view, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/). Cloudflare's analytics script is turned off for the portal. Cloudflare's Page Shield adds a reporting policy to a sample of pages, so the browser reports the scripts the page loads and the addresses it connects to back to Cloudflare, to detect injected malicious scripts. The reports hold addresses, not anything you type. VPN connections do not go through Cloudflare",
         "DigitalOcean: the nodes run on DigitalOcean servers. As the network provider it can see traffic in and out of the nodes, but cannot decrypt the connections",
         "Amazon SES: invite codes for the test are sent with the newsletter, so the mail service handles their contents. The list of which subscriber got which code is deleted after sending, so the portal's database cannot tell which account came from which subscriber",
       ],

@@ -39,7 +39,7 @@ export default {
     { h: "經手資料的第三方" },
     {
       ul: [
-        "Cloudflare：入口網站經過 Cloudflare，它可以取得造訪者的 IP 與瀏覽的頁面，適用 [Cloudflare 的隱私權政策](https://www.cloudflare.com/privacypolicy/)。入口網站已經關閉 Cloudflare 的分析腳本。VPN 的連線不經過 Cloudflare",
+        "Cloudflare：入口網站經過 Cloudflare，它可以取得造訪者的 IP 與瀏覽的頁面，適用 [Cloudflare 的隱私權政策](https://www.cloudflare.com/privacypolicy/)。入口網站已經關閉 Cloudflare 的分析腳本。Cloudflare 的 Page Shield 會抽樣在部分頁面加上回報用的設定，讓瀏覽器把頁面載入的腳本與連線的網址回報給 Cloudflare，用來偵測被植入的惡意腳本，回報的內容是網址，不含你輸入的資料。VPN 的連線不經過 Cloudflare",
         "DigitalOcean：節點架在 DigitalOcean 的主機上。它是網路的提供者，可以看到進出節點的流量，但無法解開加密的連線",
         "Amazon SES：測試期的邀請碼透過電子報寄送，寄信服務會經手信件的內容。訂閱者與邀請碼的對照在寄送後刪除，入口網站的資料庫無法對應哪個帳號來自哪位訂閱者",
       ],
