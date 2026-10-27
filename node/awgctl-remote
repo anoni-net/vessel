@@ -3,6 +3,8 @@
 #
 #   add-pubkey <id> <pubkey> <psk> <filter>
 #   remove <id>
+#   suspend <id>
+#   resume <id>
 #   list --json
 #   usage --json
 #
@@ -14,6 +16,8 @@ read -r -a a <<<"${SSH_ORIGINAL_COMMAND:-}"
 case "${a[0]:-}:${#a[@]}" in
   add-pubkey:5) exec /usr/local/sbin/awgctl add-pubkey "${a[1]}" "${a[2]}" "${a[3]}" "${a[4]}" ;;
   remove:2)     exec /usr/local/sbin/awgctl remove "${a[1]}" ;;
+  suspend:2)    exec /usr/local/sbin/awgctl suspend "${a[1]}" ;;
+  resume:2)     exec /usr/local/sbin/awgctl resume "${a[1]}" ;;
   list:2)       [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl list --json ;;
   usage:2)      [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl usage --json ;;
 esac

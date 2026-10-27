@@ -1,64 +1,8 @@
-import base64
-import os
-
-import pytest
-from conftest import HEADERS, make_invite, needs_db
+from conftest import HEADERS, create, key, make_invite, needs_db
 
 from app import jobs, worker
-from app.nodes import NodeError, set_node
 
 pytestmark = needs_db
-
-
-def key() -> str:
-    return base64.b64encode(os.urandom(32)).decode()
-
-
-class FakeNode:
-    """Stands in for awgctl on a node."""
-
-    def __init__(self):
-        self.peers: dict[str, dict] = {}
-        self.down = False
-
-    def add_pubkey(self, host, device_id, public_key, psk, dns_filter):
-        if self.down:
-            raise NodeError("timeout")
-        if device_id in self.peers:
-            raise NodeError(f"awgctl: {device_id} already exists")
-        n = len(self.peers) + 2
-        self.peers[device_id] = {"public_key": public_key, "psk": psk, "dns_filter": dns_filter}
-        return {"name": device_id,
-                "interface": {"Address": f"10.8.1.{n}/32", "DNS": "10.8.1.1", "MTU": "1280", "Jc": "5"},
-                "peer": {"PublicKey": "srv", "AllowedIPs": "0.0.0.0/0, ::/0", "Endpoint": "198.51.100.1:443"}}
-
-    def remove(self, host, device_id):
-        if self.down:
-            raise NodeError("timeout")
-        self.peers.pop(device_id, None)
-
-    def usage(self, host):
-        return {"interface_started": "x", "peers": []}
-
-
-@pytest.fixture
-def node():
-    fake = FakeNode()
-    set_node(fake)
-    yield fake
-    set_node(None)
-
-
-@pytest.fixture
-def signed_in(client, db, node):
-    db.execute("INSERT INTO regions (id, node_host, is_open) VALUES ('sg', 'node-sg', true), ('jp', 'node-jp', false)")
-    client.post("/api/redeem", json={"code": make_invite(db)}, headers=HEADERS)
-    return client
-
-
-def create(client, **kw):
-    body = {"name": "phone", "region": "sg", "dns_filter": "ads", "public_key": key(), "preshared_key": key()} | kw
-    return client.post("/api/devices", json=body, headers=HEADERS)
 
 
 def test_create_device_returns_config_once(signed_in, node, db):

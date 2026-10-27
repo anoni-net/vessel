@@ -22,6 +22,13 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
             return status[0] if status else "done"
         action, device_id, payload, attempts, host = row
         node = get_node()
+        if action in ("suspend", "resume"):
+            device = conn.execute("SELECT status FROM devices WHERE id = %s", (device_id,)).fetchone()
+            if device is None or device[0] == "revoking":
+                # deleted or expiring meanwhile; its remove job takes care of the node
+                conn.execute("UPDATE jobs SET status = 'done', done_at = now(), updated_at = now() WHERE id = %s",
+                             (job_id,))
+                return "done"
         try:
             if action == "add":
                 try:
@@ -41,6 +48,13 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
                     "WHERE id = %s",
                     (Jsonb(result), job_id),
                 )
+            elif action == "suspend":
+                node.suspend(host, device_id)
+                conn.execute("UPDATE jobs SET status = 'done', done_at = now(), updated_at = now() WHERE id = %s", (job_id,))
+            elif action == "resume":
+                node.resume(host, device_id)
+                conn.execute("UPDATE devices SET status = 'active' WHERE id = %s AND status = 'suspended'", (device_id,))
+                conn.execute("UPDATE jobs SET status = 'done', done_at = now(), updated_at = now() WHERE id = %s", (job_id,))
             else:
                 node.remove(host, device_id)
                 conn.execute("DELETE FROM devices WHERE id = %s", (device_id,))
@@ -83,3 +97,74 @@ def expire_devices(conn: psycopg.Connection) -> int:
 
 def clear_stale_results(conn: psycopg.Connection) -> None:
     conn.execute("UPDATE jobs SET result = NULL WHERE result IS NOT NULL AND done_at < now() - interval '1 hour'")
+
+
+def poll_usage(conn: psycopg.Connection) -> None:
+    """Add what each peer moved since the last poll to its account's monthly usage.
+
+    The node's counters are cumulative since its interface came up, and since the peer was last added (a
+    resume or a re-add starts them over), so a change of interface_started or a counter going down means
+    the current value is all new traffic.
+    """
+    node = get_node()
+    for _region_id, host in conn.execute("SELECT id, node_host FROM regions").fetchall():
+        try:
+            data = node.usage(host)
+        except NodeError:
+            continue
+        started = data["interface_started"]
+        for peer in data["peers"]:
+            with conn.transaction():
+                device = conn.execute(
+                    "SELECT account_id FROM devices WHERE id = %s FOR UPDATE", (peer["name"],)
+                ).fetchone()
+                if device is None:
+                    continue  # peers created outside the portal, or already deleted here
+                prev = conn.execute(
+                    "SELECT interface_started, rx_bytes, tx_bytes FROM device_counters WHERE device_id = %s",
+                    (peer["name"],),
+                ).fetchone()
+                rx, tx = peer["rx"], peer["tx"]
+                if prev and prev[0] == started and rx >= prev[1] and tx >= prev[2]:
+                    d_rx, d_tx = rx - prev[1], tx - prev[2]
+                else:
+                    d_rx, d_tx = rx, tx
+                conn.execute(
+                    "INSERT INTO device_counters (device_id, interface_started, rx_bytes, tx_bytes) VALUES (%s, %s, %s, %s) "
+                    "ON CONFLICT (device_id) DO UPDATE SET interface_started = EXCLUDED.interface_started, "
+                    "rx_bytes = EXCLUDED.rx_bytes, tx_bytes = EXCLUDED.tx_bytes",
+                    (peer["name"], started, rx, tx),
+                )
+                if d_rx or d_tx:
+                    conn.execute(
+                        "INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes) "
+                        "VALUES (%s, date_trunc('month', current_date), %s, %s) "
+                        "ON CONFLICT (account_id, period) DO UPDATE SET "
+                        "rx_bytes = account_usage.rx_bytes + EXCLUDED.rx_bytes, "
+                        "tx_bytes = account_usage.tx_bytes + EXCLUDED.tx_bytes",
+                        (device[0], d_rx, d_tx),
+                    )
+
+
+def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
+    """Suspend the devices of accounts over this month's quota, and resume them once a new month starts."""
+    with conn.transaction():
+        usage = (
+            "(SELECT coalesce(sum(rx_bytes + tx_bytes), 0) FROM account_usage u "
+            "WHERE u.account_id = d.account_id AND u.period = date_trunc('month', current_date))"
+        )
+        for device_id, region_id in conn.execute(
+            f"UPDATE devices d SET status = 'suspended' WHERE status = 'active' AND {usage} >= %s "
+            "RETURNING id, region_id",
+            (quota,),
+        ).fetchall():
+            conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'suspend')",
+                         (region_id, device_id))
+        for device_id, region_id in conn.execute(
+            f"SELECT id, region_id FROM devices d WHERE status = 'suspended' AND {usage} < %s "
+            "AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.device_id = d.id AND j.action = 'resume' "
+            "AND j.status = 'queued')",
+            (quota,),
+        ).fetchall():
+            conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'resume')",
+                         (region_id, device_id))

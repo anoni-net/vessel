@@ -7,7 +7,9 @@
 #   awgctl add-pubkey <id> <pubkey> <psk> [filter]
 #                                               create a peer from a browser-generated key; print JSON with
 #                                               everything the client config needs except the private key
-#   awgctl remove <name>                        revoke a peer immediately
+#   awgctl remove <name>                        revoke a peer immediately (suspended ones too)
+#   awgctl suspend <name>                       take a peer offline but keep its keys on the node (quota used up)
+#   awgctl resume <name>                        bring a suspended peer back
 #   awgctl show <name>                          print a client config created by `add`
 #   awgctl usage --json                         transfer counters and when the interface came up
 #   awgctl apply                                rebuild awg0.conf and sync it to the running interface
@@ -18,6 +20,7 @@
 #   server/client-params.conf AWG params copied into every client config,
 #                             except Jc/Jmin/Jmax/I1 which are randomized per peer
 #   peers/<name>.conf         [Peer] block on the server side
+#   suspended/<name>.conf     [Peer] blocks taken offline by `suspend`; the preshared key never leaves the node
 #   clients/<name>.conf       config from `add` (contains the private key); `add-pubkey` writes none
 #   conf/awg0.conf            generated, mounted into the container
 set -euo pipefail
@@ -182,10 +185,31 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     ;;
   remove)
     valid_name "$name"
-    [ -e $D/peers/$name.conf ] || die "$name not found"
-    rm -f $D/peers/$name.conf $D/clients/$name.conf
+    [ -e $D/peers/$name.conf ] || [ -e $D/suspended/$name.conf ] || die "$name not found"
+    rm -f $D/peers/$name.conf $D/clients/$name.conf $D/suspended/$name.conf
     apply
     echo "removed $name"
+    ;;
+  suspend)
+    valid_name "$name"
+    if [ -e $D/peers/$name.conf ]; then
+      [ -d $D/suspended ] || mkdir -m 700 $D/suspended
+      mv $D/peers/$name.conf $D/suspended/$name.conf
+      apply
+    elif [ ! -e $D/suspended/$name.conf ]; then
+      die "$name not found"
+    fi
+    echo "suspended $name"
+    ;;
+  resume)
+    valid_name "$name"
+    if [ -e $D/suspended/$name.conf ]; then
+      mv $D/suspended/$name.conf $D/peers/$name.conf
+      apply
+    elif [ ! -e $D/peers/$name.conf ]; then
+      die "$name not found"
+    fi
+    echo "resumed $name"
     ;;
   show)
     valid_name "$name"
@@ -196,7 +220,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     apply
     ;;
   *)
-    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
