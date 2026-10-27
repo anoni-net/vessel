@@ -43,6 +43,7 @@
   "data.notKept.3": "你連往哪裡、什麼時候連線",
   "data.notKept.4": "你的 IP",
   "data.cloudflare": "這個網站經過 Cloudflare，Cloudflare 可以取得造訪者的 IP 與瀏覽的頁面。",
+  "data.stats": "公開頁面的瀏覽次數，以及兌換、登入、建立裝置每一步的結果，會送到社群自架的 Umami，用來找出流程裡出問題的步驟。Umami 由 IP 推算國家與城市，但不保存 IP。帳號號碼、裝置的名稱與設定、金鑰都不送。",
   "data.details": "細節寫在隱私權政策",
   "redeem.title": "兌換邀請碼",
   "redeem.label": "邀請碼",
@@ -226,5 +227,10 @@
   "faq.cloudflare.q": "為什麼入口網站要經過 Cloudflare？",
   "faq.cloudflare.a": "用來擋下攻擊的流量。Cloudflare 可以取得造訪者的 IP 與瀏覽的頁面，VPN 的連線則不經過 Cloudflare。",
   "faq.delete.q": "如何刪除帳號？",
-  "faq.delete.a": "在帳號頁刪除，所有裝置會立刻斷線，資料也一起刪除。資料庫的備份會在保存期限過後消失，期限寫在隱私權政策。"
+  "faq.delete.a": "在帳號頁刪除，所有裝置會立刻斷線，資料也一起刪除。資料庫的備份會在保存期限過後消失，期限寫在隱私權政策。",
+  "stats.note": "公開頁面的瀏覽次數，以及兌換、登入、建立裝置每一步的結果，會送到社群自架的 Umami，不含帳號號碼、裝置名稱與金鑰。",
+  "stats.stop": "不要記錄",
+  "stats.resume": "恢復記錄",
+  "stats.stopped": "這個瀏覽器已經停止記錄。",
+  "stats.declined": "你的瀏覽器要求不追蹤，所以不記錄。"
 }

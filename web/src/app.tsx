@@ -1,4 +1,5 @@
-import { LocaleContext } from "./context.ts";
+import { browserDeclines, optedOut, setOptedOut, trackView } from "./analytics.ts";
+import { LocaleContext, useCtx } from "./context.ts";
 import { HTML_LANG, LANGUAGE_NAME, LOCALES, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
@@ -18,6 +19,22 @@ function NewDevice() {
     import("./pages/new-device.tsx").then((m) => setPage(() => m.NewDevice));
   }, []);
   return Page ? <Page /> : null;
+}
+
+function StatsChoice() {
+  const { t } = useCtx();
+  const [off, setOff] = useState(optedOut());
+  if (browserDeclines()) return <p class="footer-legal">{t["stats.note"]} {t["stats.declined"]}</p>;
+  const toggle = () => {
+    setOptedOut(!off);
+    setOff(!off);
+  };
+  return (
+    <p class="footer-legal">
+      {t["stats.note"]} {off && <>{t["stats.stopped"]} </>}
+      <button type="button" class="footer-toggle" onClick={toggle}>{off ? t["stats.resume"] : t["stats.stop"]}</button>
+    </p>
+  );
 }
 
 // pages that need a session show their own account links instead of "sign in"
@@ -41,6 +58,11 @@ export function App() {
   const path = normalizePath(rest);
   const route = ROUTES[path];
   const href = (p: string) => PREFIX[locale] + p;
+
+  // after the page has rendered, so the title and path are the new page's
+  useEffect(() => {
+    if (route) trackView(path);
+  }, [locale, path]);
 
   document.documentElement.lang = HTML_LANG[locale];
   document.title = route && path !== "/" ? `${t[route[0]]} · Vessel` : path === "/" ? "Vessel" : `${t["notFound.title"]} · Vessel`;
@@ -82,6 +104,7 @@ export function App() {
           </nav>
         </div>
         <div class="wrap">
+          <StatsChoice />
           <p class="footer-legal">
             {t["footer.trademarks"]} <a href="https://www.wireguard.com/" target="_blank" rel="noopener">wireguard.com</a>
           </p>

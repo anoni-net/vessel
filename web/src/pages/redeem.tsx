@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
+import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
@@ -19,7 +20,9 @@ export function Redeem() {
     setErr("");
     try {
       setNumber((await api.redeem(code)).account_number);
+      track("redeem", { result: "ok" });
     } catch (x) {
+      track("redeem", { result: resultOf(x) });
       setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     } finally {
       setBusy(false);
@@ -86,7 +89,7 @@ function AccountNumber({ number }: { number: string }) {
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.currentTarget.checked)} />
         {t["number.saved"]}
       </label>
-      <button class="nb-button nb-button--ink" type="button" disabled={!saved} onClick={() => navigate(href("/devices/"))}>
+      <button class="nb-button nb-button--ink" type="button" disabled={!saved} onClick={() => { track("number-continue"); navigate(href("/devices/")); }}>
         {saved ? t["number.continue"] : t["number.locked"]}
       </button>
     </section>

@@ -43,6 +43,7 @@
   "data.notKept.3": "你连往哪里、什么时候连接",
   "data.notKept.4": "你的 IP",
   "data.cloudflare": "这个网站经过 Cloudflare，Cloudflare 可以取得访问者的 IP 与浏览的页面。",
+  "data.stats": "公开页面的浏览次数，以及兑换、登录、创建设备每一步的结果，会发送到社区自架的 Umami，用来找出流程中出问题的步骤。Umami 根据 IP 推算国家与城市，但不保存 IP。账号号码、设备的名称与设置、密钥都不发送。",
   "data.details": "细节写在隐私政策",
   "redeem.title": "兑换邀请码",
   "redeem.label": "邀请码",
@@ -226,5 +227,10 @@
   "faq.cloudflare.q": "为什么门户网站要经过 Cloudflare？",
   "faq.cloudflare.a": "用来挡下攻击流量。Cloudflare 可以取得访问者的 IP 与浏览的页面，VPN 的连接则不经过 Cloudflare。",
   "faq.delete.q": "如何删除账号？",
-  "faq.delete.a": "在账号页删除，所有设备会立刻断开，数据也一起删除。数据库的备份会在保存期限过后消失，期限写在隐私政策。"
+  "faq.delete.a": "在账号页删除，所有设备会立刻断开，数据也一起删除。数据库的备份会在保存期限过后消失，期限写在隐私政策。",
+  "stats.note": "公开页面的浏览次数，以及兑换、登录、创建设备每一步的结果，会发送到社区自架的 Umami，不含账号号码、设备名称与密钥。",
+  "stats.stop": "不要记录",
+  "stats.resume": "恢复记录",
+  "stats.stopped": "这个浏览器已经停止记录。",
+  "stats.declined": "你的浏览器要求不追踪，所以不记录。"
 }
