@@ -50,6 +50,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .footer-brand img { flex: none; }
 .footer-legal { padding-block: 0 24px; font-size: 13px; color: #c3ced3; }
 .site-footer .footer-legal a { color: #c3ced3; }
+.footer-toggle { padding: 0; border: 0; background: none; color: #c3ced3; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }
 .site-footer { background: var(--ink); color: var(--paper); }
 .site-footer a { color: var(--paper); }

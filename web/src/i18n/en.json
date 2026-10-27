@@ -43,6 +43,7 @@
   "data.notKept.3": "Where you connect to, or when",
   "data.notKept.4": "Your IP address",
   "data.cloudflare": "This site goes through Cloudflare, which can see visitors' IP addresses and the pages they view.",
+  "data.stats": "Views of public pages go to the community's self-hosted Umami, which works out the country and city from the IP address but does not keep the address. Pages after sign-in are not recorded, and nothing about accounts or devices is sent.",
   "data.details": "Details are in the privacy policy",
   "redeem.title": "Redeem an invite code",
   "redeem.label": "Invite code",
@@ -226,5 +227,10 @@
   "faq.cloudflare.q": "Why does the portal go through Cloudflare?",
   "faq.cloudflare.a": "To stop attack traffic. Cloudflare can see visitors' IP addresses and the pages they view. VPN connections do not go through Cloudflare.",
   "faq.delete.q": "How do I delete my account?",
-  "faq.delete.a": "Delete it on the account page. All devices disconnect right away and the data is deleted with them. Database backups disappear after their retention period, which the privacy policy states."
+  "faq.delete.a": "Delete it on the account page. All devices disconnect right away and the data is deleted with them. Database backups disappear after their retention period, which the privacy policy states.",
+  "stats.note": "Views of public pages go to the community's self-hosted Umami. Pages after sign-in are not recorded.",
+  "stats.stop": "Don't record",
+  "stats.resume": "Resume recording",
+  "stats.stopped": "Recording is off in this browser.",
+  "stats.declined": "Your browser asks not to be tracked, so nothing is recorded."
 }
