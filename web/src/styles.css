@@ -43,7 +43,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 
 .site-header { border-bottom: var(--border); }
 .site-header__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding-block: 14px; }
-.wordmark { font-size: 26px; font-weight: 900; text-decoration: none; }
+.brand { display: inline-flex; align-items: center; gap: 14px; min-height: 48px; text-decoration: none; color: var(--ink); }
+.brand__logo { display: block; height: 26px; width: auto; }
+.brand__product { padding-inline-start: 14px; border-inline-start: 2px solid var(--ink); font-size: 22px; font-weight: 900; line-height: 1.2; }
+.footer-brand { display: flex; align-items: center; gap: 10px; }
+.footer-brand img { flex: none; }
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }
 .site-footer { background: var(--ink); color: var(--paper); }
 .site-footer a { color: var(--paper); }
@@ -120,6 +124,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* on phones the header keeps only the wordmark and the button; the anchors repeat what the home page shows */
 @media (max-width: 640px) {
   .site-nav__anchor { display: none; }
+  .brand { gap: 10px; }
+  .brand__logo { height: 22px; }
+  .brand__product { padding-inline-start: 10px; font-size: 19px; }
   .site-header__inner { flex-wrap: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .nb-button { transition: none; } }
