@@ -10,7 +10,7 @@
   "nav.language": "語言",
   "home.title": "Vessel",
   "home.badge": "邀請制 · 測試中",
-  "home.lead": "匿名網路社群 anoni.net 架設的 VPN。連線使用 AmneziaWG 並加上混淆，在會阻擋 VPN 的網路上比較不容易被辨識。帳號不需要 email，金鑰在你的瀏覽器裡產生。",
+  "home.lead": "匿名網路社群 anoni.net 架設的 VPN。連線經過偽裝，不容易被認出是 VPN，在會封鎖 VPN 的網路上也比較容易連上。申請不用留 email 或電話，連線用的金鑰在你自己的瀏覽器裡產生，社群的伺服器無法取得。",
   "home.invite": "我有邀請碼",
   "home.login": "登入",
   "home.inviteOnly": "目前只透過社群成員邀請，名額有限。",
@@ -178,5 +178,5 @@
   "errors.not_found": "找不到這台裝置。",
   "errors.config_gone": "這份設定檔已經顯示過，無法再取得。請刪除這台裝置之後重新建立。",
   "errors.timeout": "節點太久沒有回應，這台裝置會在背景繼續建立，請稍後到裝置清單查看。",
-  "footer.trademarks": "「WireGuard」與 WireGuard 標誌是 Jason A. Donenfeld 的註冊商標。AmneziaWG 由 Amnezia 開發。Vessel 與 WireGuard 專案、Amnezia 都沒有合作關係。"
+  "footer.trademarks": "「WireGuard」與 WireGuard 標誌是 Jason A. Donenfeld 的註冊商標。AmneziaWG 由 Amnezia 開發。Vessel 與 WireGuard 專案、Amnezia 無直接合作關係。"
 }

@@ -10,7 +10,7 @@
   "nav.language": "Language",
   "home.title": "Vessel",
   "home.badge": "Invite only · In testing",
-  "home.lead": "A VPN run by the anoni.net community. It uses AmneziaWG with obfuscation, which makes it harder to recognize on networks that block VPNs. No email needed, and keys are generated in your browser.",
+  "home.lead": "A VPN run by the anoni.net community. The connection is disguised so it is harder to recognize as a VPN, which helps on networks that block VPNs. You sign up without an email address or phone number, and the keys for your connection are made in your own browser, where the community's servers cannot reach them.",
   "home.invite": "I have an invite code",
   "home.login": "Sign in",
   "home.inviteOnly": "Invites come from community members only, and places are limited.",
@@ -178,5 +178,5 @@
   "errors.not_found": "Device not found.",
   "errors.config_gone": "This config was already shown and cannot be fetched again. Delete the device and create it again.",
   "errors.timeout": "The node is taking too long. The device keeps being set up in the background; check your device list later.",
-  "footer.trademarks": "“WireGuard” and the “WireGuard” logo are registered trademarks of Jason A. Donenfeld. AmneziaWG is developed by Amnezia. Vessel is not affiliated with the WireGuard project or with Amnezia."
+  "footer.trademarks": "“WireGuard” and the “WireGuard” logo are registered trademarks of Jason A. Donenfeld. AmneziaWG is developed by Amnezia. Vessel has no direct affiliation with the WireGuard project or with Amnezia."
 }
