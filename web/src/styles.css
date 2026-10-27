@@ -56,7 +56,21 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-footer a { color: var(--paper); }
 .site-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-block: 32px; font-weight: 700; }
 .site-footer__links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-weight: 400; }
-.site-footer__links [aria-current="true"] { font-weight: 800; text-decoration: none; }
+.icon { flex: none; vertical-align: -0.125em; }
+.site-header__langs { display: inline-flex; align-items: center; gap: 0 4px; font-weight: 700; }
+.site-header__langs a { padding: 4px 6px; }
+.site-footer__langs { padding-block: 0 24px; font-weight: 400; }
+.site-footer__langs .icon { margin-inline-end: 4px; }
+
+.legal > * + * { margin-top: 16px; }
+.legal > h2 { margin: 36px 0 0; font-size: 22px; }
+.legal > h1 + * { margin-top: 20px; }
+.legal p, .legal ul { margin-bottom: 0; }
+.legal ul { padding-inline-start: 1.4em; }
+.table-wrap { overflow-x: auto; }
+.legal table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.legal th, .legal td { padding: 10px 12px; border: 2px solid var(--ink); text-align: start; vertical-align: top; }
+.legal th { background: var(--tint); }
 
 .band { border-bottom: var(--border); padding-block: 56px; }
 .band--tint { background: var(--tint); }
@@ -138,10 +152,25 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* on phones the header keeps only the wordmark and the button; the anchors repeat what the home page shows */
 @media (max-width: 640px) {
   .site-nav__anchor { display: none; }
+  .site-header__langs .icon { display: none; }
+  .site-nav { flex-wrap: nowrap; gap: 8px 12px; }
+  .site-header__langs a { padding: 4px; }
   .brand { gap: 10px; }
   .brand__logo { height: 22px; }
   .brand__product { padding-inline-start: 10px; font-size: 19px; }
   .site-header__inner { flex-wrap: nowrap; }
+}
+/* on phones each row of a legal table becomes a card, with the column name above each value */
+@media (max-width: 640px) {
+  .legal thead { display: none; }
+  .legal table, .legal tbody, .legal tr, .legal td { display: block; }
+  .legal tr { margin-bottom: 12px; padding-block: 6px; border: 2px solid var(--ink); border-radius: 12px; }
+  .legal td { padding: 6px 14px; border: 0; }
+  .legal td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 800; }
+}
+/* phones narrower than this cannot fit the wordmark, the languages and the sign-in button on one row; the footer still lists the languages */
+@media (max-width: 420px) {
+  .site-nav:has(> .nb-button) .site-header__langs { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .nb-button { transition: none; } }
 @media print {

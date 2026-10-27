@@ -1,6 +1,6 @@
 import { browserDeclines, optedOut, setOptedOut, trackView } from "./analytics.ts";
 import { LocaleContext, useCtx } from "./context.ts";
-import { HTML_LANG, LANGUAGE_NAME, LOCALES, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
+import { HTML_LANG, LANGUAGE_NAME, LANGUAGE_SHORT, LOCALES, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
 import { Devices } from "./pages/devices.tsx";
@@ -19,6 +19,15 @@ function NewDevice() {
     import("./pages/new-device.tsx").then((m) => setPage(() => m.NewDevice));
   }, []);
   return Page ? <Page /> : null;
+}
+
+// Material Design Icons "translate" (Apache 2.0), the icon the news site uses for its language links
+function TranslateIcon() {
+  return (
+    <svg class="icon" viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z" />
+    </svg>
+  );
 }
 
 function StatsChoice() {
@@ -48,8 +57,8 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/devices/new/": ["new.title", () => <NewDevice />],
   "/account/": ["account.title", () => <Account />],
   "/faq/": ["faq.title", () => <Faq />],
-  "/terms/": ["terms.title", () => <Legal titleKey="terms.title" />],
-  "/privacy/": ["privacy.title", () => <Legal titleKey="privacy.title" />],
+  "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
+  "/privacy/": ["privacy.title", () => <Legal doc="privacy" titleKey="privacy.title" />],
 };
 
 export function App() {
@@ -58,6 +67,8 @@ export function App() {
   const path = normalizePath(rest);
   const route = ROUTES[path];
   const href = (p: string) => PREFIX[locale] + p;
+  // like the news site: the header and footer link to the same page in the other two languages
+  const others = LOCALES.filter((l) => l !== locale);
 
   // after the page has rendered, so the title and path are the new page's
   useEffect(() => {
@@ -81,6 +92,12 @@ export function App() {
             <a class="site-nav__anchor" href={href("/#limits")}>{t["nav.limits"]}</a>
             <a class="site-nav__anchor" href={href("/#data")}>{t["nav.data"]}</a>
             <a class="site-nav__anchor" href={href("/faq/")}>{t["nav.faq"]}</a>
+            <span class="site-header__langs" role="group" aria-label={t["lang.label"]}>
+              <TranslateIcon />
+              {others.map((l) => (
+                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-label={LANGUAGE_NAME[l]}>{LANGUAGE_SHORT[l]}</a>
+              ))}
+            </span>
             {!SIGNED_IN.has(path) && <a class="nb-button" href={href("/login/")}>{t["nav.login"]}</a>}
           </nav>
         </div>
@@ -92,14 +109,20 @@ export function App() {
             <img src="/favicon.svg" alt="" width="24" height="24" />
             {t["footer.service"]}
           </p>
-          <nav aria-label={t["nav.language"]} class="site-footer__links">
+          <nav aria-label={t["nav.footer"]} class="site-footer__links">
             <a href={href("/faq/")}>{t["faq.title"]}</a>
             <a href={href("/terms/")}>{t["terms.title"]}</a>
             <a href={href("/privacy/")}>{t["privacy.title"]}</a>
-            {LOCALES.map((l) => (
-              <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-current={l === locale ? "true" : undefined}>
-                {LANGUAGE_NAME[l]}
-              </a>
+          </nav>
+        </div>
+        <div class="wrap">
+          <nav class="site-footer__langs" aria-label={t["lang.label"]}>
+            <TranslateIcon /> {t["lang.others"]}
+            {others.map((l, i) => (
+              <>
+                {i > 0 && t["lang.sep"]}
+                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]}>{LANGUAGE_NAME[l]}</a>
+              </>
             ))}
           </nav>
         </div>

@@ -10,6 +10,8 @@ export type MessageKey = keyof typeof zhTW;
 export const PREFIX: Record<Locale, string> = { "zh-TW": "", "zh-CN": "/zh-cn", en: "/en" };
 export const HTML_LANG: Record<Locale, string> = { "zh-TW": "zh-Hant-TW", "zh-CN": "zh-Hans-CN", en: "en" };
 export const LANGUAGE_NAME: Record<Locale, string> = { "zh-TW": "正體中文", "zh-CN": "简体中文", en: "English" };
+// the header's short labels, as on the news site
+export const LANGUAGE_SHORT: Record<Locale, string> = { "zh-TW": "正體", "zh-CN": "简体", en: "EN" };
 
 const MESSAGES: Record<Locale, Record<MessageKey, string>> = { "zh-TW": zhTW, "zh-CN": zhCN, en };
 
