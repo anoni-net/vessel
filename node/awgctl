@@ -52,18 +52,19 @@ apply() {
 
 # Client-only params (the server ignores them), so every peer gets its own values
 # instead of the AmneziaVPN defaults shared by every self-hosted server.
-DNS_NAMES=(www.google.com www.apple.com www.microsoft.com www.wikipedia.org github.com
-  www.youtube.com www.bing.com time.apple.com update.googleapis.com
-  connectivitycheck.gstatic.com www.cloudflare.com play.googleapis.com)
 
-hex() { printf %s "$1" | od -An -tx1 | tr -d ' \n'; }
-
-# I1 shaped as a DNS query: random transaction id, RD flag, one question, EDNS0 OPT record
-dns_query_i1() {
-  local name=${DNS_NAMES[RANDOM % ${#DNS_NAMES[@]}]} qname="" label qtype
-  for label in ${name//./ }; do qname+=$(printf %02x ${#label})$(hex "$label"); done
-  qtype=$(shuf -n1 -e 0001 001c 0041)
-  echo "<r 2><b 0x01000001000000000001${qname}00${qtype}00010000291000000000000000>"
+# I1 shaped as a QUIC v1 Initial (RFC 9000 17.2.2), to match the node's UDP 443.
+# Header protection masks the low 4 bits of the first byte and the packet number,
+# and the payload is encrypted, so past the fixed fields a real Initial looks random:
+# first byte 0xc0-0xcf, version 1, 8-byte DCID, empty SCID and token, a 2-byte length,
+# then random bytes. <r N> is drawn again for every handshake, the rest is fixed per peer.
+# The datagram is 1200-1252 bytes, the range clients pad their first Initial to.
+quic_initial_i1() {
+  local size rest
+  size=$(shuf -i 1200-1252 -n1)
+  rest=$(( size - 18 ))   # 1 + 4 + 1 + 8 + 1 + 1 + 2 header bytes
+  printf '<b 0x%02x0000000108><r 8><b 0x0000%04x><r %d>\n' \
+    $(( 0xc0 + RANDOM % 16 )) $(( 0x4000 | rest )) "$rest"
 }
 
 # [Interface] lines for a client, without Address/DNS/PrivateKey/MTU
@@ -72,7 +73,7 @@ client_params() {
   jmin=$(shuf -i 8-40 -n1)
   grep -v -E '^(Jc|Jmin|Jmax|I[1-5]) ' $D/server/client-params.conf
   printf 'Jc = %s\nJmin = %s\nJmax = %s\nI1 = %s\n' \
-    "$(shuf -i 3-8 -n1)" "$jmin" "$(( jmin + $(shuf -i 20-200 -n1) ))" "$(dns_query_i1)"
+    "$(shuf -i 3-8 -n1)" "$jmin" "$(( jmin + $(shuf -i 20-200 -n1) ))" "$(quic_initial_i1)"
 }
 
 next_ip() {
