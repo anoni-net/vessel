@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { ApiError, type Device, type Me, api } from "../api.ts";
 import { useCtx } from "../context.ts";
-import { formatBytes, formatDate } from "../format.ts";
+import { formatBytes, formatDate, formatPercent } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
@@ -43,6 +43,8 @@ export function Devices() {
   if (!me || !devices) return <section class="wrap narrow"><p class="muted">{t["loading"]}</p></section>;
 
   const pct = Math.min(100, Math.round((me.used_bytes / me.monthly_quota_bytes) * 100));
+  const share = formatPercent(locale, me.used_bytes, me.monthly_quota_bytes);
+  const amount = `${formatBytes(locale, me.used_bytes)} / ${formatBytes(locale, me.monthly_quota_bytes)}`;
   const full = devices.filter((d) => d.status !== "revoking").length >= me.device_limit;
   const overQuota = me.used_bytes >= me.monthly_quota_bytes;
 
@@ -55,15 +57,16 @@ export function Devices() {
       </div>
 
       <div class="card card--tint card--flat">
-        <div class="row strong">
-          <span>{t["devices.usage"]}</span>
-          <span>{formatBytes(locale, me.used_bytes)} / {formatBytes(locale, me.monthly_quota_bytes)}</span>
+        <div class="row usage-head">
+          <span class="strong">{t["devices.usage"]}</span>
+          <span class="usage-pct" data-testid="usage-percent">{share}</span>
         </div>
         <div class="meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
-          aria-label={t["devices.usage"]}>
+          aria-valuetext={share + (locale === "en" ? ", " : "，") + amount} aria-label={t["devices.usage"]}>
           {/* any use at all shows a sliver, so a few MB does not look like nothing */}
           <div style={{ width: me.used_bytes > 0 ? `max(${pct}%, 6px)` : "0" }} />
         </div>
+        <p class="strong">{amount}</p>
         <p class="muted small">{t["devices.usageNote"]}</p>
       </div>
 

@@ -261,20 +261,23 @@ test("a signed-in visitor is not offered sign-in again", async ({ page }) => {
 test("usage shows MB below 1 GB and GB from there on", async ({ page }) => {
   let used = 0;
   await mockApi(page, { "GET /api/me": (route) => route.fulfill({ json: { ...ME, used_bytes: used } }), "GET /api/devices": json(DEVICES) });
-  for (const [bytes, shown] of [
-    [0, "0 MB"],
-    [300e3, "< 1 MB"],
-    [17.4e6, "17 MB"],
-    [380e6, "380 MB"],
-    [999.6e6, "1 GB"],
-    [4.24e9, "4.2 GB"],
-    [9.97e9, "10 GB"],
-    [23.4e9, "23 GB"],
+  for (const [bytes, shown, share] of [
+    [0, "0 MB", "0%"],
+    [300e3, "< 1 MB", "< 0.1%"],
+    [17.4e6, "17 MB", "< 0.1%"],
+    [380e6, "380 MB", "0.8%"],
+    [999.6e6, "1 GB", "2%"],
+    [4.24e9, "4.2 GB", "8.5%"],
+    [9.97e9, "10 GB", "20%"],
+    [23.4e9, "23 GB", "47%"],
+    [51e9, "51 GB", "102%"],
   ] as const) {
     used = bytes;
     await page.goto("/devices/");
     await expect(page.getByText(`${shown} / 50 GB`, { exact: true })).toBeVisible();
+    await expect(page.getByTestId("usage-percent")).toHaveText(share);
   }
   await page.goto("/en/devices/");
-  await expect(page.getByText("23 GB / 50 GB", { exact: true })).toBeVisible();
+  await expect(page.getByText("51 GB / 50 GB", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("usage-percent")).toHaveText("102%");
 });

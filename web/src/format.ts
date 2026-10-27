@@ -14,6 +14,15 @@ export function formatBytes(locale: Locale, bytes: number): string {
   return `${num(gb, gb < 9.95 ? 1 : 0)} GB`;
 }
 
+// Share of the monthly quota. Small shares keep one decimal so the first days of use do not read as 0%.
+export function formatPercent(locale: Locale, used: number, quota: number): string {
+  if (used <= 0 || quota <= 0) return "0%";
+  const share = used / quota;
+  if (share < 0.001) return "< 0.1%";
+  return new Intl.NumberFormat(HTML_LANG[locale], { style: "percent", maximumFractionDigits: share < 0.095 ? 1 : 0 })
+    .format(share);
+}
+
 export function formatDate(locale: Locale, iso: string): string {
   return new Intl.DateTimeFormat(HTML_LANG[locale], { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "UTC" })
     .format(new Date(iso + "T00:00:00Z"));
