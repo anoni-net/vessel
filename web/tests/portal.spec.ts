@@ -211,3 +211,15 @@ test("invite codes and account numbers group themselves as you type", async ({ p
   await expect(number).toHaveValue("4821 7937 5564 2018");
   expect(await number.evaluate((el: HTMLInputElement) => el.selectionStart)).toBe(6);
 });
+
+test("the downloaded account number is marked as UTF-8", async ({ page }) => {
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018" }) });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("abcd-efgh-jkmn-pqrs");
+  await page.getByRole("button", { name: "兌換" }).click();
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "下載" }).click()]);
+  expect(download.suggestedFilename()).toBe("vessel-account.txt");
+  const bytes = await (await download.createReadStream()).toArray().then((c) => Buffer.concat(c));
+  expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+  expect(bytes.subarray(3).toString("utf8")).toBe("Vessel 帳號號碼\r\n4821 0937 5564 2018\r\n");
+});
