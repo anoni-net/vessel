@@ -124,3 +124,13 @@ test("unknown pages", async ({ page }) => {
   await page.goto("/nope/");
   await expect(page.getByRole("heading", { name: "找不到這一頁" })).toBeVisible();
 });
+
+test("pages run under the production CSP", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (m) => { if (/Content Security Policy/i.test(m.text())) violations.push(m.text()); });
+  const res = await page.goto("/");
+  expect(res?.headers()["content-security-policy"]).toContain("default-src 'none'");
+  await page.goto("/redeem/");
+  await page.goto("/en/login/");
+  expect(violations).toEqual([]);
+});

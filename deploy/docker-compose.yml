@@ -1,5 +1,10 @@
-# Portal backend on the web host. nginx serves web/dist and forwards /api/ to 127.0.0.1:8090.
-# Copy .env.example to .env next to this file and fill it in.
+# Portal backend on the web host. nginx serves the built web/ and forwards /api/ to 127.0.0.1:${VESSEL_API_PORT}.
+#
+# Secrets live in /etc/vessel/, outside the app directory, so the host's backups of the app directory and of
+# the database dumps never hold the account pepper and HMAC key next to the data (see README.md).
+#   /etc/vessel/db.env    POSTGRES_PASSWORD
+#   /etc/vessel/api.env   VESSEL_DATABASE_URL, VESSEL_ACCOUNT_PEPPER, VESSEL_HMAC_KEY
+#   /etc/vessel/ssh/      key and known_hosts for reaching the nodes' awgctl-remote
 services:
   db:
     image: postgres:18.6-alpine3.24
@@ -7,10 +12,10 @@ services:
     environment:
       POSTGRES_DB: vessel
       POSTGRES_USER: vessel
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    env_file: /etc/vessel/db.env
     volumes:
       - db:/var/lib/postgresql
-    logging:
+    logging: &logging
       driver: json-file
       options: { max-size: "1m", max-file: "2" }
 
@@ -18,28 +23,24 @@ services:
     build: ../api
     restart: unless-stopped
     depends_on: [db]
-    environment: &env
-      VESSEL_DATABASE_URL: postgresql://vessel:${POSTGRES_PASSWORD}@db/vessel
-      VESSEL_ACCOUNT_PEPPER: ${VESSEL_ACCOUNT_PEPPER:?}
-      VESSEL_HMAC_KEY: ${VESSEL_HMAC_KEY:?}
+    env_file: &env /etc/vessel/api.env
+    environment: &paths
       VESSEL_SSH_KEY: /run/vessel-ssh/key
       VESSEL_SSH_KNOWN_HOSTS: /run/vessel-ssh/known_hosts
-    # the portal's SSH key (pinned to awgctl-remote on every node) and the nodes' host keys
     volumes: &ssh
-      - ./ssh:/run/vessel-ssh:ro
+      - /etc/vessel/ssh:/run/vessel-ssh:ro
     ports:
-      - "127.0.0.1:8090:8090"
-    logging: &logging
-      driver: json-file
-      options: { max-size: "1m", max-file: "2" }
+      - "127.0.0.1:${VESSEL_API_PORT:-8090}:8090"
+    logging: *logging
 
-  # runs queued node jobs, expires devices and clears unfetched configs every 10 seconds
+  # runs queued node jobs, expires devices, clears unfetched configs, polls usage and enforces the quota
   worker:
     build: ../api
     restart: unless-stopped
     depends_on: [db]
     command: ["python", "-m", "app.worker"]
-    environment: *env
+    env_file: *env
+    environment: *paths
     volumes: *ssh
     logging: *logging
 

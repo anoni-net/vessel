@@ -44,6 +44,8 @@ async function throughToName(page: Page) {
 }
 
 test("create a device with keys made in the browser", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (m) => { if (/Content Security Policy/i.test(m.text())) violations.push(m.text()); });
   const posted = await mock(page);
   await throughToName(page);
   await page.getByLabel(/擋惡意網站與廣告/).check();
@@ -75,6 +77,8 @@ test("create a device with keys made in the browser", async ({ page }) => {
 
   await page.getByRole("link", { name: "我已經匯入，完成" }).click();
   await expect(page).toHaveURL(/\/devices\/$/);
+  // the lazily loaded page, the QR code and the meter's width all work under the production CSP
+  expect(violations).toEqual([]);
 });
 
 test("waits for a slow node", async ({ page }) => {

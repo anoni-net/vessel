@@ -5,7 +5,7 @@ __pycache__/
 *.pyc
 .env
 node/node.env
-deploy/ssh/
+deploy/.env
 test-results/
 playwright-report/
 .pytest_cache/

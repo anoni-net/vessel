@@ -9,7 +9,7 @@
 | `node/` | 節點的容器與 `awgctl`，說明見 `node/README.md` | `bash -n`、`shellcheck -S warning` |
 | `api/` | 入口網站的後端，FastAPI 與 PostgreSQL 18 | `uv sync`、`uv run pytest -q`、`uv run ruff check .`、`uv run python -m app.migrate` |
 | `web/` | 入口網站的前端，Vite、Preact、TypeScript | `npm ci`、`npm run dev`、`npm run typecheck`、`npm run build`、`npm test` |
-| `deploy/` | 後端的 compose、nginx 設定範例、環境變數範例 | |
+| `deploy/` | 後端的 compose、部署腳本、nginx 設定範例，部署步驟見 `deploy/README.md` | `deploy/deploy.sh` |
 
 開發時前端用 `npm run dev`，`/api/` 會轉到 `127.0.0.1:8090` 的後端。前端的 Playwright 測試用 `page.route` 模擬後端，只需要建置好的前端，在桌機與手機兩種尺寸各執行一次。改了畫面之後，在手機尺寸實際截圖看過再送出。
 
@@ -29,7 +29,7 @@ VESSEL_TEST_DATABASE_URL=postgresql://postgres:t@127.0.0.1:55432/vessel uv run p
 repo 是公開的。下面這些只放在主機上：
 
 - 節點的 IP 與埠（`node.env`）、伺服器私鑰、`HeaderProtectionKey`、使用者的設定檔
-- 後端的資料庫密碼、帳號號碼的 pepper、HMAC 金鑰（`deploy/.env`）
+- 後端的資料庫密碼、帳號號碼的 pepper、HMAC 金鑰（主機的 `/etc/vessel/`）
 - 任何使用者的資料，包括測試時建立的帳號與裝置
 
 ## 隱私的設計原則
