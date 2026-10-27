@@ -47,6 +47,10 @@ repo 是公開的。下面這些只放在主機上：
 
 `node/` 是節點部署檔的權威來源，改節點時先改這裡，再部署到主機。增刪使用者時用 `awg syncconf`，不能重啟容器，否則所有人都會斷線。
 
+## 圖片
+
+圖片不進 repo，包括標誌與 favicon。檔名加上內容雜湊，上傳到 m6 的 `/srv/images-anoni-net/vessel/`，頁面引用 `https://assets.anoni.net/vessel/` 的網址（`web/src/images.ts`）。換圖時用新的檔名上傳，再改引用，Cloudflare 的舊快取才不會留著舊圖。CSP 的 `img-src` 只開放這個目錄。
+
 ## 寫作
 
 說明文件與介面文字照社群的[寫作風格規範](https://anoni.net/join/writing-style/)。介面有正體中文、简体中文與英文，新增字串時三個語系的 `web/src/i18n/*.json` 要一起補，鍵值要一致。

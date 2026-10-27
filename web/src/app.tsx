@@ -10,6 +10,7 @@ import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
 import { Legal, NotFound } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
+import { FAVICON, LOGO } from "./images.ts";
 import { titleOf } from "./seo.ts";
 import { checkSession, useSignedIn } from "./session.ts";
 import { useEffect, useState } from "preact/hooks";
@@ -94,7 +95,7 @@ export function App({ url }: { url?: string } = {}) {
         <div class="wrap site-header__inner">
           {/* same as Gears and the news site: the anoni.net wordmark, a divider, then the product name */}
           <a class="brand" href={href("/")}>
-            <img class="brand__logo" src="/logo-wordmark-tonal.svg" alt="anoni.net" width="116" height="28" />
+            <img class="brand__logo" src={LOGO} alt="anoni.net" width="116" height="28" />
             <span class="brand__product">Vessel</span>
           </a>
           <nav aria-label={t["nav.main"]} class="site-nav">
@@ -118,7 +119,7 @@ export function App({ url }: { url?: string } = {}) {
       <footer class="site-footer">
         <div class="wrap site-footer__inner">
           <p class="footer-brand">
-            <img src="/favicon.svg" alt="" width="24" height="24" />
+            <img src={FAVICON} alt="" width="24" height="24" />
             {t["footer.service"]}
           </p>
           <nav aria-label={t["nav.footer"]} class="site-footer__links">
