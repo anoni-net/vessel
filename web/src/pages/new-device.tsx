@@ -174,7 +174,11 @@ export function NewDevice() {
               </label>
             ))}
           </fieldset>
-          <p class="muted small">{t["filter.doh"]}</p>
+          <p class="muted small">
+            {t["filter.doh"]}{" "}
+            {/* a new tab, so the device being set up is not lost */}
+            <a href={href("/dns/")} target="_blank" rel="noopener">{t["dns.link"]}</a>
+          </p>
           <p class="card card--tint card--flat small">{t["name.keysNote"]}</p>
           {busy && <p class="muted" role="status">{t["config.waiting"]}</p>}
           {errorLine}

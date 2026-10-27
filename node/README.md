@@ -66,6 +66,17 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 三個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。兩份名單載入後約佔 700 MB 記憶體，節點至少要 2 GB。
 
+入口網站的 `/dns/` 有即時檢測，讓使用者確認目前生效的過濾。四個測試網址 `vessel-dns-0` 到 `vessel-dns-3.anoni.net` 是真的網域，三個解析器用 `local-zone ... always_nxdomain` 各藏起其中幾個：
+
+| 測試網址 | 不過濾 | 擋惡意網站 | 再擋廣告 |
+|---|---|---|---|
+| `vessel-dns-0` | 正常解析 | 正常解析 | 正常解析 |
+| `vessel-dns-1` | 回 NXDOMAIN | 回 NXDOMAIN | 回 NXDOMAIN |
+| `vessel-dns-2` | 正常解析 | 回 NXDOMAIN | 回 NXDOMAIN |
+| `vessel-dns-3` | 正常解析 | 正常解析 | 回 NXDOMAIN |
+
+改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。設定檔是掛進容器的，不必重啟容器，連線不會中斷。重新載入時要重讀名單，DNS 會停頓幾秒。
+
 ## 容器內的防火牆
 
 VPN 使用者只能上網：

@@ -4,6 +4,7 @@ import { HTML_LANG, LANGUAGE_NAME, LANGUAGE_SHORT, LOCALES, type MessageKey, PRE
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
 import { Devices } from "./pages/devices.tsx";
+import { Dns } from "./pages/dns.tsx";
 import { Faq } from "./pages/faq.tsx";
 import { Home } from "./pages/home.tsx";
 import { Login } from "./pages/login.tsx";
@@ -60,6 +61,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/devices/new/": ["new.title", () => <NewDevice />],
   "/account/": ["account.title", () => <Account />],
   "/faq/": ["faq.title", () => <Faq />],
+  "/dns/": ["dns.title", () => <Dns />],
   "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
   "/privacy/": ["privacy.title", () => <Legal doc="privacy" titleKey="privacy.title" />],
 };
@@ -124,6 +126,7 @@ export function App({ url }: { url?: string } = {}) {
           </p>
           <nav aria-label={t["nav.footer"]} class="site-footer__links">
             <a href={href("/faq/")}>{t["faq.title"]}</a>
+            <a href={href("/dns/")}>{t["dns.title"]}</a>
             <a href={href("/terms/")}>{t["terms.title"]}</a>
             <a href={href("/privacy/")}>{t["privacy.title"]}</a>
           </nav>

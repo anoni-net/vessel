@@ -6,7 +6,7 @@ import { HTML_LANG, LOCALES, type Locale, type MessageKey, PREFIX, messagesOf } 
 export const SITE = "https://vessel.anoni.net";
 
 // pages worth finding; the rest need a session and are marked noindex
-export const PUBLIC_PAGES = ["/", "/faq/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
+export const PUBLIC_PAGES = ["/", "/faq/", "/dns/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
 export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/account/"] as const;
 
 const TITLES: Record<string, MessageKey> = {
@@ -16,12 +16,14 @@ const TITLES: Record<string, MessageKey> = {
   "/devices/new/": "new.title",
   "/account/": "account.title",
   "/faq/": "faq.title",
+  "/dns/": "dns.title",
   "/terms/": "terms.title",
   "/privacy/": "privacy.title",
 };
 
 const DESCRIPTIONS: Record<string, MessageKey> = {
   "/faq/": "meta.faq",
+  "/dns/": "meta.dns",
   "/redeem/": "meta.redeem",
   "/login/": "meta.login",
   "/terms/": "meta.terms",
