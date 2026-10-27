@@ -124,6 +124,15 @@ def redeem(body: RedeemBody, response: Response, conn: Conn) -> dict[str, str]:
     return {"account_number": crypto.format_account_number(number)}
 
 
+def keep_alive(conn: psycopg.Connection, account_id: int) -> None:
+    """Signing in, or coming back while still signed in, keeps the account's devices for another DEVICE_DAYS."""
+    conn.execute("UPDATE accounts SET last_login_on = current_date WHERE id = %s", (account_id,))
+    conn.execute(
+        "UPDATE devices SET expires_on = current_date + %s WHERE account_id = %s AND status <> 'revoking'",
+        (policy.DEVICE_DAYS, account_id),
+    )
+
+
 @router.post("/login", dependencies=[Depends(require_app_header), Depends(limit)])
 def login(body: LoginBody, response: Response, conn: Conn) -> dict[str, bool]:
     number = crypto.normalize_account_number(body.account_number)
@@ -137,12 +146,7 @@ def login(body: LoginBody, response: Response, conn: Conn) -> dict[str, bool]:
         if row is None:
             raise error(401, "invalid_number")
         account_id = row[0]
-        conn.execute("UPDATE accounts SET last_login_on = current_date WHERE id = %s", (account_id,))
-        # signing in keeps the account's devices alive for another DEVICE_DAYS
-        conn.execute(
-            "UPDATE devices SET expires_on = current_date + %s WHERE account_id = %s AND status <> 'revoking'",
-            (policy.DEVICE_DAYS, account_id),
-        )
+        keep_alive(conn, account_id)
         conn.execute("DELETE FROM sessions WHERE expires_at <= now()")
         start_session(conn, response, account_id)
     return {"ok": True}
@@ -159,6 +163,14 @@ def logout(request: Request, response: Response, conn: Conn) -> dict[str, bool]:
 
 @router.get("/me")
 def me(account_id: Account, conn: Conn) -> dict:
+    # every page asks this when it loads, so opening the portal while signed in counts as signing in, once a day
+    with conn.transaction():
+        stale = conn.execute(
+            "SELECT 1 FROM accounts WHERE id = %s AND (last_login_on IS NULL OR last_login_on < current_date)",
+            (account_id,),
+        ).fetchone()
+        if stale:
+            keep_alive(conn, account_id)
     created_on, last_login_on = conn.execute(
         "SELECT created_on, last_login_on FROM accounts WHERE id = %s", (account_id,)
     ).fetchone()
