@@ -186,3 +186,28 @@ test("terms and privacy drafts in three languages", async ({ page }) => {
   await page.goto("/en/terms/");
   await expect(page.locator("main").getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", "/en/privacy/");
 });
+
+test("invite codes and account numbers group themselves as you type", async ({ page }) => {
+  await page.goto("/redeem/");
+  const code = page.getByLabel("邀請碼");
+  await code.pressSequentially("abcdefghjkmnpqrs");
+  await expect(code).toHaveValue("ABCD-EFGH-JKMN-PQRS");
+  // I, L and O read as 1, 1 and 0, like the backend; anything past 16 characters is dropped
+  await code.fill("");
+  await code.pressSequentially("iloa bcd efgh jkmn pqrs xyz");
+  await expect(code).toHaveValue("110A-BCDE-FGHJ-KMNP");
+
+  await page.goto("/login/");
+  const number = page.getByLabel("帳號號碼");
+  await number.fill("4821-0937 556420186666");
+  await expect(number).toHaveValue("4821 0937 5564 2018");
+  // fixing a digit in the middle keeps the caret where it was
+  await number.fill("4821093755642018");
+  await number.press("Home");
+  for (let i = 0; i < 6; i++) await number.press("ArrowRight"); // after "4821 0"
+  await number.press("Backspace");
+  await expect(number).toHaveValue("4821 9375 5642 018");
+  await number.press("7");
+  await expect(number).toHaveValue("4821 7937 5564 2018");
+  expect(await number.evaluate((el: HTMLInputElement) => el.selectionStart)).toBe(6);
+});

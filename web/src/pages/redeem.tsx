@@ -3,6 +3,7 @@ import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
+import { INVITE, groupedLength, regroup } from "../grouped.ts";
 import { navigate } from "../router.ts";
 
 export function Redeem() {
@@ -33,9 +34,10 @@ export function Redeem() {
     <section class="wrap narrow">
       <h1>{t["redeem.title"]}</h1>
       <form class="stack" onSubmit={submit}>
-        <label for="code">{t["redeem.label"]}</label>
-        <input id="code" class="nb-input mono" autoComplete="off" autoCapitalize="characters" spellcheck={false}
-          required value={code} onInput={(e) => setCode(e.currentTarget.value)} aria-describedby="code-hint" />
+        <label for="code" class="strong">{t["redeem.label"]}</label>
+        <input id="code" class="nb-input nb-input--code mono" autoComplete="off" autoCapitalize="characters" spellcheck={false}
+          required value={code} maxLength={groupedLength(INVITE)} placeholder="XXXX-XXXX-XXXX-XXXX"
+          onInput={(e) => setCode(regroup(e.currentTarget, INVITE))} aria-describedby="code-hint" />
         <p id="code-hint" class="muted small">{t["redeem.hint"]}</p>
         {err && <p class="error" role="alert">{err}</p>}
         <p class="small">

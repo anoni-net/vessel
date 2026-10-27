@@ -154,7 +154,7 @@ export function NewDevice() {
         <form class="stack" onSubmit={create}>
           {stepLabel(3)}
           <h1>{t["name.title"]}</h1>
-          <label for="device-name">{t["name.label"]}</label>
+          <label for="device-name" class="strong">{t["name.label"]}</label>
           <input id="device-name" class="nb-input" maxLength={40} required placeholder={t["name.placeholder"]}
             value={name} onInput={(e) => setName(e.currentTarget.value)} aria-describedby="name-hint" />
           <p id="name-hint" class="muted small">{t["name.hint"]}</p>
