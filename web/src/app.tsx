@@ -3,6 +3,7 @@ import { HTML_LANG, LANGUAGE_NAME, LOCALES, type MessageKey, PREFIX, messagesOf,
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
 import { Devices } from "./pages/devices.tsx";
+import { Faq } from "./pages/faq.tsx";
 import { Home } from "./pages/home.tsx";
 import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
@@ -29,6 +30,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/devices/": ["devices.title", () => <Devices />],
   "/devices/new/": ["new.title", () => <NewDevice />],
   "/account/": ["account.title", () => <Account />],
+  "/faq/": ["faq.title", () => <Faq />],
   "/terms/": ["terms.title", () => <Legal titleKey="terms.title" />],
   "/privacy/": ["privacy.title", () => <Legal titleKey="privacy.title" />],
 };
@@ -56,6 +58,7 @@ export function App() {
             <a class="site-nav__anchor" href={href("/#how")}>{t["nav.how"]}</a>
             <a class="site-nav__anchor" href={href("/#limits")}>{t["nav.limits"]}</a>
             <a class="site-nav__anchor" href={href("/#data")}>{t["nav.data"]}</a>
+            <a class="site-nav__anchor" href={href("/faq/")}>{t["nav.faq"]}</a>
             {!SIGNED_IN.has(path) && <a class="nb-button" href={href("/login/")}>{t["nav.login"]}</a>}
           </nav>
         </div>
@@ -68,6 +71,7 @@ export function App() {
             {t["footer.service"]}
           </p>
           <nav aria-label={t["nav.language"]} class="site-footer__links">
+            <a href={href("/faq/")}>{t["faq.title"]}</a>
             <a href={href("/terms/")}>{t["terms.title"]}</a>
             <a href={href("/privacy/")}>{t["privacy.title"]}</a>
             {LOCALES.map((l) => (
