@@ -77,3 +77,4 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 - 對這個主機名稱關掉自動注入的 Web Analytics 與 JS Detections，頁面的 CSP 也會擋下它們
 - 不快取
 - `/api/login` 與 `/api/redeem` 依 IP 做速率限制
+- `/dns/` 的即時檢測另外用到四個主機名稱 `vessel-dns-0` 到 `vessel-dns-3.anoni.net`，都是經代理、CNAME 到同一台主機的紀錄，nginx 的設定照 `nginx/vessel-dns.anoni.net.conf`。只回應 `/check`，只允許 `https://vessel.anoni.net` 讀取，不記存取紀錄。入口網站 CSP 的 `connect-src` 要列出這四個主機名稱

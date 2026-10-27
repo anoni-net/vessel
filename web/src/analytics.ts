@@ -21,7 +21,7 @@ const WEBSITE = "42ebaa59-2ce5-441a-a4e9-54960b23d784";
 const HOST = "vessel.anoni.net";
 const OPT_OUT = "vessel-analytics-off";
 
-export const PUBLIC = new Set(["/", "/faq/", "/terms/", "/privacy/", "/redeem/", "/login/"]);
+export const PUBLIC = new Set(["/", "/faq/", "/dns/", "/terms/", "/privacy/", "/redeem/", "/login/"]);
 
 const PLATFORMS = ["android", "apple", "windows"];
 // error codes the pages already translate; anything else is "other"

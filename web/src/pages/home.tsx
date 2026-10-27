@@ -58,7 +58,7 @@ export function Home() {
                 <li>{t["limits.can.1"]}</li>
                 <li>{t["limits.can.2"]}</li>
                 <li>{t["limits.can.3"]}</li>
-                <li>{t["limits.can.4"]}</li>
+                <li>{t["limits.can.4"]}{open}<a href={href("/dns/")}>{t["dns.link"]}</a>{close}</li>
               </ul>
             </div>
             <div class="card">
