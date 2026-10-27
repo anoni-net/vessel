@@ -13,6 +13,15 @@
 
 開發時前端用 `npm run dev`，`/api/` 會轉到 `127.0.0.1:8090` 的後端。
 
+後端的測試要連真的 PostgreSQL，用環境變數 `VESSEL_TEST_DATABASE_URL` 指定，測試會重建它的 `public` schema，不要指到正式的資料庫。沒有設定時，需要資料庫的測試會跳過。
+
+```bash
+docker run -d --rm --name vessel-pg-test -e POSTGRES_PASSWORD=t -e POSTGRES_DB=vessel -p 127.0.0.1:55432:5432 postgres:18.6-alpine3.24
+VESSEL_TEST_DATABASE_URL=postgresql://postgres:t@127.0.0.1:55432/vessel uv run pytest -q
+```
+
+維護者的指令在後端的主機上執行，沒有管理網頁：`python -m app.admin invites create --count N`、`settings [鍵 值]`、`stats`。
+
 ## 不能進 repo 的東西
 
 repo 是公開的。下面這些只放在主機上：
