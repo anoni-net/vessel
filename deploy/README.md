@@ -40,7 +40,9 @@ docker compose exec api python -m app.admin settings redeem_paused true    # 正
 docker compose exec api python -m app.admin settings account_cap 230
 ```
 
-nginx 的設定照 `nginx/vessel.anoni.net.conf`，`proxy_pass` 的埠要跟 `deploy/.env` 的 `VESSEL_API_PORT` 一致。
+nginx 的設定照 `nginx/vessel.anoni.net.conf`，`proxy_pass` 的埠要跟 `deploy/.env` 的 `VESSEL_API_PORT` 一致。來源要限定只接受 Cloudflare 的 IP，後端用 `CF-Connecting-IP` 做頻率限制，繞過 Cloudflare 直接連的話，這個標頭可以被偽造。
+
+前端在 Node 22 的容器裡建置，主機不必安裝 Node.js。
 
 ## 更新
 
