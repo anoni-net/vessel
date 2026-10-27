@@ -50,7 +50,7 @@ nginx 的設定照 `nginx/vessel.anoni.net.conf`，`proxy_pass` 的埠要跟 `de
 deploy/deploy.sh
 ```
 
-會拉最新的 main、建置前端、更新 `/srv/vessel/web`、重建並重啟後端與 worker、執行遷移。重啟後端與 worker 不影響已經連上的裝置，連線只經過節點。
+會拉最新的 main、建置前端、更新 `/srv/vessel/web`、重建映像、先執行遷移，再重啟後端與 worker。`/etc/vessel` 的檔案只有 root 能讀，所以 compose 用 sudo 執行。重啟後端與 worker 不影響已經連上的裝置，連線只經過節點。
 
 ## Cloudflare
 
