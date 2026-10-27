@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "preact/hooks";
 import { useCtx } from "../context.ts";
 import type { MessageKey } from "../i18n/index.ts";
 
@@ -37,8 +38,13 @@ export function HomeFaq() {
     <section id="faq" class="band band--grey">
       <div class="wrap">
         <h2>{t["faq.title"]}</h2>
-        <Questions ids={ON_HOME} />
-        <p class="faq__more"><a class="strong" href={href("/faq/")}>{t["faq.all"]}</a></p>
+        <div class="faq-layout">
+          <div>
+            <Questions ids={ON_HOME} />
+            <p class="faq__more"><a class="strong" href={href("/faq/")}>{t["faq.all"]}</a></p>
+          </div>
+          <FaqArt />
+        </div>
       </div>
     </section>
   );
@@ -56,5 +62,53 @@ export function Faq() {
         </section>
       ))}
     </section>
+  );
+}
+
+// Beside the questions where there is room: a cross-section of a connection (src/faq-art.ts), with the layer
+// names and the legend in HTML so they are translated. Decoration only, loaded after the page is up.
+const ROOM = "(min-width: 1100px)";
+const LAYER_NAMES = ["faqArt.device", "faqArt.isp", "faqArt.node", "faqArt.site"] as const;
+const LEGEND = [
+  ["dest", "faqArt.legend.dest"],
+  ["you", "faqArt.legend.you"],
+  ["node", "faqArt.legend.node"],
+  ["account", "faqArt.legend.account"],
+] as const;
+
+function FaqArt() {
+  const { t } = useCtx();
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!window.matchMedia(ROOM).matches || !canvas.current) return;
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(() => {
+      import("../faq-art.ts").then((m) => {
+        if (!cancelled && canvas.current) stop = m.start(canvas.current, { reduced });
+      }).catch(() => {});
+    }, 800);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      stop?.();
+    };
+  }, []);
+  return (
+    <aside class="faq-art" aria-hidden="true">
+      <div class="faq-art__stage">
+        <canvas ref={canvas} />
+        {LAYER_NAMES.map((key, i) => (
+          // positioned by class: the CSP blocks style attributes in the prerendered HTML
+          <span class={`faq-art__label faq-art__label--${i}`}>{t[key]}</span>
+        ))}
+      </div>
+      <ul class="faq-art__legend">
+        {LEGEND.map(([kind, key]) => (
+          <li><span class={`faq-art__swatch faq-art__swatch--${kind}`} />{t[key]}</li>
+        ))}
+      </ul>
+    </aside>
   );
 }

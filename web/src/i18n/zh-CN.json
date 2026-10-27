@@ -280,5 +280,13 @@
   "dns.change.title": "更换与反馈",
   "dns.change.body": "过滤的选项在创建设备时决定，想更换时删除这台设备再重新创建。遇到被误拦的网站，可以到名单的 GitHub 反馈，名单更新之后就会生效。",
   "dns.link": "域名过滤的说明",
-  "meta.dns": "Vessel 域名过滤的三种选项、拦截哪些域名、做不到的事，以及检查当前过滤的方式。"
+  "meta.dns": "Vessel 域名过滤的三种选项、拦截哪些域名、做不到的事，以及检查当前过滤的方式。",
+  "faqArt.device": "你的设备",
+  "faqArt.isp": "网络运营商",
+  "faqArt.node": "Vessel 节点",
+  "faqArt.site": "网站",
+  "faqArt.legend.dest": "目的地",
+  "faqArt.legend.you": "你的 IP",
+  "faqArt.legend.node": "节点的 IP",
+  "faqArt.legend.account": "你的账号"
 }

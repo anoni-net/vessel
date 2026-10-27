@@ -280,5 +280,13 @@
   "dns.change.title": "更換與回報",
   "dns.change.body": "過濾的選項在建立裝置時決定，想更換時刪掉這台裝置再重新建立。遇到被誤擋的網站，可以到名單的 GitHub 回報，名單更新之後就會生效。",
   "dns.link": "網域過濾的說明",
-  "meta.dns": "Vessel 網域過濾的三種選項、擋下哪些網域、做不到的事，以及檢查目前過濾的方式。"
+  "meta.dns": "Vessel 網域過濾的三種選項、擋下哪些網域、做不到的事，以及檢查目前過濾的方式。",
+  "faqArt.device": "你的裝置",
+  "faqArt.isp": "網路業者",
+  "faqArt.node": "Vessel 節點",
+  "faqArt.site": "網站",
+  "faqArt.legend.dest": "目的地",
+  "faqArt.legend.you": "你的 IP",
+  "faqArt.legend.node": "節點的 IP",
+  "faqArt.legend.account": "你的帳號"
 }

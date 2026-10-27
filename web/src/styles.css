@@ -168,6 +168,27 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .faq__item[open] summary::after { content: "−"; }
 .faq__item p { margin: 0; padding: 0 18px 16px; }
 .faq__more { margin: 20px 0 0; }
+/* the connection cross-section beside the home page's questions, only where there is room for it */
+.faq-art { display: none; }
+@media (min-width: 1100px) {
+  .faq-layout { display: grid; grid-template-columns: minmax(0, 760px) minmax(0, 1fr); gap: 40px; align-items: start; }
+  .faq-art { display: block; position: sticky; top: 24px; }
+}
+.faq-art__stage { position: relative; height: min(560px, calc(100vh - 140px)); }
+.faq-art__stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.faq-art__label { position: absolute; left: 0; margin-top: 6px; font-size: 12px; font-weight: 800; color: var(--muted); pointer-events: none; }
+/* where each layer starts; keep in step with LAYERS in src/faq-art.ts */
+.faq-art__label--0 { top: 0; }
+.faq-art__label--1 { top: 16%; }
+.faq-art__label--2 { top: 48%; }
+.faq-art__label--3 { top: 72%; }
+.faq-art__legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }
+.faq-art__legend li { display: inline-flex; align-items: center; gap: 6px; }
+.faq-art__swatch { width: 10px; height: 10px; }
+.faq-art__swatch--dest { background: #7c5cf0; }
+.faq-art__swatch--you { background: #13232a; }
+.faq-art__swatch--node { background: #c4b5fd; }
+.faq-art__swatch--account { background: #e39a0b; }
 .faq-page { max-width: 760px; padding-block: 32px 56px; }
 .faq-page h2 { margin: 40px 0 16px; font-size: 24px; }
 

@@ -280,5 +280,13 @@
   "dns.change.title": "Changing it and reporting mistakes",
   "dns.change.body": "The filter is chosen when a device is created. To change it, delete the device and create it again. If an ordinary site is blocked, report it on the list's GitHub; the fix applies once the list is updated.",
   "dns.link": "how DNS filtering works",
-  "meta.dns": "Vessel's three DNS filtering options, what they block, what they cannot do, and how to check the filter in effect."
+  "meta.dns": "Vessel's three DNS filtering options, what they block, what they cannot do, and how to check the filter in effect.",
+  "faqArt.device": "Your device",
+  "faqArt.isp": "Your network provider",
+  "faqArt.node": "Vessel node",
+  "faqArt.site": "Websites",
+  "faqArt.legend.dest": "Destination",
+  "faqArt.legend.you": "Your IP",
+  "faqArt.legend.node": "Node's IP",
+  "faqArt.legend.account": "Your account"
 }
