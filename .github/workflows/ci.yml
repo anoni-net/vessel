@@ -27,6 +27,18 @@ jobs:
 
   api:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6-alpine3.24
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: vessel
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+    env:
+      VESSEL_TEST_DATABASE_URL: postgresql://postgres:test@127.0.0.1:5432/vessel
     defaults:
       run:
         working-directory: api
