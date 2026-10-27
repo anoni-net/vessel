@@ -4,9 +4,12 @@ import { useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
+// 三個語系的 limits.cannot.1 都寫了這個產品名，連結就放在它上面
+const TOR_BROWSER = "Tor Browser";
 
 export function Home() {
   const { t, href, locale } = useCtx();
+  const [torBefore, torAfter = ""] = t["limits.cannot.1"].split(TOR_BROWSER);
   const signedIn = useSignedIn();
   const [open, close] = locale === "en" ? [" (", ")"] : ["（", "）"];
   return (
@@ -67,7 +70,7 @@ export function Home() {
             <div class="card">
               <h3>{t["limits.cannot"]}</h3>
               <ul>
-                <li>{t["limits.cannot.1"]}{open}<a href="https://www.torproject.org/" target="_blank" rel="noopener">torproject.org</a>{close}</li>
+                <li>{torBefore}<a href="https://www.torproject.org/" target="_blank" rel="noopener">{TOR_BROWSER}</a>{torAfter}</li>
                 <li>{t["limits.cannot.2"]}</li>
                 <li>{t["limits.cannot.3"]}</li>
               </ul>
@@ -80,7 +83,7 @@ export function Home() {
         <div class="wrap">
           <h2>{t["data.title"]}</h2>
           <div class="cards cards--2">
-            <div class="card card--tint card--flat">
+            <div class="card">
               <h3>{t["data.kept"]}</h3>
               <ul>
                 <li>{t["data.kept.1"]}</li>
@@ -89,7 +92,7 @@ export function Home() {
                 <li>{t["data.kept.4"]}</li>
               </ul>
             </div>
-            <div class="card card--flat">
+            <div class="card">
               <h3>{t["data.notKept"]}</h3>
               <ul>
                 <li>{t["data.notKept.1"]}</li>
