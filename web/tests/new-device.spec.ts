@@ -116,3 +116,13 @@ test("the add button disappears at the device limit", async ({ page }) => {
   await expect(page.getByTestId("device-list").getByText("c", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "新增裝置" })).toHaveCount(0);
 });
+
+test("the install step explains AmneziaWG through the FAQ", async ({ page }) => {
+  await mock(page);
+  await page.goto("/devices/new/");
+  await page.getByRole("link", { name: "VPN、WireGuard 與 AmneziaWG 有什麼關係？" }).click();
+  await expect(page).toHaveURL(/\/faq\/#q-protocols$/);
+  await expect(page.locator("#q-protocols")).toHaveAttribute("open", "");
+  await expect(page.getByText("AmneziaWG 是從 WireGuard 修改而來的開源專案")).toBeVisible();
+  await expect(page.locator("#q-maker")).not.toHaveAttribute("open", "");
+});

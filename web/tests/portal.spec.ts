@@ -48,7 +48,7 @@ test("home page in three languages", async ({ page }) => {
 test("frequently asked questions", async ({ page }) => {
   await page.goto("/");
   const faq = page.locator("#faq");
-  await expect(faq.locator("details")).toHaveCount(10);
+  await expect(faq.locator("details")).toHaveCount(11);
   const answer = faq.getByText("社群沒有你的 email，也只保存號碼的雜湊值");
   await expect(answer).toBeHidden();
   await faq.getByText("帳號號碼弄丟了怎麼辦？").click();
@@ -56,7 +56,7 @@ test("frequently asked questions", async ({ page }) => {
   await faq.getByRole("link", { name: "所有常見問題" }).click();
   await expect(page).toHaveURL(/\/faq\/$/);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
-  await expect(page.locator("details")).toHaveCount(20);
+  await expect(page.locator("details")).toHaveCount(22);
   await noSideways(page);
   await page.locator("footer").getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en\/faq\/$/);
