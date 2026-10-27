@@ -19,8 +19,11 @@ Vessel 是[匿名網路社群 anoni.net](https://anoni.net/) 架設的 VPN。連
 | 目錄 | 內容 |
 |---|---|
 | `node/` | 節點：AmneziaWG 3.1 加上三個 unbound 解析器（不過濾、擋惡意網站、再擋廣告），以及管理使用者的 `awgctl` |
-| `api/` | 入口網站的後端（FastAPI），開發中 |
+| `api/` | 入口網站的後端（FastAPI、PostgreSQL），開發中 |
 | `web/` | 入口網站的前端（Vite、Preact），開發中 |
+| `deploy/` | 後端的 compose 與 nginx 設定範例 |
+
+開發的方式與規則見 [AGENTS.md](AGENTS.md)。
 
 節點的 IP、伺服器金鑰與使用者的設定檔都不在 repo 裡。
 
@@ -49,8 +52,11 @@ Vessel is under development and will start as an invite-only test at <https://ve
 | Directory | Contents |
 |---|---|
 | `node/` | The node: AmneziaWG 3.1 with three unbound resolvers (no filtering, malware, malware and ads) and `awgctl` for managing peers |
-| `api/` | Portal backend (FastAPI), in progress |
+| `api/` | Portal backend (FastAPI, PostgreSQL), in progress |
 | `web/` | Portal frontend (Vite, Preact), in progress |
+| `deploy/` | Compose file and nginx example for the backend |
+
+See [AGENTS.md](AGENTS.md) (in Chinese) for how to develop.
 
 Node IPs, server keys and client configs are not in this repository.
 

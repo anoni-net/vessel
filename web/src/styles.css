@@ -1,0 +1,43 @@
+/* Neo-brutalist look from the prototype. The accent is lavender while the colour is still undecided (#433). */
+:root {
+  --ink: #13232a;
+  --muted: #52646b;
+  --paper: #ffffff;
+  --accent: #c4b5fd;
+  --tint: #f3efff;
+  --warn: #fff6d6;
+  --border: 3px solid var(--ink);
+  --shadow: 4px 4px 0 var(--ink);
+  --radius: 16px;
+  --font: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font); line-height: 1.7; }
+a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { color: var(--muted); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+.site-header, .site-main, .site-footer { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+.site-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-block: 16px; }
+.wordmark { font-size: 26px; font-weight: 900; text-decoration: none; }
+.site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; font-weight: 700; }
+.site-main { padding-block: 48px; }
+.hero h1 { margin: 0 0 16px; font-size: clamp(48px, 10vw, 72px); line-height: 1.05; font-weight: 900; }
+.lead { font-size: 20px; max-width: 34em; }
+.muted { color: var(--muted); }
+.site-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-block: 32px; border-top: var(--border); }
+.lang-nav { display: flex; gap: 16px; }
+.lang-nav [aria-current="true"] { font-weight: 800; text-decoration: none; }
+
+.nb-button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  padding: 8px 22px; border: var(--border); border-radius: 999px; background: var(--paper);
+  color: var(--ink); font-weight: 800; text-decoration: none; box-shadow: var(--shadow);
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.nb-button:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+.nb-button--primary { background: var(--accent); font-size: 18px; }
+
+@media (prefers-reduced-motion: reduce) { .nb-button { transition: none; } }

@@ -1,0 +1,26 @@
+[project]
+name = "vessel-api"
+version = "0.1.0"
+description = "Backend of the Vessel portal"
+requires-python = ">=3.12"
+dependencies = [
+    "argon2-cffi>=23.1.0",
+    "fastapi>=0.115.0",
+    "psycopg[binary,pool]>=3.2.6",
+    "uvicorn[standard]>=0.34.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.0",
+    "pytest>=8.3.0",
+    "ruff>=0.9.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

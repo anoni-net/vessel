@@ -1,0 +1,20 @@
+{
+  "nav.main": "Main menu",
+  "nav.how": "How it works",
+  "nav.limits": "What it does and does not do",
+  "nav.login": "Sign in",
+  "nav.language": "Language",
+  "home.title": "Vessel",
+  "home.lead": "A VPN run by the anoni.net community. It uses AmneziaWG with obfuscation, which makes it harder to recognize on networks that block VPNs. No email needed, and keys are generated in your browser.",
+  "home.invite": "I have an invite code",
+  "home.inviteOnly": "Invites come from community members only, and places are limited.",
+  "redeem.title": "Redeem an invite code",
+  "login.title": "Sign in",
+  "devices.title": "My devices",
+  "account.title": "Account",
+  "privacy.title": "Privacy policy",
+  "terms.title": "Terms of use",
+  "notFound.title": "Page not found",
+  "placeholder": "This page is still being built.",
+  "footer.service": "Vessel is a service of the anoni.net community"
+}
