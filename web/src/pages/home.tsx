@@ -1,4 +1,5 @@
 import { useCtx } from "../context.ts";
+import { HomeFaq } from "./faq.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
 
@@ -89,6 +90,8 @@ export function Home() {
           </p>
         </div>
       </section>
+
+      <HomeFaq />
     </>
   );
 }

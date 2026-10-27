@@ -123,6 +123,17 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .qr svg { display: block; width: 100%; height: auto; }
 .config-text { margin: 0; padding: 12px; border: 2px solid var(--ink); border-radius: 12px; background: var(--grey); font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
 
+.faq { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
+.faq__item { border: var(--border); border-radius: 12px; background: var(--paper); }
+.faq__item summary { display: flex; justify-content: space-between; gap: 12px; padding: 14px 18px; min-height: 48px; box-sizing: border-box; font-weight: 800; cursor: pointer; list-style: none; }
+.faq__item summary::-webkit-details-marker { display: none; }
+.faq__item summary::after { content: "+"; flex: none; font-weight: 900; }
+.faq__item[open] summary::after { content: "−"; }
+.faq__item p { margin: 0; padding: 0 18px 16px; }
+.faq__more { margin: 20px 0 0; }
+.faq-page { max-width: 760px; padding-block: 32px 56px; }
+.faq-page h2 { margin: 40px 0 16px; font-size: 24px; }
+
 /* on phones the header keeps only the wordmark and the button; the anchors repeat what the home page shows */
 @media (max-width: 640px) {
   .site-nav__anchor { display: none; }
