@@ -49,7 +49,7 @@ test("frequently asked questions", async ({ page }) => {
   await page.goto("/");
   const faq = page.locator("#faq");
   await expect(faq.locator("details")).toHaveCount(11);
-  const answer = faq.getByText("社群沒有你的 email，也只保存號碼的雜湊值");
+  const answer = faq.getByText("服務沒有你的 email，也只保存號碼的雜湊值");
   await expect(answer).toBeHidden();
   await faq.getByText("帳號號碼弄丟了怎麼辦？").click();
   await expect(answer).toBeVisible();
