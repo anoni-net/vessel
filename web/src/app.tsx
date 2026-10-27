@@ -47,7 +47,11 @@ export function App() {
     <LocaleContext.Provider value={{ locale, t, href }}>
       <header class="site-header">
         <div class="wrap site-header__inner">
-          <a class="wordmark" href={href("/")}>Vessel</a>
+          {/* same as Gears and the news site: the anoni.net wordmark, a divider, then the product name */}
+          <a class="brand" href={href("/")}>
+            <img class="brand__logo" src="/logo-wordmark-tonal.svg" alt="anoni.net" width="116" height="28" />
+            <span class="brand__product">Vessel</span>
+          </a>
           <nav aria-label={t["nav.main"]} class="site-nav">
             <a class="site-nav__anchor" href={href("/#how")}>{t["nav.how"]}</a>
             <a class="site-nav__anchor" href={href("/#limits")}>{t["nav.limits"]}</a>
@@ -59,7 +63,10 @@ export function App() {
       <main class="site-main" key={path}>{route ? route[1]() : <NotFound />}</main>
       <footer class="site-footer">
         <div class="wrap site-footer__inner">
-          <p>{t["footer.service"]}</p>
+          <p class="footer-brand">
+            <img src="/favicon.svg" alt="" width="24" height="24" />
+            {t["footer.service"]}
+          </p>
           <nav aria-label={t["nav.language"]} class="site-footer__links">
             <a href={href("/terms/")}>{t["terms.title"]}</a>
             <a href={href("/privacy/")}>{t["privacy.title"]}</a>
@@ -69,6 +76,11 @@ export function App() {
               </a>
             ))}
           </nav>
+        </div>
+        <div class="wrap">
+          <p class="footer-legal">
+            {t["footer.trademarks"]} <a href="https://www.wireguard.com/" target="_blank" rel="noopener">wireguard.com</a>
+          </p>
         </div>
       </footer>
     </LocaleContext.Provider>
