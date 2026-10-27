@@ -10,6 +10,7 @@ import psycopg
 
 from app import jobs, policy
 from app.config import load
+from app.db import KEEPALIVE
 
 USAGE_EVERY = 300  # seconds
 
@@ -23,24 +24,31 @@ def tick(conn: psycopg.Connection, usage: bool = True) -> None:
     jobs.clear_stale_results(conn)
 
 
+def connect() -> psycopg.Connection:
+    return psycopg.connect(load().database_url, autocommit=True, **KEEPALIVE)
+
+
 def main(argv: list[str]) -> None:
     last_usage = 0.0
-    with psycopg.connect(load().database_url, autocommit=True) as conn:
-        while True:
-            now = time.monotonic()
-            due = now - last_usage >= USAGE_EVERY
-            try:
-                tick(conn, usage=due)
-            except psycopg.Error:
-                # a database hiccup (or a deploy that has not migrated yet) should not kill the worker
-                traceback.print_exc()
-                if "--once" in argv:
-                    raise
+    conn: psycopg.Connection | None = None
+    while True:
+        now = time.monotonic()
+        due = now - last_usage >= USAGE_EVERY
+        try:
+            # a lost connection stays lost, so open a new one instead of retrying it every tick
+            if conn is None or conn.closed or conn.broken:
+                conn = connect()
+            tick(conn, usage=due)
             if due:
                 last_usage = now
+        except psycopg.Error:
+            # a database hiccup (or a deploy that has not migrated yet) should not kill the worker
+            traceback.print_exc()
             if "--once" in argv:
-                return
-            time.sleep(10)
+                raise
+        if "--once" in argv:
+            return
+        time.sleep(10)
 
 
 if __name__ == "__main__":
