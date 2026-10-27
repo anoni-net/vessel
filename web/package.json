@@ -10,7 +10,9 @@
     "test": "playwright test"
   },
   "dependencies": {
-    "preact": "11.0.1"
+    "@noble/curves": "2.4.0",
+    "preact": "11.0.1",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

@@ -45,6 +45,25 @@ export interface Device {
   expires_on: string;
 }
 
+/** The node's answer: every config field except the private key and the preshared key. */
+export interface NodeConfig {
+  interface: Record<string, string>;
+  peer: Record<string, string>;
+}
+
+export interface Region {
+  id: string;
+  open: boolean;
+}
+
+export interface NewDevice {
+  name: string;
+  region: string;
+  dns_filter: DnsFilter;
+  public_key: string;
+  preshared_key: string;
+}
+
 export const api = {
   redeem: (code: string) => call<{ account_number: string }>("POST", "/redeem", { code }).then((r) => r.data),
   login: (accountNumber: string) => call("POST", "/login", { account_number: accountNumber }),
@@ -53,4 +72,10 @@ export const api = {
   devices: () => call<Device[]>("GET", "/devices").then((r) => r.data),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   deleteAccount: () => call("DELETE", "/account"),
+  regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
+  createDevice: (body: NewDevice) =>
+    call<{ id: string; status: "active" | "pending"; config?: NodeConfig }>("POST", "/devices", body).then((r) => r.data),
+  /** 200 with the config, or 202 while the node is still adding the device */
+  deviceConfig: (id: string) =>
+    call<{ status: "active" | "pending"; config?: NodeConfig }>("GET", `/devices/${encodeURIComponent(id)}/config`).then((r) => r.data),
 };

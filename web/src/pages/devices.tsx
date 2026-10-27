@@ -40,6 +40,8 @@ export function Devices() {
   if (!me || !devices) return <section class="wrap narrow"><p class="muted">{t["loading"]}</p></section>;
 
   const pct = Math.min(100, Math.round((me.used_bytes / me.monthly_quota_bytes) * 100));
+  const full = devices.filter((d) => d.status !== "revoking").length >= me.device_limit;
+  const overQuota = me.used_bytes >= me.monthly_quota_bytes;
 
   return (
     <section class="wrap narrow stack">
@@ -92,6 +94,9 @@ export function Devices() {
         </ul>
       )}
 
+      {!full && !overQuota && (
+        <a class="nb-button nb-button--primary" href={href("/devices/new/")}>{t["devices.add"]}</a>
+      )}
       <p class="muted small center">
         {fmt(t["devices.limitNote"], { max: me.device_limit, quota: formatBytes(locale, me.monthly_quota_bytes) })}
       </p>
