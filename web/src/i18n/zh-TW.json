@@ -1,0 +1,20 @@
+{
+  "nav.main": "主選單",
+  "nav.how": "使用方式",
+  "nav.limits": "能做到與做不到的事",
+  "nav.login": "登入",
+  "nav.language": "語言",
+  "home.title": "Vessel",
+  "home.lead": "匿名網路社群 anoni.net 架設的 VPN。連線使用 AmneziaWG 並加上混淆，在會阻擋 VPN 的網路上比較不容易被辨識。帳號不需要 email，金鑰在你的瀏覽器裡產生。",
+  "home.invite": "我有邀請碼",
+  "home.inviteOnly": "目前只透過社群成員邀請，名額有限。",
+  "redeem.title": "兌換邀請碼",
+  "login.title": "登入",
+  "devices.title": "我的裝置",
+  "account.title": "帳號",
+  "privacy.title": "隱私權政策",
+  "terms.title": "使用條款",
+  "notFound.title": "找不到這一頁",
+  "placeholder": "這一頁還在開發中。",
+  "footer.service": "Vessel 是匿名網路社群 anoni.net 的服務"
+}
