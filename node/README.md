@@ -10,7 +10,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
-| `update-lists.sh` | 根目錄 | 更新 RPZ 名單並重新載入 unbound，每天由 root 的 cron 執行 |
+| `update-lists.sh` | 根目錄 | 更新 RPZ 名單，網域有變才重新載入 unbound。root 的 cron 每 8 小時執行（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致 |
 | `unbound/*.conf` | `unbound/` | 三個解析器的設定 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 

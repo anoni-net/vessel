@@ -51,5 +51,5 @@ cp $D/server/interface.conf $D/conf/awg0.conf
 
 $D/update-lists.sh
 ln -sf $D/awgctl /usr/local/sbin/awgctl
-{ crontab -l 2>/dev/null | grep -v vessel-node/update-lists.sh || true; echo "37 4 * * * /opt/vessel-node/update-lists.sh >> /var/log/vessel-update-lists.log 2>&1"; } | crontab -
+{ crontab -l 2>/dev/null | grep -v vessel-node/update-lists.sh || true; echo "37 4,12,20 * * * /opt/vessel-node/update-lists.sh >> /var/log/vessel-update-lists.log 2>&1"; } | crontab -
 $D/run.sh
