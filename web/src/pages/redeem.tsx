@@ -1,0 +1,94 @@
+import { useState } from "preact/hooks";
+import { ApiError, api } from "../api.ts";
+import { useCtx } from "../context.ts";
+import { errorText } from "../i18n/index.ts";
+import { navigate } from "../router.ts";
+
+export function Redeem() {
+  const { t, href } = useCtx();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [number, setNumber] = useState("");
+
+  if (number) return <AccountNumber number={number} />;
+
+  const submit = async (e: Event) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr("");
+    try {
+      setNumber((await api.redeem(code)).account_number);
+    } catch (x) {
+      setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section class="wrap narrow">
+      <h1>{t["redeem.title"]}</h1>
+      <form class="stack" onSubmit={submit}>
+        <label for="code">{t["redeem.label"]}</label>
+        <input id="code" class="nb-input mono" autoComplete="off" autoCapitalize="characters" spellcheck={false}
+          required value={code} onInput={(e) => setCode(e.currentTarget.value)} aria-describedby="code-hint" />
+        <p id="code-hint" class="muted small">{t["redeem.hint"]}</p>
+        {err && <p class="error" role="alert">{err}</p>}
+        <p class="small">
+          {t["redeem.read.before"]}<a href={href("/terms/")}>{t["terms.title"]}</a>{t["redeem.read.and"]}
+          <a href={href("/privacy/")}>{t["privacy.title"]}</a>{t["redeem.read.after"]}
+        </p>
+        <button class="nb-button nb-button--primary" type="submit" disabled={busy}>{t["redeem.submit"]}</button>
+      </form>
+    </section>
+  );
+}
+
+function AccountNumber({ number }: { number: string }) {
+  const { t, href } = useCtx();
+  const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(number);
+      setCopied(true);
+    } catch {
+      /* clipboard can be blocked; the number is still on screen */
+    }
+  };
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([`${t["number.file"]}\n${number}\n`], { type: "text/plain" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: "vessel-account.txt" });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  return (
+    <section class="wrap narrow stack">
+      <h1>{t["number.title"]}</h1>
+      <p class="muted">{t["number.lead"]}</p>
+      <div class="number-box printable">
+        <p class="small strong">{t["number.label"]}</p>
+        <p class="mono number" data-testid="account-number">{number}</p>
+      </div>
+      <div class="cards cards--3 tools">
+        <button class="nb-button" type="button" onClick={copy}>{copied ? t["number.copied"] : t["number.copy"]}</button>
+        <button class="nb-button" type="button" onClick={download}>{t["number.download"]}</button>
+        <button class="nb-button" type="button" onClick={() => window.print()}>{t["number.print"]}</button>
+      </div>
+      <div class="card card--warn card--flat">
+        <p class="strong">{t["number.warnTitle"]}</p>
+        <p>{t["number.warnBody"]}</p>
+      </div>
+      <label class="check">
+        <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.currentTarget.checked)} />
+        {t["number.saved"]}
+      </label>
+      <button class="nb-button nb-button--ink" type="button" disabled={!saved} onClick={() => navigate(href("/devices/"))}>
+        {saved ? t["number.continue"] : t["number.locked"]}
+      </button>
+    </section>
+  );
+}
