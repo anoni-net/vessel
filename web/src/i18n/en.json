@@ -141,7 +141,7 @@
   "name.title": "Name the device",
   "name.label": "Device name",
   "name.placeholder": "For example: phone, laptop",
-  "name.hint": "Only you see the name; it tells your devices apart. Avoid your real name or anything that identifies you, since anyone who gets into the account sees it too.",
+  "name.hint": "Only you see the name; it tells your devices apart. The service keeps it, so a simple name is best, with no need for your real name.",
   "filter.title": "Domain filtering",
   "filter.none.desc": "Resolves domains and blocks nothing",
   "filter.malware.desc": "A malware list with few false positives",
