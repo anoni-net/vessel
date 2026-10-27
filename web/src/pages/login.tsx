@@ -3,6 +3,7 @@ import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
+import { ACCOUNT, groupedLength, regroup } from "../grouped.ts";
 import { navigate } from "../router.ts";
 
 export function Login() {
@@ -31,9 +32,10 @@ export function Login() {
     <section class="wrap narrow">
       <h1>{t["login.title"]}</h1>
       <form class="stack" onSubmit={submit}>
-        <label for="number">{t["login.label"]}</label>
-        <input id="number" class="nb-input mono" inputMode="numeric" autoComplete="off" required
-          value={number} onInput={(e) => setNumber(e.currentTarget.value)} aria-describedby="number-hint" />
+        <label for="number" class="strong">{t["login.label"]}</label>
+        <input id="number" class="nb-input nb-input--code mono" inputMode="numeric" autoComplete="off" required
+          value={number} maxLength={groupedLength(ACCOUNT)} placeholder="0000 0000 0000 0000"
+          onInput={(e) => setNumber(regroup(e.currentTarget, ACCOUNT))} aria-describedby="number-hint" />
         <p id="number-hint" class="muted small">{t["login.hint"]}</p>
         {err && <p class="error" role="alert">{err}</p>}
         <button class="nb-button nb-button--primary" type="submit" disabled={busy}>{t["login.submit"]}</button>

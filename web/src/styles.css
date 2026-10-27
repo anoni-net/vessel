@@ -29,6 +29,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 
 .wrap { max-width: 1120px; margin-inline: auto; padding-inline: 20px; }
 .narrow { max-width: 560px; padding-block: 32px 48px; }
+.narrow > h1 + form, .narrow > form + p { margin-top: 20px; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .plain { list-style: none; padding: 0; margin: 0; }
@@ -105,7 +106,16 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .nb-button:disabled { background: var(--grey); color: var(--muted); border-style: dashed; border-color: #a7b5bb; box-shadow: none; cursor: not-allowed; transform: none; }
 .link-button { border: none; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; cursor: pointer; min-height: 44px; }
 
-.nb-input { min-height: 52px; padding: 0 14px; border: var(--border); border-radius: 12px; font: inherit; font-size: 18px; color: var(--ink); background: var(--paper); width: 100%; }
+.nb-input {
+  box-sizing: border-box; width: 100%; min-height: 56px; padding: 0 16px; border: var(--border); border-radius: 14px;
+  font: inherit; font-size: 18px; font-weight: 700; color: var(--ink); background: var(--paper); box-shadow: var(--shadow);
+  transition: transform .08s ease, box-shadow .08s ease, background .08s ease;
+}
+.nb-input::placeholder { color: #8a979c; font-weight: 400; }
+.nb-input:focus { outline: none; background: var(--tint); transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+/* invite codes and account numbers: big, monospaced, the groups of four easy to read back */
+.nb-input--code { min-height: 68px; font-family: var(--mono); font-size: clamp(19px, 5.4vw, 26px); font-weight: 800; letter-spacing: 0.06em; text-align: center; }
+.nb-input--code::placeholder { font-weight: 700; letter-spacing: 0.06em; }
 .check { display: flex; gap: 12px; align-items: center; min-height: 44px; font-weight: 700; cursor: pointer; }
 .check input { width: 24px; height: 24px; margin: 0; accent-color: var(--ink); flex: none; }
 
@@ -172,7 +182,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (max-width: 420px) {
   .site-nav:has(> .nb-button) .site-header__langs { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .nb-button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .nb-button, .nb-input { transition: none; } }
 @media print {
   body * { visibility: hidden; }
   .printable, .printable * { visibility: visible; }
