@@ -64,7 +64,9 @@ function AccountNumber({ number }: { number: string }) {
     }
   };
   const download = () => {
-    const url = URL.createObjectURL(new Blob([`${t["number.file"]}\n${number}\n`], { type: "text/plain" }));
+    // the BOM and charset let Notepad and phone text viewers read the label as UTF-8 instead of Big5 or similar
+    const text = `\ufeff${t["number.file"]}\r\n${number}\r\n`;
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: "vessel-account.txt" });
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
