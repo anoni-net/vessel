@@ -93,6 +93,7 @@ export function Devices() {
         <div class="card card--dashed">
           <p class="strong">{t["devices.empty"]}</p>
           <p class="muted">{t["devices.emptyBody"]}</p>
+          <p class="muted small">{t["devices.emptyExpired"]}</p>
         </div>
       ) : (
         <ul class="stack plain" data-testid="device-list">

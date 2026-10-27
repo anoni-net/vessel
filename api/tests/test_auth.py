@@ -87,6 +87,26 @@ def test_login_extends_devices(client, db):
     assert days == 30
 
 
+def test_coming_back_signed_in_extends_devices_once_a_day(client, db):
+    redeem(client, make_invite(db))
+    account_id = db.execute("SELECT id FROM accounts").fetchone()[0]
+    db.execute("INSERT INTO regions (id, node_host) VALUES ('sg', 'n')")
+    db.execute(
+        "INSERT INTO devices (id, account_id, region_id, name, public_key, dns_filter, status, expires_on) "
+        "VALUES ('d-1', %s, 'sg', 'phone', 'pk', 'none', 'active', current_date + 1)",
+        (account_id,),
+    )
+    # signed in today already: nothing to do
+    db.execute("UPDATE accounts SET last_login_on = current_date")
+    client.get("/api/me")
+    assert db.execute("SELECT expires_on - current_date FROM devices").fetchone()[0] == 1
+    # the session is still good, but the last visit was days ago
+    db.execute("UPDATE accounts SET last_login_on = current_date - 5")
+    me = client.get("/api/me").json()
+    assert db.execute("SELECT expires_on - current_date FROM devices").fetchone()[0] == 30
+    assert me["last_login_on"] == db.execute("SELECT current_date").fetchone()[0].isoformat()
+
+
 def test_sign_in_rate_limit(client, db):
     codes = [client.post("/api/login", json={"account_number": "0000 0000 0000 0000"}, headers=HEADERS).status_code
              for _ in range(11)]

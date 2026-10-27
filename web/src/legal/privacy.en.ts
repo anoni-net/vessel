@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-10-27",
+  updated: "2026-10-28",
   blocks: [
     { p: "Vessel keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -10,7 +10,7 @@ export default {
         head: ["Data", "Purpose", "How long"],
         rows: [
           ["A hash of the account number (Argon2id), which cannot be turned back into the number", "Checking it at sign-in", "Until the account is deleted"],
-          ["The account's creation date and last sign-in date (day only)", "Deciding when devices expire", "Until the account is deleted"],
+          ["The account's creation date and the last day it used the portal (day only)", "Deciding when devices expire", "Until the account is deleted"],
           ["A hash of each invite code, the date it was redeemed and the account that redeemed it", "Making sure each code is used once", "The link to the account is removed when the account is deleted; the code's record is kept for now, and the final version will set a limit"],
           ["Each device's name, public key, city, tunnel IP address, DNS filter option and expiry date", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
           ["The account's monthly traffic total", "Counting the allowance", "Until the account is deleted"],
