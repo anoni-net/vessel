@@ -29,7 +29,7 @@ Vessel 是[匿名網路社群 anoni.net](https://anoni.net/) 架設的 VPN。連
 
 ## 授權
 
-程式碼以 [MIT](LICENSE) 授權釋出。
+程式碼以 [MIT](LICENSE) 授權釋出。建立裝置時城市旁的國旗來自 [flag-icons](https://github.com/lipis/flag-icons)（MIT 授權，Copyright (c) 2013 Panayiotis Lipiridis）。
 
 <a id="en"></a>
 
@@ -62,4 +62,4 @@ Node IPs, server keys and client configs are not in this repository.
 
 ## License
 
-The code is released under the [MIT](LICENSE) license.
+The code is released under the [MIT](LICENSE) license. The country flags next to the cities when you create a device come from [flag-icons](https://github.com/lipis/flag-icons) (MIT license, Copyright (c) 2013 Panayiotis Lipiridis).

@@ -129,3 +129,21 @@ test("the install step explains AmneziaWG through the FAQ", async ({ page }) => 
   await expect(page.getByText("AmneziaWG 是從 WireGuard 修改而來的開源專案")).toBeVisible();
   await expect(page.locator("#q-maker")).not.toHaveAttribute("open", "");
 });
+
+test("cities come with flags, open first, then being set up, then in talks", async ({ page }) => {
+  await mock(page);
+  await page.goto("/devices/new/");
+  await page.getByRole("button", { name: "已經安裝，下一步" }).click();
+  const cities = page.locator("button.choice--city");
+  await expect(cities).toHaveText([/新加坡.*開放中/, /東京.*準備中/, /台北.*洽談中/]);
+  await expect(cities.nth(0)).toBeEnabled();
+  await expect(cities.nth(1)).toBeDisabled();
+  await expect(cities.nth(2)).toBeDisabled();
+  // images on assets.anoni.net, not emoji, decorative next to the city name
+  const flags = cities.locator("img.flag");
+  await expect(flags).toHaveCount(3);
+  for (const [i, c] of ["sg", "jp", "tw"].entries()) {
+    await expect(flags.nth(i)).toHaveAttribute("src", new RegExp(`^https://assets\\.anoni\\.net/vessel/flag-${c}-[0-9a-f]{8}\\.svg$`));
+    await expect(flags.nth(i)).toHaveAttribute("alt", "");
+  }
+});
