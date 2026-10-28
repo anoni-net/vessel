@@ -73,7 +73,10 @@ test("create a device with keys made in the browser", async ({ page }) => {
 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "下載設定檔" }).click();
-  expect((await download).suggestedFilename()).toBe("vessel-sg-abcdef.conf");
+  const file = (await download).suggestedFilename();
+  expect(file).toBe("vessel-sg-abcde.conf");
+  // the Android app turns the file name into the tunnel name and rejects anything longer or other characters
+  expect(file.replace(/\.conf$/, "")).toMatch(/^[a-zA-Z0-9_=+.-]{1,15}$/);
 
   await page.getByRole("link", { name: "我已經匯入，完成" }).click();
   await expect(page).toHaveURL(/\/devices\/$/);
