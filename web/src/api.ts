@@ -55,6 +55,10 @@ export interface Device {
   status: DeviceStatus;
   created_on: string;
   expires_on: string;
+  /** this month, on this device */
+  used_bytes: number;
+  /** lookups the malware list blocked this month; only counted for devices with a DNS filter */
+  blocked: number;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */

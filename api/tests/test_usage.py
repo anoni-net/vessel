@@ -98,3 +98,56 @@ def test_resume_of_a_deleted_device_is_dropped(signed_in, node, db):
     db.execute("UPDATE devices SET status = 'revoking'")
     jobs.run_due_jobs(db)
     assert db.execute("SELECT status FROM jobs WHERE action = 'resume'").fetchone()[0] == "done"
+
+
+def devices(client) -> dict:
+    return {d["id"]: d for d in client.get("/api/devices").json()}
+
+
+def test_each_device_shows_its_own_month(signed_in, node, db):
+    phone = create(signed_in).json()["id"]
+    laptop = create(signed_in, name="laptop").json()["id"]
+    node.counters[phone] = (100, 400)
+    node.blocked[phone] = 3
+    worker.tick(db)
+    node.counters[phone] = (150, 450)
+    node.blocked[phone] = 5
+    node.counters[laptop] = (10, 10)
+    worker.tick(db)
+    d = devices(signed_in)
+    assert (d[phone]["used_bytes"], d[phone]["blocked"]) == (600, 5)
+    assert (d[laptop]["used_bytes"], d[laptop]["blocked"]) == (20, 0)
+    assert used(signed_in) == 620
+    # the node restarted: its counters start over and all of it is new
+    node.started = "2026-10-28T00:00:00Z"
+    node.counters[phone] = (1, 1)
+    node.blocked[phone] = 2
+    worker.tick(db)
+    assert devices(signed_in)[phone]["blocked"] == 7
+
+
+def test_past_months_are_not_kept(signed_in, node, db):
+    phone = create(signed_in).json()["id"]
+    node.counters[phone] = (100, 100)
+    node.blocked[phone] = 4
+    worker.tick(db)
+    db.execute("UPDATE device_usage SET period = period - interval '1 month'")
+    worker.tick(db)
+    assert db.execute("SELECT count(*) FROM device_usage").fetchone()[0] == 0
+    assert (devices(signed_in)[phone]["used_bytes"], devices(signed_in)[phone]["blocked"]) == (0, 0)
+
+
+def test_nodes_without_blocked_counts_still_work(signed_in, node, db):
+    phone = create(signed_in).json()["id"]
+    node.counters[phone] = (100, 100)
+    original = node.usage
+
+    def old_usage(host):
+        data = original(host)
+        for p in data["peers"]:
+            p.pop("blocked")
+        return data
+
+    node.usage = old_usage
+    worker.tick(db)
+    assert (devices(signed_in)[phone]["used_bytes"], devices(signed_in)[phone]["blocked"]) == (200, 0)

@@ -2,8 +2,8 @@ import { type Page, type Route, expect, test } from "@playwright/test";
 
 const ME = { created_on: "2026-10-27", last_login_on: "2026-10-27", device_limit: 3, monthly_quota_bytes: 50e9, used_bytes: 4.2e9 };
 const DEVICES = [
-  { id: "d-aaa", name: "phone", region: "sg", dns_filter: "ads", status: "active", created_on: "2026-10-27", expires_on: "2026-11-26" },
-  { id: "d-bbb", name: "laptop", region: "sg", dns_filter: "none", status: "suspended", created_on: "2026-10-27", expires_on: "2026-11-26" },
+  { id: "d-aaa", name: "phone", region: "sg", dns_filter: "ads", status: "active", created_on: "2026-10-27", expires_on: "2026-11-26", used_bytes: 3.1e9, blocked: 12 },
+  { id: "d-bbb", name: "laptop", region: "sg", dns_filter: "none", status: "suspended", created_on: "2026-10-27", expires_on: "2026-11-26", used_bytes: 1.1e9, blocked: 0 },
 ];
 
 type Handler = (route: Route) => Promise<void> | void;
@@ -56,7 +56,7 @@ test("frequently asked questions", async ({ page }) => {
   await faq.getByRole("link", { name: "所有常見問題" }).click();
   await expect(page).toHaveURL(/\/faq\/$/);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
-  await expect(page.locator("details")).toHaveCount(25);
+  await expect(page.locator("details")).toHaveCount(26);
   // opened straight from a link elsewhere, the page loads fresh with the question open
   await page.goto("/dns/");
   await page.goto("/faq/#q-noTraffic");
@@ -374,4 +374,11 @@ test("password managers can save and fill the account number", async ({ page }) 
   await expect(number).toHaveValue("4821 0937 5564 2018");
   await login.getByRole("button", { name: "隱藏" }).click();
   await expect(number).toHaveAttribute("type", "password");
+});
+
+test("each device shows its traffic this month and, with a filter, the blocked malware lookups", async ({ page }) => {
+  await mockApi(page, signedIn);
+  await page.goto("/devices/");
+  const usage = page.getByTestId("device-usage");
+  await expect(usage).toHaveText(["本月 3.1 GB · 擋下 12 次惡意網域查詢", "本月 1.1 GB"]);
 });

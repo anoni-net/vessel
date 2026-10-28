@@ -14,6 +14,7 @@ export default {
           ["A hash of each invite code, the date it was redeemed and the account that redeemed it", "Making sure each code is used once", "The link to the account is removed when the account is deleted; the code's record is kept for now, and the final version will set a limit"],
           ["Each device's name, public key, city, tunnel IP address, DNS filter option and expiry date", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
           ["The account's monthly traffic total", "Counting the allowance", "Until the account is deleted"],
+          ["Each device's traffic this month, and how many lookups the malware filter blocked (a count only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
           ["A hash of the sign-in session", "Keeping you signed in", "Until you sign out, or after 30 days without using the portal"],
         ],
       },

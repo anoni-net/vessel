@@ -28,6 +28,15 @@ iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
 
+# --- blocked malware lookups, counted per tunnel address ---
+# The malware RPZ answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
+# answer has. One rule per client address counts those packets; nothing records the names. awgctl zeroes a
+# rule when it hands its address to a new peer, and reports the counts in `usage --json`.
+iptables -N VESSEL-BLOCKED
+for n in $(seq 2 249); do iptables -A VESSEL-BLOCKED -d 10.8.1.$n -j RETURN; done
+# DNS header after the IP and UDP headers: the low byte of the flags is RA (0x80) and RCODE (0x0f); NXDOMAIN is 3
+iptables -A OUTPUT -o awg0 -p udp --sport 53 -m u32 --u32 "0>>22&0x3C@8&0x8F=0x3" -j VESSEL-BLOCKED
+
 # --- resolvers ---
 # the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,ads}.rpz present (an empty zone if a download never succeeded)
 unbound-anchor -a /var/lib/unbound/root.key || true

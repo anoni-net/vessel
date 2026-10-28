@@ -129,19 +129,24 @@ def poll_usage(conn: psycopg.Connection) -> None:
                 if device is None:
                     continue  # peers created outside the portal, or already deleted here
                 prev = conn.execute(
-                    "SELECT interface_started, rx_bytes, tx_bytes FROM device_counters WHERE device_id = %s",
+                    "SELECT interface_started, rx_bytes, tx_bytes, blocked FROM device_counters WHERE device_id = %s",
                     (peer["name"],),
                 ).fetchone()
-                rx, tx = peer["rx"], peer["tx"]
-                if prev and prev[0] == started and rx >= prev[1] and tx >= prev[2]:
+                # blocked: malware lookups counted per tunnel address on the node (node/start.sh); older nodes omit it
+                rx, tx, blocked = peer["rx"], peer["tx"], peer.get("blocked", 0)
+                same = prev is not None and prev[0] == started
+                if same and rx >= prev[1] and tx >= prev[2]:
                     d_rx, d_tx = rx - prev[1], tx - prev[2]
                 else:
                     d_rx, d_tx = rx, tx
+                # the blocked counter belongs to the address, so it carries on across a suspend and resume
+                d_blocked = blocked - prev[3] if same and blocked >= prev[3] else blocked
                 conn.execute(
-                    "INSERT INTO device_counters (device_id, interface_started, rx_bytes, tx_bytes) VALUES (%s, %s, %s, %s) "
+                    "INSERT INTO device_counters (device_id, interface_started, rx_bytes, tx_bytes, blocked) "
+                    "VALUES (%s, %s, %s, %s, %s) "
                     "ON CONFLICT (device_id) DO UPDATE SET interface_started = EXCLUDED.interface_started, "
-                    "rx_bytes = EXCLUDED.rx_bytes, tx_bytes = EXCLUDED.tx_bytes",
-                    (peer["name"], started, rx, tx),
+                    "rx_bytes = EXCLUDED.rx_bytes, tx_bytes = EXCLUDED.tx_bytes, blocked = EXCLUDED.blocked",
+                    (peer["name"], started, rx, tx, blocked),
                 )
                 if d_rx or d_tx:
                     conn.execute(
@@ -152,7 +157,19 @@ def poll_usage(conn: psycopg.Connection) -> None:
                         "tx_bytes = account_usage.tx_bytes + EXCLUDED.tx_bytes",
                         (device[0], d_rx, d_tx),
                     )
+                if d_rx or d_tx or d_blocked:
+                    conn.execute(
+                        "INSERT INTO device_usage (device_id, period, rx_bytes, tx_bytes, blocked) "
+                        "VALUES (%s, date_trunc('month', current_date), %s, %s, %s) "
+                        "ON CONFLICT (device_id, period) DO UPDATE SET "
+                        "rx_bytes = device_usage.rx_bytes + EXCLUDED.rx_bytes, "
+                        "tx_bytes = device_usage.tx_bytes + EXCLUDED.tx_bytes, "
+                        "blocked = device_usage.blocked + EXCLUDED.blocked",
+                        (peer["name"], d_rx, d_tx, d_blocked),
+                    )
         beat(conn, f"usage:{region_id}")
+    # devices show this month only; earlier months are not kept
+    conn.execute("DELETE FROM device_usage WHERE period < date_trunc('month', current_date)")
 
 
 def enforce_quota(conn: psycopg.Connection, quota: int) -> None:

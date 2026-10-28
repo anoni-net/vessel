@@ -47,13 +47,15 @@ def regions(_: Account, conn: Conn) -> list[dict]:
 @router.get("/devices")
 def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
-        "SELECT id, name, region_id, dns_filter, status, created_on, expires_on FROM devices "
-        "WHERE account_id = %s ORDER BY created_on, id",
+        "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
+        "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked, 0) FROM devices d "
+        "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
+        "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
         (account_id,),
     )
     return [
         {"id": r[0], "name": r[1], "region": r[2], "dns_filter": r[3], "status": r[4],
-         "created_on": r[5].isoformat(), "expires_on": r[6].isoformat()}
+         "created_on": r[5].isoformat(), "expires_on": r[6].isoformat(), "used_bytes": r[7], "blocked": r[8]}
         for r in rows
     ]
 
