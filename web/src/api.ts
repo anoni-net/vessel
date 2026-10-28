@@ -42,6 +42,8 @@ export interface Me {
   device_limit: number;
   monthly_quota_bytes: number;
   used_bytes: number;
+  /** when the worker last read the nodes this account's devices are on; null before the first read */
+  usage_as_of: string | null;
 }
 
 export type DnsFilter = "none" | "malware" | "ads";

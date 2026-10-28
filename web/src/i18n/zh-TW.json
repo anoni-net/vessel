@@ -76,6 +76,7 @@
   "devices.title": "我的裝置",
   "devices.count": "{n} / {max} 台",
   "devices.usage": "本月用量",
+  "devices.usageAsOf": "用量更新於 {time}",
   "devices.usageNote": "帳號底下的裝置共用，每月 1 日（UTC）重新計算",
   "devices.empty": "還沒有裝置",
   "devices.emptyBody": "新增一台裝置，就能開始使用。",

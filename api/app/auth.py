@@ -194,12 +194,19 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
     usage = conn.execute(
         "SELECT rx_bytes + tx_bytes FROM account_usage WHERE account_id = %s AND period = %s", (account_id, period)
     ).fetchone()
+    # when the worker last read the counters of the nodes this account's devices are on; the oldest one wins
+    as_of = conn.execute(
+        "SELECT min(h.at) FROM heartbeats h WHERE h.name IN "
+        "(SELECT 'usage:' || region_id FROM devices WHERE account_id = %s)",
+        (account_id,),
+    ).fetchone()[0]
     return {
         "created_on": created_on.isoformat(),
         "last_login_on": last_login_on.isoformat() if last_login_on else None,
         "device_limit": policy.DEVICE_LIMIT,
         "monthly_quota_bytes": policy.MONTHLY_QUOTA_BYTES,
         "used_bytes": usage[0] if usage else 0,
+        "usage_as_of": as_of.isoformat() if as_of else None,
     }
 
 
