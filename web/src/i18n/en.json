@@ -211,6 +211,8 @@
   "faq.app.a": "Vessel disguises its connections with AmneziaWG, so its packets look different from regular WireGuard, and the regular app cannot use the config.",
   "faq.ios.q": "AmneziaWG is missing from my App Store",
   "faq.ios.a": "It is not listed in some regions. iPhones have no other way to install it, so the only option is an Apple ID from another region. On Android you can install the APK instead.",
+  "faq.androidVpn.q": "Android says the VPN service was not authorized?",
+  "faq.androidVpn.a": "Android allows one VPN at a time, and the first connection shows a confirmation dialog; AmneziaWG can create the tunnel only after you tap OK. The most common cause is another VPN app set to \"Always-on VPN\": go to Settings → Network & internet → VPN, tap the gear next to that app, and turn off \"Always-on VPN\" and the option below it that blocks connections without a VPN. If you cancelled the dialog before, or turned the tunnel on from the notification shade, open AmneziaWG and use the switch in the app so the dialog appears again. On a phone with several users or a work profile, install AmneziaWG in the profile that should use the VPN.",
   "faq.twoDevices.q": "Can I use one config on two devices?",
   "faq.twoDevices.a": "No. Two devices connected at once keep taking the connection from each other and drop out often. Create a config for each device, up to 3 per account.",
   "faq.newPhone.q": "What about a new phone or a reinstall?",

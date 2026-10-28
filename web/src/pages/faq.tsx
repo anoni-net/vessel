@@ -4,7 +4,7 @@ import type { MessageKey } from "../i18n/index.ts";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "share"],
-  setup: ["protocols", "maker", "app", "ios", "twoDevices", "newPhone", "filter", "noTraffic", "trouble", "speed", "cities"],
+  setup: ["protocols", "maker", "app", "ios", "androidVpn", "twoDevices", "newPhone", "filter", "noTraffic", "trouble", "speed", "cities"],
   rules: ["expire", "expired", "quota", "p2p"],
   privacy: ["see", "anomaly", "law", "cloudflare", "delete"],
 } as const;
