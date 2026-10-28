@@ -27,3 +27,15 @@ export function formatDate(locale: Locale, iso: string): string {
   return new Intl.DateTimeFormat(HTML_LANG[locale], { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "UTC" })
     .format(new Date(iso + "T00:00:00Z"));
 }
+
+/** A moment in the visitor's own time zone: the time alone when it is today, otherwise with the date. */
+export function formatTime(locale: Locale, iso: string, now = new Date()): string {
+  const at = new Date(iso);
+  const today = at.toDateString() === now.toDateString();
+  return new Intl.DateTimeFormat(HTML_LANG[locale], {
+    ...(today ? {} : { month: "2-digit", day: "2-digit" }),
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(at);
+}

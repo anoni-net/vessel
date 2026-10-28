@@ -76,6 +76,7 @@
   "devices.title": "My devices",
   "devices.count": "{n} of {max}",
   "devices.usage": "Used this month",
+  "devices.usageAsOf": "Usage as of {time}",
   "devices.usageNote": "Shared by the account's devices, reset on the 1st of each month (UTC)",
   "devices.empty": "No devices yet",
   "devices.emptyBody": "Add a device to start using Vessel.",

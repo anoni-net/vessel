@@ -1,13 +1,22 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, type Device, type Me, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
-import { formatBytes, formatDate, formatPercent } from "../format.ts";
+import { formatBytes, formatDate, formatPercent, formatTime } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { AccountNav } from "./account.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
 import { Busy, SkButton, SkCard } from "./skeleton.tsx";
+
+// The worker reads the nodes' counters every 5 minutes, so refreshing more often shows nothing new. A device
+// the node is still adding turns active within seconds, so while one is pending the page checks more often.
+const REFRESH_EVERY = 5 * 60_000;
+const PENDING_EVERY = 10_000;
+// coming back to the tab refreshes, unless the page just did
+const FRESH_FOR = 15_000;
+
+const visible = () => document.visibilityState === "visible";
 
 export function Devices() {
   const { t, href, locale } = useCtx();
@@ -16,23 +25,48 @@ export function Devices() {
   const [devices, setDevices] = useState<Device[] | null>(last.devices ?? null);
   const [err, setErr] = useState("");
 
-  const load = async () => {
+  const busy = useRef(false);
+  const loadedAt = useRef(0);
+
+  /** `quiet`: a background refresh; if it fails, keep what is on screen instead of an error. */
+  const load = async (quiet = false) => {
+    if (busy.current) return;
+    busy.current = true;
     try {
       const [m, d] = await Promise.all([api.me(), api.devices()]);
       setMe(m);
       setDevices(d);
+      setErr("");
+      loadedAt.current = Date.now();
     } catch (x) {
       if (x instanceof ApiError && x.code === "signed_out") {
         setSignedIn(false);
         navigate(href("/login/"), true);
-      } else setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+      } else if (!quiet) setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+    } finally {
+      busy.current = false;
     }
   };
   useEffect(() => {
     load();
     // the next page most people open from here
     whenIdle(() => void loadNewDevice().catch(() => undefined));
+    const every = setInterval(() => visible() && load(true), REFRESH_EVERY);
+    // e.g. back from the AmneziaWG app
+    const back = () => visible() && Date.now() - loadedAt.current > FRESH_FOR && load(true);
+    document.addEventListener("visibilitychange", back);
+    return () => {
+      clearInterval(every);
+      document.removeEventListener("visibilitychange", back);
+    };
   }, []);
+
+  const pending = devices?.some((d) => d.status === "pending") ?? false;
+  useEffect(() => {
+    if (!pending) return;
+    const id = setInterval(() => visible() && load(true), PENDING_EVERY);
+    return () => clearInterval(id);
+  }, [pending]);
 
   const remove = async (d: Device) => {
     if (!window.confirm(fmt(t["devices.confirmDelete"], { name: d.name }))) return;
@@ -51,7 +85,7 @@ export function Devices() {
         <AccountNav />
         <h1>{t["devices.title"]}</h1>
         <div class="stack" aria-hidden="true">
-          <SkCard tint size="usage" lines={["mid", "full", "short", "long"]} />
+          <SkCard tint size="usage" lines={["mid", "full", "short", "short", "long"]} />
           <SkCard size="device" lines={["mid", "long", "long", "short"]} />
           <SkCard size="device" lines={["mid", "long", "long", "short"]} />
           <SkButton />
@@ -86,6 +120,9 @@ export function Devices() {
           <div style={{ width: me.used_bytes > 0 ? `max(${pct}%, 6px)` : "0" }} />
         </div>
         <p class="strong">{amount}</p>
+        {me.usage_as_of && (
+          <p class="muted small" data-testid="usage-as-of">{fmt(t["devices.usageAsOf"], { time: formatTime(locale, me.usage_as_of) })}</p>
+        )}
         <p class="muted small">{t["devices.usageNote"]}</p>
       </div>
 

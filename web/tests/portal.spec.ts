@@ -382,3 +382,36 @@ test("each device shows its traffic this month and, with a filter, the blocked m
   const usage = page.getByTestId("device-usage");
   await expect(usage).toHaveText(["本月 3.1 GB · 擋下 12 次惡意網域查詢", "本月 1.1 GB"]);
 });
+
+test("the devices page refreshes on its own", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-10-28T04:00:00Z") });
+  let status = "pending";
+  let fail = false;
+  let devicesCalls = 0;
+  await mockApi(page, {
+    "GET /api/me": json({ ...ME, usage_as_of: "2026-10-28T03:57:00+00:00" }),
+    "GET /api/devices": (route) => {
+      devicesCalls++;
+      return fail ? route.fulfill({ status: 500, json: { error: "unknown" } }) : route.fulfill({ json: [{ ...DEVICES[0], status }] });
+    },
+  });
+  await page.goto("/devices/");
+  const badge = page.getByTestId("device-list").locator(".badge");
+  await expect(badge).toHaveText("建立中");
+  await expect(page.getByTestId("usage-as-of")).toContainText("用量更新於");
+
+  // a pending device is checked every 10 seconds until the node has added it
+  status = "active";
+  await page.clock.fastForward(10_000);
+  await expect(badge).toHaveText("使用中");
+  const settled = devicesCalls;
+  await page.clock.fastForward(60_000);
+  expect(devicesCalls).toBe(settled);
+
+  // every 5 minutes after that; a failed background refresh keeps what is on screen
+  fail = true;
+  await page.clock.fastForward(5 * 60_000);
+  await expect.poll(() => devicesCalls).toBeGreaterThan(settled);
+  await expect(badge).toHaveText("使用中");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});

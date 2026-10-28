@@ -151,3 +151,16 @@ def test_nodes_without_blocked_counts_still_work(signed_in, node, db):
     node.usage = old_usage
     worker.tick(db)
     assert (devices(signed_in)[phone]["used_bytes"], devices(signed_in)[phone]["blocked"]) == (200, 0)
+
+
+def test_usage_says_when_it_was_read(signed_in, node, db):
+    assert signed_in.get("/api/me").json()["usage_as_of"] is None  # no devices yet
+    create(signed_in)
+    assert signed_in.get("/api/me").json()["usage_as_of"] is None  # the worker has not read the node
+    worker.tick(db)
+    at = db.execute("SELECT at FROM heartbeats WHERE name = 'usage:sg'").fetchone()[0]
+    assert signed_in.get("/api/me").json()["usage_as_of"] == at.isoformat()
+    # a node that cannot be reached keeps the time of the last read
+    node.down = True
+    worker.tick(db)
+    assert signed_in.get("/api/me").json()["usage_as_of"] == at.isoformat()

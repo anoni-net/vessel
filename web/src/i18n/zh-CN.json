@@ -76,6 +76,7 @@
   "devices.title": "我的设备",
   "devices.count": "{n} / {max} 台",
   "devices.usage": "本月用量",
+  "devices.usageAsOf": "用量更新于 {time}",
   "devices.usageNote": "账号下的设备共用，每月 1 日（UTC）重新计算",
   "devices.empty": "还没有设备",
   "devices.emptyBody": "添加一台设备，就能开始使用。",
