@@ -4,7 +4,7 @@ export default {
   updated: "2026-10-28",
   blocks: [
     { h: "The service" },
-    { p: "Vessel is a free VPN set up by the anoni.net anonymous network community and run by volunteers. It is in testing: no network is guaranteed to work, and the service may be interrupted. We may change the allowance, nodes and features, or end the service, and will try to announce changes in advance." },
+    { p: "Vessel is a free VPN set up by the anoni.net anonymous network community and run by volunteers, made up of the portal (vessel.anoni.net) and nodes in several cities. It is in testing: no network is guaranteed to work, and the service may be interrupted. We may change the allowance, nodes and features, or end the service, and will try to announce changes in advance." },
     { h: "Accounts" },
     { p: "Your account number is your sign-in credential, so keep it safe. A lost number cannot be recovered, and we have no email address to reset it with." },
     { p: "Each invite code creates one account. Invite codes and accounts must not be sold or traded for money." },
@@ -25,7 +25,7 @@ export default {
       ul: [
         "50 GB per account per month, shared by its devices and paused until the next month once used up",
         "Up to 3 devices per account",
-        "Devices expire when the account has not used the portal for 30 days; signing in, or opening the portal while signed in, extends them by 30 days",
+        "Even if you stay connected, devices expire when the account has not opened the portal for 30 days; signing in, or opening the portal while signed in, extends them by 30 days",
       ],
     },
     { h: "We cannot trace individual accounts" },
