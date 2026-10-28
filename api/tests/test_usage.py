@@ -164,3 +164,60 @@ def test_usage_says_when_it_was_read(signed_in, node, db):
     node.down = True
     worker.tick(db)
     assert signed_in.get("/api/me").json()["usage_as_of"] == at.isoformat()
+
+
+def daily(db) -> list[tuple]:
+    return db.execute(
+        "SELECT region_id, active_devices, rx_bytes + tx_bytes, expired_devices FROM daily_stats "
+        "WHERE day = current_date AND region_id = 'sg'"
+    ).fetchall()
+
+
+def test_daily_stats_count_devices_seen_today_and_the_traffic(signed_in, node, db):
+    import time as clock
+
+    phone = create(signed_in).json()["id"]
+    laptop = create(signed_in, name="laptop").json()["id"]
+    create(signed_in, name="tablet")
+    node.handshakes[phone] = int(clock.time()) - 60
+    node.handshakes[laptop] = int(clock.time()) - 3 * 86400  # connected days ago, not today
+    node.counters[phone] = (100, 400)
+    worker.tick(db)
+    assert daily(db) == [("sg", 1, 500, 0)]
+    node.counters[phone] = (150, 450)
+    node.handshakes[laptop] = int(clock.time()) - 5
+    worker.tick(db)
+    assert daily(db) == [("sg", 2, 600, 0)]
+    # a node restart forgets the handshakes; the day keeps its highest count
+    node.started = "2026-10-28T00:00:00Z"
+    node.handshakes.clear()
+    node.counters[phone] = (0, 0)
+    worker.tick(db)
+    assert daily(db) == [("sg", 2, 600, 0)]
+
+
+def test_daily_stats_count_expired_devices_and_drop_old_days(signed_in, node, db):
+    create(signed_in)
+    db.execute("UPDATE devices SET expires_on = current_date - 1")
+    worker.tick(db)
+    assert daily(db) == [("sg", 0, 0, 1)]
+    db.execute("INSERT INTO daily_stats (day, region_id) VALUES (current_date - 401, 'sg')")
+    worker.tick(db)
+    assert db.execute("SELECT count(*) FROM daily_stats WHERE day < current_date - 400").fetchone()[0] == 0
+
+
+def test_report_prints_totals_only(signed_in, node, db, capsys):
+    from app import admin
+
+    phone = create(signed_in).json()["id"]
+    create(signed_in, name="laptop", dns_filter="none")
+    node.counters[phone] = (1_000_000, 2_000_000)
+    worker.tick(db)
+    db.execute("UPDATE devices SET created_on = current_date - 2")
+    admin.report(db, 14)
+    out = capsys.readouterr().out
+    assert "accounts: 1 (new in the last 7 days: 1)" in out
+    assert "by filter: ads 1, none 1" in out
+    assert "devices older than a day with no traffic this month: 1" in out
+    assert "traffic this month: sg 3.0 MB (total 3.0 MB)" in out
+    assert "phone" not in out and "laptop" not in out  # no device names

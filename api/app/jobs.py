@@ -1,6 +1,8 @@
 """Work on the nodes. Each job runs inside a transaction that holds its row lock, so the API (which tries a job
 right away) and the worker never run the same job twice."""
 
+from datetime import UTC, datetime, time
+
 import psycopg
 from psycopg.types.json import Jsonb
 
@@ -100,6 +102,11 @@ def expire_devices(conn: psycopg.Connection) -> int:
             conn.execute(
                 "INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'remove')", (region_id, device_id)
             )
+            conn.execute(
+                "INSERT INTO daily_stats (day, region_id, expired_devices) VALUES (current_date, %s, 1) "
+                "ON CONFLICT (day, region_id) DO UPDATE SET expired_devices = daily_stats.expired_devices + 1",
+                (region_id,),
+            )
     return len(rows)
 
 
@@ -121,13 +128,18 @@ def poll_usage(conn: psycopg.Connection) -> None:
         except NodeError:
             continue
         started = data["interface_started"]
+        # for daily_stats: today's traffic on this node, and the devices whose last handshake is today
+        day_start = datetime.combine(datetime.now(UTC).date(), time.min, tzinfo=UTC).timestamp()
+        day_rx = day_tx = active = 0
         for peer in data["peers"]:
             with conn.transaction():
                 device = conn.execute(
-                    "SELECT account_id FROM devices WHERE id = %s FOR UPDATE", (peer["name"],)
+                    "SELECT account_id, region_id FROM devices WHERE id = %s FOR UPDATE", (peer["name"],)
                 ).fetchone()
                 if device is None:
                     continue  # peers created outside the portal, or already deleted here
+                if device[1] == region_id and peer.get("latest_handshake", 0) >= day_start:
+                    active += 1
                 prev = conn.execute(
                     "SELECT interface_started, rx_bytes, tx_bytes, blocked FROM device_counters WHERE device_id = %s",
                     (peer["name"],),
@@ -157,6 +169,8 @@ def poll_usage(conn: psycopg.Connection) -> None:
                         "tx_bytes = account_usage.tx_bytes + EXCLUDED.tx_bytes",
                         (device[0], d_rx, d_tx),
                     )
+                day_rx += d_rx
+                day_tx += d_tx
                 if d_rx or d_tx or d_blocked:
                     conn.execute(
                         "INSERT INTO device_usage (device_id, period, rx_bytes, tx_bytes, blocked) "
@@ -167,9 +181,19 @@ def poll_usage(conn: psycopg.Connection) -> None:
                         "blocked = device_usage.blocked + EXCLUDED.blocked",
                         (peer["name"], d_rx, d_tx, d_blocked),
                     )
+        # handshakes only move forward within a day, but a node restart forgets them: keep the day's highest count
+        conn.execute(
+            "INSERT INTO daily_stats (day, region_id, active_devices, rx_bytes, tx_bytes) "
+            "VALUES (current_date, %s, %s, %s, %s) "
+            "ON CONFLICT (day, region_id) DO UPDATE SET "
+            "active_devices = greatest(daily_stats.active_devices, EXCLUDED.active_devices), "
+            "rx_bytes = daily_stats.rx_bytes + EXCLUDED.rx_bytes, tx_bytes = daily_stats.tx_bytes + EXCLUDED.tx_bytes",
+            (region_id, active, day_rx, day_tx),
+        )
         beat(conn, f"usage:{region_id}")
     # devices show this month only; earlier months are not kept
     conn.execute("DELETE FROM device_usage WHERE period < date_trunc('month', current_date)")
+    conn.execute("DELETE FROM daily_stats WHERE day < current_date - 400")
 
 
 def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
