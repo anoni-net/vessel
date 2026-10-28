@@ -56,6 +56,20 @@ def start_session(conn: psycopg.Connection, response: Response, account_id: int)
     )
 
 
+def extend_session(conn: psycopg.Connection, request: Request, response: Response) -> None:
+    """Move the session's expiry, and the cookie's, SESSION_DAYS past today."""
+    token = request.cookies.get(COOKIE)
+    if not token:
+        return
+    conn.execute(
+        "UPDATE sessions SET expires_at = now() + make_interval(days => %s) WHERE id_hmac = %s",
+        (policy.SESSION_DAYS, crypto.keyed_hash(load().hmac_key, token)),
+    )
+    response.set_cookie(
+        COOKIE, token, max_age=policy.SESSION_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict",
+    )
+
+
 def current_account(request: Request, conn: Conn) -> int:
     token = request.cookies.get(COOKIE)
     if not token:
@@ -162,8 +176,9 @@ def logout(request: Request, response: Response, conn: Conn) -> dict[str, bool]:
 
 
 @router.get("/me")
-def me(account_id: Account, conn: Conn) -> dict:
-    # every page asks this when it loads, so opening the portal while signed in counts as signing in, once a day
+def me(account_id: Account, request: Request, response: Response, conn: Conn) -> dict:
+    # every page asks this when it loads, so opening the portal while signed in counts as signing in, once a day:
+    # the devices and the session both last another 30 days
     with conn.transaction():
         stale = conn.execute(
             "SELECT 1 FROM accounts WHERE id = %s AND (last_login_on IS NULL OR last_login_on < current_date)",
@@ -171,6 +186,7 @@ def me(account_id: Account, conn: Conn) -> dict:
         ).fetchone()
         if stale:
             keep_alive(conn, account_id)
+            extend_session(conn, request, response)
     created_on, last_login_on = conn.execute(
         "SELECT created_on, last_login_on FROM accounts WHERE id = %s", (account_id,)
     ).fetchone()

@@ -67,6 +67,8 @@
   "number.file": "Vessel 帳號號碼",
   "login.title": "登入",
   "login.label": "帳號號碼",
+  "login.show": "顯示",
+  "login.hide": "隱藏",
   "login.hint": "16 位數字，輸入時會自動每四位分開。",
   "login.submit": "登入",
   "login.noAccount": "還沒有帳號？",

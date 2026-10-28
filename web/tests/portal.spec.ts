@@ -336,3 +336,42 @@ test("terms show grey lines until their text arrives", async ({ page }) => {
   await expect(page.locator("main h2").first()).toBeVisible();
   await expect(page.locator("main .sk")).toHaveCount(0);
 });
+
+test("password managers can save and fill the account number", async ({ page }) => {
+  // stands in for Chromium's PasswordCredential, which headless browsers do not prompt for
+  await page.addInitScript(() => {
+    const stored: unknown[] = [];
+    (window as unknown as { stored: unknown[] }).stored = stored;
+    (window as unknown as { PasswordCredential: unknown }).PasswordCredential = class {
+      constructor(public data: { id: string; password: string }) {}
+    };
+    Object.defineProperty(navigator, "credentials", {
+      value: { store: async (c: { data: unknown }) => void stored.push(c.data) },
+    });
+  });
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018" }), ...signedIn });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("abcd-efgh-jkmn-pqrs");
+  await page.getByRole("button", { name: "兌換" }).click();
+  await page.getByLabel("我已經把號碼存在安全的地方").check();
+  await page.getByRole("button", { name: "繼續" }).click();
+  await expect(page).toHaveURL(/\/devices\/$/);
+  expect(await page.evaluate(() => (window as unknown as { stored: unknown[] }).stored))
+    .toEqual([{ id: "Vessel", password: "4821 0937 5564 2018", name: "Vessel" }]);
+
+  // the sign-in form is a user name and a password, the shape password managers look for;
+  // a page without the mocks is signed out, so the form stays
+  const login = await page.context().newPage();
+  await mockApi(login, { "GET /api/me": json({ error: "signed_out" }, 401) });
+  await login.goto("/login/");
+  await expect(login.locator('input[autocomplete="username"]')).toHaveValue("Vessel");
+  const number = login.getByLabel("帳號號碼");
+  await expect(number).toHaveAttribute("type", "password");
+  await expect(number).toHaveAttribute("autocomplete", "current-password");
+  await number.fill("4821093755642018");
+  await login.getByRole("button", { name: "顯示" }).click();
+  await expect(number).toHaveAttribute("type", "text");
+  await expect(number).toHaveValue("4821 0937 5564 2018");
+  await login.getByRole("button", { name: "隱藏" }).click();
+  await expect(number).toHaveAttribute("type", "password");
+});

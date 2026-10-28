@@ -98,12 +98,18 @@ def test_coming_back_signed_in_extends_devices_once_a_day(client, db):
     )
     # signed in today already: nothing to do
     db.execute("UPDATE accounts SET last_login_on = current_date")
-    client.get("/api/me")
+    assert "set-cookie" not in client.get("/api/me").headers
     assert db.execute("SELECT expires_on - current_date FROM devices").fetchone()[0] == 1
     # the session is still good, but the last visit was days ago
     db.execute("UPDATE accounts SET last_login_on = current_date - 5")
-    me = client.get("/api/me").json()
+    db.execute("UPDATE sessions SET expires_at = now() + interval '2 days'")
+    r = client.get("/api/me")
+    me = r.json()
     assert db.execute("SELECT expires_on - current_date FROM devices").fetchone()[0] == 30
+    # the session moves too, and the cookie with it
+    left = db.execute("SELECT expires_at - now() FROM sessions").fetchone()[0]
+    assert left.days == 29
+    assert "max-age=2592000" in r.headers["set-cookie"].lower()
     assert me["last_login_on"] == db.execute("SELECT current_date").fetchone()[0].isoformat()
 
 

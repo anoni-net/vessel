@@ -18,6 +18,9 @@ export const INVITE: Grouping = {
 
 export const ACCOUNT: Grouping = { clean: (raw) => raw.replace(/\D/g, ""), sep: " " };
 
+/** The user name password managers save the account number under; there is no real user name. */
+export const PM_USERNAME = "Vessel";
+
 export const groupedLength = (g: Grouping) => LENGTH + (LENGTH / SIZE - 1) * g.sep.length;
 
 export function group(raw: string, g: Grouping): string {
