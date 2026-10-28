@@ -48,7 +48,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .brand { display: inline-flex; align-items: center; gap: 14px; min-height: 48px; text-decoration: none; color: var(--ink); }
 .brand__logo { display: block; height: 26px; width: auto; }
 .brand__product { padding-inline-start: 14px; border-inline-start: 2px solid var(--ink); font-size: 22px; font-weight: 900; line-height: 1.2; }
-.footer-brand { display: flex; align-items: center; gap: 10px; }
+/* a short line: break only at the spaces and balance the lines, so a narrow screen splits no word and strands no character */
+.footer-brand { display: flex; align-items: center; gap: 10px; text-wrap: balance; word-break: keep-all; }
 .footer-brand img { flex: none; }
 /* the statistics note and the trademark notice read as one block of small print */
 .footer-legal { padding-block: 0 6px; font-size: 13px; color: #c3ced3; }
