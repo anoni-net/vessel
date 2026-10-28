@@ -209,6 +209,8 @@
   "faq.app.a": "Vessel 的連線經過 AmneziaWG 偽裝，封包的特徵跟一般的 WireGuard 不同，一般的 App 無法使用這些設定。",
   "faq.ios.q": "iPhone 的 App Store 找不到 AmneziaWG？",
   "faq.ios.a": "部分地區的 App Store 沒有上架。iPhone 沒有其他安裝管道，只能改用其他地區的 Apple ID 下載。Android 可以改裝 APK 安裝檔。",
+  "faq.androidVpn.q": "Android 顯示「使用者未授權 VPN 服務」？",
+  "faq.androidVpn.a": "Android 同一時間只允許一個 VPN，第一次連線時系統會跳出確認視窗，按「確定」之後 AmneziaWG 才能建立通道。最常見的原因是另一個 VPN App 開了「永久連線的 VPN」。到「設定 → 網路和網際網路 → VPN」點那個 App 旁邊的齒輪，關掉「永久連線的 VPN」與下方封鎖連線的選項即可。之前在確認視窗按了取消，或從通知欄直接開啟通道時，打開 AmneziaWG、在 App 裡點開關，確認視窗會重新出現。手機分成多個使用者或工作設定檔的話，要在使用 VPN 的那個設定檔裡安裝 AmneziaWG。",
   "faq.twoDevices.q": "同一份設定檔可以在兩台裝置上用嗎？",
   "faq.twoDevices.a": "不行，兩台同時連線會互相搶線，造成頻繁斷線。每台裝置請各自建立一份，一個帳號最多 3 台。",
   "faq.newPhone.q": "換手機或重灌之後怎麼辦？",

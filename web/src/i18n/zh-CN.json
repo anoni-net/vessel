@@ -209,6 +209,8 @@
   "faq.app.a": "Vessel 的连接经过 AmneziaWG 伪装，数据包的特征跟普通的 WireGuard 不同，普通的 App 无法使用这些配置。",
   "faq.ios.q": "iPhone 的 App Store 找不到 AmneziaWG？",
   "faq.ios.a": "部分地区的 App Store 没有上架。iPhone 没有其他安装渠道，只能改用其他地区的 Apple ID 下载。Android 可以改装 APK 安装包。",
+  "faq.androidVpn.q": "Android 提示“用户未授权 VPN 服务”？",
+  "faq.androidVpn.a": "Android 同一时间只允许一个 VPN，第一次连接时系统会弹出确认窗口，点“确定”之后 AmneziaWG 才能建立隧道。最常见的原因是另一个 VPN App 开启了“始终开启的 VPN”。到“设置 → 网络和互联网 → VPN”点那个 App 旁边的齿轮，关闭“始终开启的 VPN”与下方屏蔽连接的选项即可。之前在确认窗口点了取消，或从通知栏直接开启隧道时，打开 AmneziaWG、在 App 里点开关，确认窗口会重新出现。手机分成多个用户或工作资料的话，要在使用 VPN 的那个资料里安装 AmneziaWG。",
   "faq.twoDevices.q": "同一份配置文件可以在两台设备上用吗？",
   "faq.twoDevices.a": "不行，两台同时连接会互相抢线，导致频繁断开。每台设备请各自创建一份，一个账号最多 3 台。",
   "faq.newPhone.q": "换手机或重装系统之后怎么办？",
