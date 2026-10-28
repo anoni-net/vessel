@@ -15,6 +15,7 @@ export default {
           ["Each device's name, public key, city, tunnel IP address, DNS filter option and expiry date", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
           ["The account's monthly traffic total", "Counting the allowance", "Until the account is deleted"],
           ["Each device's traffic this month, and how many lookups the malware filter blocked (a count only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
+          ["Daily totals per city: how many devices connected that day, the traffic, and how many devices expired (totals only, not tied to any account or device)", "Understanding how the service is used and how much the nodes can take", "400 days"],
           ["A hash of the sign-in session", "Keeping you signed in", "Until you sign out, or after 30 days without using the portal"],
         ],
       },
