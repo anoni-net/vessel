@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 // The same policy nginx sends (deploy/nginx/vessel.anoni.net.conf). The preview server sends it too, so the
 // Playwright tests run under it; the dev server does not, since its hot reload needs inline scripts.
 export const CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://assets.anoni.net/vessel/; connect-src 'self' https://aa.anoni.net/api/send https://vessel-dns-0.anoni.net https://vessel-dns-1.anoni.net https://vessel-dns-2.anoni.net https://vessel-dns-3.anoni.net; manifest-src 'self'; " +
+  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://assets.anoni.net/vessel/; connect-src 'self' https://aa.anoni.net/api/send https://vessel-dns-0.anoni.net https://vessel-dns-1.anoni.net https://vessel-dns-2.anoni.net https://vessel-dns-3.anoni.net https://form.anoni.net/api/v1/client/cmc9borto0008lj014bq33jqq/responses; manifest-src 'self'; " +
   "form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 // The portal is served from the root of vessel.anoni.net; nginx sends /api/ to the backend.
