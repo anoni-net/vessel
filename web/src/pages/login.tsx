@@ -3,13 +3,14 @@ import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
-import { ACCOUNT, groupedLength, regroup } from "../grouped.ts";
+import { ACCOUNT, PM_USERNAME, groupedLength, regroup } from "../grouped.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
 
 export function Login() {
   const { t, href } = useCtx();
   const [number, setNumber] = useState("");
+  const [shown, setShown] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const signedIn = useSignedIn();
@@ -40,8 +41,17 @@ export function Login() {
     <section class="wrap narrow">
       <h1>{t["login.title"]}</h1>
       <form class="stack" onSubmit={submit}>
-        <label for="number" class="strong">{t["login.label"]}</label>
-        <input id="number" class="nb-input nb-input--code mono" inputMode="numeric" autoComplete="off" required
+        {/* a password field with a fixed user name, so password managers offer to save the number and fill it in */}
+        <input class="sr-only" type="text" name="username" autoComplete="username" value={PM_USERNAME} readOnly
+          tabIndex={-1} aria-hidden="true" />
+        <div class="row">
+          <label for="number" class="strong">{t["login.label"]}</label>
+          <button class="link-button small" type="button" aria-controls="number" aria-pressed={shown}
+            onClick={() => setShown(!shown)}>{shown ? t["login.hide"] : t["login.show"]}</button>
+        </div>
+        {/* Show turns it into a text field; Preact types the two separately, hence the cast */}
+        <input id="number" class="nb-input nb-input--code mono" type={(shown ? "text" : "password") as "text"}
+          name="password" inputMode="numeric" autoComplete="current-password" required spellcheck={false}
           value={number} maxLength={groupedLength(ACCOUNT)} placeholder="0000 0000 0000 0000"
           onInput={(e) => setNumber(regroup(e.currentTarget, ACCOUNT))} aria-describedby="number-hint" />
         <p id="number-hint" class="muted small">{t["login.hint"]}</p>

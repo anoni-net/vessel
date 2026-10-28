@@ -3,7 +3,7 @@ import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { errorText } from "../i18n/index.ts";
-import { INVITE, groupedLength, regroup } from "../grouped.ts";
+import { INVITE, PM_USERNAME, groupedLength, regroup } from "../grouped.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
 
@@ -58,6 +58,20 @@ export function Redeem() {
   );
 }
 
+/**
+ * Chromium browsers show their "save password?" prompt for this, and it stays up while the next page loads;
+ * elsewhere it does nothing and the number is saved the first time someone signs in with it.
+ */
+async function offerToSave(number: string): Promise<void> {
+  const Credential = (window as { PasswordCredential?: new (data: { id: string; password: string; name?: string }) => Credential }).PasswordCredential;
+  if (!Credential) return;
+  try {
+    await navigator.credentials.store(new Credential({ id: PM_USERNAME, password: number, name: PM_USERNAME }));
+  } catch {
+    /* declined or unavailable; the number is already saved some other way */
+  }
+}
+
 function AccountNumber({ number }: { number: string }) {
   const { t, href } = useCtx();
   const [copied, setCopied] = useState(false);
@@ -101,7 +115,7 @@ function AccountNumber({ number }: { number: string }) {
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.currentTarget.checked)} />
         {t["number.saved"]}
       </label>
-      <button class="nb-button nb-button--ink" type="button" disabled={!saved} onClick={() => { track("number-continue"); navigate(href("/devices/")); }}>
+      <button class="nb-button nb-button--ink" type="button" disabled={!saved} onClick={() => { track("number-continue"); void offerToSave(number); navigate(href("/devices/")); }}>
         {saved ? t["number.continue"] : t["number.locked"]}
       </button>
     </section>

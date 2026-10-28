@@ -67,6 +67,8 @@
   "number.file": "Vessel account number",
   "login.title": "Sign in",
   "login.label": "Account number",
+  "login.show": "Show",
+  "login.hide": "Hide",
   "login.hint": "16 digits, split into groups of four as you type.",
   "login.submit": "Sign in",
   "login.noAccount": "No account yet?",

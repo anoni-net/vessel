@@ -67,6 +67,8 @@
   "number.file": "Vessel 账号号码",
   "login.title": "登录",
   "login.label": "账号号码",
+  "login.show": "显示",
+  "login.hide": "隐藏",
   "login.hint": "16 位数字，输入时会自动每四位分开。",
   "login.submit": "登录",
   "login.noAccount": "还没有账号？",
