@@ -66,6 +66,12 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 三個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。兩份名單載入後約佔 700 MB 記憶體，節點至少要 2 GB。
 
+### 擋下次數
+
+裝置頁顯示每台裝置本月有幾次查詢被惡意網站的名單擋下，節點只計數，不記錄網域。兩個有過濾的解析器對這份名單開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 建立 `VESSEL-BLOCKED` 這條 chain，每個隧道位址（`.2` 到 `.249`）一條規則，用 `u32` 比對 DNS 標頭，只累計封包數。廣告名單擋下的不算，因為數字是用來發現裝置的異常。
+
+`awgctl` 把位址配給新的 peer 時歸零那條規則，`usage --json` 依位址帶出 `blocked`。計數跟著位址走，暫停與恢復不會歸零，容器重啟時歸零，入口網站的 worker 用跟流量相同的方式換算成增量。改了 `start.sh` 要重建映像再執行 `run.sh`，所有人會短暫斷線。
+
 入口網站的 `/dns/` 有即時檢測，讓使用者確認目前生效的過濾。四個測試網址 `vessel-dns-0` 到 `vessel-dns-3.anoni.net` 是真的網域，三個解析器用 `local-zone ... always_nxdomain` 各藏起其中幾個：
 
 | 測試網址 | 不過濾 | 擋惡意網站 | 再擋廣告 |

@@ -6,7 +6,7 @@ const GROUPS = {
   start: ["invite", "cost", "lost", "number", "share"],
   setup: ["protocols", "maker", "app", "ios", "twoDevices", "newPhone", "filter", "noTraffic", "trouble", "speed", "cities"],
   rules: ["expire", "expired", "quota", "p2p"],
-  privacy: ["see", "law", "cloudflare", "delete"],
+  privacy: ["see", "anomaly", "law", "cloudflare", "delete"],
 } as const;
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];

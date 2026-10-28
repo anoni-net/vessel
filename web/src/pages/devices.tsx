@@ -52,8 +52,8 @@ export function Devices() {
         <h1>{t["devices.title"]}</h1>
         <div class="stack" aria-hidden="true">
           <SkCard tint size="usage" lines={["mid", "full", "short", "long"]} />
-          <SkCard size="device" lines={["mid", "long", "short"]} />
-          <SkCard size="device" lines={["mid", "long", "short"]} />
+          <SkCard size="device" lines={["mid", "long", "long", "short"]} />
+          <SkCard size="device" lines={["mid", "long", "long", "short"]} />
           <SkButton />
         </div>
         <Busy />
@@ -108,6 +108,10 @@ export function Devices() {
                 </div>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
+              <p class="small" data-testid="device-usage">
+                {fmt(t["devices.used"], { amount: formatBytes(locale, d.used_bytes) })}
+                {d.dns_filter !== "none" && <>{" · "}{fmt(t["devices.blocked"], { n: d.blocked })}</>}
+              </p>
               {d.status === "pending" && <p class="muted small">{t["status.pendingNote"]}</p>}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
               <div class="row small">

@@ -230,7 +230,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .sk-card { border-color: #dfe5e8; gap: 14px; }
 /* heights of the real usage and device cards on the devices page */
 .sk-card--usage { min-height: 179px; }
-.sk-card--device { min-height: 158px; }
+.sk-card--device { min-height: 192px; }
 @media (max-width: 599px) { .sk-card--usage { min-height: 203px; } }
 @keyframes sk-pulse { 50% { opacity: 0.5; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
