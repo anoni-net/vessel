@@ -231,6 +231,8 @@
   "faq.newPhone.a": "設定檔只在建立時顯示一次，服務的伺服器上沒有私鑰。請在裝置清單刪掉舊的那台，再建立一台新的。",
   "faq.filter.q": "網域過濾要選哪一個？",
   "faq.filter.a": "擋惡意網站使用 HaGeZi 的 Threat Intelligence Feeds（mini），擋廣告再加上 HaGeZi Multi（Normal），名單每 8 小時更新一次。不確定的話選「不過濾」，擋廣告的名單偶爾會擋到正常的網站。之後想更換，要刪掉這台裝置再重新建立。瀏覽器開啟「安全 DNS」時，過濾不會生效。",
+  "faq.splitTunnel.q": "可以只讓部分 App 走 VPN 嗎？",
+  "faq.splitTunnel.a": "可以。Android 版的 AmneziaWG 有分流（split tunneling）功能，編輯通道時可以設定要排除哪些 App，或只讓哪些 App 走 VPN，例如讓銀行或公司的 App 直接連線。iPhone 與電腦版沒有依 App 分流的選項。排除在外的 App 不經過 VPN，網路業者與公共 Wi-Fi 的管理者可以看到它連往哪裡，網域過濾也不會生效。不確定的話維持預設，讓所有流量都走 VPN。",
   "faq.noTraffic.q": "VPN 顯示已連線，卻上不了網？",
   "faq.noTraffic.a": "AmneziaWG 跟 WireGuard 一樣，打開開關就顯示已連線，不會先確認節點有沒有回應。App 的連線詳細資料裡有「最近一次握手」（Latest handshake）的時間，一直沒有出現就代表節點沒有回應。先登入入口網站看裝置清單，清單上沒有這台，就是已經到期刪除，重新新增一台即可。裝置顯示「暫停」代表本月的 50 GB 已經用完，每月 1 日自動恢復。兩者都不是的話，可能是目前的網路擋下了連線，換成行動網路試試。",
   "faq.trouble.q": "連不上怎麼辦？",
