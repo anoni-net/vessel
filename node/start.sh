@@ -28,6 +28,10 @@ iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
 
+# --- IPv6: peers only get IPv4 tunnel addresses, so nothing on awg0 should be IPv6; drop it in case that changes ---
+ip6tables -P FORWARD DROP
+ip6tables -A INPUT -i awg0 -j DROP
+
 # --- blocked malware lookups, counted per tunnel address ---
 # The malware RPZ answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
 # answer has. One rule per client address counts those packets; nothing records the names. awgctl zeroes a
