@@ -6,6 +6,7 @@ import { Account } from "./pages/account.tsx";
 import { Devices } from "./pages/devices.tsx";
 import { Dns } from "./pages/dns.tsx";
 import { Faq } from "./pages/faq.tsx";
+import { Feedback } from "./pages/feedback.tsx";
 import { Home } from "./pages/home.tsx";
 import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
@@ -64,6 +65,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/account/": ["account.title", () => <Account />],
   "/faq/": ["faq.title", () => <Faq />],
   "/dns/": ["dns.title", () => <Dns />],
+  "/feedback/": ["feedback.title", () => <Feedback />],
   "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
   "/privacy/": ["privacy.title", () => <Legal doc="privacy" titleKey="privacy.title" />],
 };
@@ -129,6 +131,7 @@ export function App({ url }: { url?: string } = {}) {
           <nav aria-label={t["nav.footer"]} class="site-footer__links">
             <a href={href("/faq/")}>{t["faq.title"]}</a>
             <a href={href("/dns/")}>{t["dns.title"]}</a>
+            <a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a>
             {(["/terms/", "/privacy/"] as const).map((p) => {
               // the text loads with the page; start when the pointer or focus gets to the link
               const early = () => void preloadLegal(locale, p).catch(() => undefined);

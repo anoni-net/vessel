@@ -51,7 +51,7 @@ export function HomeFaq() {
 }
 
 export function Faq() {
-  const { t } = useCtx();
+  const { t, href } = useCtx();
   // a link to one question opens it; hydrating the prerendered page keeps the closed state, so open it here
   useEffect(() => {
     const target = location.hash ? document.getElementById(location.hash.slice(1)) : null;
@@ -66,6 +66,7 @@ export function Faq() {
           <Questions ids={GROUPS[g]} />
         </section>
       ))}
+      <p class="faq__more"><a class="strong" href={href("/feedback/?from=faq")}>{t["feedback.notAnswered"]}</a></p>
     </section>
   );
 }

@@ -156,6 +156,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .choice--radio { flex-direction: row; gap: 12px; box-shadow: none; min-height: 0; }
 .choice--radio input { width: 20px; height: 20px; margin: 4px 0 0; accent-color: var(--ink); flex: none; }
 .choice--on { background: var(--tint); }
+.stack-sm { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.stack-sm > legend { padding: 0; margin-bottom: 2px; }
+.picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.picks .tab { flex: 0 1 auto; }
+.nb-textarea { min-height: 160px; resize: vertical; font: inherit; line-height: 1.6; }
+.feedback-lead { margin: 12px 0 24px; }
 .choice--city { flex-direction: row; align-items: center; gap: 14px; }
 .choice__text { display: flex; flex-direction: column; gap: 2px; }
 /* a thin frame: the flags of Japan and Singapore are partly white */

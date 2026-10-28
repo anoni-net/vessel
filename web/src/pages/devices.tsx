@@ -172,6 +172,7 @@ export function Devices() {
       <p class="muted small center">
         {fmt(t["devices.limitNote"], { max: me.device_limit, quota: formatBytes(locale, me.monthly_quota_bytes) })}
       </p>
+      <p class="small center"><a class="strong" href={href("/feedback/?from=devices")}>{t["feedback.link"]}</a></p>
     </section>
   );
 }

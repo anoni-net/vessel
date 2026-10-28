@@ -37,6 +37,7 @@ export default {
     { h: "Statistics" },
     { p: "Views of public pages, and the result of each step of redeeming, signing in and creating a device, go to the Umami instance anoni.net hosts, so problems along the way show up. Each record holds only the page path, the language, the screen size rounded to hundreds and the step's result. Account numbers, device names and settings, and keys are never sent. Umami works out the country and city from the IP address but does not keep the address." },
     { p: "Nothing is sent when your browser has Do Not Track or Global Privacy Control turned on, and you can turn it off in the footer." },
+    { p: "What you send from the feedback page is stored on the form server anoni.net runs itself, with only the country and browser type of the submission, not your IP address, and it is never linked to your Vessel account. Contact details you leave are deleted once we are done." },
     { h: "Third parties that handle data" },
     {
       ul: [
