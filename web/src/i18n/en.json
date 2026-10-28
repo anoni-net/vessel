@@ -219,6 +219,8 @@
   "faq.maker.a": "The Amnezia team, and its code is public on GitHub for anyone to check. Vessel has no direct affiliation with Amnezia. Get the app from its official store page or GitHub; the links in the setup steps all point to official sources.",
   "faq.app.q": "Why can't I use the regular WireGuard® app?",
   "faq.app.a": "Vessel disguises its connections with AmneziaWG, so its packets look different from regular WireGuard, and the regular app cannot use the config.",
+  "faq.disguise.q": "How reliable is the disguise?",
+  "faq.disguise.a": "In tests with the open-source traffic analyser nDPI, plain WireGuard is classified as a VPN and Vessel as QUIC web traffic. Equipment that matches packet patterns has a hard time recognising Vessel, but equipment that analyses traffic more deeply may still recognise it. The disguise lowers the chance of being blocked; it does not guarantee that every network lets you connect. If a network will not let you connect, tell us on the feedback page, and we will use it to adjust the disguise.",
   "faq.ios.q": "AmneziaWG is missing from my App Store",
   "faq.ios.a": "It is not listed in some regions. iPhones have no other way to install it, so the only option is an Apple ID from another region. On Android you can install the APK instead.",
   "faq.androidVpn.q": "Android says the VPN service was not authorized?",

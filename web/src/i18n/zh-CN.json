@@ -219,6 +219,8 @@
   "faq.maker.a": "由 Amnezia 团队开发，代码公开在 GitHub，任何人都可以检查。Vessel 与 Amnezia 无直接合作关系，App 请从官方的商店页面或 GitHub 下载，安装步骤里的链接都指向官方来源。",
   "faq.app.q": "为什么不能用普通的 WireGuard® App？",
   "faq.app.a": "Vessel 的连接经过 AmneziaWG 伪装，数据包的特征跟普通的 WireGuard 不同，普通的 App 无法使用这些配置。",
+  "faq.disguise.q": "伪装有多可靠？",
+  "faq.disguise.a": "在开源流量分析工具 nDPI 的检验里，普通的 WireGuard 被判定为 VPN，Vessel 被判定为 QUIC 网页流量。依照数据包特征比对的设备不容易认出 Vessel，会深入分析流量的设备仍有可能认出。伪装能降低被封锁的机会，但不保证每个网络都能连上。遇到连不上的网络，请通过反馈告诉我们，我们会用来调整伪装的方式。",
   "faq.ios.q": "iPhone 的 App Store 找不到 AmneziaWG？",
   "faq.ios.a": "部分地区的 App Store 没有上架。iPhone 没有其他安装渠道，只能改用其他地区的 Apple ID 下载。Android 可以改装 APK 安装包。",
   "faq.androidVpn.q": "Android 提示“用户未授权 VPN 服务”？",
