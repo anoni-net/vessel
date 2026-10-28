@@ -162,7 +162,11 @@ export function Devices() {
         </ul>
       )}
 
-      {!full && !overQuota && (
+      {full || overQuota ? (
+        <p class="card card--dashed" data-testid="add-blocked">
+          {full ? fmt(t["devices.fullHint"], { max: me.device_limit }) : t["devices.quotaHint"]}
+        </p>
+      ) : (
         <a class="nb-button nb-button--primary" href={href("/devices/new/")}>{t["devices.add"]}</a>
       )}
       <p class="muted small center">

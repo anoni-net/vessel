@@ -9,13 +9,13 @@ const NODE = {
 const KEY = /^[A-Za-z0-9+/]{43}=$/;
 const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[] } = {}) {
+async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object } = {}) {
   const posted: Record<string, string>[] = [];
   let polls = 0;
   await page.route("**/api/**", async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
-    if (path === "/api/me") return route.fulfill({ json: ME });
+    if (path === "/api/me") return route.fulfill({ json: { ...ME, ...opts.me } });
     if (path === "/api/devices" && req.method() === "GET") return route.fulfill({ json: opts.devices ?? [] });
     if (path === "/api/regions") return route.fulfill({ json: [{ id: "jp", open: false }, { id: "sg", open: true }] });
     if (path === "/api/devices" && req.method() === "POST") {
@@ -108,8 +108,9 @@ test("install step switches platforms", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Download the Windows installer" })).toBeVisible();
 });
 
-test("the add button disappears at the device limit", async ({ page }) => {
-  const d = (id: string) => ({ id, name: id, region: "sg", dns_filter: "none", status: "active", created_on: "2026-10-27", expires_on: "2026-11-26" });
+const d = (id: string) => ({ id, name: id, region: "sg", dns_filter: "none", status: "active", created_on: "2026-10-27", expires_on: "2026-11-26", used_bytes: 0, blocked: 0 });
+
+test("the add button gives way to a hint at the device limit", async ({ page }) => {
   await mock(page, { devices: [d("a"), d("b")] });
   await page.goto("/devices/");
   await expect(page.getByRole("link", { name: "新增裝置" })).toBeVisible();
@@ -118,6 +119,34 @@ test("the add button disappears at the device limit", async ({ page }) => {
   await page.reload();
   await expect(page.getByTestId("device-list").getByText("c", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "新增裝置" })).toHaveCount(0);
+  await expect(page.getByTestId("add-blocked")).toHaveText("已經有 3 台裝置，刪除一台不再使用的裝置之後就可以新增。");
+});
+
+test("opening the new-device page with 3 devices says so before any step", async ({ page }) => {
+  const posted = await mock(page, { devices: [d("a"), d("b"), d("c")] });
+  await page.goto("/devices/new/");
+  const gate = page.getByTestId("device-gate");
+  await expect(gate.getByRole("heading", { level: 1 })).toHaveText("裝置已經到上限");
+  await expect(gate).toContainText("這個帳號已經有 3 台裝置");
+  await expect(page.getByRole("button", { name: "已經安裝，下一步" })).toHaveCount(0);
+  await gate.getByRole("link", { name: "回到我的裝置" }).click();
+  await expect(page).toHaveURL(/\/devices\/$/);
+  expect(posted).toHaveLength(0);
+});
+
+test("with the allowance used up, the new-device page says when it comes back", async ({ page }) => {
+  await mock(page, { devices: [d("a")], me: { used_bytes: 50e9 } });
+  await page.goto("/devices/new/");
+  await expect(page.getByTestId("device-gate").getByRole("heading", { level: 1 })).toHaveText("本月額度已經用完");
+  await expect(page.getByTestId("device-gate")).toContainText("50 GB");
+});
+
+test("creating the third device still shows its config", async ({ page }) => {
+  await mock(page, { devices: [d("a"), d("b")] });
+  await throughToName(page);
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByRole("button", { name: "下載設定檔" })).toBeVisible();
+  await expect(page.getByTestId("device-gate")).toHaveCount(0);
 });
 
 test("the install step explains AmneziaWG through the FAQ", async ({ page }) => {
