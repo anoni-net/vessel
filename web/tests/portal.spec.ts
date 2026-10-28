@@ -404,6 +404,10 @@ test("the devices page refreshes on its own", async ({ page }) => {
   status = "active";
   await page.clock.fastForward(10_000);
   await expect(badge).toHaveText("使用中");
+  // Preact runs effect cleanups (here, stopping the 10-second check) on a timer after paint, and the fake
+  // clock owns that timer too: let it run, and let a check already on its way land, before counting
+  await page.clock.runFor(1000);
+  await page.waitForLoadState("networkidle");
   const settled = devicesCalls;
   await page.clock.fastForward(60_000);
   expect(devicesCalls).toBe(settled);
