@@ -11,9 +11,14 @@ export function buildConfig(node: NodeConfig, privateKey: string, presharedKey: 
   return lines.join("\n");
 }
 
-/** The app names the tunnel after the file, so keep it short and ASCII. */
+// The app names the tunnel after the file. On Android the name must match [a-zA-Z0-9_=+.-]{1,15}, the Linux
+// limit for interface names, or the import fails with "invalid name"; iOS has no such limit.
+const TUNNEL_NAME_MAX = 15;
+
 export function configFileName(region: string, deviceId: string): string {
-  return `vessel-${region}-${deviceId.replace(/^d-/, "").slice(0, 6)}.conf`;
+  const base = `vessel-${region.replace(/[^a-zA-Z0-9_=+.-]/g, "")}-`;
+  const id = deviceId.replace(/^d-/, "");
+  return `${(base + id).slice(0, TUNNEL_NAME_MAX)}.conf`;
 }
 
 export function qrSvg(text: string): string {
