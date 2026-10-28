@@ -4,6 +4,7 @@ import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 import { generateKeyPair, generatePresharedKey } from "../keys.ts";
+import { PLANNED, flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
@@ -16,6 +17,18 @@ const POLL_MS = 2000;
 const POLL_TRIES = 60;
 
 type Step = "install" | "region" | "name" | "config";
+
+type CityState = "open" | "closed" | "planned";
+
+/** Open cities first, then the ones being set up, then the ones still in talks with a host. */
+function cityChoices(regions: Region[]): { id: string; state: CityState }[] {
+  const rank: Record<CityState, number> = { open: 0, closed: 1, planned: 2 };
+  const known = new Set(regions.map((r) => r.id));
+  return [
+    ...regions.map((r) => ({ id: r.id, state: (r.open ? "open" : "closed") as CityState })),
+    ...PLANNED.filter((id) => !known.has(id)).map((id) => ({ id, state: "planned" as CityState })),
+  ].sort((a, b) => rank[a.state] - rank[b.state]);
+}
 
 export function NewDevice() {
   const { t, href } = useCtx();
@@ -140,11 +153,14 @@ export function NewDevice() {
         <h1>{t["pick.title"]}</h1>
         <p class="muted">{t["pick.body"]}</p>
         {errorLine}
-        {regions?.map((r) => (
-          <button type="button" class="choice" disabled={!r.open}
-            onClick={() => { setRegion(r.id); go("name"); }}>
-            <span class="strong big">{t[`region.${r.id}` as MessageKey] ?? r.id}</span>
-            <span class="muted small">{r.open ? t["pick.open"] : t["pick.closed"]}</span>
+        {regions && cityChoices(regions).map(({ id, state }) => (
+          <button type="button" class="choice choice--city" disabled={state !== "open"} data-state={state}
+            onClick={() => { setRegion(id); go("name"); }}>
+            {flagOf(id) && <img class="flag" src={flagOf(id)} alt="" width="32" height="24" />}
+            <span class="choice__text">
+              <span class="strong big">{t[`region.${id}` as MessageKey] ?? id}</span>
+              <span class="muted small">{t[`pick.${state}`]}</span>
+            </span>
           </button>
         ))}
         <button class="link-button" type="button" onClick={() => go("install")}>{t["back"]}</button>
