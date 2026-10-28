@@ -227,7 +227,7 @@
   "faq.speed.q": "How fast is it?",
   "faq.speed.a": "It depends on your network and how far you are from the node. In tests from Taiwan to the Singapore node, latency was about 67 ms and speed about 200 Mbps.",
   "faq.cities.q": "Will there be nodes in other cities?",
-  "faq.cities.a": "Singapore is the only one for now. More will follow depending on how the test goes.",
+  "faq.cities.a": "Singapore and Tokyo for now. More will follow depending on how the test goes. You pick the city when you create a device; to switch cities, add another device.",
   "faq.expire.q": "Why do devices expire?",
   "faq.expire.a": "If an account does not use the portal for 30 days, its devices expire and are deleted from the nodes and the device list, so unused configs do not linger on the nodes. Signing in, or opening the portal while signed in, extends them by 30 days. The device list shows each expiry date.",
   "faq.expired.q": "What happens after a device expires?",
