@@ -312,7 +312,7 @@
   "faqArt.legend.you": "你的 IP",
   "faqArt.legend.node": "節點的 IP",
   "faqArt.legend.account": "你的帳號",
-  "feedback.title": "回饋",
+  "feedback.title": "意見回覆",
   "feedback.link": "回報問題或給建議",
   "feedback.notAnswered": "沒有找到答案？告訴我們",
   "meta.feedback": "回報 Vessel 連不上、建立裝置卡住或速度太慢的狀況，或告訴我們想要的功能。",
@@ -354,6 +354,6 @@
   "feedback.sent": "收到了，謝謝",
   "feedback.sentBody": "每一筆都會讀。連線的問題我們會先檢查節點，需要細節時會用你留下的聯絡方式詢問。",
   "feedback.back": "回到 Vessel",
-  "feedback.closed": "回饋暫時沒有開放，請稍後再試。",
+  "feedback.closed": "意見回覆暫時沒有開放，請稍後再試。",
   "feedback.failed": "沒有送出，請檢查網路之後再試一次。"
 }

@@ -83,7 +83,7 @@ test("the footer, the device list and the FAQ link to it", async ({ page }) => {
   await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
   await page.goto("/faq/");
   await expect(page.getByRole("link", { name: "沒有找到答案？告訴我們" })).toHaveAttribute("href", "/feedback/?from=faq");
-  await expect(page.locator("footer").getByRole("link", { name: "回饋" })).toHaveAttribute("href", "/feedback/?from=footer");
-  await page.locator("footer").getByRole("link", { name: "回饋" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("回饋");
+  await expect(page.locator("footer").getByRole("link", { name: "意見回覆" })).toHaveAttribute("href", "/feedback/?from=footer");
+  await page.locator("footer").getByRole("link", { name: "意見回覆" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("意見回覆");
 });
