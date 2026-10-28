@@ -1,13 +1,15 @@
-import { useEffect, useState } from "preact/hooks";
-import { ApiError, type DnsFilter, type Region, api } from "../api.ts";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { ApiError, type Device, type DnsFilter, type Me, type Region, api, last } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
+import { formatBytes } from "../format.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 import { generateKeyPair, generatePresharedKey } from "../keys.ts";
 import { PLANNED, flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
+import { NewDeviceSkeleton } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
@@ -17,6 +19,19 @@ const POLL_MS = 2000;
 const POLL_TRIES = 60;
 
 type Step = "install" | "region" | "name" | "config";
+
+type Gate = "ok" | "limit" | "quota";
+
+/**
+ * Whether the account can add a device. The backend checks again when the device is created; this only spares
+ * walking through the steps first. Unknown until both answers are in.
+ */
+function gateOf(me?: Me | null, devices?: Device[] | null): Gate | undefined {
+  if (!me || !devices) return undefined;
+  if (devices.filter((d) => d.status !== "revoking").length >= me.device_limit) return "limit";
+  if (me.used_bytes >= me.monthly_quota_bytes) return "quota";
+  return "ok";
+}
 
 type CityState = "open" | "closed" | "planned";
 
@@ -31,7 +46,12 @@ function cityChoices(regions: Region[]): { id: string; state: CityState }[] {
 }
 
 export function NewDevice() {
-  const { t, href } = useCtx();
+  const { t, href, locale } = useCtx();
+  const [me, setMe] = useState<Me | null>(last.me ?? null);
+  const [gate, setGate] = useState<Gate | undefined>(() => gateOf(last.me, last.devices));
+  // once a device is being created here, the page stays on its steps, even though the account is now full
+  const started = useRef(false);
+  const tracked = useRef(false);
   const [step, setStep] = useState<Step>("install");
   const [platform, setPlatform] = useState<Platform>(detectPlatform());
   const [regions, setRegions] = useState<Region[] | null>(null);
@@ -52,8 +72,21 @@ export function NewDevice() {
 
   useEffect(() => {
     api.regions().then(setRegions).catch(fail);
-    track("device-step", { step: "install", platform });
+    Promise.all([api.me(), api.devices()]).then(([m, d]) => {
+      setMe(m);
+      if (!started.current) setGate(gateOf(m, d));
+    }).catch((x) => {
+      // without an answer, let them try: the backend still refuses a device over the limit
+      setGate((g) => g ?? "ok");
+      fail(x);
+    });
   }, []);
+
+  useEffect(() => {
+    if (gate !== "ok" || tracked.current) return;
+    tracked.current = true;
+    track("device-step", { step: "install", platform });
+  }, [gate]);
 
   // the private key lives only in this page; warn before it is lost
   useEffect(() => {
@@ -72,6 +105,7 @@ export function NewDevice() {
 
   const create = async (e: Event) => {
     e.preventDefault();
+    started.current = true;
     setBusy(true);
     setErr("");
     const keys = generateKeyPair();
@@ -101,6 +135,18 @@ export function NewDevice() {
 
   const stepLabel = (n: number) => <p class="muted strong">{fmt(t["new.step"], { n })}</p>;
   const errorLine = err && <p class="error" role="alert">{err}</p>;
+
+  if (gate === undefined) return <NewDeviceSkeleton />;
+  if (gate !== "ok" && me && !started.current) {
+    const full = gate === "limit";
+    return (
+      <section class="wrap narrow stack" data-testid="device-gate">
+        <h1>{t[full ? "new.fullTitle" : "new.quotaTitle"]}</h1>
+        <p>{fmt(t[full ? "new.fullBody" : "new.quotaBody"], { max: me.device_limit, quota: formatBytes(locale, me.monthly_quota_bytes) })}</p>
+        <a class="nb-button nb-button--primary" href={href("/devices/")}>{t["new.back"]}</a>
+      </section>
+    );
+  }
 
   if (step === "install") {
     return (
