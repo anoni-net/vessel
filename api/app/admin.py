@@ -5,8 +5,9 @@
   python -m app.admin stats                                    counts only, no per-account data
   python -m app.admin report [--days N]                        totals for reviewing the test, and the daily
                                                                stats of the last N days (default 14)
-  python -m app.admin regions [set ID --node-host HOST (--open|--closed)]
-                                                               list regions, or add/change one
+  python -m app.admin regions [set ID --node-host HOST (--open|--closed) [--exit-ip IP]]
+                                                               list regions, or add/change one; the exit IP
+                                                               is the node's public address, for /api/exit
 
 Settings: account_cap (0 means no cap), redeem_paused (true/false).
 """
@@ -40,6 +41,7 @@ def main(argv: list[str] | None = None) -> None:
     state = rs.add_mutually_exclusive_group(required=True)
     state.add_argument("--open", dest="is_open", action="store_true")
     state.add_argument("--closed", dest="is_open", action="store_false")
+    rs.add_argument("--exit-ip")
     args = parser.parse_args(argv)
 
     settings = load()
@@ -61,13 +63,17 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"{key} = {value}")
         elif args.cmd == "regions":
             if args.action == "set":
+                # leaving out --exit-ip keeps the one already set
                 conn.execute(
-                    "INSERT INTO regions (id, node_host, is_open) VALUES (%s, %s, %s) "
-                    "ON CONFLICT (id) DO UPDATE SET node_host = EXCLUDED.node_host, is_open = EXCLUDED.is_open",
-                    (args.id, args.node_host, args.is_open),
+                    "INSERT INTO regions (id, node_host, is_open, exit_ip) VALUES (%s, %s, %s, %s) "
+                    "ON CONFLICT (id) DO UPDATE SET node_host = EXCLUDED.node_host, is_open = EXCLUDED.is_open, "
+                    "exit_ip = coalesce(EXCLUDED.exit_ip, regions.exit_ip)",
+                    (args.id, args.node_host, args.is_open, args.exit_ip),
                 )
-            for rid, host, is_open in conn.execute("SELECT id, node_host, is_open FROM regions ORDER BY id"):
-                print(f"{rid}  {host}  {'open' if is_open else 'closed'}")
+            for rid, host, is_open, exit_ip in conn.execute(
+                "SELECT id, node_host, is_open, exit_ip FROM regions ORDER BY id"
+            ):
+                print(f"{rid}  {host}  {'open' if is_open else 'closed'}  exit {exit_ip or '-'}")
         elif args.cmd == "stats":
             queries = {
                 "accounts": "SELECT count(*) FROM accounts",

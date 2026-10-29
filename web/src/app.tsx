@@ -3,6 +3,7 @@ import { LocaleContext, useCtx } from "./context.ts";
 import { HTML_LANG, LANGUAGE_NAME, LANGUAGE_SHORT, LOCALES, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
+import { Check } from "./pages/check.tsx";
 import { Devices } from "./pages/devices.tsx";
 import { Dns } from "./pages/dns.tsx";
 import { Faq } from "./pages/faq.tsx";
@@ -65,6 +66,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/account/": ["account.title", () => <Account />],
   "/faq/": ["faq.title", () => <Faq />],
   "/dns/": ["dns.title", () => <Dns />],
+  "/check/": ["check.title", () => <Check />],
   "/feedback/": ["feedback.title", () => <Feedback />],
   "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
   "/privacy/": ["privacy.title", () => <Legal doc="privacy" titleKey="privacy.title" />],
@@ -131,6 +133,7 @@ export function App({ url }: { url?: string } = {}) {
           <nav aria-label={t["nav.footer"]} class="site-footer__links">
             <a href={href("/faq/")}>{t["faq.title"]}</a>
             <a href={href("/dns/")}>{t["dns.title"]}</a>
+            <a href={href("/check/")}>{t["check.title"]}</a>
             <a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a>
             {(["/terms/", "/privacy/"] as const).map((p) => {
               // the text loads with the page; start when the pointer or focus gets to the link

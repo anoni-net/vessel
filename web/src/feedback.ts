@@ -72,7 +72,7 @@ export function feedbackPayload(f: Feedback, locale: Locale, from: string) {
   return { surveyId: SURVEYS[survey], finished: true as const, data };
 }
 
-export const FROM = ["devices", "faq", "footer", "new-device", "home"];
+export const FROM = ["devices", "faq", "footer", "new-device", "home", "check"];
 
 export type FeedbackResult = "sent" | "closed" | "network" | "other";
 

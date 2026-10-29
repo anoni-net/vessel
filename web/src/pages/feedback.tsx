@@ -1,4 +1,5 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
+import { checkLine, decodeCheck } from "../connection.ts";
 import { useCtx } from "../context.ts";
 import {
   CITIES,
@@ -44,6 +45,12 @@ export function Feedback() {
   const [result, setResult] = useState<FeedbackResult | null>(null);
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<Answers>) => setF((old) => ({ ...old, ...patch }));
+  // a result from the connection check (/check/), offered for the message; read after hydration, since the
+  // prerendered page has no query string
+  const [check, setCheck] = useState<ReturnType<typeof decodeCheck>>(null);
+  const [attach, setAttach] = useState(true);
+  useEffect(() => setCheck(decodeCheck(new URLSearchParams(location.search).get("check"))), []);
+  const line = check ? checkLine(t, check.exit, check.dns) : "";
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -51,7 +58,8 @@ export function Feedback() {
     if (!feedbackReady(f)) return;
     setBusy(true);
     const from = typeof location === "undefined" ? "" : new URLSearchParams(location.search).get("from") ?? "";
-    const r = await sendFeedback(feedbackPayload(f, locale, from));
+    const message = line && attach ? `${f.message.trim()}\n\n${line}`.slice(0, LIMITS.message) : f.message;
+    const r = await sendFeedback(feedbackPayload({ ...f, message }, locale, from));
     setBusy(false);
     setResult(r);
     if (r === "sent") window.scrollTo(0, 0);
@@ -90,6 +98,16 @@ export function Feedback() {
           onInput={(e) => set({ message: e.currentTarget.value })} />
         <p id="fb-message-hint" class="muted small">{t["feedback.messageHint"]}</p>
         {tried && short && <p class="error" role="alert">{fmt(t["feedback.tooShort"], { n: LIMITS.messageMin })}</p>}
+        {line && (
+          <label class={`choice choice--radio${attach ? " choice--on" : ""}`} data-testid="attach-check">
+            <input type="checkbox" checked={attach} onChange={() => setAttach(!attach)} />
+            <span>
+              <span class="strong">{t["feedback.attachCheck"]}</span>
+              <br />
+              <span class="muted small">{line}</span>
+            </span>
+          </label>
+        )}
 
         <Pick name="network" options={NETWORKS} value={f.network} onChange={(network) => set({ network })} />
         <Pick name="platform" options={PLATFORMS} value={f.platform} onChange={(platform) => set({ platform })} />

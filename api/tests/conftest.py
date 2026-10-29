@@ -12,7 +12,7 @@ os.environ.setdefault("VESSEL_DATABASE_URL", DB_URL or "postgresql:///unused")
 os.environ.setdefault("VESSEL_ACCOUNT_PEPPER", "test-pepper")
 os.environ.setdefault("VESSEL_HMAC_KEY", "test-hmac-key")
 
-from app import auth, crypto, migrate
+from app import auth, check, crypto, migrate
 from app.config import load
 from app.main import app
 from app.nodes import NodeError, set_node
@@ -45,6 +45,7 @@ def db(schema):
 @pytest.fixture
 def client(db):
     auth.sign_in_limiter.reset()
+    check.check_limiter.reset()
     # the session cookie is Secure, so the test client has to speak https
     with TestClient(app, base_url="https://testserver") as c:
         yield c
