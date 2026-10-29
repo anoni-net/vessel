@@ -22,6 +22,26 @@ iptables -A FORWARD -i awg0 -p tcp --dport 25 -j REJECT --reject-with tcp-reset
 iptables -A FORWARD -i awg0 -o eth0 -s "$SUBNET" -j ACCEPT
 iptables -t nat -A POSTROUTING -s "$SUBNET" -o eth0 -j MASQUERADE
 
+# --- P2P, counted only (toomore/anoni-net-ws#441) ---
+# The terms forbid P2P during the test without blocking it. These rules count, for the whole node, how many
+# packets look like BitTorrent, so we can tell whether blocking is needed. Nothing is counted per device or
+# address, and nothing is dropped: every rule returns. Only the first packets of each connection are looked at,
+# so the jump sits before the ESTABLISHED rule above. `awgctl p2p` prints the counts.
+#   bt-handshake  the peer handshake, when the client does not encrypt it
+#   bt-dht        a DHT query (bencoded "d1:ad2:id20:")
+#   bt-tracker    a UDP tracker's connect request (its fixed protocol id) or an HTTP tracker announce
+iptables -N VESSEL-NEW
+iptables -A VESSEL-NEW -m comment --comment new-connections -j RETURN
+iptables -N VESSEL-P2P
+iptables -A VESSEL-P2P -p tcp -m string --algo bm --to 100 --string "BitTorrent protocol" -m comment --comment bt-handshake -j RETURN
+iptables -A VESSEL-P2P -p udp -m string --algo bm --to 100 --string "d1:ad2:id20:" -m comment --comment bt-dht -j RETURN
+# UDP payload starts after the IP header (its length from the first byte) and the 8-byte UDP header
+iptables -A VESSEL-P2P -p udp -m u32 --u32 "0>>22&0x3C@8=0x417&&0>>22&0x3C@12=0x27101980" -m comment --comment bt-tracker -j RETURN
+iptables -A VESSEL-P2P -p tcp -m string --algo bm --to 400 --string "info_hash=" -m comment --comment bt-tracker -j RETURN
+iptables -I FORWARD 1 -i awg0 -m connbytes --connbytes 0:4 --connbytes-dir original --connbytes-mode packets -j VESSEL-P2P
+# for scale: every new connection from the tunnel
+iptables -I FORWARD 1 -i awg0 -m conntrack --ctstate NEW -j VESSEL-NEW
+
 # --- traffic to the node itself from clients: DNS only ---
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
