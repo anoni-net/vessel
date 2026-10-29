@@ -23,6 +23,7 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 | `api/` | 入口網站的後端，FastAPI 與 PostgreSQL 18 | `uv sync`、`uv run pytest -q`、`uv run ruff check .`、`uv run python -m app.migrate` |
 | `web/` | 入口網站的前端，Vite、Preact、TypeScript | `npm ci`、`npm run dev`、`npm run typecheck`、`npm run build`、`npm test` |
 | `deploy/` | 後端的 compose、部署腳本、nginx 設定範例，部署步驟見 `deploy/README.md` | `deploy/deploy.sh` |
+| `tools/dpi-check/` | 在本機檢查 AmneziaWG 的偽裝在 DPI 工具眼中的樣子，改了混淆參數或升級 AmneziaWG 之後執行，說明見 `tools/dpi-check/README.md` | `tools/dpi-check/run.sh` |
 
 `npm run build` 建置之後會預先渲染每一頁（`web/scripts/prerender.mjs`），每個語系、每個頁面各有一份帶著自己標題、描述與連結預覽的 HTML，另外產生 `404.html`、`robots.txt` 與 `sitemap.xml`。正式網站的 nginx 只回應這些檔案，其他路徑回 404，所以新增頁面時要加進 `web/src/seo.ts` 的 `PUBLIC_PAGES`（可以被搜尋到）或 `PRIVATE_PAGES`（要登入，標成 `noindex`），清單跟 App 的路由對不上時建置會失敗。
 
