@@ -102,6 +102,8 @@ export const api = {
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   deleteAccount: () => call("DELETE", "/account"),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
+  /** whether this request came through a Vessel node; needs no session */
+  exit: () => call<{ region: string | null; ipv6: boolean }>("GET", "/exit").then((r) => r.data),
   createDevice: (body: NewDevice) =>
     call<{ id: string; status: "active" | "pending"; config?: NodeConfig }>("POST", "/devices", body).then((r) => r.data),
   /** 200 with the config, or 202 while the node is still adding the device */

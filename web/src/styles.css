@@ -102,6 +102,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card li { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
+.check-results { display: grid; gap: 12px; margin: 0; }
+.check-results dt { font-weight: 700; }
+.check-results dd { margin: 4px 0 0; }
 .card--warn { background: var(--warn); }
 .card--dashed { border-style: dashed; box-shadow: none; text-align: center; }
 .step { width: 48px; height: 48px; border: var(--border); border-radius: 999px; background: var(--accent); display: grid; place-items: center; font-size: 22px; font-weight: 900; }

@@ -45,7 +45,7 @@ export function Dns() {
 }
 
 function DnsCheck() {
-  const { t } = useCtx();
+  const { t, href, locale } = useCtx();
   const [state, setState] = useState<"idle" | "running" | Verdict>("idle");
   const check = async () => {
     setState("running");
@@ -62,6 +62,9 @@ function DnsCheck() {
         {state === "idle" || state === "running" ? "" : t[`dns.check.${state}`]}
       </p>
       <p class="muted small">{t["dns.check.privacy"]}</p>
+      <p class="small">
+        {t["dns.check.more"]} <a href={href("/check/")}>{t["check.title"]}</a>{locale === "en" ? "." : "。"}
+      </p>
     </div>
   );
 }

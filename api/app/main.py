@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from app import auth, devices, health
+from app import auth, check, devices, health
 from app.db import close_pool
 
 
@@ -17,6 +17,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Vessel", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(devices.router)
+app.include_router(check.router)
 app.include_router(health.router)
 
 
