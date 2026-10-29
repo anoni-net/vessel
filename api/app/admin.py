@@ -127,6 +127,16 @@ def report(conn: psycopg.Connection, days: int) -> None:
         f"AND u.period = {MONTH} AND u.rx_bytes + u.tx_bytes > 0)",
     )
     print(f"devices older than a day with no traffic this month: {idle}")
+    live = "status <> 'revoking'"
+    ever = one(conn, f"SELECT count(*) FROM devices WHERE {live} AND connected")
+    total = one(conn, f"SELECT count(*) FROM devices WHERE {live}")
+    week = "created_on > current_date - 7"
+    ever_new = one(conn, f"SELECT count(*) FROM devices WHERE {live} AND {week} AND connected")
+    total_new = one(conn, f"SELECT count(*) FROM devices WHERE {live} AND {week}")
+    print(f"devices that have connected at least once: {ever} of {total} (created in the last 7 days: {ever_new} of {total_new})")
+    with_device = one(conn, f"SELECT count(DISTINCT account_id) FROM devices WHERE {live}")
+    connected = one(conn, f"SELECT count(DISTINCT account_id) FROM devices WHERE {live} AND connected")
+    print(f"accounts: with a device {with_device}, with a device that connected {connected}, of {accounts}")
     rows = conn.execute(
         "SELECT d.region_id, sum(u.rx_bytes + u.tx_bytes) FROM device_usage u JOIN devices d ON d.id = u.device_id "
         f"WHERE u.period = {MONTH} GROUP BY 1 ORDER BY 1"

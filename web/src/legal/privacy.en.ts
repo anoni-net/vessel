@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-10-28",
+  updated: "2026-10-29",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -12,7 +12,7 @@ export default {
           ["A hash of the account number (Argon2id), which cannot be turned back into the number", "Checking it at sign-in", "Until the account is deleted"],
           ["The account's creation date and the last day it opened the portal (day only)", "Deciding when devices expire", "Until the account is deleted"],
           ["A hash of each invite code, the date it was redeemed and the account that redeemed it", "Making sure each code is used once", "The link to the account is removed when the account is deleted; the code's record is kept for now, and the final version will set a limit"],
-          ["Each device's name, public key, city, tunnel IP address, DNS filter option and expiry date", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
+          ["Each device's name, public key, city, tunnel IP address, DNS filter option, expiry date, and whether it has ever connected (yes or no only)", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
           ["The account's monthly traffic total", "Counting the allowance", "Until the account is deleted"],
           ["Each device's traffic this month, and how many lookups the malware filter blocked (a count only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
           ["Daily totals per city: how many devices connected that day, the traffic, and how many devices expired (totals only, not tied to any account or device)", "Understanding how the service is used and how much the nodes can take", "400 days"],

@@ -61,6 +61,8 @@ export interface Device {
   used_bytes: number;
   /** lookups the malware list blocked this month; only counted for devices with a DNS filter */
   blocked: number;
+  /** whether the device has ever completed a handshake with its node */
+  connected: boolean;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */

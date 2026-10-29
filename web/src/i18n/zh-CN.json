@@ -87,6 +87,7 @@
   "devices.expires": "到期 {date}",
   "devices.used": "本月 {amount}",
   "devices.blocked": "拦下 {n} 次恶意域名查询",
+  "devices.notConnected": "还没连接过。在 AmneziaWG 打开这个隧道之后，几分钟内这行提示就会消失。",
   "devices.limitNote": "每个账号最多 {max} 台设备，每月共用 {quota}，每次打开 Vessel 门户网站就延长 30 天",
   "devices.delete": "删除",
   "devices.confirmDelete": "确定要删除“{name}”吗？删除之后，这台设备会立刻断开。",
