@@ -22,7 +22,7 @@ docker run -d --rm --name vessel-pg-test -e POSTGRES_PASSWORD=t -e POSTGRES_DB=v
 VESSEL_TEST_DATABASE_URL=postgresql://postgres:t@127.0.0.1:55432/vessel uv run pytest -q
 ```
 
-維護者的指令在後端的主機上執行，沒有管理網頁：`python -m app.admin invites create --count N`、`regions set <ID> --node-host <tailnet IP> --open [--exit-ip <節點的公開 IP>]`、`settings [鍵 值]`、`stats`、`report [--days N]`。`report` 印出測試期每週檢視用的總數，以及 `daily_stats` 最近幾天的紀錄，只有總數，不列出任何帳號或裝置。`--exit-ip` 給連線檢測（`/check/`）用：`/api/exit` 把請求的來源 IP 跟各城市的出口 IP 比對，只回傳是哪個城市，不保存來源 IP。出口 IP 就是節點 `node.env` 的 `NODE_IP`，只存在資料庫，不寫進 repo。
+維護者的指令在後端的主機上執行，沒有管理網頁：`python -m app.admin invites create --count N`、`regions set <ID> --node-host <tailnet IP> --open [--exit-ip <節點的公開 IP>]`、`settings [鍵 值]`、`stats`、`report [--days N]`、`notices [add|end|delete]`。`report` 印出測試期每週檢視用的總數，以及 `daily_stats` 最近幾天的紀錄，只有總數，不列出任何帳號或裝置。`--exit-ip` 給連線檢測（`/check/`）用：`/api/exit` 把請求的來源 IP 跟各城市的出口 IP 比對，只回傳是哪個城市，不保存來源 IP。出口 IP 就是節點 `node.env` 的 `NODE_IP`，只存在資料庫，不寫進 repo。`notices` 寫入服務狀態頁（`/status/`）的維護與中斷紀錄，例如重啟節點之前 `notices add sg restart --minutes 5`，頁面列出最近 30 天的紀錄。各城市的「正常」、「無法連線」由 worker 最後一次讀到節點的時間判斷，門檻跟 `deploy/health_warn.py` 相同。
 
 節點的工作（新增與移除 peer）先寫進 `jobs`，API 當下試一次，失敗就交給 `python -m app.worker` 重試。worker 也負責讓過期的裝置下線、清掉沒被取走的設定檔，並每 5 分鐘讀一次節點的流量計數，換算成增量累計到帳號的當月用量。帳號用完額度時，它的裝置在節點上暫停，下個月（UTC）恢復。每次讀完一個節點，worker 也更新 `daily_stats` 當天那個城市的總數：最後握手在今天的裝置數（直接看節點的握手時間，不替裝置另外存時間）、流量，以及到期的裝置數，保存 400 天。節點第一次回報某台裝置的握手時，worker 把那台裝置記成「連上過」，只有是或否，`report` 用它算出建立之後真的連上的比例，裝置頁也用它提示還沒連上的裝置。測試用 `app.nodes.set_node()` 換成假的節點。
 

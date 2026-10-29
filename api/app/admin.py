@@ -9,6 +9,13 @@
                                                                list regions, or add/change one; the exit IP
                                                                is the node's public address, for /api/exit
 
+  python -m app.admin notices [list]                           notices on the status page, newest first
+  python -m app.admin notices add (REGION|all) KIND [--start ISO] [--minutes N]
+                                                               KIND is restart, maintenance or outage; without
+                                                               --minutes it stays open until `notices end`
+  python -m app.admin notices end ID [--at ISO]
+  python -m app.admin notices delete ID
+
 Settings: account_cap (0 means no cap), redeem_paused (true/false).
 """
 
@@ -42,6 +49,17 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("--open", dest="is_open", action="store_true")
     state.add_argument("--closed", dest="is_open", action="store_false")
     rs.add_argument("--exit-ip")
+    nt = sub.add_parser("notices").add_subparsers(dest="action")
+    nt.add_parser("list")
+    na = nt.add_parser("add")
+    na.add_argument("region")
+    na.add_argument("kind", choices=["restart", "maintenance", "outage"])
+    na.add_argument("--start")
+    na.add_argument("--minutes", type=int)
+    ne = nt.add_parser("end")
+    ne.add_argument("id", type=int)
+    ne.add_argument("--at")
+    nt.add_parser("delete").add_argument("id", type=int)
     args = parser.parse_args(argv)
 
     settings = load()
@@ -86,6 +104,32 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"{label}: {conn.execute(sql).fetchone()[0]}")
         elif args.cmd == "report":
             report(conn, args.days)
+        elif args.cmd == "notices":
+            notices(conn, args)
+
+
+def notices(conn: psycopg.Connection, args: argparse.Namespace) -> None:
+    if args.action == "add":
+        region = None if args.region == "all" else args.region
+        start = args.start or "now"
+        row = conn.execute(
+            "INSERT INTO notices (region_id, kind, starts_at, ends_at) VALUES (%s, %s, %s::timestamptz, "
+            "CASE WHEN %s::int IS NULL THEN NULL ELSE %s::timestamptz + make_interval(mins => %s::int) END) RETURNING id",
+            (region, args.kind, start, args.minutes, start, args.minutes),
+        ).fetchone()
+        print(f"added notice {row[0]}")
+    elif args.action == "end":
+        if conn.execute(
+            "UPDATE notices SET ends_at = %s::timestamptz WHERE id = %s", (args.at or "now", args.id)
+        ).rowcount == 0:
+            sys.exit(f"no notice {args.id}")
+    elif args.action == "delete":
+        conn.execute("DELETE FROM notices WHERE id = %s", (args.id,))
+    for nid, region, kind, start, end in conn.execute(
+        "SELECT id, region_id, kind, starts_at, ends_at FROM notices ORDER BY starts_at DESC LIMIT 20"
+    ):
+        until = end.isoformat(timespec="minutes") if end else "ongoing"
+        print(f"{nid}  {region or 'all'}  {kind}  {start.isoformat(timespec='minutes')}  {until}")
 
 
 def size(n: float) -> str:

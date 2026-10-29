@@ -145,6 +145,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge--active { background: var(--accent); }
 .badge--pending, .badge--revoking { border-style: dashed; }
 .badge--suspended { background: var(--warn); }
+.badge--state-ok { background: var(--accent); }
+.badge--state-down { background: var(--warn); }
+.badge--state-unknown { border-style: dashed; }
+.status-city { display: flex; align-items: center; gap: 12px; }
 .subnav { display: flex; flex-wrap: wrap; gap: 4px 20px; font-weight: 700; align-items: center; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
 .facts dt { font-weight: 800; }
