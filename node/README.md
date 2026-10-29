@@ -81,6 +81,8 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | `vessel-dns-2` | 正常解析 | 回 NXDOMAIN | 回 NXDOMAIN |
 | `vessel-dns-3` | 正常解析 | 正常解析 | 回 NXDOMAIN |
 
+三個解析器的快取至少保留 5 分鐘（`cache-min-ttl: 300`），記錄過期後先用舊的答案回應、同時在背景更新（`serve-expired`，最多再用一天）。很多網站的 TTL 只有一分鐘上下，原本快取幾乎留不住，2026-10-29 東京擋廣告的解析器命中率只有一半。代價是網站換了 IP 時，最多 5 分鐘或多一次查詢會取得舊的位址。
+
 有過濾的兩個解析器另外對 `use-application-dns.net` 回 NXDOMAIN。這是 Firefox 的偵測網域，Firefox 每次啟動與切換網路時查詢它，查不到就關掉預設開啟的 DNS over HTTPS，查詢才會繼續經過 Vessel、讓過濾生效。不過濾的解析器不回應這個訊號，因為它的意思是「這個網路有過濾」。使用者手動指定其他安全 DNS 服務時不受影響，過濾仍然不會生效。
 
 改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓三個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
