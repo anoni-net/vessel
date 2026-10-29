@@ -5,7 +5,8 @@ export default defineConfig({
   testDir: "tests",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
-  use: { baseURL: "http://127.0.0.1:4174" },
+  // the pages under test are mostly Traditional Chinese; a browser that prefers it gets no language bar
+  use: { baseURL: "http://127.0.0.1:4174", locale: "zh-TW" },
   webServer: {
     command: "npm run build && npm run preview",
     url: "http://127.0.0.1:4174",

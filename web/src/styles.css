@@ -95,6 +95,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .hero__cta { display: flex; flex-direction: column; gap: 16px; }
 /* links that depend on the session, before the page knows it (session.ts): keep the space, show nothing */
 .is-pending { visibility: hidden; }
+.lang-hint { background: var(--tint); border-bottom: 2px solid var(--ink); font-size: 15px; }
+.lang-hint__inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-block: 10px; }
 .pill { align-self: flex-start; padding: 2px 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); font-size: 15px; font-weight: 700; }
 
 .cards { display: grid; gap: 24px; padding: 0; margin: 0; list-style: none; }
