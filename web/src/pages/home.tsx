@@ -21,6 +21,7 @@ export function Home() {
             <h1>{t["home.title"]}</h1>
             <p class="lead">{t["home.lead"]}</p>
             <p class="strong">{t["home.promise"]}</p>
+            <p><a href={href("/learn/")}>{t["learn.link"]}</a></p>
             {looksSignedIn(signedIn) ? (
               <div class="actions">
                 <a class="nb-button nb-button--primary" href={href("/devices/")}>{t["home.devices"]}</a>
