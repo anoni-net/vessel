@@ -12,17 +12,19 @@ declare -A SRC=(
 )
 # the domains in a list, without the header comments and the SOA serial, which change on every build
 entries() { grep -v -e '^;' -e ' SOA ' "$1" | sha256sum | cut -d' ' -f1; }
+# which resolvers load each list (node/unbound/*.conf)
+declare -A USERS=([malware]="malware ads" [ads]="ads")
 
-changed=0
-for z in "${!SRC[@]}"; do
+changed=()
+for z in malware ads; do
   tmp=$(mktemp "$D/.$z.XXXXXX")
   if curl -fsSL -m 120 -o "$tmp" "${SRC[$z]}" && grep -q ' SOA ' "$tmp" && [ "$(wc -l < "$tmp")" -gt 1000 ]; then
     if [ -s "$D/$z.rpz" ] && [ "$(entries "$tmp")" = "$(entries "$D/$z.rpz")" ]; then
-      # same domains: keep the file and skip the reload, which pauses DNS for a few seconds
+      # same domains: keep the file and skip the reload, which stops the resolver answering while the list loads
       rm -f "$tmp"
       echo "$(date -Is) $z: unchanged"
     else
-      chmod 644 "$tmp"; mv "$tmp" "$D/$z.rpz"; changed=1
+      chmod 644 "$tmp"; mv "$tmp" "$D/$z.rpz"; changed+=("$z")
       echo "$(date -Is) $z: $(wc -l < "$D/$z.rpz") lines"
     fi
   else
@@ -35,6 +37,22 @@ for z in "${!SRC[@]}"; do
     chmod 644 "$D/$z.rpz"
   fi
 done
-if [ "$changed" = 1 ] && docker ps -q -f name=^vessel-node$ | grep -q .; then
-  docker exec vessel-node pkill -HUP -x unbound
+# Reload only the changed lists, one resolver at a time. A resolver stops answering while it loads a list (tens
+# of seconds for the ad list on a 1 vCPU node); restarting all three with HUP stopped them longer, and together.
+if [ ${#changed[@]} -gt 0 ] && docker ps -q -f name=^vessel-node$ | grep -q .; then
+  fallback=0
+  for z in "${changed[@]}"; do
+    for r in ${USERS[$z]}; do
+      if docker exec vessel-node unbound-control -c "/etc/unbound/conf.d/$r.conf" auth_zone_reload "$z.rpz.vessel" >/dev/null; then
+        echo "$(date -Is) $r: reloaded $z"
+      else
+        fallback=1
+      fi
+    done
+  done
+  # a resolver started before its remote-control section existed cannot be reached that way
+  if [ "$fallback" = 1 ]; then
+    docker exec vessel-node pkill -HUP -x unbound
+    echo "$(date -Is) reloaded every resolver with HUP"
+  fi
 fi
