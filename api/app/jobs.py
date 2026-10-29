@@ -138,8 +138,12 @@ def poll_usage(conn: psycopg.Connection) -> None:
                 ).fetchone()
                 if device is None:
                     continue  # peers created outside the portal, or already deleted here
-                if device[1] == region_id and peer.get("latest_handshake", 0) >= day_start:
+                handshake = peer.get("latest_handshake", 0)
+                if device[1] == region_id and handshake >= day_start:
                     active += 1
+                if handshake > 0:
+                    # yes or no only, for counting devices that never connected (admin report)
+                    conn.execute("UPDATE devices SET connected = true WHERE id = %s AND NOT connected", (peer["name"],))
                 prev = conn.execute(
                     "SELECT interface_started, rx_bytes, tx_bytes, blocked FROM device_counters WHERE device_id = %s",
                     (peer["name"],),

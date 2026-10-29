@@ -2,8 +2,8 @@ import { type Page, type Route, expect, test } from "@playwright/test";
 
 const ME = { created_on: "2026-10-27", last_login_on: "2026-10-27", device_limit: 3, monthly_quota_bytes: 50e9, used_bytes: 4.2e9 };
 const DEVICES = [
-  { id: "d-aaa", name: "phone", region: "sg", dns_filter: "ads", status: "active", created_on: "2026-10-27", expires_on: "2026-11-26", used_bytes: 3.1e9, blocked: 12 },
-  { id: "d-bbb", name: "laptop", region: "sg", dns_filter: "none", status: "suspended", created_on: "2026-10-27", expires_on: "2026-11-26", used_bytes: 1.1e9, blocked: 0 },
+  { id: "d-aaa", name: "phone", region: "sg", dns_filter: "ads", status: "active", created_on: "2026-10-27", expires_on: "2026-11-26", used_bytes: 3.1e9, blocked: 12, connected: true },
+  { id: "d-bbb", name: "laptop", region: "sg", dns_filter: "none", status: "suspended", created_on: "2026-10-27", expires_on: "2026-11-26", used_bytes: 1.1e9, blocked: 0, connected: true },
 ];
 
 type Handler = (route: Route) => Promise<void> | void;
@@ -418,4 +418,17 @@ test("the devices page refreshes on its own", async ({ page }) => {
   await expect.poll(() => devicesCalls).toBeGreaterThan(settled);
   await expect(badge).toHaveText("使用中");
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("a device that never connected says so and links to help", async ({ page }) => {
+  const fresh = { ...DEVICES[0], id: "d-ccc", name: "tablet", used_bytes: 0, blocked: 0, connected: false };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], fresh]) });
+  await page.goto("/devices/");
+  const list = page.getByTestId("device-list");
+  await expect(list.getByTestId("not-connected")).toHaveCount(1);
+  const note = list.locator("li", { hasText: "tablet" }).getByTestId("not-connected");
+  await expect(note).toContainText("還沒連上過");
+  await note.getByRole("link", { name: "連不上怎麼辦？" }).click();
+  await expect(page).toHaveURL(/\/faq\/#q-trouble$/);
+  await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
 });

@@ -212,12 +212,30 @@ def test_report_prints_totals_only(signed_in, node, db, capsys):
     phone = create(signed_in).json()["id"]
     create(signed_in, name="laptop", dns_filter="none")
     node.counters[phone] = (1_000_000, 2_000_000)
+    node.handshakes[phone] = 1_700_000_000
     worker.tick(db)
     db.execute("UPDATE devices SET created_on = current_date - 2")
     admin.report(db, 14)
     out = capsys.readouterr().out
+    assert "devices that have connected at least once: 1 of 2 (created in the last 7 days: 1 of 2)" in out
+    assert "accounts: with a device 1, with a device that connected 1, of 1" in out
     assert "accounts: 1 (new in the last 7 days: 1)" in out
     assert "by filter: ads 1, none 1" in out
     assert "devices older than a day with no traffic this month: 1" in out
     assert "traffic this month: sg 3.0 MB (total 3.0 MB)" in out
     assert "phone" not in out and "laptop" not in out  # no device names
+
+
+def test_devices_remember_that_they_connected(signed_in, node, db):
+    phone = create(signed_in).json()["id"]
+    create(signed_in, name="laptop")
+    connected = lambda: {d["name"]: d["connected"] for d in signed_in.get("/api/devices").json()}
+    worker.tick(db)
+    assert connected() == {"phone": False, "laptop": False}
+    node.handshakes[phone] = 1_700_000_000
+    worker.tick(db)
+    assert connected() == {"phone": True, "laptop": False}
+    # a node restart forgets the handshake; the device stays connected
+    node.handshakes.clear()
+    worker.tick(db)
+    assert connected() == {"phone": True, "laptop": False}

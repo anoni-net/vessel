@@ -87,6 +87,7 @@
   "devices.expires": "到期 {date}",
   "devices.used": "本月 {amount}",
   "devices.blocked": "擋下 {n} 次惡意網域查詢",
+  "devices.notConnected": "還沒連上過。在 AmneziaWG 打開這個通道之後，幾分鐘內這行提示就會消失。",
   "devices.limitNote": "每個帳號最多 {max} 台裝置，每月共用 {quota}，每次打開 Vessel 入口網站就延長 30 天",
   "devices.delete": "刪除",
   "devices.confirmDelete": "確定要刪除「{name}」嗎？刪除之後，這台裝置會立刻斷線。",

@@ -150,6 +150,11 @@ export function Devices() {
                 {d.dns_filter !== "none" && <>{" · "}{fmt(t["devices.blocked"], { n: d.blocked })}</>}
               </p>
               {d.status === "pending" && <p class="muted small">{t["status.pendingNote"]}</p>}
+              {d.status === "active" && !d.connected && (
+                <p class="muted small" data-testid="not-connected">
+                  {t["devices.notConnected"]} <a href={href("/faq/#q-trouble")}>{t["faq.trouble.q"]}</a>
+                </p>
+              )}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
               <div class="row small">
                 <span>{fmt(t["devices.expires"], { date: formatDate(locale, d.expires_on) })}</span>
