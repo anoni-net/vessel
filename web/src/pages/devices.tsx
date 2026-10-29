@@ -7,7 +7,7 @@ import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { AccountNav } from "./account.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
-import { Busy, SkButton, SkCard } from "./skeleton.tsx";
+import { Busy, SkButton, SkCard, Spin } from "./skeleton.tsx";
 
 // The worker reads the nodes' counters every 5 minutes, so refreshing more often shows nothing new. A device
 // the node is still adding turns active within seconds, so while one is pending the page checks more often.
@@ -68,14 +68,22 @@ export function Devices() {
     return () => clearInterval(id);
   }, [pending]);
 
+  // devices being deleted: the node removes the peer before the answer comes back, which takes a few seconds
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(new Set());
   const remove = async (d: Device) => {
     if (!window.confirm(fmt(t["devices.confirmDelete"], { name: d.name }))) return;
+    setDeleting((s) => new Set(s).add(d.id));
     try {
       await api.deleteDevice(d.id);
     } catch (x) {
       setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     }
-    load();
+    await load();
+    setDeleting((s) => {
+      const next = new Set(s);
+      next.delete(d.id);
+      return next;
+    });
   };
 
   if (err) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
@@ -135,7 +143,7 @@ export function Devices() {
       ) : (
         <ul class="stack plain" data-testid="device-list">
           {devices.map((d) => (
-            <li class="card">
+            <li class="card" aria-busy={deleting.has(d.id)}>
               <div class="row">
                 <div>
                   <p class="strong big">{d.name}</p>
@@ -158,7 +166,9 @@ export function Devices() {
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
               <div class="row small">
                 <span>{fmt(t["devices.expires"], { date: formatDate(locale, d.expires_on) })}</span>
-                {d.status !== "revoking" && (
+                {deleting.has(d.id) ? (
+                  <span class="muted strong" role="status"><Spin />{t["busy.delete"]}</span>
+                ) : d.status !== "revoking" && (
                   <button class="link-button" type="button" onClick={() => remove(d)}>{t["devices.delete"]}</button>
                 )}
               </div>

@@ -5,12 +5,14 @@ import { formatDate } from "../format.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
-import { Busy, SkCard, SkLine } from "./skeleton.tsx";
+import { Busy, SkCard, SkLine, Spin } from "./skeleton.tsx";
 
 /** Links shown on the signed-in pages. */
 export function AccountNav() {
   const { t, href } = useCtx();
+  const [leaving, setLeaving] = useState(false);
   const logout = async () => {
+    setLeaving(true);
     await api.logout().catch(() => undefined);
     setSignedIn(false);
     navigate(href("/"));
@@ -19,7 +21,9 @@ export function AccountNav() {
     <nav class="subnav" aria-label={t["nav.account"]}>
       <a href={href("/devices/")}>{t["nav.devices"]}</a>
       <a href={href("/account/")}>{t["nav.account"]}</a>
-      <button class="link-button" type="button" onClick={logout}>{t["nav.logout"]}</button>
+      <button class="link-button" type="button" onClick={logout} disabled={leaving} aria-busy={leaving}>
+        {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
+      </button>
     </nav>
   );
 }
@@ -29,6 +33,7 @@ export function Account() {
   const [me, setMe] = useState<Me | null>(last.me ?? null);
   const [sure, setSure] = useState(false);
   const [err, setErr] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.me().then(setMe).catch((x) => {
@@ -41,11 +46,13 @@ export function Account() {
   }, []);
 
   const remove = async () => {
+    setDeleting(true);
     try {
       await api.deleteAccount();
       navigate(href("/"));
     } catch (x) {
       setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+      setDeleting(false);
     }
   };
 
@@ -83,8 +90,8 @@ export function Account() {
           {t["account.deleteCheck"]}
         </label>
         {err && <p class="error" role="alert">{err}</p>}
-        <button class="nb-button nb-button--danger" type="button" disabled={!sure} onClick={remove}>
-          {t["account.deleteSubmit"]}
+        <button class="nb-button nb-button--danger" type="button" disabled={!sure || deleting} aria-busy={deleting} onClick={remove}>
+          {deleting ? <><Spin />{t["busy.delete"]}</> : t["account.deleteSubmit"]}
         </button>
       </div>
     </section>

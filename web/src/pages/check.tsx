@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { useCtx } from "../context.ts";
+import { Spin } from "./skeleton.tsx";
 import { type Exit, encodeCheck, exitCheck, exitText, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 
@@ -20,8 +21,8 @@ export function Check() {
       <p class="lead">{t["check.lead"]}</p>
 
       <div class="card card--tint stack" data-testid="connection-check">
-        <button class="nb-button nb-button--primary" type="button" onClick={run} disabled={state === "running"}>
-          {state === "running" ? t["check.running"] : result ? t["check.again"] : t["check.button"]}
+        <button class="nb-button nb-button--primary" type="button" onClick={run} disabled={state === "running"} aria-busy={state === "running"}>
+          {state === "running" ? <><Spin />{t["check.running"]}</> : result ? t["check.again"] : t["check.button"]}
         </button>
         {result && (
           <>
