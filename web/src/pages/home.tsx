@@ -1,6 +1,6 @@
 import { useCtx } from "../context.ts";
 import { useEffect, useRef } from "preact/hooks";
-import { useSignedIn } from "../session.ts";
+import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
@@ -20,18 +20,19 @@ export function Home() {
             <span class="pill">{t["home.badge"]}</span>
             <h1>{t["home.title"]}</h1>
             <p class="lead">{t["home.lead"]}</p>
-            {signedIn ? (
+            {looksSignedIn(signedIn) ? (
               <div class="actions">
                 <a class="nb-button nb-button--primary" href={href("/devices/")}>{t["home.devices"]}</a>
               </div>
             ) : (
-              <>
+              // not known yet: keep the space, show nothing (see session.ts)
+              <div class={`hero__cta${signedIn === null ? " is-pending" : ""}`} aria-hidden={signedIn === null ? "true" : undefined}>
                 <div class="actions">
-                  <a class="nb-button nb-button--primary" href={href("/redeem/")}>{t["home.invite"]}</a>
-                  <a class="nb-button" href={href("/login/")}>{t["home.login"]}</a>
+                  <a class="nb-button nb-button--primary" href={href("/redeem/")} tabIndex={signedIn === null ? -1 : undefined}>{t["home.invite"]}</a>
+                  <a class="nb-button" href={href("/login/")} tabIndex={signedIn === null ? -1 : undefined}>{t["home.login"]}</a>
                 </div>
                 <p class="muted">{t["home.inviteOnly"]}</p>
-              </>
+              </div>
             )}
           </div>
           <HeroArt />

@@ -293,9 +293,10 @@ test("signed-in pages keep their shape while loading and reuse what they saw", a
   const devicesHeld = new Promise<void>((r) => (releaseDevices = r));
   const never = new Promise<void>(() => {});
   await mockApi(page, {
-    // the first answers come back; later ones never do, so whatever shows must come from memory
+    // the first answers come back (/api/me twice: the session check and the page); later ones never do, so
+    // whatever shows must come from memory
     "GET /api/me": async (route) => {
-      if (meCalls++ > 0) await never;
+      if (meCalls++ > 1) await never;
       await route.fulfill({ json: ME });
     },
     "GET /api/devices": async (route) => {
@@ -431,4 +432,42 @@ test("a device that never connected says so and links to help", async ({ page })
   await note.getByRole("link", { name: "連不上怎麼辦？" }).click();
   await expect(page).toHaveURL(/\/faq\/#q-trouble$/);
   await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
+});
+
+// /api/me answers after a pause, so the test can look at what the page shows before it knows the session
+const slow = (body: unknown, status = 200): Handler => async (route) => {
+  await new Promise((r) => setTimeout(r, 1500));
+  await route.fulfill({ status, json: body });
+};
+const hinted = (page: Page) => page.addInitScript(() => localStorage.setItem("vessel-signed-in", "1"));
+
+test("a browser that was signed in shows its links at once", async ({ page }) => {
+  await hinted(page);
+  await mockApi(page, { ...signedIn, "GET /api/me": slow(ME) });
+  await page.goto("/");
+  const header = page.locator(".site-header");
+  await expect(header.getByRole("link", { name: "我的裝置" })).toBeVisible({ timeout: 500 });
+  await expect(header.getByRole("link", { name: "登入" })).toHaveCount(0);
+  await expect(page.locator(".hero").getByRole("link", { name: "我的裝置" })).toBeVisible();
+});
+
+test("an unknown session shows no sign-in link until /api/me answers", async ({ page }) => {
+  await mockApi(page, { "GET /api/me": slow({ error: "signed_out" }, 401) });
+  await page.goto("/");
+  const login = page.locator(".site-header").getByRole("link", { name: "登入" });
+  await expect(login).toBeHidden();
+  await expect(page.locator(".hero").getByRole("link", { name: "我有邀請碼" })).toBeHidden();
+  await expect(login).toBeVisible();
+  await expect(page.locator(".hero").getByRole("link", { name: "我有邀請碼" })).toBeVisible();
+});
+
+test("a hint from an expired session is corrected and dropped", async ({ page }) => {
+  await hinted(page);
+  await mockApi(page, { "GET /api/me": slow({ error: "signed_out" }, 401) });
+  await page.goto("/login/");
+  // the sign-in page waits for the confirmed answer before sending anyone to their devices
+  await expect(page).toHaveURL(/\/login\/$/);
+  await expect(page.locator(".site-header").getByRole("link", { name: "我的裝置" })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("vessel-signed-in"))).toBeNull();
+  await expect(page).toHaveURL(/\/login\/$/);
 });
