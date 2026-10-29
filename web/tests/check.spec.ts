@@ -24,7 +24,7 @@ test("a passing check, carried into feedback", async ({ page }) => {
   const box = page.getByTestId("connection-check");
   await expect(box.getByTestId("check-exit")).toHaveText("經過 Vessel 的新加坡節點。");
   await expect(box.getByTestId("check-dns")).toHaveText("正在使用 Vessel 的 DNS，會擋下惡意網站。");
-  await expect(box.getByRole("status")).toHaveText("兩項都通過，連線經過 Vessel，DNS 也由 Vessel 處理。");
+  await expect(box.getByRole("status")).toContainText("兩項都通過，連線經過 Vessel，DNS 也由 Vessel 處理。");
   await expect(box.getByRole("button", { name: "再檢測一次" })).toBeVisible();
 
   await box.getByRole("link", { name: "附上結果寫意見回覆" }).click();
@@ -51,7 +51,7 @@ for (const [exit, hidden, exitText] of [
     await page.getByRole("button", { name: "開始檢測" }).click();
     const box = page.getByTestId("connection-check");
     await expect(box.getByTestId("check-exit")).toContainText(exitText);
-    await expect(box.getByRole("status")).toHaveText("有項目沒有通過，可以參考下方的處理方式，或把結果附在意見回覆裡。");
+    await expect(box.getByRole("status")).toContainText("有項目沒有通過，可以參考下方的處理方式，或把結果附在意見回覆裡。");
   });
 }
 

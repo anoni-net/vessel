@@ -1,5 +1,5 @@
 import { useCtx } from "../context.ts";
-import type { MessageKey } from "../i18n/index.ts";
+import type { Locale, MessageKey } from "../i18n/index.ts";
 
 // VPN basics for people who have never used one: what it does, daily use, getting ready for a trip and what
 // to do when it will not connect. Written from the questions of first-time users; linked from the home page and
@@ -8,9 +8,14 @@ const TRIP = [1, 2, 3, 4, 5] as const;
 const TROUBLE = [1, 2, 3, 4] as const;
 // 三個語系的 learn.noticed.body 都寫了這個產品名，連結就放在它上面
 const TOR_BROWSER = "Tor Browser";
+// other anoni.net sites, in the reader's language: the docs explain Tor for people new to it, the community home
+// lists the ways to reach us that do not depend on this site
+const LOCALE_PATH: Record<Locale, string> = { "zh-TW": "", "zh-CN": "/zh-cn", en: "/en" };
+const torDocs = (l: Locale) => `https://anoni.net/docs${LOCALE_PATH[l]}/tools/what-is-tor/`;
+const contact = (l: Locale) => `https://anoni.net${LOCALE_PATH[l]}/contact/`;
 
 export function Learn() {
-  const { t, href } = useCtx();
+  const { t, href, locale } = useCtx();
   const [torBefore, torAfter = ""] = t["learn.noticed.body"].split(TOR_BROWSER);
   return (
     <section class="wrap narrow stack learn">
@@ -47,11 +52,14 @@ export function Learn() {
         <a class="nb-button" href={href("/status/")}>{t["status.title"]}</a>
         <a class="nb-button" href={href("/feedback/?from=learn")}>{t["feedback.link"]}</a>
       </div>
+      <p>{t["learn.contact"]}</p>
+      <p class="small"><a href={contact(locale)} target="_blank" rel="noopener">{t["learn.contactLink"]}</a></p>
 
       <h2>{t["learn.noticed.title"]}</h2>
       <p>
         {torBefore}<a href="https://www.torproject.org/" target="_blank" rel="noopener">{TOR_BROWSER}</a>{torAfter}
       </p>
+      <p class="small"><a href={torDocs(locale)} target="_blank" rel="noopener">{t["learn.torLink"]}</a></p>
 
       <h2>{t["learn.see.title"]}</h2>
       <p>{t["learn.see.body"]}</p>
