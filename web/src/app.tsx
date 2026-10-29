@@ -18,8 +18,8 @@ import { Legal, NotFound, preloadLegal } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
 import { FAVICON, LOGO } from "./images.ts";
 import { titleOf } from "./seo.ts";
-import { checkSession, useSignedIn } from "./session.ts";
-import { useEffect, useState } from "preact/hooks";
+import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
+import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 
 // key generation and the QR code are only needed here, so they load with this page (see pages/lazy.ts)
 function NewDevice() {
@@ -85,7 +85,8 @@ export function App({ url }: { url?: string } = {}) {
   const route = ROUTES[path];
   const href = (p: string) => PREFIX[locale] + p;
   const signedIn = useSignedIn();
-  useEffect(checkSession, []);
+  // before the hydrated page is painted, so a hinted session shows its links at once
+  useLayoutEffect(checkSession, []);
   // like the news site: the header and footer link to the same page in the other two languages
   const others = LOCALES.filter((l) => l !== locale);
 
@@ -119,9 +120,13 @@ export function App({ url }: { url?: string } = {}) {
                 <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-label={LANGUAGE_NAME[l]}>{LANGUAGE_SHORT[l]}</a>
               ))}
             </span>
-            {!SIGNED_IN.has(path) && (signedIn
+            {!SIGNED_IN.has(path) && (looksSignedIn(signedIn)
               ? <a class="nb-button" href={href("/devices/")}>{t["nav.devices"]}</a>
-              : <a class="nb-button" href={href("/login/")}>{t["nav.login"]}</a>)}
+              // not known yet: keep the space, show nothing (see session.ts)
+              : <a class={`nb-button${signedIn === null ? " is-pending" : ""}`} href={href("/login/")}
+                  aria-hidden={signedIn === null ? "true" : undefined} tabIndex={signedIn === null ? -1 : undefined}>
+                  {t["nav.login"]}
+                </a>)}
           </nav>
         </div>
       </header>

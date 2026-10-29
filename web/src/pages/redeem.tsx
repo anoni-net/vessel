@@ -36,7 +36,7 @@ export function Redeem() {
   return (
     <section class="wrap narrow">
       <h1>{t["redeem.title"]}</h1>
-      {signedIn && (
+      {signedIn === true && (
         <p class="card card--warn card--flat small">
           {t["redeem.signedIn"]} <a class="strong" href={href("/devices/")}>{t["home.devices"]}</a>
         </p>

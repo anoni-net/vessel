@@ -17,7 +17,7 @@ export function Login() {
 
   // already signed in: nothing to type
   useEffect(() => {
-    if (signedIn) navigate(href("/devices/"), true);
+    if (signedIn === true) navigate(href("/devices/"), true);
   }, [signedIn]);
 
   const submit = async (e: Event) => {
