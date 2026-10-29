@@ -21,7 +21,7 @@ export default {
       },
     },
     { p: "You choose the device names, so please avoid your real name or anything that identifies you." },
-    { p: "Your browser also keeps two flags: whether it has signed in before, so a reload shows “My devices” at once, and whether you chose in the footer not to be counted in the statistics. Both stay in your browser and are never sent to the server." },
+    { p: "Your browser also keeps a few settings: whether it has signed in before (so a reload shows “My devices” at once), the language you picked, whether you closed the bar that offers another language, and whether you chose in the footer not to be counted in the statistics. They stay in your browser and are never sent to the server." },
     { h: "What we do not keep" },
     {
       ul: [

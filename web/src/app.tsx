@@ -1,6 +1,6 @@
 import { browserDeclines, optedOut, setOptedOut, trackView } from "./analytics.ts";
 import { LocaleContext, useCtx } from "./context.ts";
-import { HTML_LANG, LANGUAGE_NAME, LANGUAGE_SHORT, LOCALES, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
+import { HTML_LANG, LANGUAGE_NAME, LANGUAGE_SHORT, LOCALES, type Locale, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
 import { Check } from "./pages/check.tsx";
@@ -19,6 +19,7 @@ import { usePath } from "./router.ts";
 import { FAVICON, LOGO } from "./images.ts";
 import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
+import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
 import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 
 // key generation and the QR code are only needed here, so they load with this page (see pages/lazy.ts)
@@ -52,6 +53,26 @@ function StatsChoice() {
       {t["stats.note"]} {off && <>{t["stats.stopped"]} </>}
       <button type="button" class="footer-toggle" onClick={toggle}>{off ? t["stats.resume"] : t["stats.stop"]}</button>
     </p>
+  );
+}
+
+// The browser prefers another language the site has: offer it, written in that language (see langpref.ts).
+// Shown after the first render, so the prerendered page stays the same for everyone.
+function LangHint({ locale, path }: { locale: Locale; path: string }) {
+  const [offer, setOffer] = useState<Locale | null>(null);
+  useEffect(() => setOffer(suggestedLocale(locale)), [locale]);
+  if (!offer) return null;
+  const m = messagesOf(offer);
+  return (
+    <div class="lang-hint" lang={HTML_LANG[offer]} role="region" aria-label={m["lang.hint"]} data-testid="lang-hint">
+      <div class="wrap lang-hint__inner">
+        <span>{m["lang.hint"]}</span>
+        <a class="strong" href={PREFIX[offer] + path} hreflang={HTML_LANG[offer]} onClick={() => rememberLocale(offer)}>
+          {m["lang.hintSwitch"]}
+        </a>
+        <button type="button" class="link-button" onClick={() => { dismissHint(); setOffer(null); }}>{m["lang.hintClose"]}</button>
+      </div>
+    </div>
   );
 }
 
@@ -102,6 +123,7 @@ export function App({ url }: { url?: string } = {}) {
 
   return (
     <LocaleContext.Provider value={{ locale, t, href }}>
+      {route && <LangHint locale={locale} path={path} />}
       <header class="site-header">
         <div class="wrap site-header__inner">
           {/* same as Gears and the news site: the anoni.net wordmark, a divider, then the product name */}
@@ -116,7 +138,8 @@ export function App({ url }: { url?: string } = {}) {
             <span class="site-header__langs" role="group" aria-label={t["lang.label"]}>
               <TranslateIcon />
               {others.map((l) => (
-                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-label={LANGUAGE_NAME[l]}>{LANGUAGE_SHORT[l]}</a>
+                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-label={LANGUAGE_NAME[l]}
+                  onClick={() => rememberLocale(l)}>{LANGUAGE_SHORT[l]}</a>
               ))}
             </span>
             {!SIGNED_IN.has(path) && (looksSignedIn(signedIn)
@@ -155,7 +178,7 @@ export function App({ url }: { url?: string } = {}) {
             {others.map((l, i) => (
               <>
                 {i > 0 && t["lang.sep"]}
-                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]}>{LANGUAGE_NAME[l]}</a>
+                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} onClick={() => rememberLocale(l)}>{LANGUAGE_NAME[l]}</a>
               </>
             ))}
           </nav>
