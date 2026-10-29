@@ -33,6 +33,7 @@ export default {
     },
     { h: "What a node handles while you are connected" },
     { p: "While you are connected, the node holds your current IP address in memory, since it needs it to send data back to you. It also handles the domains and IP addresses you connect to, but not the contents of HTTPS connections. This exists only in memory while you are connected, and is never written to disk or to any log." },
+    { p: "During the test the terms forbid P2P file sharing, but connections are not blocked. To decide whether blocking will be needed, each node counts how many of the first few packets of each connection look like BitTorrent (an unencrypted handshake, a DHT query, a tracker request). Only the node's total is kept: nothing per device, and no record of where connections come from or go." },
     { h: "DNS filtering" },
     { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), and blocking ads adds HaGeZi Multi (Normal). The lists are updated every 8 hours and published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists)." },
     { h: "Statistics" },

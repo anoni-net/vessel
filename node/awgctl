@@ -13,6 +13,7 @@
 #   awgctl show <name>                          print a client config created by `add`
 #   awgctl usage --json                         transfer and blocked-lookup counters, when the interface came up
 #   awgctl apply                                rebuild awg0.conf and sync it to the running interface
+#   awgctl p2p                                  whole-node counts of BitTorrent-like packets since the container started
 #
 # Layout under /opt/vessel-node:
 #   node.env                  NODE_IP and LISTEN_PORT of this node (not in the repo)
@@ -229,8 +230,14 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
   apply)
     apply
     ;;
+  p2p)
+    # VESSEL-NEW and VESSEL-P2P in node/start.sh: totals for the node, nothing per device
+    echo "since $(docker inspect -f '{{.State.StartedAt}}' $C)"
+    { docker exec $C iptables -nvxL VESSEL-NEW 2>/dev/null; docker exec $C iptables -nvxL VESSEL-P2P 2>/dev/null; } |
+      awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
+    ;;
   *)
-    sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
