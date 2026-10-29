@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { checkLine, decodeCheck } from "../connection.ts";
 import { useCtx } from "../context.ts";
+import { Spin } from "./skeleton.tsx";
 import {
   CITIES,
   type Feedback as Answers,
@@ -126,8 +127,8 @@ export function Feedback() {
         {result && (
           <p class="error" role="alert">{t[result === "closed" ? "feedback.closed" : "feedback.failed"]}</p>
         )}
-        <button class="nb-button nb-button--primary" type="submit" disabled={busy}>
-          {busy ? t["feedback.sending"] : t["feedback.submit"]}
+        <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+          {busy ? <><Spin />{t["feedback.sending"]}</> : t["feedback.submit"]}
         </button>
       </form>
     </section>

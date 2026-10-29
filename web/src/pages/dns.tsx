@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { useCtx } from "../context.ts";
+import { Spin } from "./skeleton.tsx";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import type { MessageKey } from "../i18n/index.ts";
 
@@ -55,8 +56,8 @@ function DnsCheck() {
     <div class="card card--tint stack" data-testid="dns-check">
       <h2>{t["dns.check.title"]}</h2>
       <p>{t["dns.check.body"]}</p>
-      <button class="nb-button nb-button--primary" type="button" onClick={check} disabled={state === "running"}>
-        {state === "running" ? t["dns.check.running"] : t["dns.check.button"]}
+      <button class="nb-button nb-button--primary" type="button" onClick={check} disabled={state === "running"} aria-busy={state === "running"}>
+        {state === "running" ? <><Spin />{t["dns.check.running"]}</> : t["dns.check.button"]}
       </button>
       <p role="status" class="strong">
         {state === "idle" || state === "running" ? "" : t[`dns.check.${state}`]}

@@ -442,5 +442,10 @@
   "meta.learn": "What first-time VPN users often ask: what a VPN does, everyday use, getting ready for a trip, and what to do when it will not connect.",
   "learn.contact": "If you cannot reach the Vessel site, write to whisper@anoni.net, or find us in the community's Matrix room.",
   "learn.contactLink": "How to reach the community",
-  "learn.torLink": "How Tor differs from a VPN"
+  "learn.torLink": "How Tor differs from a VPN",
+  "busy.login": "Signing in",
+  "busy.redeem": "Redeeming",
+  "busy.create": "Creating",
+  "busy.delete": "Deleting",
+  "busy.logout": "Signing out"
 }

@@ -442,5 +442,10 @@
   "meta.learn": "第一次用 VPN 的人常问的事：VPN 在做什么、日常使用、出国前的准备，以及连不上的时候。",
   "learn.contact": "连不上 Vessel 的网站时，可以写信到 whisper@anoni.net，或到社区的 Matrix 聊天室找我们。",
   "learn.contactLink": "社区的联系方式",
-  "learn.torLink": "Tor 与 VPN 的差别"
+  "learn.torLink": "Tor 与 VPN 的差别",
+  "busy.login": "登录中",
+  "busy.redeem": "兑换中",
+  "busy.create": "生成中",
+  "busy.delete": "删除中",
+  "busy.logout": "正在退出"
 }

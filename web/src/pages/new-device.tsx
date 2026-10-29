@@ -9,7 +9,7 @@ import { PLANNED, flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
-import { NewDeviceSkeleton } from "./skeleton.tsx";
+import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
@@ -245,7 +245,9 @@ export function NewDevice() {
           <p class="card card--tint card--flat small">{t["name.keysNote"]}</p>
           {busy && <p class="muted" role="status">{t["config.waiting"]}</p>}
           {errorLine}
-          <button class="nb-button nb-button--primary" type="submit" disabled={busy}>{t["name.submit"]}</button>
+          <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+            {busy ? <><Spin />{t["busy.create"]}</> : t["name.submit"]}
+          </button>
           <button class="link-button" type="button" onClick={() => go("region")} disabled={busy}>{t["back"]}</button>
         </form>
       </section>

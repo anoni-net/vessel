@@ -267,6 +267,19 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (max-width: 599px) { .sk-card--usage { min-height: 237px; } }
 @keyframes sk-pulse { 50% { opacity: 0.5; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+/* waiting for the server: the button keeps its colour and shows a turning ring with what it is doing */
+.card[aria-busy="true"] { opacity: .75; }
+.spin { display: inline-block; flex: none; width: 1em; height: 1em; margin-inline-end: .5em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -0.15em; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* a still ring reads as the letter C; the words alone say it is working */
+@media (prefers-reduced-motion: reduce) { .spin { display: none; } }
+[aria-busy="true"] { cursor: progress; }
+.nb-button[aria-busy="true"]:disabled { border-style: solid; border-color: var(--ink); background: var(--paper); color: var(--ink); box-shadow: none; }
+.nb-button--primary[aria-busy="true"]:disabled { background: var(--accent); }
+.nb-button--ink[aria-busy="true"]:disabled { background: var(--ink); color: var(--paper); }
+.nb-button--danger[aria-busy="true"]:disabled { background: var(--danger); color: var(--paper); }
+.link-button[aria-busy="true"]:disabled { color: var(--muted); }
 @media print {
   body * { visibility: hidden; }
   .printable, .printable * { visibility: visible; }

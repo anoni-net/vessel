@@ -44,3 +44,8 @@ export function NewDeviceSkeleton() {
     </section>
   );
 }
+
+/** A turning ring beside the label of something waiting for the server (hidden when motion is reduced). */
+export function Spin() {
+  return <span class="spin" aria-hidden="true" />;
+}

@@ -471,3 +471,47 @@ test("a hint from an expired session is corrected and dropped", async ({ page })
   await expect.poll(() => page.evaluate(() => localStorage.getItem("vessel-signed-in"))).toBeNull();
   await expect(page).toHaveURL(/\/login\/$/);
 });
+
+test("waiting for the server shows what is happening", async ({ page }) => {
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  let deleted = false;
+  await mockApi(page, {
+    ...signedIn,
+    "GET /api/devices": (route) => route.fulfill({ json: deleted ? [DEVICES[1]] : DEVICES }),
+    "DELETE /api/devices/d-aaa": async (route) => {
+      await held;
+      deleted = true;
+      await route.fulfill({ json: { ok: true } });
+    },
+  });
+  page.on("dialog", (d) => d.accept());
+  await page.goto("/devices/");
+  const phone = page.getByTestId("device-list").locator("li", { hasText: "phone" });
+  await phone.getByRole("button", { name: "刪除" }).click();
+  await expect(phone.getByRole("status")).toHaveText("刪除中");
+  await expect(phone).toHaveAttribute("aria-busy", "true");
+  release();
+  await expect(page.getByTestId("device-list").locator("li")).toHaveCount(1);
+  await expect(page.getByTestId("device-list")).not.toContainText("刪除中");
+});
+
+test("signing in shows that it is working", async ({ page }) => {
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await mockApi(page, {
+    "GET /api/me": json({ error: "signed_out" }, 401),
+    "POST /api/login": async (route) => {
+      await held;
+      await route.fulfill({ status: 401, json: { error: "bad_number" } });
+    },
+  });
+  await page.goto("/login/");
+  await page.getByLabel("帳號號碼").fill("4821 0937 5564 2018");
+  await page.getByRole("button", { name: "登入", exact: true }).last().click();
+  const busy = page.locator("form").getByRole("button", { name: "登入中" });
+  await expect(busy).toBeDisabled();
+  await expect(busy).toHaveAttribute("aria-busy", "true");
+  release();
+  await expect(page.locator("form").getByRole("button", { name: "登入", exact: true })).toBeEnabled();
+});
