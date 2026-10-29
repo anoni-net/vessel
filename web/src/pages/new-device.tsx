@@ -282,11 +282,13 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
         // generated locally from the config; nothing in it comes from outside this page
         <div class="qr card" role="img" aria-label={t["config.qrLabel"]} dangerouslySetInnerHTML={{ __html: qrSvg(config.text) }} />
       )}
+      <p class="muted small">{t["config.onePerDevice"]}</p>
       <button class="link-button" type="button" aria-expanded={showText} onClick={() => { if (!showText) track("device-config", { how: "text" }); setShowText(!showText); }}>
         {showText ? t["config.textHide"] : t["config.textShow"]}
       </button>
       {showText && <pre class="config-text" data-testid="config-text">{config.text}</pre>}
       <p class="card card--warn card--flat small">{t["config.warn"]}</p>
+      <p class="small">{t["config.expiry"]}</p>
       <a class="nb-button nb-button--ink" href={href("/devices/")} onClick={() => track("device-config", { how: "done" })}>{t["config.done"]}</a>
     </section>
   );
