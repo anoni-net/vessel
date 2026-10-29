@@ -103,7 +103,7 @@ export function Home() {
             </div>
           </div>
           <p class="note">
-            {t["data.cloudflare"]}{locale === "en" ? " " : ""}{t["data.stats"]}{locale === "en" ? " " : ""}<a href={href("/privacy/")}>{t["data.details"]}</a>{locale === "en" ? "." : "。"}
+            {t["data.note"]}{locale === "en" ? " " : ""}<a href={href("/privacy/")}>{t["data.details"]}</a>{locale === "en" ? "." : "。"}
           </p>
         </div>
       </section>
