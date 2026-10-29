@@ -193,7 +193,7 @@
   "faq.invite.q": "How do I get an invite code?",
   "faq.invite.a": "During the test, codes go out through the anoni.net newsletter, one per subscriber. Places are limited, and whether more go out depends on how the first round is used.",
   "faq.cost.q": "Does it cost anything?",
-  "faq.cost.a": "No. Volunteers run it. Plans for after the test will be announced separately.",
+  "faq.cost.a": "No. Vessel is a service the community runs for the people around it, and partners who support the community fund its development and running costs.",
   "faq.lost.q": "What if I lose my account number?",
   "faq.lost.a": "It cannot be recovered. The service has no email address for you and keeps only a hash of the number, so you would need a new invite code. A password manager is a good place to keep it.",
   "faq.number.q": "The account number is only digits. Is that safe?",
