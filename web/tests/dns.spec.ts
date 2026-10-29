@@ -33,7 +33,7 @@ for (const [hidden, text] of [
 
 test("the DNS page in three languages, linked from the home page", async ({ page }) => {
   await page.goto("/");
-  await page.locator("#limits").getByRole("link", { name: "網域過濾的說明" }).click();
+  await page.locator("#how").getByRole("link", { name: "網域過濾的說明" }).click();
   await expect(page).toHaveURL(/\/dns\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("網域過濾");
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["檢查目前的過濾", "三種選項", "運作方式", "做不到的事", "更換與回報"]);

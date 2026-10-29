@@ -4,14 +4,14 @@ import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
-// 三個語系的 limits.cannot.1 都寫了這個產品名，連結就放在它上面
+const WHEN = ["1", "2", "3"] as const;
+// 三個語系的 when.note 都寫了這個產品名，連結就放在它上面
 const TOR_BROWSER = "Tor Browser";
 
 export function Home() {
-  const { t, href, locale } = useCtx();
-  const [torBefore, torAfter = ""] = t["limits.cannot.1"].split(TOR_BROWSER);
+  const { t, href } = useCtx();
+  const [torBefore, torAfter = ""] = t["when.note"].split(TOR_BROWSER);
   const signedIn = useSignedIn();
-  const [open, close] = locale === "en" ? [" (", ")"] : ["（", "）"];
   return (
     <>
       <section class="hero band band--tint">
@@ -20,6 +20,7 @@ export function Home() {
             <span class="pill">{t["home.badge"]}</span>
             <h1>{t["home.title"]}</h1>
             <p class="lead">{t["home.lead"]}</p>
+            <p class="strong">{t["home.promise"]}</p>
             {looksSignedIn(signedIn) ? (
               <div class="actions">
                 <a class="nb-button nb-button--primary" href={href("/devices/")}>{t["home.devices"]}</a>
@@ -39,7 +40,24 @@ export function Home() {
         </div>
       </section>
 
-      <section id="how" class="band">
+      <section id="when" class="band">
+        <div class="wrap">
+          <h2>{t["when.title"]}</h2>
+          <ul class="cards cards--3 plain">
+            {WHEN.map((n) => (
+              <li class="card">
+                <h3>{t[`when.${n}.title`]}</h3>
+                <p>{t[`when.${n}.body`]}</p>
+              </li>
+            ))}
+          </ul>
+          <p class="note">
+            {torBefore}<a href="https://www.torproject.org/" target="_blank" rel="noopener">{TOR_BROWSER}</a>{torAfter}
+          </p>
+        </div>
+      </section>
+
+      <section id="how" class="band band--grey">
         <div class="wrap">
           <h2>{t["how.title"]}</h2>
           <ol class="cards cards--3">
@@ -48,64 +66,22 @@ export function Home() {
                 <span class="step" aria-hidden="true">{n}</span>
                 <h3>{t[`how.${n}.title`]}</h3>
                 <p>{t[`how.${n}.body`]}</p>
+                {n === "2" && <p class="small"><a href={href("/dns/")}>{t["dns.link"]}</a></p>}
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      <section id="limits" class="band band--grey">
+      <section id="why" class="band">
         <div class="wrap">
-          <h2>{t["limits.title"]}</h2>
-          <p class="section-lead">{t["limits.lead"]}</p>
-          <div class="cards cards--2">
-            <div class="card">
-              <h3>{t["limits.can"]}</h3>
-              <ul>
-                <li>{t["limits.can.1"]}</li>
-                <li>{t["limits.can.2"]}</li>
-                <li>{t["limits.can.3"]}</li>
-                <li>{t["limits.can.4"]}{open}<a href={href("/dns/")}>{t["dns.link"]}</a>{close}</li>
-              </ul>
-            </div>
-            <div class="card">
-              <h3>{t["limits.cannot"]}</h3>
-              <ul>
-                <li>{torBefore}<a href="https://www.torproject.org/" target="_blank" rel="noopener">{TOR_BROWSER}</a>{torAfter}</li>
-                <li>{t["limits.cannot.2"]}</li>
-                <li>{t["limits.cannot.3"]}</li>
-              </ul>
-            </div>
+          <h2>{t["why.title"]}</h2>
+          <p class="section-lead">{t["why.body"]}</p>
+          <p class="section-lead">{t["why.reach"]}</p>
+          <div class="actions">
+            <a class="nb-button" href={href("/feedback/?from=home")}>{t["feedback.link"]}</a>
+            <a class="nb-button" href={href("/status/")}>{t["status.title"]}</a>
           </div>
-        </div>
-      </section>
-
-      <section id="data" class="band">
-        <div class="wrap">
-          <h2>{t["data.title"]}</h2>
-          <div class="cards cards--2">
-            <div class="card">
-              <h3>{t["data.kept"]}</h3>
-              <ul>
-                <li>{t["data.kept.1"]}</li>
-                <li>{t["data.kept.2"]}</li>
-                <li>{t["data.kept.3"]}</li>
-                <li>{t["data.kept.4"]}</li>
-              </ul>
-            </div>
-            <div class="card">
-              <h3>{t["data.notKept"]}</h3>
-              <ul>
-                <li>{t["data.notKept.1"]}</li>
-                <li>{t["data.notKept.2"]}</li>
-                <li>{t["data.notKept.3"]}</li>
-                <li>{t["data.notKept.4"]}</li>
-              </ul>
-            </div>
-          </div>
-          <p class="note">
-            {t["data.note"]}{locale === "en" ? " " : ""}<a href={href("/privacy/")}>{t["data.details"]}</a>{locale === "en" ? "." : "。"}
-          </p>
         </div>
       </section>
 
