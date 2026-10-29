@@ -110,9 +110,8 @@ export function App({ url }: { url?: string } = {}) {
             <span class="brand__product">Vessel</span>
           </a>
           <nav aria-label={t["nav.main"]} class="site-nav">
+            <a class="site-nav__anchor" href={href("/#when")}>{t["nav.when"]}</a>
             <a class="site-nav__anchor" href={href("/#how")}>{t["nav.how"]}</a>
-            <a class="site-nav__anchor" href={href("/#limits")}>{t["nav.limits"]}</a>
-            <a class="site-nav__anchor" href={href("/#data")}>{t["nav.data"]}</a>
             <a class="site-nav__anchor" href={href("/faq/")}>{t["nav.faq"]}</a>
             <span class="site-header__langs" role="group" aria-label={t["lang.label"]}>
               <TranslateIcon />
