@@ -154,6 +154,7 @@ export function NewDevice() {
         {stepLabel(1)}
         <h1>{t["install.title"]}</h1>
         <p>{t["install.body"]}</p>
+        <p class="small"><a class="strong" href={href("/learn/")}>{t["learn.link"]}</a></p>
         <p class="small"><a class="strong" href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></p>
         <div class="tabs" role="group" aria-label={t["install.platform"]}>
           {PLATFORMS.map((p) => (
