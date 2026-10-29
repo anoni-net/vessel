@@ -13,6 +13,8 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `update-lists.sh` | 根目錄 | 更新 RPZ 名單，網域有變才重新載入 unbound。root 的 cron 每 8 小時執行（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致 |
 | `unbound/*.conf` | `unbound/` | 三個解析器的設定 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
+| `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
+| `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
 
 主機上另外有 `server/`（伺服器私鑰與 `HeaderProtectionKey`）、`peers/`、`clients/`、`conf/awg0.conf` 與 `rpz/`，都不進 repo。
 
@@ -26,6 +28,26 @@ mkdir -p /opt/vessel-node/build /opt/vessel-node/unbound
 cp node.env.example /opt/vessel-node/node.env   # 填上 NODE_IP 與 LISTEN_PORT
 bash /opt/vessel-node/setup.sh
 ```
+
+接著套用主機的調校（見下一節）。
+
+## 主機的調校
+
+雲端映像的預設值是給一般主機用的，VPN 節點要轉送很多人的流量，調整三件事。都可以在線上直接套用，不必重啟容器，使用者不會斷線：
+
+- 對外網卡的佇列改成 `fq_codel`：雲端映像留著 `pfifo_fast`，所有封包排同一個隊。有人大量下載時，其他人的網頁與 DNS 封包會排在後面。`fq_codel` 每條連線各自排隊，短小的封包先過
+- 開啟網卡的 `rx-udp-gro-forwarding`：VPN 的 UDP 封包經 Docker 轉送，合併之後每個封包的 CPU 負擔比較低
+- `vm.swappiness` 調到 10：解析器的名單佔約 800 MB 記憶體，換到 swap 的話，查詢會突然變慢
+
+UDP 的 socket 緩衝不用調，`amneziawg-go` 有 `NET_ADMIN`，會自己強制取得它要的大小。
+
+```bash
+install -m 644 host/99-vessel-node.conf /etc/sysctl.d/99-vessel-node.conf && sysctl --system
+install -m 644 host/vessel-net-tune.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now vessel-net-tune.service
+```
+
+確認：`tc qdisc show dev <網卡>` 的第一行是 `fq_codel`，`ethtool -k <網卡> | grep rx-udp-gro-forwarding` 是 `on`，`sysctl vm.swappiness` 是 10。
 
 ## 管理使用者
 
