@@ -80,6 +80,9 @@ export function Feedback() {
     <section class="wrap narrow">
       <h1>{t["feedback.title"]}</h1>
       <p class="feedback-lead">{t["feedback.lead"]}</p>
+      <p class="small">
+        {t["feedback.statusBefore"]} <a href={href("/status/")}>{t["status.title"]}</a> {t["feedback.statusAfter"]}
+      </p>
       <form class="stack" onSubmit={submit} noValidate>
         <fieldset class="stack-sm">
           <legend class="strong">{t["feedback.kind"]}</legend>

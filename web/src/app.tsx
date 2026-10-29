@@ -11,6 +11,7 @@ import { Feedback } from "./pages/feedback.tsx";
 import { Home } from "./pages/home.tsx";
 import { Login } from "./pages/login.tsx";
 import { Redeem } from "./pages/redeem.tsx";
+import { StatusPage } from "./pages/status.tsx";
 import { loadNewDevice, loadedNewDevice } from "./pages/lazy.ts";
 import { NewDeviceSkeleton } from "./pages/skeleton.tsx";
 import { Legal, NotFound, preloadLegal } from "./pages/simple.tsx";
@@ -68,6 +69,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/dns/": ["dns.title", () => <Dns />],
   "/check/": ["check.title", () => <Check />],
   "/feedback/": ["feedback.title", () => <Feedback />],
+  "/status/": ["status.title", () => <StatusPage />],
   "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
   "/privacy/": ["privacy.title", () => <Legal doc="privacy" titleKey="privacy.title" />],
 };
@@ -134,6 +136,7 @@ export function App({ url }: { url?: string } = {}) {
             <a href={href("/faq/")}>{t["faq.title"]}</a>
             <a href={href("/dns/")}>{t["dns.title"]}</a>
             <a href={href("/check/")}>{t["check.title"]}</a>
+            <a href={href("/status/")}>{t["status.title"]}</a>
             <a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a>
             {(["/terms/", "/privacy/"] as const).map((p) => {
               // the text loads with the page; start when the pointer or focus gets to the link

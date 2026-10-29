@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from app import auth, check, devices, health
+from app import auth, check, devices, health, status
 from app.db import close_pool
 
 
@@ -19,6 +19,7 @@ app.include_router(auth.router)
 app.include_router(devices.router)
 app.include_router(check.router)
 app.include_router(health.router)
+app.include_router(status.router)
 
 
 @app.exception_handler(HTTPException)

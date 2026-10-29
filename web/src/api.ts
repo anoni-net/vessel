@@ -76,6 +76,15 @@ export interface Region {
   open: boolean;
 }
 
+export type NodeState = "ok" | "down" | "unknown";
+export type NoticeKind = "restart" | "maintenance" | "outage";
+
+export interface Status {
+  regions: { id: string; state: NodeState }[];
+  /** newest first, the last 30 days; region null means every city, ends_at null means still going on */
+  notices: { region: string | null; kind: NoticeKind; starts_at: string; ends_at: string | null }[];
+}
+
 export interface NewDevice {
   name: string;
   region: string;
@@ -104,6 +113,8 @@ export const api = {
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean }>("GET", "/exit").then((r) => r.data),
+  /** public, no session */
+  status: () => call<Status>("GET", "/status").then((r) => r.data),
   createDevice: (body: NewDevice) =>
     call<{ id: string; status: "active" | "pending"; config?: NodeConfig }>("POST", "/devices", body).then((r) => r.data),
   /** 200 with the config, or 202 while the node is still adding the device */
