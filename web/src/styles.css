@@ -114,6 +114,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
 .check-results { display: grid; gap: 12px; margin: 0; }
+.check-verdict { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 14px 16px; border: var(--border); border-radius: var(--radius); font-size: 18px; font-weight: 800; }
+.check-verdict > span { flex: none; font-size: 22px; line-height: 1.2; }
+.check-verdict--ok { background: var(--accent); }
+.check-verdict--bad { background: var(--warn); }
 .check-results dt { font-weight: 700; }
 .check-results dd { margin: 4px 0 0; }
 .card--warn { background: var(--warn); }

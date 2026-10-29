@@ -25,6 +25,11 @@ export function Check() {
         </button>
         {result && (
           <>
+            {/* the answer first, big enough to read at a glance; the two checks below say why */}
+            <p class={`check-verdict ${passed(result.exit, result.dns) ? "check-verdict--ok" : "check-verdict--bad"}`} role="status">
+              <span aria-hidden="true">{passed(result.exit, result.dns) ? "✓" : "✕"}</span>
+              {passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}
+            </p>
             <dl class="check-results">
               <div>
                 <dt>{t["check.exit"]}</dt>
@@ -35,7 +40,6 @@ export function Check() {
                 <dd data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
               </div>
             </dl>
-            <p class="strong" role="status">{passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}</p>
             <a class="nb-button" href={href(`/feedback/?from=check&check=${encodeCheck(result.exit, result.dns)}`)}>
               {t["check.feedback"]}
             </a>
