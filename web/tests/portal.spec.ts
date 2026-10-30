@@ -434,6 +434,24 @@ test("a device that never connected says so and links to help", async ({ page })
   await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
 });
 
+test("devices made before their region moved host ask for a new config", async ({ page }) => {
+  const soon = { ...DEVICES[0], id: "d-ccc", name: "tablet", region: "jp", moved_until: "2999-01-01" };
+  const gone = { ...DEVICES[0], id: "d-ddd", name: "watch", region: "jp", moved_until: "2000-01-01" };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], soon, gone]) });
+  await page.goto("/devices/");
+  const list = page.getByTestId("device-list");
+  await expect(list.getByTestId("moved")).toHaveCount(2);
+  // three devices is the limit here, so the old one has to go first
+  await expect(list.locator("li", { hasText: "tablet" }).getByTestId("moved"))
+    .toHaveText("東京節點換了新的主機，這台裝置的設定檔 2999/01/01 之後就不能連線。請先刪除這一台，再新增一台裝置、匯入新的設定檔。");
+  await expect(list.locator("li", { hasText: "watch" }).getByTestId("moved")).toContainText("設定檔已經不能連線");
+
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([soon]) });
+  await page.goto("/en/devices/");
+  await expect(page.getByTestId("moved"))
+    .toHaveText(/^The Tokyo node has moved to a new server, and this device's config stops working after .+\. Add a new device, import the new config, then delete this one\.$/);
+});
+
 // /api/me answers after a pause, so the test can look at what the page shows before it knows the session
 const slow = (body: unknown, status = 200): Handler => async (route) => {
   await new Promise((r) => setTimeout(r, 1500));

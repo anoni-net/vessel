@@ -8,6 +8,10 @@
   python -m app.admin regions [set ID --node-host HOST (--open|--closed) [--exit-ip IP]]
                                                                list regions, or add/change one; the exit IP
                                                                is the node's public address, for /api/exit
+  python -m app.admin regions move ID --node-host HOST --exit-ip IP --until YYYY-MM-DD
+                                                               the region moves to a new host; its devices ask
+                                                               for a new config, and the old host's exit counts
+                                                               for /api/exit until the given day
 
   python -m app.admin notices [list]                           notices on the status page, newest first
   python -m app.admin notices add (REGION|all) KIND [--start ISO] [--minutes N]
@@ -21,6 +25,7 @@ Settings: account_cap (0 means no cap), redeem_paused (true/false).
 
 import argparse
 import sys
+from datetime import date
 
 import psycopg
 
@@ -49,6 +54,12 @@ def main(argv: list[str] | None = None) -> None:
     state.add_argument("--open", dest="is_open", action="store_true")
     state.add_argument("--closed", dest="is_open", action="store_false")
     rs.add_argument("--exit-ip")
+    # a region moving to a new host: devices made before now ask for a new config, the old host goes away after --until
+    rm = rg_sub.add_parser("move")
+    rm.add_argument("id")
+    rm.add_argument("--node-host", required=True)
+    rm.add_argument("--exit-ip", required=True)
+    rm.add_argument("--until", required=True, type=date.fromisoformat)
     nt = sub.add_parser("notices").add_subparsers(dest="action")
     nt.add_parser("list")
     na = nt.add_parser("add")
@@ -88,10 +99,24 @@ def main(argv: list[str] | None = None) -> None:
                     "exit_ip = coalesce(EXCLUDED.exit_ip, regions.exit_ip)",
                     (args.id, args.node_host, args.is_open, args.exit_ip),
                 )
-            for rid, host, is_open, exit_ip in conn.execute(
-                "SELECT id, node_host, is_open, exit_ip FROM regions ORDER BY id"
+            elif args.action == "move":
+                with conn.transaction():
+                    moved = conn.execute(
+                        "UPDATE regions SET previous_exit_ip = exit_ip, previous_until = %s, node_host = %s, "
+                        "exit_ip = %s WHERE id = %s RETURNING id",
+                        (args.until, args.node_host, args.exit_ip, args.id),
+                    ).fetchone()
+                    if moved is None:
+                        raise SystemExit(f"no region {args.id}")
+                    n = conn.execute(
+                        "UPDATE devices SET moved = true WHERE region_id = %s AND NOT moved", (args.id,)
+                    ).rowcount
+                print(f"{args.id}: {n} devices asked for a new config, the old host until {args.until}")
+            for rid, host, is_open, exit_ip, prev, until in conn.execute(
+                "SELECT id, node_host, is_open, exit_ip, previous_exit_ip, previous_until FROM regions ORDER BY id"
             ):
-                print(f"{rid}  {host}  {'open' if is_open else 'closed'}  exit {exit_ip or '-'}")
+                line = f"{rid}  {host}  {'open' if is_open else 'closed'}  exit {exit_ip or '-'}"
+                print(line + (f"  previous {prev} until {until}" if prev and until else ""))
         elif args.cmd == "stats":
             queries = {
                 "accounts": "SELECT count(*) FROM accounts",

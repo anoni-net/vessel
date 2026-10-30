@@ -26,5 +26,13 @@ def exit_check(request: Request, conn: Conn, response: Response) -> dict:
     except ValueError:
         return {"region": None, "ipv6": False}
     row = conn.execute("SELECT id FROM regions WHERE exit_ip = %s", (str(addr),)).fetchone()
+    if row is None:
+        # a config made before the region moved host still goes out through the old one until it is switched off;
+        # after that day the address may belong to someone else
+        old = conn.execute(
+            "SELECT id FROM regions WHERE previous_exit_ip = %s AND previous_until >= current_date", (str(addr),)
+        ).fetchone()
+        if old:
+            return {"region": old[0], "ipv6": False, "previous": True}
     # traffic through a node leaves over IPv4, so an IPv6 address means this browser went around the VPN
     return {"region": row[0] if row else None, "ipv6": addr.version == 6}
