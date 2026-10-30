@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-10-29",
+  updated: "2026-10-31",
   blocks: [
     { p: "Vessel 由入口網站（vessel.anoni.net）與各地的節點組成，只保存服務運作一定要用到的資料。" },
     { h: "保存的資料" },
@@ -46,7 +46,7 @@ export default {
       ul: [
         "Cloudflare：入口網站經過 Cloudflare，它可以取得造訪者的 IP 與瀏覽的頁面，適用 [Cloudflare 的隱私權政策](https://www.cloudflare.com/privacypolicy/)。入口網站已經關閉 Cloudflare 的分析腳本。Cloudflare 的 Page Shield 會抽樣在部分頁面加上回報用的設定，讓瀏覽器把頁面載入的腳本與連線的網址回報給 Cloudflare，用來偵測被植入的惡意腳本，回報的內容是網址，不含你輸入的資料。VPN 的連線不經過 Cloudflare",
         "DigitalOcean：新加坡的節點架在 DigitalOcean 的主機上。它是網路的提供者，可以看到進出節點的流量，但無法解開加密的連線",
-        "Vultr：東京的節點架在 Vultr 的主機上，能看到的範圍跟 DigitalOcean 相同",
+        "Akamai：東京的節點架在 Akamai（原 Linode）的主機上，能看到的範圍跟 DigitalOcean 相同",
         "Amazon SES：測試期的邀請碼透過電子報寄送，寄信服務會經手信件的內容。訂閱者與邀請碼的對照在寄送後刪除，入口網站的資料庫無法對應哪個帳號來自哪位訂閱者",
       ],
     },
