@@ -6,8 +6,10 @@ import { api } from "./api.ts";
 import type { Verdict } from "./dnscheck.ts";
 import { type MessageKey, type T, fmt } from "./i18n/index.ts";
 
-/** A region id when the request came through that node, or why it did not. */
+/** A region id when the request came through that node, `old-<id>` when it came through the host the region
+ * moved away from (a config made before the move), or why it did not. */
 export type Exit = string;
+const OLD = "old-";
 const EXIT_PROBLEMS = ["none", "ipv6", "error"] as const;
 const VERDICTS: readonly Verdict[] = ["offline", "notVessel", "none", "malware", "ads", "mixed"];
 
@@ -15,6 +17,7 @@ export async function exitCheck(): Promise<Exit> {
   try {
     const r = await api.exit();
     if (r.ipv6) return "ipv6";
+    if (r.region && r.previous) return OLD + r.region;
     return r.region ?? "none";
   } catch {
     return "error";
@@ -28,16 +31,18 @@ export const passed = (exit: Exit, dns: Verdict) =>
 export const encodeCheck = (exit: Exit, dns: Verdict) => `${exit}.${dns}`;
 
 export function decodeCheck(s: string | null): { exit: Exit; dns: Verdict } | null {
-  const m = s ? /^([a-z]{2}|none|ipv6|error)\.([a-zA-Z]+)$/.exec(s) : null;
+  const m = s ? /^((?:old-)?[a-z]{2}|none|ipv6|error)\.([a-zA-Z]+)$/.exec(s) : null;
   if (!m || !VERDICTS.includes(m[2] as Verdict)) return null;
   return { exit: m[1], dns: m[2] as Verdict };
 }
 
 const city = (t: T, region: string) => t[`region.${region}` as MessageKey] ?? region;
+export const isOld = (exit: Exit) => exit.startsWith(OLD);
 
 /** The full sentence the check page shows for the exit. */
 export function exitText(t: T, exit: Exit): string {
   if ((EXIT_PROBLEMS as readonly string[]).includes(exit)) return t[`check.exit.${exit}` as MessageKey];
+  if (isOld(exit)) return fmt(t["check.exit.previous"], { city: city(t, exit.slice(OLD.length)) });
   return fmt(t["check.exit.vessel"], { city: city(t, exit) });
 }
 
@@ -45,7 +50,9 @@ export function exitText(t: T, exit: Exit): string {
 export function checkLine(t: T, exit: Exit, dns: Verdict): string {
   const e = (EXIT_PROBLEMS as readonly string[]).includes(exit)
     ? t[`check.short.exit.${exit}` as MessageKey]
-    : fmt(t["check.short.exit.vessel"], { city: city(t, exit) });
+    : isOld(exit)
+      ? fmt(t["check.short.exit.previous"], { city: city(t, exit.slice(OLD.length)) })
+      : fmt(t["check.short.exit.vessel"], { city: city(t, exit) });
   const d = dns === "none" || dns === "malware" || dns === "ads" ? t[`filter.${dns}`] : t[`check.short.dns.${dns}`];
   return fmt(t["check.line"], { exit: e, dns: d });
 }

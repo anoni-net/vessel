@@ -31,3 +31,18 @@ def test_admin_keeps_the_exit_ip_unless_given(db, capsys):
     admin.main(["regions", "set", "sg", "--node-host", "n1", "--open", "--exit-ip", "198.51.100.1"])
     admin.main(["regions", "set", "sg", "--node-host", "n2", "--closed"])
     assert "sg  n2  closed  exit 198.51.100.1" in capsys.readouterr().out
+
+
+def test_a_moved_region_keeps_its_old_exit_until_the_old_host_goes(client, db, capsys):
+    from app import admin
+
+    admin.main(["regions", "set", "jp", "--node-host", "old", "--open", "--exit-ip", "198.51.100.7"])
+    admin.main(["regions", "move", "jp", "--node-host", "new", "--exit-ip", "203.0.113.7", "--until", "2999-01-01"])
+    out = capsys.readouterr().out
+    assert "jp: 0 devices asked for a new config" in out
+    assert "jp  new  open  exit 203.0.113.7  previous 198.51.100.7 until 2999-01-01" in out
+    assert ask(client, "203.0.113.7").json() == {"region": "jp", "ipv6": False}
+    assert ask(client, "198.51.100.7").json() == {"region": "jp", "ipv6": False, "previous": True}
+    # once the old host is gone its address may be someone else's
+    db.execute("UPDATE regions SET previous_until = current_date - 1")
+    assert ask(client, "198.51.100.7").json() == {"region": None, "ipv6": False}

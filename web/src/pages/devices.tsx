@@ -108,6 +108,8 @@ export function Devices() {
   const amount = `${formatBytes(locale, me.used_bytes)} / ${formatBytes(locale, me.monthly_quota_bytes)}`;
   const full = devices.filter((d) => d.status !== "revoking").length >= me.device_limit;
   const overQuota = me.used_bytes >= me.monthly_quota_bytes;
+  // the visitor's own date, as YYYY-MM-DD, to tell whether a moved device's old host is already gone
+  const today = new Date().toLocaleDateString("sv");
 
   return (
     <section class="wrap narrow stack">
@@ -164,6 +166,14 @@ export function Devices() {
                 </p>
               )}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
+              {d.moved_until && (
+                <p class="card card--warn card--flat small" data-testid="moved">
+                  {fmt(t[d.moved_until < today ? "devices.movedGone" : "devices.moved"], {
+                    city: t[`region.${d.region}` as keyof typeof t] ?? d.region,
+                    date: formatDate(locale, d.moved_until),
+                  })}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}
+                </p>
+              )}
               <div class="row small">
                 <span>{fmt(t["devices.expires"], { date: formatDate(locale, d.expires_on) })}</span>
                 {deleting.has(d.id) ? (

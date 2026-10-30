@@ -116,3 +116,15 @@ def test_account_deletion_cleans_the_node(signed_in, node, db):
 
 def test_regions_hide_node_hosts(signed_in):
     assert signed_in.get("/api/regions").json() == [{"id": "jp", "open": False}, {"id": "sg", "open": True}]
+
+
+def test_devices_made_before_a_move_ask_for_a_new_config(signed_in, node, db):
+    from app import admin
+
+    before = create(signed_in, name="old").json()["id"]
+    admin.main(["regions", "move", "sg", "--node-host", "node-sg-2", "--exit-ip", "203.0.113.7", "--until", "2999-01-01"])
+    after = create(signed_in, name="new").json()["id"]
+    listed = {d["id"]: d["moved_until"] for d in signed_in.get("/api/devices").json()}
+    assert listed == {before: "2999-01-01", after: None}
+    # the old device is still on the new host's peer list, so deleting it from the portal works
+    assert signed_in.delete(f"/api/devices/{before}", headers=HEADERS).status_code == 200

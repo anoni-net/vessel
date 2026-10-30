@@ -63,6 +63,8 @@ export interface Device {
   blocked: number;
   /** whether the device has ever completed a handshake with its node */
   connected: boolean;
+  /** made before its region moved to a new host: the config stops working after this day (or already has) */
+  moved_until: string | null;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */
@@ -112,7 +114,7 @@ export const api = {
   deleteAccount: () => call("DELETE", "/account"),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
-  exit: () => call<{ region: string | null; ipv6: boolean }>("GET", "/exit").then((r) => r.data),
+  exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),
   /** public, no session */
   status: () => call<Status>("GET", "/status").then((r) => r.data),
   createDevice: (body: NewDevice) =>

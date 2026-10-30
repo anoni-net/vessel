@@ -2,7 +2,7 @@ import { type Page, expect, test } from "@playwright/test";
 import { FEEDBACK_ENDPOINT } from "../src/feedback.ts";
 
 /** The exit answer from /api/exit, and which DNS test addresses Vessel's resolvers hide (see dns.spec.ts). */
-async function network(page: Page, exit: { region: string | null; ipv6: boolean } | "fail", hidden: number[]) {
+async function network(page: Page, exit: { region: string | null; ipv6: boolean; previous?: boolean } | "fail", hidden: number[]) {
   await page.route("**/api/exit", (route) =>
     exit === "fail" ? route.fulfill({ status: 502, body: "bad gateway" }) : route.fulfill({ json: exit }));
   await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
@@ -81,4 +81,17 @@ test("the check page in three languages, linked from the footer and the DNS page
   await expect(page.getByTestId("check-exit")).toHaveText("Through Vessel's Singapore node.");
   await page.goto("/zh-cn/check/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("连接检测");
+});
+
+test("a config made before the region moved host goes out through the old server", async ({ page }) => {
+  await network(page, { region: "jp", ipv6: false, previous: true }, [1, 2]);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const box = page.getByTestId("connection-check");
+  await expect(box.getByTestId("check-exit")).toHaveText(
+    "經過 Vessel 東京節點的舊主機。這個設定檔很快就不能連線，請到「我的裝置」新增一台裝置、匯入新的設定檔。");
+  await expect(box.getByRole("link", { name: "前往我的裝置" })).toHaveAttribute("href", "/devices/");
+  await box.getByRole("link", { name: "附上結果寫意見回覆" }).click();
+  await expect(page).toHaveURL(/check=old-jp\.malware$/);
+  await expect(page.getByTestId("attach-check")).toContainText("出口 東京節點的舊主機");
 });

@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { useCtx } from "../context.ts";
 import { Spin } from "./skeleton.tsx";
-import { type Exit, encodeCheck, exitCheck, exitText, passed } from "../connection.ts";
+import { type Exit, encodeCheck, exitCheck, exitText, isOld, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 
 type Result = { exit: Exit; dns: Verdict };
@@ -41,6 +41,7 @@ export function Check() {
                 <dd data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
               </div>
             </dl>
+            {isOld(result.exit) && <a class="nb-button nb-button--ink" href={href("/devices/")}>{t["home.devices"]}</a>}
             <a class="nb-button" href={href(`/feedback/?from=check&check=${encodeCheck(result.exit, result.dns)}`)}>
               {t["check.feedback"]}
             </a>
