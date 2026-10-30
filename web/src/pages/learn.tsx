@@ -5,7 +5,7 @@ import type { Locale, MessageKey } from "../i18n/index.ts";
 // to do when it will not connect. Written from the questions of first-time users; linked from the home page and
 // the first step of creating a device.
 const TRIP = [1, 2, 3, 4, 5] as const;
-const TROUBLE = [1, 2, 3, 4] as const;
+const TROUBLE = [1, 2, 3, 4, 5, 6] as const;
 // 三個語系的 learn.noticed.body 都寫了這個產品名，連結就放在它上面
 const TOR_BROWSER = "Tor Browser";
 // other anoni.net sites, in the reader's language: the docs explain Tor for people new to it, the community home
@@ -34,6 +34,9 @@ export function Learn() {
       <p class="small"><a href={href("/faq/#q-splitTunnel")}>{t["faq.splitTunnel.q"]}</a></p>
       <h3>{t["learn.on.title"]}</h3>
       <p>{t["learn.on.body"]}</p>
+      <h3>{t["learn.system.title"]}</h3>
+      <p>{t["learn.system.android"]}</p>
+      <p>{t["learn.system.iphone"]}</p>
 
       <h2>{t["learn.working.title"]}</h2>
       <p>{t["learn.working.body"]}</p>
