@@ -431,7 +431,7 @@
   "learn.trip.4": "While abroad, open vessel.anoni.net in a browser once while connected to Vessel to extend your devices by 30 days",
   "learn.trip.5": "Rules on using VPNs differ by country, so check the rules at your destination before you go",
   "learn.trouble.title": "When it will not connect",
-  "learn.trouble.1": "If it stalls right after you leave Wi-Fi range or lose signal for a while, turn AmneziaWG off and on again. That usually brings it back",
+  "learn.trouble.1": "If it stalls right after you leave Wi-Fi range or lose signal for a while, turn airplane mode on for a few seconds and then off again. Leave AmneziaWG on, so your traffic still goes through Vessel once the network is back",
   "learn.trouble.2": "Try another network, for example mobile data instead of Wi-Fi",
   "learn.trouble.3": "Make sure AmneziaWG is updated to the latest version",
   "learn.trouble.4": "Check the status page to see whether the node is working",

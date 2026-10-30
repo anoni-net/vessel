@@ -431,7 +431,7 @@
   "learn.trip.4": "出国期间连着 Vessel 用浏览器打开一次 vessel.anoni.net，设备就会延长 30 天",
   "learn.trip.5": "各国对使用 VPN 的规定不同，出发前先确认目的地的规定",
   "learn.trouble.title": "连不上的时候",
-  "learn.trouble.1": "刚离开 Wi-Fi 的范围或出电梯就卡住时，把 AmneziaWG 的开关关掉再打开，通常就会恢复",
+  "learn.trouble.1": "刚离开 Wi-Fi 的范围或出电梯就卡住时，打开飞行模式几秒再关掉，让手机重新连上网络。AmneziaWG 的开关保持开启，网络恢复后流量仍然经过 Vessel",
   "learn.trouble.2": "换一个网络试试，例如从 Wi-Fi 换成移动网络",
   "learn.trouble.3": "确认 AmneziaWG 已经更新到最新版",
   "learn.trouble.4": "到服务状态页看节点是否正常",
