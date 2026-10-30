@@ -1,0 +1,12 @@
+[Unit]
+Description=Vessel node uplink tuning (fair queueing, UDP GRO forwarding)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vessel-node/host/vessel-net-tune.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
