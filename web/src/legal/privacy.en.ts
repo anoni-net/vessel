@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-10-29",
+  updated: "2026-10-31",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -46,7 +46,7 @@ export default {
       ul: [
         "Cloudflare: the portal goes through Cloudflare, which can see visitors' IP addresses and the pages they view, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/). Cloudflare's analytics script is turned off for the portal. Cloudflare's Page Shield adds a reporting policy to a sample of pages, so the browser reports the scripts the page loads and the addresses it connects to back to Cloudflare, to detect injected malicious scripts. The reports hold addresses, not anything you type. VPN connections do not go through Cloudflare",
         "DigitalOcean: the Singapore node runs on DigitalOcean servers. As the network provider it can see traffic in and out of the node, but cannot decrypt the connections",
-        "Vultr: the Tokyo node runs on Vultr servers, which can see the same as DigitalOcean",
+        "Akamai: the Tokyo node runs on Akamai (formerly Linode) servers, which can see the same as DigitalOcean",
         "Amazon SES: invite codes for the test are sent with the newsletter, so the mail service handles their contents. The list of which subscriber got which code is deleted after sending, so the portal's database cannot tell which account came from which subscriber",
       ],
     },
