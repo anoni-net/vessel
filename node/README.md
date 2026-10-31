@@ -97,7 +97,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 兩份名單分開計數，每月的防護成績單（toomore/anoni-net-ws#445）要分別列出「詐騙與惡意網站」與「廣告與追蹤」：
 
 - 惡意網站的名單開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 的 `VESSEL-BLOCKED` 用 `u32` 比對 DNS 標頭
-- 廣告的名單用 `rpz-action-override: cname`，擋下的回應是指向 `blocked.vessel.` 的 CNAME，這個名稱由 `ads.conf` 的 `local-zone` 回 NXDOMAIN，不會往外查。`VESSEL-ADS` 用 `string` 比對回應裡的這個名稱
+- 廣告的名單用 `rpz-action-override: cname`，擋下的回應是指向 `blocked.vessel.` 的 CNAME，這個名稱由 `ads.conf` 的 `local-zone` 回 NXDOMAIN，不會往外查。`VESSEL-ADS` 從第 41 個位元組開始比對：有些裝置收到 CNAME 之後會再查一次 `blocked.vessel.` 本身，這時名稱在問題區段的開頭（第 40 個位元組），從第 41 個位元組開始比對就不會把同一次擋下算兩次。2026-10-31 的東京節點上，這類回應佔了 `VESSEL-ADS` 的三分之二。`VESSEL-ADS` 用 `string` 比對回應裡的這個名稱
 
 兩條 chain 都是每個隧道位址（`.2` 到 `.249`）一條規則，只累計封包數。兩份名單都有的網域，擋廣告的解析器先比對惡意網站的名單，只算在惡意網站那邊。
 
