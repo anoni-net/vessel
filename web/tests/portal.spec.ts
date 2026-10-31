@@ -440,6 +440,11 @@ test("the usage card adds up what the filters blocked this month", async ({ page
   await page.goto("/devices/");
   // the device without a filter does not count, even if the node reported a number for it
   await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站的查詢");
+  // a filter that has not blocked anything yet still says the protection is on
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 0 }, plain]) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("blocked-total")).toHaveText("防護已開啟，本月還沒有遇到惡意網站");
+  // no device with a filter: nothing about it at all
   await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[1]]) });
   await page.goto("/devices/");
   await expect(page.getByTestId("device-list")).toBeVisible();

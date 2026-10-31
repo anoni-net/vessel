@@ -74,6 +74,7 @@
   "devices.used": "{amount} this month",
   "devices.blocked": "{n} malware lookups blocked",
   "devices.blockedTotal": "{n} malware lookups blocked",
+  "devices.blockedNone": "Protection is on, nothing blocked yet",
   "devices.notConnected": "Not connected yet. Once you turn this tunnel on in AmneziaWG, this note goes away within a few minutes.",
   "devices.moved": "The {city} node has moved to a new server, and this device's config stops working after {date}.",
   "devices.movedGone": "The {city} node has moved to a new server, and this device's config no longer works.",
