@@ -12,13 +12,19 @@ os.environ.setdefault("VESSEL_DATABASE_URL", DB_URL or "postgresql:///unused")
 os.environ.setdefault("VESSEL_ACCOUNT_PEPPER", "test-pepper")
 os.environ.setdefault("VESSEL_HMAC_KEY", "test-hmac-key")
 
-from app import auth, check, crypto, migrate
+from app import auth, blocklists, check, crypto, migrate
 from app.config import load
 from app.main import app
 from app.nodes import NodeError, set_node
 
 needs_db = pytest.mark.skipif(not DB_URL, reason="VESSEL_TEST_DATABASE_URL not set")
 HEADERS = {"X-Vessel-Request": "1"}
+
+
+@pytest.fixture(autouse=True)
+def no_blocklist_downloads(monkeypatch):
+    # the app fetches the DNS blocklists from HaGeZi when it starts; tests never reach the network
+    monkeypatch.setattr(blocklists, "refresh_in_background", lambda force=False: None)
 
 
 @pytest.fixture(scope="session")

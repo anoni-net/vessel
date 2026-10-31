@@ -122,6 +122,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .check-results dt { font-weight: 700; }
 .check-results dd { margin: 4px 0 0; }
 .card--warn { background: var(--warn); }
+/* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
+.lookup-answer { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 2px solid var(--ink); border-radius: 12px; background: var(--tint); }
+.lookup-answer--hit { background: var(--warn); }
 .card--dashed { border-style: dashed; box-shadow: none; text-align: center; }
 .step { width: 48px; height: 48px; border: var(--border); border-radius: 999px; background: var(--accent); display: grid; place-items: center; font-size: 22px; font-weight: 900; }
 
