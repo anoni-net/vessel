@@ -191,6 +191,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .layers--small > span { width: 7px; height: 12px; border-width: 1.5px; border-radius: 2px; }
 /* a device's city and filter: flag, name, strength bars, filter name */
 .device-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+/* the boxes are centred, but Chinese glyphs sit above the middle of their line; lift the icons to match the ink */
+.device-meta > .flag, .device-meta > .layers { position: relative; top: -0.1em; }
+.choice__head > .layers, .choice__head > .badge { position: relative; top: -0.05em; }
 .stack-sm { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .stack-sm > legend { padding: 0; margin-bottom: 2px; }
 .picks { display: flex; flex-wrap: wrap; gap: 8px; }
