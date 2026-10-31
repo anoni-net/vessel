@@ -160,19 +160,22 @@ export function Devices() {
         <ul class="stack plain" data-testid="device-list">
           {devices.map((d) => (
             <li class="card" aria-busy={deleting.has(d.id)}>
-              <div class="row">
-                <div>
-                  <p class="strong big">{d.name}</p>
-                  <p class="muted small device-meta">
-                    {flagOf(d.region) && <img class="flag flag--small" src={flagOf(d.region)} alt="" width="20" height="15" />}
-                    <span>{t[`region.${d.region}` as keyof typeof t] ?? d.region}</span>
-                    <span aria-hidden="true">·</span>
-                    <Layers filter={d.dns_filter} small />
-                    <span>{t[`filter.${d.dns_filter}`]}</span>
-                  </p>
-                </div>
+              <div class="row device-head">
+                <p class="strong big device-head__name">{d.name}</p>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
+              {/* the full width of the card, so it rarely wraps; when it does, each icon stays with its words */}
+              <p class="muted small device-meta">
+                <span class="device-meta__part">
+                  {flagOf(d.region) && <img class="flag flag--small" src={flagOf(d.region)} alt="" width="20" height="15" />}
+                  <span class="device-meta__text">{t[`region.${d.region}` as keyof typeof t] ?? d.region}</span>
+                </span>
+                <span class="device-meta__text" aria-hidden="true">·</span>
+                <span class="device-meta__part">
+                  <Layers filter={d.dns_filter} small />
+                  <span class="device-meta__text">{t[`filter.${d.dns_filter}`]}</span>
+                </span>
+              </p>
               <p class="small" data-testid="device-usage">
                 {fmt(t["devices.used"], { amount: formatBytes(locale, d.used_bytes) })}
                 {d.dns_filter !== "none" && <>{" · "}{fmt(t["devices.blocked"], { n: d.blocked })}</>}
