@@ -559,3 +559,27 @@ test("signing in shows that it is working", async ({ page }) => {
   release();
   await expect(page.locator("form").getByRole("button", { name: "登入", exact: true })).toBeEnabled();
 });
+
+test("the account page keeps its layout while the dates and passkeys load", async ({ page }) => {
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await mockApi(page, {
+    "GET /api/me": async (route) => { await held; await route.fulfill({ json: ME }); },
+    "GET /api/passkeys": async (route) => { await held; await route.fulfill({ json: [] }); },
+  });
+  await page.goto("/account/");
+  const section = page.locator("main section");
+  await expect(section).toHaveAttribute("aria-busy", "true");
+  // the words are there at once; only the dates and the passkey form are grey
+  await expect(page.getByRole("heading", { name: "passkey" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "刪除帳號" })).toBeVisible();
+  const before = await page.locator("[data-testid=passkeys] .sk--button").boundingBox();
+  const card = await page.getByRole("heading", { name: "刪除帳號" }).boundingBox();
+  release();
+  await expect(page.getByRole("button", { name: "加上 passkey" })).toBeVisible();
+  await expect(section).toHaveAttribute("aria-busy", "false");
+  await expect(page.locator("main .sk")).toHaveCount(0);
+  // nothing moved when the data arrived
+  expect((await page.getByRole("button", { name: "加上 passkey" }).boundingBox())!.y).toBeCloseTo(before!.y, 0);
+  expect((await page.getByRole("heading", { name: "刪除帳號" }).boundingBox())!.y).toBeCloseTo(card!.y, 0);
+});

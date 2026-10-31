@@ -10,7 +10,7 @@ export class ApiError extends Error {
  * The last account and device list, kept in this tab's memory (never in storage) so a signed-in page can show
  * them at once while it asks again. Any change (signing in or out, redeeming, adding or deleting) drops them.
  */
-export const last: { me?: Me; devices?: Device[] } = {};
+export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[] } = {};
 
 export function forgetAccount(): void {
   delete last.me;
@@ -130,7 +130,11 @@ export const api = {
     }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   deleteAccount: () => call("DELETE", "/account"),
-  passkeys: () => call<Passkey[]>("GET", "/passkeys").then((r) => r.data),
+  passkeys: () =>
+    call<Passkey[]>("GET", "/passkeys").then((r) => {
+      if (Array.isArray(r.data)) last.passkeys = r.data;
+      return r.data;
+    }),
   passkeyOptions: () => call<WebAuthnJson>("POST", "/passkeys/options").then((r) => r.data),
   addPasskey: (credential: WebAuthnJson, label: string) =>
     call<Passkey[]>("POST", "/passkeys", { credential, label }).then((r) => r.data),
