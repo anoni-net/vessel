@@ -5,7 +5,9 @@ import { formatBytes, formatDate, formatPercent, formatTime } from "../format.ts
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
+import { flagOf } from "../regions.ts";
 import { AccountNav } from "./account.tsx";
+import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
 import { Busy, SkButton, SkCard, Spin } from "./skeleton.tsx";
 
@@ -161,8 +163,12 @@ export function Devices() {
               <div class="row">
                 <div>
                   <p class="strong big">{d.name}</p>
-                  <p class="muted small">
-                    {t[`region.${d.region}` as keyof typeof t] ?? d.region} · {t[`filter.${d.dns_filter}`]}
+                  <p class="muted small device-meta">
+                    {flagOf(d.region) && <img class="flag flag--small" src={flagOf(d.region)} alt="" width="20" height="15" />}
+                    <span>{t[`region.${d.region}` as keyof typeof t] ?? d.region}</span>
+                    <span aria-hidden="true">·</span>
+                    <Layers filter={d.dns_filter} small />
+                    <span>{t[`filter.${d.dns_filter}`]}</span>
                   </p>
                 </div>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
