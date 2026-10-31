@@ -561,11 +561,14 @@ test("signing in shows that it is working", async ({ page }) => {
 });
 
 test("the account page keeps its layout while the dates and passkeys load", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-31T03:00:00Z"));
   let release = () => {};
   const held = new Promise<void>((r) => (release = r));
   await mockApi(page, {
     "GET /api/me": async (route) => { await held; await route.fulfill({ json: ME }); },
     "GET /api/passkeys": async (route) => { await held; await route.fulfill({ json: [] }); },
+    "GET /api/usage/months": async (route) => { await held; await route.fulfill({ json: { filter: "malware", months: [
+      { month: "2026-10-01", used_bytes: 4.2e9, blocked: null, blocked_ads: null }] } }); },
   });
   await page.goto("/account/");
   const section = page.locator("main section");
@@ -584,4 +587,69 @@ test("the account page keeps its layout while the dates and passkeys load", asyn
     Math.abs((await page.getByRole(name, { name: label }).boundingBox())!.y - y);
   expect(await moved("button", "加上 passkey", before!.y)).toBeLessThanOrEqual(2);
   expect(await moved("heading", "刪除帳號", card!.y)).toBeLessThanOrEqual(2);
+});
+
+// the monthly record, seen in December 2026: the kinds are counted apart from November, October has traffic only
+const monthsFor = (filter: "none" | "malware" | "ads") => {
+  const n = (a: number, b: number) => ({ blocked: filter === "none" ? 0 : a, blocked_ads: filter === "ads" ? b : 0 });
+  return {
+    filter,
+    months: [
+      { month: "2026-12-01", used_bytes: 0.4e9, ...n(1, 96) },
+      { month: "2026-11-01", used_bytes: 8.7e9, ...n(14, 1260) },
+      { month: "2026-10-01", used_bytes: 3.1e9, blocked: null, blocked_ads: null },
+    ],
+  };
+};
+const MADE_IN_OCTOBER = { ...ME, created_on: "2026-10-20" };
+
+for (const [filter, fromDevices] of [["ads", true], ["none", true], ["malware", false]] as const) {
+  test(`the monthly record keeps its layout while it loads (${filter})`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-12-05T03:00:00Z"));
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    await mockApi(page, {
+      "GET /api/me": json(MADE_IN_OCTOBER),
+      "GET /api/devices": json([{ ...DEVICES[0], dns_filter: filter }]),
+      "GET /api/passkeys": json([]),
+      "GET /api/usage/months": async (route) => { await held; await route.fulfill({ json: monthsFor(filter) }); },
+    });
+    // from the devices page the skeleton knows the filter; opened directly it assumes the default
+    if (fromDevices) {
+      await page.goto("/devices/");
+      await expect(page.getByTestId("usage-percent")).toBeVisible();
+      await page.locator(".subnav").getByRole("link", { name: "帳號" }).click();
+    } else {
+      await page.goto("/account/");
+    }
+    await expect(page.locator(".month--skeleton")).toHaveCount(3);
+    const before = (await page.getByRole("heading", { name: "passkey" }).boundingBox())!.y;
+    release();
+    await expect(page.locator(".month.appear")).toHaveCount(3);
+    expect(Math.abs((await page.getByRole("heading", { name: "passkey" }).boundingBox())!.y - before)).toBeLessThanOrEqual(2);
+  });
+}
+
+test("the monthly record shows only the counts a filter made", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-12-05T03:00:00Z"));
+  let filter: "none" | "malware" | "ads" = "ads";
+  await mockApi(page, {
+    "GET /api/me": json(MADE_IN_OCTOBER),
+    "GET /api/passkeys": json([]),
+    "GET /api/usage/months": (route) => route.fulfill({ json: monthsFor(filter) }),
+  });
+  await page.goto("/account/");
+  const months = page.getByTestId("months");
+  await expect(months.locator("li").first()).toContainText("2026年12月（至今）");
+  await expect(months.getByTestId("month-ads").nth(1)).toHaveText("擋下廣告與追蹤的查詢1,260 次");
+  await expect(months.locator("li").nth(2).getByTestId("month-not-yet")).toHaveText("擋下次數從 2026 年 11 月開始記錄");
+  filter = "malware";
+  await page.reload();
+  await expect(months.getByTestId("month-malware")).toHaveCount(2);
+  await expect(months.getByTestId("month-ads")).toHaveCount(0);
+  filter = "none";
+  await page.reload();
+  await expect(months.getByTestId("month-used")).toHaveCount(3);
+  await expect(months.getByTestId("month-malware")).toHaveCount(0);
+  await expect(months.getByTestId("month-not-yet")).toHaveCount(0);
 });

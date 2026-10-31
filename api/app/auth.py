@@ -4,7 +4,7 @@ Errors are short codes the frontend translates. A bad, expired or used invite al
 the endpoint cannot be used to learn which codes exist.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated
 
 import psycopg
@@ -208,6 +208,39 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
         "used_bytes": usage[0] if usage else 0,
         "usage_as_of": as_of.isoformat() if as_of else None,
     }
+
+
+# the node counts the two blocklists apart from this month on (toomore/anoni-net-ws#445); earlier months have
+# traffic only, and a few hours of blocked lookups that would read as a whole month's
+BLOCKED_SINCE = date(2026, 11, 1)
+MONTHS_KEPT = 12
+
+
+@router.get("/usage/months")
+def usage_months(account_id: Account, conn: Conn) -> dict:
+    """The account page's monthly record: every month since the account was made, the last twelve, newest first."""
+    created_on = conn.execute("SELECT created_on FROM accounts WHERE id = %s", (account_id,)).fetchone()[0]
+    rows = {
+        r[0]: r[1:]
+        for r in conn.execute(
+            "SELECT period, rx_bytes + tx_bytes, blocked, blocked_ads FROM account_usage WHERE account_id = %s",
+            (account_id,),
+        )
+    }
+    # the strongest filter on the account's devices now: the page leaves out the counts a filter never made
+    strongest = conn.execute(
+        "SELECT max(CASE dns_filter WHEN 'ads' THEN 2 WHEN 'malware' THEN 1 ELSE 0 END) FROM devices "
+        "WHERE account_id = %s",
+        (account_id,),
+    ).fetchone()[0]
+    months, month, first = [], date.today().replace(day=1), created_on.replace(day=1)
+    while month >= first and len(months) < MONTHS_KEPT:
+        used, blocked, ads = rows.get(month, (0, 0, 0))
+        counted = month >= BLOCKED_SINCE
+        months.append({"month": month.isoformat(), "used_bytes": used,
+                       "blocked": blocked if counted else None, "blocked_ads": ads if counted else None})
+        month = (month - timedelta(days=1)).replace(day=1)
+    return {"filter": ("none", "malware", "ads")[strongest or 0], "months": months}
 
 
 @router.delete("/account", dependencies=[Depends(require_app_header)])

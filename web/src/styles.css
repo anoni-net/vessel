@@ -322,3 +322,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .printable, .printable * { visibility: visible; }
   .printable { position: absolute; inset: 0 auto auto 0; box-shadow: none; }
 }
+
+/* the account page's monthly record: one card, a month per row, newest first */
+.months { gap: 0; padding: 4px 20px; }
+.month { display: flex; flex-direction: column; gap: 2px; padding: 12px 0; }
+.month + .month { border-top: 2px dashed #dfe5e8; }
+.month > .row { flex-wrap: nowrap; align-items: baseline; }
+/* each grey line sits in a box one line of its text tall, so the row keeps its height when the text arrives */
+.month--skeleton > span { display: flex; align-items: center; min-height: 1lh; }
