@@ -10,7 +10,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
-| `update-lists.sh` | 根目錄 | 更新 RPZ 名單，網域有變才重新載入 unbound。root 的 cron 每 8 小時執行（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致 |
+| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時執行（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致 |
 | `unbound/*.conf` | `unbound/` | 三個解析器的設定 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
@@ -37,7 +37,7 @@ bash /opt/vessel-node/setup.sh
 
 - 對外網卡的佇列改成 `fq_codel`：雲端映像留著 `pfifo_fast`，所有封包排同一個隊。有人大量下載時，其他人的網頁與 DNS 封包會排在後面。`fq_codel` 每條連線各自排隊，短小的封包先過
 - 開啟網卡的 `rx-udp-gro-forwarding`：VPN 的 UDP 封包經 Docker 轉送，合併之後每個封包的 CPU 負擔比較低
-- `vm.swappiness` 調到 10：解析器的名單佔約 800 MB 記憶體，換到 swap 的話，查詢會突然變慢
+- `vm.swappiness` 調到 10：解析器的名單佔約 1 GB 記憶體，換到 swap 的話，查詢會突然變慢
 
 UDP 的 socket 緩衝不用調，`amneziawg-go` 有 `NET_ADMIN`，會自己強制取得它要的大小。
 
@@ -83,12 +83,22 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | 位址 | 選項 | 名單 |
 |---|---|---|
 | `10.8.1.1` | 不過濾 | 無 |
-| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini） |
-| `10.8.1.254` | 再擋廣告 | 上面那份，加上 HaGeZi Multi PRO |
+| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 停止解析的涉詐網站 |
+| `10.8.1.254` | 再擋廣告 | 上面兩份，加上 HaGeZi Multi PRO |
 
-三個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。兩份名單載入後約佔 800 MB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
+三個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。三份名單載入後約佔 1 GB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
 
 擋廣告的名單原本用 Multi（Normal），2026-10-31 改成 HaGeZi 建議的 PRO。比對一個家用網路 Pi-hole 近 7 天擋下最多的 300 個網域，Normal 涵蓋其中 16.5% 的擋下次數，PRO 涵蓋 30.3%。Pi-hole 擋下而 PRO 沒有擋的，多半是定位、iCloud、憑證、視訊通話的 STUN 這類擋了會壞掉功能的服務，不適合放在大家共用的服務上。
+
+### 165 停止解析的涉詐網站
+
+台灣的電信業者依《詐欺犯罪危害防制條例》第 42 條，對刑事警察局列管的涉詐網站停止解析，HiNet 的 DNS 對這些網域回封鎖頁的 IP。連上 Vessel 之後查詢改走節點的解析器，少了這層保護，而 HaGeZi 的名單幾乎沒有收這些網域（2026-10-31 比對 8.6 萬個網域，完整的 TIF 只涵蓋 0.2%）。所以兩個有過濾的解析器另外載入這份名單（toomore/anoni-net-ws#446）。
+
+- 來源是警政署在政府資料開放平台公布的[165反詐騙諮詢專線_遭停止解析涉詐網站](https://data.gov.tw/dataset/176455)，政府資料開放授權條款第 1 版，CSV 格式，不定期更新，資料約落後一個月
+- `update-lists.sh` 下載 CSV，取出網域，清掉前面的協定與雜字，格式不對的捨棄，產生 `rpz/tw165.rpz`。每個網域連同子網域回 NXDOMAIN。清單裡沒有短網址、免費架站平台這類共用的上層網域，只有它們底下的子網域，擋子網域不會波及其他網站
+- 開 `rpz-signal-nxdomain-ra`，擋下的次數算進詐騙與惡意網站
+- 兩個解析器各多約 110 MB 記憶體（2026-10-31 在 unbound 1.25 實測，8.6 萬個網域）
+- 名單只照資料集的內容，資料集刪掉的網域，下次更新時就不再擋
 
 ### 擋下次數
 
