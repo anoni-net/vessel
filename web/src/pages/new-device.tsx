@@ -9,11 +9,11 @@ import { PLANNED, flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
+import { FILTERS, Layers } from "./layers.tsx";
 import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
-const FILTERS: DnsFilter[] = ["none", "malware", "ads"];
 const IMPORT_STEPS: Record<Platform, number> = { android: 4, apple: 4, windows: 3 };
 const POLL_MS = 2000;
 const POLL_TRIES = 60;
@@ -242,15 +242,12 @@ export function NewDevice() {
           <p>{t["protect.body"]}</p>
           <fieldset class="stack plain-fieldset">
             <legend class="sr-only">{t["protect.title"]}</legend>
-            {FILTERS.map((f, i) => (
+            {FILTERS.map((f) => (
               <label class={`choice choice--radio choice--layer${f === filter ? " choice--on" : ""}`}>
                 <input type="radio" name="filter" value={f} checked={f === filter} onChange={() => setFilter(f)} />
                 <span class="choice__text">
                   <span class="choice__head">
-                    {/* one more filled bar per layer of protection */}
-                    <span class="layers" aria-hidden="true">
-                      {FILTERS.map((_, j) => <span class={j <= i ? "layers__on" : ""} />)}
-                    </span>
+                    <Layers filter={f} />
                     <span class="strong">{t[`protect.${f}`]}</span>
                     {f === "malware" && <span class="badge badge--active">{t["protect.recommended"]}</span>}
                   </span>

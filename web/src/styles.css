@@ -187,6 +187,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .layers { display: inline-flex; align-items: flex-end; gap: 3px; flex: none; }
 .layers > span { width: 10px; height: 18px; border: 2px solid var(--ink); border-radius: 3px; background: var(--paper); }
 .layers > .layers__on { background: var(--accent-strong); }
+.layers--small { gap: 2px; }
+.layers--small > span { width: 7px; height: 12px; border-width: 1.5px; border-radius: 2px; }
+/* a device's city and filter: flag, name, strength bars, filter name */
+.device-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
 .stack-sm { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .stack-sm > legend { padding: 0; margin-bottom: 2px; }
 .picks { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -197,6 +201,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .choice__text { display: flex; flex-direction: column; gap: 2px; }
 /* a thin frame: the flags of Japan and Singapore are partly white */
 .flag { flex: none; width: 32px; height: 24px; border: 1px solid #c9d2d6; border-radius: 3px; object-fit: cover; }
+.flag--small { width: 20px; height: 15px; border-radius: 2px; }
 .plain-fieldset { border: none; padding: 0; margin: 0; gap: 8px; }
 .plain-fieldset legend { padding: 0; margin-bottom: 8px; }
 .steps { margin: 0; padding-inline-start: 1.4em; display: flex; flex-direction: column; gap: 6px; }
