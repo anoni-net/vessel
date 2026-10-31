@@ -290,6 +290,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .sk--mid { width: 55%; }
 .sk--short { width: 30%; }
 .sk--button { width: 100%; height: 53px; border-radius: 999px; }
+.sk--field { width: 100%; height: 58px; border-radius: var(--radius); }
+/* the grey line for the passkey name's label takes the label's line height, so the button below does not move */
+.passkey-skeleton > .sk--short { margin: 5.5px 0; }
 .sk-card { border-color: #dfe5e8; gap: 14px; }
 /* heights of the real usage and device cards on the devices page */
 .sk-card--usage { min-height: 213px; }
@@ -297,6 +300,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (max-width: 599px) { .sk-card--usage { min-height: 237px; } }
 @keyframes sk-pulse { 50% { opacity: 0.5; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+/* a page that was a skeleton a moment ago eases in instead of popping in */
+.appear { animation: appear 0.18s ease-out; }
+@keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .appear { animation: none; } }
 
 /* waiting for the server: the button keeps its colour and shows a turning ring with what it is doing */
 .card[aria-busy="true"] { opacity: .75; }
