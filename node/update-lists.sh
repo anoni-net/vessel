@@ -21,7 +21,8 @@ declare -A USERS=([malware]="malware ads" [tw165]="malware ads" [ads]="ads")
 # The 165 CSV (民國年月, 網域, 網站性質, ...) as an RPZ zone: each domain and its subdomains answer NXDOMAIN.
 # Entries are cleaned (a scheme, a path or stray characters in front) and the ones that are still not a host
 # name are dropped. No listed name is a shared parent like a URL shortener or a hosting platform, only names
-# under them, so blocking subdomains does not reach other sites.
+# under them, so blocking subdomains does not reach other sites. A name whose parent is listed too is left out:
+# the parent's wildcard already blocks it (a quarter of the list, and of the memory it takes).
 zone_from_csv() { # csv
   python3 -I - "$1" <<'PY'
 import csv, re, sys
@@ -36,9 +37,12 @@ for row in csv.DictReader(open(sys.argv[1], encoding="utf-8-sig")):
         continue
     if host.fullmatch(name) and len(name) <= 253:
         names.add(name)
+def covered(name):
+    labels = name.split(".")
+    return any(".".join(labels[i:]) in names for i in range(1, len(labels) - 1))
 print("$TTL 3600\n@ SOA localhost. root.localhost. 1 28800 3600 259200 3600\n  NS localhost.")
 print("; 165反詐騙諮詢專線_遭停止解析涉詐網站, NPA (data.gov.tw/dataset/176455), Open Government Data License v1")
-for name in sorted(names):
+for name in sorted(n for n in names if not covered(n)):
     print(f"{name} CNAME .\n*.{name} CNAME .")
 PY
 }
