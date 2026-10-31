@@ -136,7 +136,7 @@ test("errors the pages do not know are sent as other", async () => {
   await page.goto(ORIGIN + "/login/");
   await page.getByLabel("帳號號碼").fill("1234 5678 9012 3456");
   await page.getByRole("button", { name: "登入" }).last().click();
-  await expect.poll(() => events(sent)).toEqual([["login", { result: "other" }]]);
+  await expect.poll(() => events(sent)).toEqual([["login", { result: "other", method: "number" }]]);
   expect(JSON.stringify(sent)).not.toContain("1234");
   await page.close();
 });

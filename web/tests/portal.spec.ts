@@ -56,7 +56,7 @@ test("frequently asked questions", async ({ page }) => {
   await faq.getByRole("link", { name: "所有常見問題" }).click();
   await expect(page).toHaveURL(/\/faq\/$/);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
-  await expect(page.locator("details")).toHaveCount(28);
+  await expect(page.locator("details")).toHaveCount(29);
   // opened straight from a link elsewhere, the page loads fresh with the question open
   await page.goto("/dns/");
   await page.goto("/faq/#q-noTraffic");
@@ -78,6 +78,9 @@ test("redeem shows the number once and gates continue", async ({ page }) => {
   await expect(go).toBeDisabled();
   await page.getByLabel("我已經把號碼存在安全的地方").check();
   await page.getByRole("button", { name: "繼續" }).click();
+  // then a passkey is offered; skipping it goes on to the devices
+  await expect(page.getByTestId("passkey-offer")).toBeVisible();
+  await page.getByRole("button", { name: "先略過，之後在帳號頁加" }).click();
   await expect(page).toHaveURL(/\/devices\/$/);
   await expect(page.getByRole("heading", { name: "我的裝置" })).toBeVisible();
 });
@@ -356,6 +359,7 @@ test("password managers can save and fill the account number", async ({ page }) 
   await page.getByRole("button", { name: "兌換" }).click();
   await page.getByLabel("我已經把號碼存在安全的地方").check();
   await page.getByRole("button", { name: "繼續" }).click();
+  await page.getByRole("button", { name: "先略過，之後在帳號頁加" }).click();
   await expect(page).toHaveURL(/\/devices\/$/);
   expect(await page.evaluate(() => (window as unknown as { stored: unknown[] }).stored))
     .toEqual([{ id: "Vessel", password: "4821 0937 5564 2018", name: "Vessel" }]);
