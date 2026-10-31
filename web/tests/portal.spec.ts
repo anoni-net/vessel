@@ -399,7 +399,7 @@ test("the devices page refreshes on its own", async ({ page }) => {
   await page.goto("/devices/");
   const badge = page.getByTestId("device-list").locator(".badge");
   await expect(badge).toHaveText("建立中");
-  await expect(page.getByTestId("usage-as-of")).toContainText("用量更新於");
+  await expect(page.getByTestId("usage-as-of")).toContainText("更新");
 
   // a pending device is checked every 10 seconds until the node has added it
   status = "active";
@@ -439,7 +439,7 @@ test("the usage card adds up what the filters blocked this month", async ({ page
   await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], plain]) });
   await page.goto("/devices/");
   // the device without a filter does not count, even if the node reported a number for it
-  await expect(page.getByTestId("blocked-total")).toHaveText("這個月 Vessel 替你擋下 12 次惡意網站的查詢。");
+  await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站的查詢");
   await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[1]]) });
   await page.goto("/devices/");
   await expect(page.getByTestId("device-list")).toBeVisible();

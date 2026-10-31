@@ -155,6 +155,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .number { font-size: clamp(22px, 6.5vw, 30px); font-weight: 800; letter-spacing: 1px; }
 .usage-head { align-items: baseline; }
 .usage-pct { font-size: 32px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.usage-amount { align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+/* what the filters did this month, set apart from the usage figures above it */
+.usage-blocked { margin-top: 4px; padding-top: 12px; border-top: 2px dashed var(--ink); font-weight: 700; }
 .meter { height: 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); overflow: hidden; }
 .meter > div { height: 100%; background: var(--ink); }
 .badge { padding: 2px 12px; border: 2px solid var(--ink); border-radius: 999px; font-size: 14px; font-weight: 800; white-space: nowrap; }

@@ -131,12 +131,15 @@ export function Devices() {
           {/* any use at all shows a sliver, so a few MB does not look like nothing */}
           <div style={{ width: me.used_bytes > 0 ? `max(${pct}%, 6px)` : "0" }} />
         </div>
-        <p class="strong">{amount}</p>
-        {blocked > 0 && <p data-testid="blocked-total">{fmt(t["devices.blockedTotal"], { n: blocked })}</p>}
-        {me.usage_as_of && (
-          <p class="muted small" data-testid="usage-as-of">{fmt(t["devices.usageAsOf"], { time: formatTime(locale, me.usage_as_of) })}</p>
-        )}
+        {/* the amount and when it was read share one line; the note explains both */}
+        <div class="row usage-amount">
+          <span class="strong">{amount}</span>
+          {me.usage_as_of && (
+            <span class="muted small" data-testid="usage-as-of">{fmt(t["devices.usageAsOf"], { time: formatTime(locale, me.usage_as_of) })}</span>
+          )}
+        </div>
         <p class="muted small">{t["devices.usageNote"]}</p>
+        {blocked > 0 && <p class="usage-blocked" data-testid="blocked-total">{fmt(t["devices.blockedTotal"], { n: blocked })}</p>}
       </div>
 
       {devices.length === 0 ? (
