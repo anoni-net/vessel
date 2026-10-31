@@ -15,8 +15,7 @@ declare -A SRC=(
 )
 # the domains in a list, without the header comments and the SOA serial, which change on every build
 entries() { grep -v -e '^;' -e ' SOA ' "$1" | sha256sum | cut -d' ' -f1; }
-# which resolvers load each list (node/unbound/*.conf)
-declare -A USERS=([malware]="malware ads" [tw165]="malware ads" [ads]="ads")
+# every list is loaded by the filter resolver (node/unbound/filter.conf), once, tagged with the addresses it serves
 
 # The 165 CSV (民國年月, 網域, 網站性質, ...) as an RPZ zone: each domain and its subdomains answer NXDOMAIN.
 # Entries are cleaned (a scheme, a path or stray characters in front) and the ones that are still not a host
@@ -77,20 +76,19 @@ for z in malware tw165 ads; do
     chmod 644 "$D/$z.rpz"
   fi
 done
-# Reload only the changed lists, one resolver at a time. A resolver stops answering while it loads a list (tens
-# of seconds for the ad list on a 1 vCPU node); restarting all three with HUP stopped them longer, and together.
+# Reload only the changed lists. The filter resolver stops answering, on both its addresses, while it loads a list
+# (tens of seconds for the ad list on a 1 vCPU node); HUP would reload every list. The no-filter resolver has no
+# list and keeps answering.
 if [ ${#changed[@]} -gt 0 ] && docker ps -q -f name=^vessel-node$ | grep -q .; then
   fallback=0
   for z in "${changed[@]}"; do
-    for r in ${USERS[$z]}; do
-      if docker exec vessel-node unbound-control -c "/etc/unbound/conf.d/$r.conf" auth_zone_reload "$z.rpz.vessel" >/dev/null; then
-        echo "$(date -Is) $r: reloaded $z"
-      else
-        fallback=1
-      fi
-    done
+    if docker exec vessel-node unbound-control -c /etc/unbound/conf.d/filter.conf auth_zone_reload "$z.rpz.vessel" >/dev/null; then
+      echo "$(date -Is) filter: reloaded $z"
+    else
+      fallback=1
+    fi
   done
-  # a resolver started before its remote-control section existed cannot be reached that way
+  # a list the running resolver does not have yet (a new zone in filter.conf) needs the configuration read again
   if [ "$fallback" = 1 ]; then
     docker exec vessel-node pkill -HUP -x unbound
     echo "$(date -Is) reloaded every resolver with HUP"
