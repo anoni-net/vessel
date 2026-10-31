@@ -7,7 +7,7 @@ test("the VPN basics, linked from the home page and the first step of a new devi
   await expect(page).toHaveURL(/\/learn\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("VPN 入門");
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
-    "VPN 在做的事", "日常使用", "確認有沒有連上", "出國前的準備", "連不上的時候", "被認出是 VPN 的可能", "Vessel 經手的資料",
+    "VPN 在做的事", "日常使用", "確認有沒有連上", "出國前的準備", "連不上的時候", "被認出是 VPN 的可能", "經過 Vessel 的資料",
   ]);
   await expect(page.locator("main ol").first().locator("li")).toHaveCount(5);
   // Android's always-on and block options, which leave the phone offline when the VPN is down
