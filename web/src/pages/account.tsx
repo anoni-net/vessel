@@ -5,6 +5,8 @@ import { formatDate } from "../format.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
+import { Passkeys } from "./passkeys.tsx";
+import { AccountNumber } from "./redeem.tsx";
 import { Busy, SkCard, SkLine, Spin } from "./skeleton.tsx";
 
 /** Links shown on the signed-in pages. */
@@ -34,6 +36,8 @@ export function Account() {
   const [sure, setSure] = useState(false);
   const [err, setErr] = useState("");
   const [deleting, setDeleting] = useState(false);
+  // a number just replaced with a passkey: shown on its own, once, then back to the account page
+  const [newNumber, setNewNumber] = useState("");
 
   useEffect(() => {
     api.me().then(setMe).catch((x) => {
@@ -56,6 +60,7 @@ export function Account() {
     }
   };
 
+  if (newNumber) return <AccountNumber number={newNumber} rotated onContinue={() => setNewNumber("")} />;
   if (err && !me) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
   if (!me) {
     return (
@@ -82,6 +87,7 @@ export function Account() {
         <dt>{t["account.lastLogin"]}</dt>
         <dd>{me.last_login_on ? formatDate(locale, me.last_login_on) : "-"}</dd>
       </dl>
+      <Passkeys onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
       <div class="card card--warn card--flat stack">
         <h2>{t["account.deleteTitle"]}</h2>
         <p>{t["account.deleteBody"]}</p>

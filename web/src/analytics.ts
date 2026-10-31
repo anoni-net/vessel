@@ -1,4 +1,5 @@
 import { ApiError } from "./api.ts";
+import { passkeyErrorCode } from "./passkey.ts";
 
 // Statistics go to the community's self-hosted Umami (aa.anoni.net, website anoni-net/vessel). The
 // Umami script is not loaded; this posts straight to /api/send, and the CSP allows only that URL.
@@ -28,13 +29,14 @@ const PLATFORMS = ["android", "apple", "windows"];
 const RESULTS = [
   "ok", "invalid_invite", "full", "redeem_paused", "too_many_attempts", "invalid_number", "signed_out", "network",
   "missing_header", "unknown", "device_limit", "region_closed", "invalid_name", "invalid_key", "key_in_use",
-  "quota_exceeded", "node_failed", "not_found", "config_gone", "timeout", "other",
+  "quota_exceeded", "node_failed", "not_found", "config_gone", "timeout", "invalid_passkey", "passkey_expired",
+  "passkey_cancelled", "passkey_unsupported", "other",
 ];
 
 export const EVENTS: Record<string, Record<string, readonly string[]>> = {
   redeem: { result: RESULTS },
   "number-continue": {},
-  login: { result: RESULTS },
+  login: { result: RESULTS, method: ["number", "passkey"] },
   "device-step": { step: ["install", "region", "name", "filter", "config"], platform: PLATFORMS },
   "device-create": { result: RESULTS, platform: PLATFORMS },
   "device-config": { how: ["download", "qr", "text", "done"] },
@@ -53,7 +55,7 @@ export function scrub(name: string, data: Record<string, string>): Record<string
 }
 
 export function resultOf(x: unknown): string {
-  const code = x instanceof ApiError ? x.code : "unknown";
+  const code = x instanceof ApiError ? x.code : passkeyErrorCode(x) ?? "unknown";
   return RESULTS.includes(code) ? code : "other";
 }
 

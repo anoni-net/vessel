@@ -3,7 +3,7 @@ import { useCtx } from "../context.ts";
 import type { MessageKey } from "../i18n/index.ts";
 
 const GROUPS = {
-  start: ["invite", "cost", "lost", "number", "share"],
+  start: ["invite", "cost", "lost", "number", "passkey", "share"],
   setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities"],
   rules: ["expire", "expired", "quota", "p2p"],
   privacy: ["see", "anomaly", "law", "cloudflare", "delete"],

@@ -96,6 +96,15 @@ export interface Status {
   notices: { region: string | null; kind: NoticeKind; starts_at: string; ends_at: string | null }[];
 }
 
+export interface Passkey {
+  id: number;
+  /** the name the person gave it, or "" */
+  label: string;
+  created_on: string;
+}
+
+type WebAuthnJson = Record<string, unknown>;
+
 export interface NewDevice {
   name: string;
   region: string;
@@ -121,6 +130,18 @@ export const api = {
     }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   deleteAccount: () => call("DELETE", "/account"),
+  passkeys: () => call<Passkey[]>("GET", "/passkeys").then((r) => r.data),
+  passkeyOptions: () => call<WebAuthnJson>("POST", "/passkeys/options").then((r) => r.data),
+  addPasskey: (credential: WebAuthnJson, label: string) =>
+    call<Passkey[]>("POST", "/passkeys", { credential, label }).then((r) => r.data),
+  deletePasskey: (id: number) => call<Passkey[]>("DELETE", `/passkeys/${id}`).then((r) => r.data),
+  /** sign-in with a passkey: needs no session and no account number */
+  passkeyLoginOptions: () => call<WebAuthnJson>("POST", "/passkeys/login/options").then((r) => r.data),
+  passkeyLogin: (credential: WebAuthnJson) => call("POST", "/passkeys/login", { credential }),
+  /** a new account number, confirmed with one of the account's passkeys; shown once */
+  rotateOptions: () => call<WebAuthnJson>("POST", "/account/number/options").then((r) => r.data),
+  rotateNumber: (credential: WebAuthnJson) =>
+    call<{ account_number: string }>("POST", "/account/number", { credential }).then((r) => r.data),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),
