@@ -53,13 +53,20 @@ ip6tables -P FORWARD DROP
 ip6tables -A INPUT -i awg0 -j DROP
 
 # --- blocked lookups, counted per tunnel address ---
-# Both RPZ lists answer with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
-# answer has. One rule per client address counts those packets; nothing records the names. awgctl zeroes a
-# rule when it hands its address to a new peer, and reports the counts in `usage --json`.
+# The malware list answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
+# answer has; the ad list answers with a CNAME to blocked.vessel. (unbound/ads.conf). One rule per client
+# address in each chain counts those packets; nothing records the names. awgctl zeroes both rules when it hands
+# an address to a new peer, and reports the counts in `usage --json`.
 iptables -N VESSEL-BLOCKED
-for n in $(seq 2 249); do iptables -A VESSEL-BLOCKED -d 10.8.1.$n -j RETURN; done
+iptables -N VESSEL-ADS
+for n in $(seq 2 249); do
+  iptables -A VESSEL-BLOCKED -d 10.8.1.$n -j RETURN
+  iptables -A VESSEL-ADS -d 10.8.1.$n -j RETURN
+done
 # DNS header after the IP and UDP headers: the low byte of the flags is RA (0x80) and RCODE (0x0f); NXDOMAIN is 3
 iptables -A OUTPUT -o awg0 -p udp --sport 53 -m u32 --u32 "0>>22&0x3C@8&0x8F=0x3" -j VESSEL-BLOCKED
+# blocked.vessel. as it appears in the answer: each label's length, then the label
+iptables -A OUTPUT -o awg0 -p udp --sport 53 -m string --algo bm --hex-string "|07|blocked|06|vessel|00|" -j VESSEL-ADS
 
 # --- resolvers ---
 # the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,ads}.rpz present (an empty zone if a download never succeeded)

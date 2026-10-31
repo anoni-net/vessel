@@ -48,7 +48,7 @@ def regions(_: Account, conn: Conn) -> list[dict]:
 def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
-        "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked, 0), d.connected, "
+        "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
         "CASE WHEN d.moved THEN r.previous_until END FROM devices d JOIN regions r ON r.id = d.region_id "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
         "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
