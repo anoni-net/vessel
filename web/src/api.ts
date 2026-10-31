@@ -49,6 +49,15 @@ export interface Me {
 export type DnsFilter = "none" | "malware" | "ads";
 export type DeviceStatus = "pending" | "active" | "suspended" | "revoking";
 
+export interface BlocklistAnswer {
+  /** the host name the backend read from what was typed */
+  domain: string;
+  /** on the malware list: blocked by both filters */
+  malware: boolean;
+  /** on the ad list: blocked by the ads filter */
+  ads: boolean;
+}
+
 export interface Device {
   id: string;
   name: string;
@@ -115,6 +124,9 @@ export const api = {
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),
+  /** which DNS filters block a site; needs no session, and the domain is not kept */
+  blocklist: (domain: string) =>
+    call<BlocklistAnswer>("POST", "/blocklist", { domain }).then((r) => r.data),
   /** public, no session */
   status: () => call<Status>("GET", "/status").then((r) => r.data),
   createDevice: (body: NewDevice) =>

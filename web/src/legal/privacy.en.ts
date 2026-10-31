@@ -29,7 +29,7 @@ export default {
         "Device private keys. They are generated in your browser and never sent to our servers",
         "Which sites you visit, or when you connect",
         "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment",
-        "DNS queries. The node's resolvers do not log them",
+        "DNS queries. The node's resolvers do not log them, and the site lookup on the DNS filtering page only compares a domain with the lists at that moment",
       ],
     },
     { h: "What a node handles while you are connected" },

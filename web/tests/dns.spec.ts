@@ -36,10 +36,56 @@ test("the DNS page in three languages, linked from the home page", async ({ page
   await page.locator("#how").getByRole("link", { name: "網域過濾的說明" }).click();
   await expect(page).toHaveURL(/\/dns\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("網域過濾");
-  await expect(page.getByRole("heading", { level: 2 })).toHaveText(["檢查目前的過濾", "三種選項", "運作方式", "做不到的事", "更換與回報"]);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(["檢查目前的過濾", "查詢網站有沒有被擋", "三種選項", "運作方式", "做不到的事", "更換與回報"]);
   await page.goto("/en/dns/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("DNS filtering");
   await expect(page.getByRole("link", { name: "HaGeZi's GitHub" })).toHaveAttribute("href", "https://github.com/hagezi/dns-blocklists");
   await page.goto("/zh-cn/dns/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("域名过滤");
+});
+
+test("look up whether a site is on the lists, and report one blocked by mistake", async ({ page }) => {
+  const asked: unknown[] = [];
+  await page.route("**/api/blocklist", async (route) => {
+    const body = route.request().postDataJSON();
+    asked.push(body);
+    expect(route.request().headers()["x-vessel-request"]).toBe("1");
+    if (body.domain === "bad") return route.fulfill({ status: 400, json: { error: "invalid_domain" } });
+    const malware = body.domain.includes("phish");
+    const ads = malware || body.domain.includes("ads");
+    return route.fulfill({ json: { domain: body.domain.replace(/^https?:\/\//, "").split("/")[0], malware, ads } });
+  });
+  await page.goto("/dns/");
+  const box = page.getByTestId("dns-lookup");
+  await box.getByLabel("網址或網域").fill("good.example");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByTestId("lookup-answer")).toHaveText("good.example 不在 Vessel 的名單上，打不開的原因可能在網站本身或目前的網路。");
+  await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
+
+  await box.getByLabel("網址或網域").fill("bad");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByRole("alert")).toHaveText("看不出是哪個網站，請輸入像 example.com 這樣的網域。");
+
+  await box.getByLabel("網址或網域").fill("ads.example");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByTestId("lookup-answer")).toContainText("在擋廣告的名單上，只有選了「擋惡意網站與廣告」的裝置會擋下它。");
+
+  await box.getByLabel("網址或網域").fill("https://phish.example/login");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByTestId("lookup-answer")).toContainText("phish.example 在擋惡意網站的名單上");
+  // the domain goes in the POST body, never in a URL
+  expect(asked.at(-1)).toEqual({ domain: "https://phish.example/login" });
+
+  await box.getByRole("link", { name: "覺得擋錯了？回報給我們" }).click();
+  await expect(page).toHaveURL(/\/feedback\/\?from=dns&blocked=phish\.example&list=malware$/);
+  await expect(page.getByRole("radio", { name: "其他" })).toBeChecked();
+  const attach = page.getByTestId("attach-check");
+  await expect(attach).toContainText("附上要回報的網站");
+  await expect(attach).toContainText("誤擋回報：phish.example（擋惡意網站的名單）");
+});
+
+test("a report link with anything but a host name attaches nothing", async ({ page }) => {
+  await page.goto("/feedback/?from=dns&blocked=%3Cscript%3E&list=malware");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByTestId("attach-check")).toHaveCount(0);
 });

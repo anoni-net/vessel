@@ -1,8 +1,10 @@
 import { useState } from "preact/hooks";
+import { ApiError, type BlocklistAnswer, api } from "../api.ts";
 import { useCtx } from "../context.ts";
+import { blockedReport } from "../feedback.ts";
 import { Spin } from "./skeleton.tsx";
 import { type Verdict, runCheck } from "../dnscheck.ts";
-import type { MessageKey } from "../i18n/index.ts";
+import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 
 const OPTIONS = ["none", "malware", "ads"] as const;
 const LIMITS = [1, 2, 3, 4, 5] as const;
@@ -16,6 +18,7 @@ export function Dns() {
       <p class="lead">{t["dns.lead"]}</p>
 
       <DnsCheck />
+      <Lookup />
 
       <h2>{t["dns.options.title"]}</h2>
       <div class="stack">
@@ -67,5 +70,54 @@ function DnsCheck() {
         {t["dns.check.more"]} <a href={href("/check/")}>{t["check.title"]}</a>{locale === "en" ? "." : "。"}
       </p>
     </div>
+  );
+}
+
+/** Is a site on the lists? For a site that will not open with a filter on; the answer names the filters that block it. */
+function Lookup() {
+  const { t, href } = useCtx();
+  const [domain, setDomain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<BlocklistAnswer | null>(null);
+  const [err, setErr] = useState("");
+  const look = async (e: Event) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr("");
+    setAnswer(null);
+    try {
+      setAnswer(await api.blocklist(domain));
+    } catch (x) {
+      setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const list = answer && (answer.malware ? "malware" : answer.ads ? "ads" : null);
+  return (
+    <form class="card stack" onSubmit={look} data-testid="dns-lookup">
+      <h2>{t["dns.lookup.title"]}</h2>
+      <p>{t["dns.lookup.body"]}</p>
+      <label for="lookup-domain" class="strong">{t["dns.lookup.label"]}</label>
+      <input id="lookup-domain" class="nb-input" required maxLength={2048} autoComplete="off" autoCapitalize="none"
+        spellcheck={false} inputMode="url" placeholder={t["dns.lookup.placeholder"]} value={domain}
+        onInput={(e) => setDomain(e.currentTarget.value)} />
+      <button class="nb-button nb-button--ink" type="submit" disabled={busy} aria-busy={busy}>
+        {busy ? <><Spin />{t["dns.lookup.running"]}</> : t["dns.lookup.button"]}
+      </button>
+      {err && <p class="error" role="alert">{err}</p>}
+      {answer && (
+        <div class={`lookup-answer${list ? " lookup-answer--hit" : ""}`} role="status" data-testid="lookup-answer">
+          <p class="strong">{fmt(t[`dns.lookup.${list ?? "none"}`], { domain: answer.domain })}</p>
+          {list && (
+            <p class="small">
+              <a class="strong" href={href(`/feedback/?from=dns&${blockedReport(answer.domain, list)}`)}>{t["dns.lookup.report"]}</a>
+              {" "}{t["dns.lookup.reportNote"]}
+            </p>
+          )}
+        </div>
+      )}
+      <p class="muted small">{t["dns.lookup.privacy"]}</p>
+    </form>
   );
 }
