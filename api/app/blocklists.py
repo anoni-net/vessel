@@ -6,6 +6,7 @@ about is only compared in memory: it is not logged or stored."""
 import csv
 import io
 import re
+import ssl
 import threading
 import time
 import urllib.request
@@ -67,6 +68,16 @@ def parse_165(text: str) -> frozenset[str]:
     return frozenset(names)
 
 
+def tls_context(name: str) -> ssl.SSLContext:
+    """The default checks, except for the 165 list: its server's certificate chain has a CA certificate without a
+    Subject Key Identifier, which Python 3.13 rejects by default (VERIFY_X509_STRICT). The chain and the host name
+    are still verified; curl on the nodes accepts the same chain."""
+    context = ssl.create_default_context()
+    if name == "tw165":
+        context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    return context
+
+
 def set_lists(lists: dict[str, frozenset[str]], at: float | None = None) -> None:
     """Replace the lists; the background refresh calls this, and tests use it instead of the network."""
     global _lists, _loaded_at
@@ -77,7 +88,7 @@ def _download() -> None:
     fresh = {}
     for name, url in SOURCES.items():
         try:
-            with urllib.request.urlopen(url, timeout=120) as r:
+            with urllib.request.urlopen(url, timeout=120, context=tls_context(name)) as r:
                 text = r.read().decode("utf-8", "replace")
             names = parse_165(text) if name == "tw165" else parse(text)
         except OSError:

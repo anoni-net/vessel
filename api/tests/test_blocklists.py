@@ -1,3 +1,4 @@
+import ssl
 import time
 
 import pytest
@@ -95,3 +96,10 @@ def test_a_failed_download_keeps_the_lists(monkeypatch):
     monkeypatch.setattr(blocklists.urllib.request, "urlopen", fail)
     blocklists._download()
     assert blocklists._lists["malware"] == frozenset({"bad.example"})
+
+
+def test_only_the_165_download_relaxes_the_strict_certificate_check():
+    relaxed, default = blocklists.tls_context("tw165"), blocklists.tls_context("malware")
+    assert not relaxed.verify_flags & ssl.VERIFY_X509_STRICT
+    assert relaxed.verify_mode == ssl.CERT_REQUIRED and relaxed.check_hostname
+    assert default.verify_flags == ssl.create_default_context().verify_flags
