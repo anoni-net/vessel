@@ -14,6 +14,11 @@ export function formatBytes(locale: Locale, bytes: number): string {
   return `${num(gb, gb < 9.95 ? 1 : 0)} GB`;
 }
 
+/** A count with the locale's thousands separator: 1,234 次 */
+export function formatCount(locale: Locale, n: number): string {
+  return new Intl.NumberFormat(HTML_LANG[locale]).format(n);
+}
+
 // Share of the monthly quota. Small shares keep one decimal so the first days of use do not read as 0%.
 export function formatPercent(locale: Locale, used: number, quota: number): string {
   if (used <= 0 || quota <= 0) return "0%";
