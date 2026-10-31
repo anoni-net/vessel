@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { Icon } from "../icons.tsx";
 import { type Status, api } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatTime } from "../format.ts";
@@ -54,7 +55,9 @@ export function StatusPage() {
                   {flagOf(r.id) && <img class="flag" src={flagOf(r.id)} alt="" width="32" height="24" />}
                   <span class="strong big">{city(r.id)}</span>
                 </span>
-                <span class={`badge badge--state-${r.state}`}>{t[`status.state.${r.state}`]}</span>
+                <span class={`badge badge--icon badge--state-${r.state}`}>
+                  <Icon name={r.state === "down" ? "error" : r.state} />{t[`status.state.${r.state}`]}
+                </span>
               </div>
             </li>
           ))}

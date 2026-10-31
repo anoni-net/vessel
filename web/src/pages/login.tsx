@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
-import { PasskeyIcon } from "./passkeys.tsx";
+import { Icon } from "../icons.tsx";
 import { Spin } from "./skeleton.tsx";
 import { errorText } from "../i18n/index.ts";
 import { ACCOUNT, PM_USERNAME, groupedLength, regroup } from "../grouped.ts";
@@ -68,7 +68,7 @@ export function Login() {
       {canKey && (
         <div class="stack passkey-login" data-testid="passkey-login">
           <button class="nb-button" type="button" onClick={passkey} disabled={withKey} aria-busy={withKey}>
-            {withKey ? <><Spin />{t["busy.passkey"]}</> : <><PasskeyIcon />{t["passkey.login"]}</>}
+            {withKey ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.login"]}</>}
           </button>
           {keyErr && <p class="error" role="alert">{keyErr}</p>}
           <p class="muted small center">{t["passkey.or"]}</p>
