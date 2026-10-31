@@ -124,6 +124,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card--warn { background: var(--warn); }
 /* a passkey on the account page: its name and date on the left, delete on the right */
 .passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
+.passkey-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* the passkey icon in a round tinted badge, beside each passkey's name */
+.passkey-badge { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--tint); color: var(--accent-strong); font-size: 20px; }
+.passkey-badge .icon { vertical-align: 0; }
+/* the icon before a button's words */
+.nb-button > .icon--passkey { margin-inline-end: .4em; }
 /* the passkey sign-in above the number form, set apart from the page title */
 .passkey-login { margin: 20px 0 8px; }
 /* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
