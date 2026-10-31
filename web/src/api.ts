@@ -10,11 +10,12 @@ export class ApiError extends Error {
  * The last account and device list, kept in this tab's memory (never in storage) so a signed-in page can show
  * them at once while it asks again. Any change (signing in or out, redeeming, adding or deleting) drops them.
  */
-export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[] } = {};
+export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[]; months?: UsageMonths } = {};
 
 export function forgetAccount(): void {
   delete last.me;
   delete last.devices;
+  delete last.months;
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
@@ -103,6 +104,23 @@ export interface Passkey {
   created_on: string;
 }
 
+export interface UsageMonth {
+  /** the first day of the month */
+  month: string;
+  used_bytes: number;
+  /** lookups the scam and malware list blocked; null before the two lists were counted apart (November 2026) */
+  blocked: number | null;
+  /** lookups the ads and trackers list blocked; null likewise */
+  blocked_ads: number | null;
+}
+
+export interface UsageMonths {
+  /** the strongest DNS filter on the account's devices now */
+  filter: DnsFilter;
+  /** since the account was made, the last twelve months, newest first */
+  months: UsageMonth[];
+}
+
 type WebAuthnJson = Record<string, unknown>;
 
 export interface NewDevice {
@@ -130,6 +148,11 @@ export const api = {
     }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   deleteAccount: () => call("DELETE", "/account"),
+  usageMonths: () =>
+    call<UsageMonths>("GET", "/usage/months").then((r) => {
+      if (Array.isArray(r.data?.months)) last.months = r.data;
+      return r.data;
+    }),
   passkeys: () =>
     call<Passkey[]>("GET", "/passkeys").then((r) => {
       if (Array.isArray(r.data)) last.passkeys = r.data;
