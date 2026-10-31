@@ -8,6 +8,15 @@ import { SkButton, SkField, SkLine, Spin } from "./skeleton.tsx";
 
 const LIMIT = 5;
 
+// Material Symbols "passkey" (Apache 2.0), from the same family as the language links' icon
+export function PasskeyIcon() {
+  return (
+    <svg class="icon icon--passkey" viewBox="0 -960 960 960" width="1.25em" height="1.25em" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M120-160v-112q0-34 17.5-62.5T184-378q62-31 126-46.5T440-440q20 0 40 1.5t40 4.5q-4 58 21 109.5t73 84.5v80H120ZM760-40l-60-60v-186q-44-13-72-49.5T600-420q0-58 41-99t99-41q58 0 99 41t41 99q0 45-25.5 80T790-290l50 50-60 60 60 60-80 80ZM440-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47Zm328.5 68.5Q780-423 780-440t-11.5-28.5Q757-480 740-480t-28.5 11.5Q700-457 700-440t11.5 28.5Q723-400 740-400t28.5-11.5Z" />
+    </svg>
+  );
+}
+
 /** A short message for what went wrong: the browser's own errors first, then the backend's codes. */
 function useErrorText() {
   const { t } = useCtx();
@@ -38,7 +47,7 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
       <p class="muted small">{t["passkey.what"]}</p>
       {err && <p class="error" role="alert">{err}</p>}
       <button class="nb-button nb-button--primary" type="button" onClick={add} disabled={busy} aria-busy={busy}>
-        {busy ? <><Spin />{t["busy.passkey"]}</> : t["passkey.add"]}
+        {busy ? <><Spin />{t["busy.passkey"]}</> : <><PasskeyIcon />{t["passkey.add"]}</>}
       </button>
       <button class="link-button" type="button" onClick={onDone} disabled={busy}>{t["passkey.offer.skip"]}</button>
     </section>
@@ -106,9 +115,12 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
         <ul class="stack plain passkey-list appear">
           {list.map((p) => (
             <li class="card card--flat passkey-item" aria-busy={busy === p.id}>
-              <span>
-                <span class="strong">{p.label || t["passkey.unnamed"]}</span>
-                <span class="muted small block">{fmt(t["passkey.added"], { date: formatDate(locale, p.created_on) })}</span>
+              <span class="passkey-name">
+                <span class="passkey-badge"><PasskeyIcon /></span>
+                <span>
+                  <span class="strong">{p.label || t["passkey.unnamed"]}</span>
+                  <span class="muted small block">{fmt(t["passkey.added"], { date: formatDate(locale, p.created_on) })}</span>
+                </span>
               </span>
               {busy === p.id
                 ? <span class="muted strong" role="status"><Spin />{t["busy.delete"]}</span>
@@ -124,7 +136,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
           <input id="passkey-label" class="nb-input" maxLength={40} autoComplete="off" placeholder={t["passkey.labelPh"]}
             value={label} onInput={(e) => setLabel(e.currentTarget.value)} />
           <button class="nb-button nb-button--ink" type="button" onClick={add} disabled={busy !== null} aria-busy={busy === "add"}>
-            {busy === "add" ? <><Spin />{t["busy.passkey"]}</> : t["passkey.add"]}
+            {busy === "add" ? <><Spin />{t["busy.passkey"]}</> : <><PasskeyIcon />{t["passkey.add"]}</>}
           </button>
         </div>
       )}
@@ -136,7 +148,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
           <h3>{t["passkey.rotate.title"]}</h3>
           <p>{t["passkey.rotate.body"]}</p>
           <button class="nb-button" type="button" onClick={rotate} disabled={busy !== null} aria-busy={busy === "rotate"}>
-            {busy === "rotate" ? <><Spin />{t["busy.passkey"]}</> : t["passkey.rotate.submit"]}
+            {busy === "rotate" ? <><Spin />{t["busy.passkey"]}</> : <><PasskeyIcon />{t["passkey.rotate.submit"]}</>}
           </button>
         </div>
       )}
