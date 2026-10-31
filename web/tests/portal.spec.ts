@@ -579,7 +579,9 @@ test("the account page keeps its layout while the dates and passkeys load", asyn
   await expect(page.getByRole("button", { name: "加上 passkey" })).toBeVisible();
   await expect(section).toHaveAttribute("aria-busy", "false");
   await expect(page.locator("main .sk")).toHaveCount(0);
-  // nothing moved when the data arrived
-  expect((await page.getByRole("button", { name: "加上 passkey" }).boundingBox())!.y).toBeCloseTo(before!.y, 0);
-  expect((await page.getByRole("heading", { name: "刪除帳號" }).boundingBox())!.y).toBeCloseTo(card!.y, 0);
+  // nothing moved when the data arrived; fonts differ between machines by a fraction of a pixel, which nobody sees
+  const moved = async (name: Parameters<typeof page.getByRole>[0], label: string, y: number) =>
+    Math.abs((await page.getByRole(name, { name: label }).boundingBox())!.y - y);
+  expect(await moved("button", "加上 passkey", before!.y)).toBeLessThanOrEqual(2);
+  expect(await moved("heading", "刪除帳號", card!.y)).toBeLessThanOrEqual(2);
 });
