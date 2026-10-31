@@ -108,10 +108,10 @@ export interface UsageMonth {
   /** the first day of the month */
   month: string;
   used_bytes: number;
-  /** lookups the scam and malware list blocked; null before the two lists were counted apart (November 2026) */
-  blocked: number | null;
-  /** lookups the ads and trackers list blocked; null likewise */
-  blocked_ads: number | null;
+  /** lookups the scam and malware list blocked */
+  blocked: number;
+  /** lookups the ads and trackers list blocked */
+  blocked_ads: number;
 }
 
 export interface UsageMonths {

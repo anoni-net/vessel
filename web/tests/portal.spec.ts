@@ -574,7 +574,7 @@ test("the account page keeps its layout while the dates and passkeys load", asyn
     "GET /api/me": async (route) => { await held; await route.fulfill({ json: ME }); },
     "GET /api/passkeys": async (route) => { await held; await route.fulfill({ json: [] }); },
     "GET /api/usage/months": async (route) => { await held; await route.fulfill({ json: { filter: "malware", months: [
-      { month: "2026-10-01", used_bytes: 4.2e9, blocked: null, blocked_ads: null }] } }); },
+      { month: "2026-10-01", used_bytes: 4.2e9, blocked: 0, blocked_ads: 0 }] } }); },
   });
   await page.goto("/account/");
   const section = page.locator("main section");
@@ -595,7 +595,7 @@ test("the account page keeps its layout while the dates and passkeys load", asyn
   expect(await moved("heading", "刪除帳號", card!.y)).toBeLessThanOrEqual(2);
 });
 
-// the monthly record, seen in December 2026: the kinds are counted apart from November, October has traffic only
+// the monthly record, seen in December 2026
 const monthsFor = (filter: "none" | "malware" | "ads") => {
   const n = (a: number, b: number) => ({ blocked: filter === "none" ? 0 : a, blocked_ads: filter === "ads" ? b : 0 });
   return {
@@ -603,7 +603,7 @@ const monthsFor = (filter: "none" | "malware" | "ads") => {
     months: [
       { month: "2026-12-01", used_bytes: 0.4e9, ...n(1, 96) },
       { month: "2026-11-01", used_bytes: 8.7e9, ...n(14, 1260) },
-      { month: "2026-10-01", used_bytes: 3.1e9, blocked: null, blocked_ads: null },
+      { month: "2026-10-01", used_bytes: 3.1e9, ...n(5, 221) },
     ],
   };
 };
@@ -648,14 +648,14 @@ test("the monthly record shows only the counts a filter made", async ({ page }) 
   const months = page.getByTestId("months");
   await expect(months.locator("li").first()).toContainText("2026年12月（至今）");
   await expect(months.getByTestId("month-ads").nth(1)).toHaveText("擋下廣告與追蹤的查詢1,260 次");
-  await expect(months.locator("li").nth(2).getByTestId("month-not-yet")).toHaveText("擋下次數從 2026 年 11 月開始記錄");
+  // every month shows what was counted, the first one too
+  await expect(months.locator("li").nth(2).getByTestId("month-ads")).toHaveText("擋下廣告與追蹤的查詢221 次");
   filter = "malware";
   await page.reload();
-  await expect(months.getByTestId("month-malware")).toHaveCount(2);
+  await expect(months.getByTestId("month-malware")).toHaveCount(3);
   await expect(months.getByTestId("month-ads")).toHaveCount(0);
   filter = "none";
   await page.reload();
   await expect(months.getByTestId("month-used")).toHaveCount(3);
   await expect(months.getByTestId("month-malware")).toHaveCount(0);
-  await expect(months.getByTestId("month-not-yet")).toHaveCount(0);
 });

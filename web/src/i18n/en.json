@@ -109,7 +109,6 @@
   "months.malware": "Scam and malware lookups blocked",
   "months.ads": "Ad and tracker lookups blocked",
   "months.times": "{n}",
-  "months.notYet": "Blocked lookups are recorded from November 2026",
   "months.failed": "The monthly record could not be loaded. Try again later.",
   "months.kept": "Kept for the last 12 months.",
   "passkey.offer.title": "Add a passkey",
