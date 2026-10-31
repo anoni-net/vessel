@@ -5,6 +5,7 @@
   --paper: #ffffff;
   --grey: #f3f6f7;
   --accent: #c4b5fd;
+  --accent-strong: #7c3aed;
   --tint: #f3efff;
   --warn: #fff6d6;
   --danger: #b3261e;
@@ -182,7 +183,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the protection steps on the new-device page: one more filled bar per layer */
 .layers { display: inline-flex; align-items: flex-end; gap: 3px; flex: none; }
 .layers > span { width: 10px; height: 18px; border: 2px solid var(--ink); border-radius: 3px; background: var(--paper); }
-.layers > .layers__on { background: var(--ink); }
+.layers > .layers__on { background: var(--accent-strong); }
 .stack-sm { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .stack-sm > legend { padding: 0; margin-bottom: 2px; }
 .picks { display: flex; flex-wrap: wrap; gap: 8px; }
