@@ -95,17 +95,19 @@ export function Account() {
       </dl>
       <Months data={months} rows={monthsSince(me?.created_on)} guess={filterGuess()} />
       <Passkeys initial={passkeys} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
-      <div class="card card--warn card--flat stack">
-        <h2>{t["account.deleteTitle"]}</h2>
-        <p>{t["account.deleteBody"]}</p>
-        <label class="check">
-          <input type="checkbox" checked={sure} onChange={(e) => setSure(e.currentTarget.checked)} />
-          {t["account.deleteCheck"]}
-        </label>
-        {err && <p class="error" role="alert">{err}</p>}
-        <button class="nb-button nb-button--danger" type="button" disabled={!sure || deleting} aria-busy={deleting} onClick={remove}>
-          {deleting ? <><Spin />{t["busy.delete"]}</> : t["account.deleteSubmit"]}
-        </button>
+      <div class="account-section">
+        <div class="card card--warn card--flat stack">
+          <h2>{t["account.deleteTitle"]}</h2>
+          <p>{t["account.deleteBody"]}</p>
+          <label class="check">
+            <input type="checkbox" checked={sure} onChange={(e) => setSure(e.currentTarget.checked)} />
+            {t["account.deleteCheck"]}
+          </label>
+          {err && <p class="error" role="alert">{err}</p>}
+          <button class="nb-button nb-button--danger" type="button" disabled={!sure || deleting} aria-busy={deleting} onClick={remove}>
+            {deleting ? <><Spin />{t["busy.delete"]}</> : t["account.deleteSubmit"]}
+          </button>
+        </div>
       </div>
       {loading && <Busy />}
     </section>

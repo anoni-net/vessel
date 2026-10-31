@@ -342,3 +342,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* a warning card with its icon beside the words */
 .notice { flex-direction: row; align-items: flex-start; gap: 8px; }
 .notice > .icon { margin-top: 1px; }
+
+/* the account page's sections, the monthly record, the passkeys and deleting the account, each set off by a rule */
+.account-section { margin-top: 16px; padding-top: 32px; border-top: 2px dashed #c3ced3; }
+.account-section > h2, .account-section > .card > h2 { margin-bottom: 0; }
