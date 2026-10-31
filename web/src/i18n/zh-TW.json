@@ -270,6 +270,8 @@
   "faq.ios.a": "台灣、香港、日本的 App Store 都有上架。少數地區沒有上架，可以改用其他地區的 Apple ID 下載，iPhone 沒有其他安裝管道。Android 可以改裝 APK 安裝檔。",
   "faq.androidVpn.q": "Android 顯示「使用者未授權 VPN 服務」？",
   "faq.androidVpn.a": "Android 同一時間只允許一個 VPN，第一次連線時系統會跳出確認視窗，按「確定」之後 AmneziaWG 才能建立通道。最常見的原因是另一個 VPN App 開了「永久連線 VPN」。到「設定 → 網路與網際網路 → VPN」點那個 App 旁邊的齒輪，關掉「永久連線 VPN」與「封鎖沒有 VPN 的連線」即可。之前在確認視窗按了取消，或從通知欄直接開啟通道時，打開 AmneziaWG、在 App 裡點開關，確認視窗會重新出現。手機分成多個使用者或工作設定檔的話，要在使用 VPN 的那個設定檔裡安裝 AmneziaWG。",
+  "faq.androidBackground.q": "Android 關掉 AmneziaWG 之後 VPN 就斷了？",
+  "faq.androidBackground.a": "部分 Android 手機在你從「最近使用的 App」把 AmneziaWG 滑掉時，會連 VPN 一起關閉，開啟背景執行或自動啟動的權限也無法避免。離開 App 時按主畫面鍵即可，通道會繼續連著。也可以在最近使用的清單裡把 AmneziaWG 鎖定，清除全部時就不會被關掉。另外到「設定 → 網路與網際網路 → VPN」點 AmneziaWG 旁邊的齒輪，打開「永久連線 VPN」，VPN 被系統關掉時會自動重新連上，開機後也會自動連線。在 AmneziaWG 的 App 資訊裡把電池用量改成「不限制」，可以減少系統在背景關掉它。",
   "faq.twoDevices.q": "同一份設定檔可以在兩台裝置上用嗎？",
   "faq.twoDevices.a": "不行，兩台同時連線會互相搶線，造成頻繁斷線。每台裝置請各自建立一份，一個帳號最多 3 台。",
   "faq.newPhone.q": "換手機或重灌之後怎麼辦？",
