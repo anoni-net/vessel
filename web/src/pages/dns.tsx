@@ -9,6 +9,7 @@ import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 const OPTIONS = ["none", "malware", "ads"] as const;
 const LIMITS = [1, 2, 3, 4, 5] as const;
 const LISTS = "https://github.com/hagezi/dns-blocklists";
+const TW165 = "https://data.gov.tw/dataset/176455";
 
 export function Dns() {
   const { t, locale } = useCtx();
@@ -33,6 +34,7 @@ export function Dns() {
       <h2>{t["dns.how.title"]}</h2>
       <p>
         {t["dns.how.body"]} <a href={LISTS} target="_blank" rel="noopener">{t["dns.how.lists"]}</a>
+        {t["dns.how.and"]}<a href={TW165} target="_blank" rel="noopener">{t["dns.how.tw165"]}</a>
         {locale === "en" ? "." : "。"}
       </p>
       <p>{t["dns.how.private"]}</p>
@@ -93,7 +95,8 @@ function Lookup() {
       setBusy(false);
     }
   };
-  const list = answer && (answer.malware ? "malware" : answer.ads ? "ads" : null);
+  // the 165 list first: what it says (Taiwan's ISPs block the site too) matters most, and its appeals go to 165
+  const list = answer && (answer.tw165 ? "tw165" : answer.malware ? "malware" : answer.ads ? "ads" : null);
   return (
     <form class="card stack" onSubmit={look} data-testid="dns-lookup">
       <h2>{t["dns.lookup.title"]}</h2>
@@ -109,7 +112,8 @@ function Lookup() {
       {answer && (
         <div class={`lookup-answer${list ? " lookup-answer--hit" : ""}`} role="status" data-testid="lookup-answer">
           <p class="strong">{fmt(t[`dns.lookup.${list ?? "none"}`], { domain: answer.domain })}</p>
-          {list && (
+          {list === "tw165" && <p class="small">{t["dns.lookup.report165"]}</p>}
+          {list && list !== "tw165" && (
             <p class="small">
               <a class="strong" href={href(`/feedback/?from=dns&${blockedReport(answer.domain, list)}`)}>{t["dns.lookup.report"]}</a>
               {" "}{t["dns.lookup.reportNote"]}

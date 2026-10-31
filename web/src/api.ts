@@ -55,6 +55,8 @@ export interface BlocklistAnswer {
   domain: string;
   /** on the malware list: blocked by both filters */
   malware: boolean;
+  /** on the 165 list of scam sites Taiwan's ISPs stop resolving: blocked by both filters */
+  tw165: boolean;
   /** on the ad list: blocked by the ads filter */
   ads: boolean;
 }

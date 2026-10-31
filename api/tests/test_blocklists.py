@@ -20,7 +20,8 @@ bad.example CNAME .
 @pytest.fixture
 def api():
     # fresh lists, so the request does not start a download
-    blocklists.set_lists({"malware": frozenset({"bad.example"}), "ads": frozenset({"ads.example", "bad.example"})})
+    blocklists.set_lists({"malware": frozenset({"bad.example"}), "tw165": frozenset({"scam.example"}),
+                          "ads": frozenset({"ads.example", "bad.example"})})
     blocklists.lookup_limiter.reset()
     yield TestClient(app)
     blocklists.set_lists({}, at=None)
@@ -33,6 +34,15 @@ def ask(client, domain, ip="203.0.113.5"):
 
 def test_parse_keeps_the_plain_names():
     assert blocklists.parse(RPZ) == frozenset({"bad.example"})
+
+
+def test_parse_165_cleans_the_entries():
+    text = ("\ufeff民國年月,網域,網站性質,法律依據,聲請單位\n"
+            "11509,Scam.Example,金融保險,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n"
+            "11509,?shop.example,電子商務,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n"
+            "11509,https://www.fake.example/login,電子商務,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n"
+            "11509,not a domain,電子商務,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n")
+    assert blocklists.parse_165(text) == frozenset({"scam.example", "shop.example", "www.fake.example"})
 
 
 @pytest.mark.parametrize("raw, host", [
@@ -59,6 +69,9 @@ def test_lookup_names_the_filters_that_block_a_site(api):
     # a parent of a listed name is not blocked
     assert ask(api, "example").status_code == 400
     assert ask(api, "notbad.example").json()["malware"] is False
+    # the 165 list, subdomains included
+    assert {k: ask(api, "www.scam.example").json()[k] for k in ("malware", "tw165", "ads")} == {
+        "malware": False, "tw165": True, "ads": False}
 
 
 def test_lookup_needs_the_app_header_and_is_rate_limited(api):
