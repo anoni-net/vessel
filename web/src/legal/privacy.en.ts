@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-10-31",
+  updated: "2026-11-01",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -37,7 +37,7 @@ export default {
     { p: "While you are connected, the node holds your current IP address in memory, since it needs it to send data back to you. It also handles the domains and IP addresses you connect to, but not the contents of HTTPS connections. This exists only in memory while you are connected, and is never written to disk or to any log." },
     { p: "During the test the terms forbid P2P file sharing, but connections are not blocked. To decide whether blocking will be needed, each node counts how many of the first few packets of each connection look like BitTorrent (an unencrypted handshake, a DHT query, a tracker request). Only the node's total is kept: nothing per device, and no record of where connections come from or go." },
     { h: "DNS filtering" },
-    { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), and blocking ads adds HaGeZi Multi PRO. The lists are updated every 8 hours and published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists)." },
+    { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), together with the 165 list of scam sites Taiwan's National Police Agency has ISPs stop resolving, and blocking ads adds HaGeZi Multi PRO. The lists are updated every 8 hours and published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists) and [Taiwan's open government data platform](https://data.gov.tw/dataset/176455). The 165 list is used under Taiwan's Open Government Data License, version 1." },
     { h: "Statistics" },
     { p: "Views of public pages, and the result of each step of redeeming, signing in and creating a device, go to the Umami instance anoni.net hosts, so problems along the way show up. Each record holds only the page path, the language, the screen size rounded to hundreds and the step's result. Account numbers, device names and settings, and keys are never sent. Umami works out the country and city from the IP address but does not keep the address." },
     { p: "Nothing is sent when your browser has Do Not Track or Global Privacy Control turned on, and you can turn it off in the footer." },

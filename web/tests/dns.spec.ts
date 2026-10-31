@@ -53,7 +53,8 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
     if (body.domain === "bad") return route.fulfill({ status: 400, json: { error: "invalid_domain" } });
     const malware = body.domain.includes("phish");
     const ads = malware || body.domain.includes("ads");
-    return route.fulfill({ json: { domain: body.domain.replace(/^https?:\/\//, "").split("/")[0], malware, ads } });
+    const tw165 = body.domain.includes("scam");
+    return route.fulfill({ json: { domain: body.domain.replace(/^https?:\/\//, "").split("/")[0], malware, tw165, ads } });
   });
   await page.goto("/dns/");
   const box = page.getByTestId("dns-lookup");
@@ -69,6 +70,13 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
   await box.getByLabel("網址或網域").fill("ads.example");
   await box.getByRole("button", { name: "查詢" }).click();
   await expect(box.getByTestId("lookup-answer")).toContainText("在擋廣告與追蹤的名單上，只有選了「擋惡意網站、廣告與追蹤」的裝置會擋下它。");
+
+  // the 165 list: appeals go to the hotline, not to us
+  await box.getByLabel("網址或網域").fill("scam.example");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByTestId("lookup-answer")).toContainText("scam.example 在警政署 165 停止解析的涉詐網站名單上");
+  await expect(box.getByTestId("lookup-answer")).toContainText("請撥 165 反詐騙諮詢專線申訴");
+  await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
 
   await box.getByLabel("網址或網域").fill("https://phish.example/login");
   await box.getByRole("button", { name: "查詢" }).click();

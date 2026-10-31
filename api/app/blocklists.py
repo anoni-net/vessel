@@ -1,8 +1,10 @@
-"""Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists (node/update-lists.sh); the
-portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
+"""Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists and the 165 list of scam sites
+Taiwan's ISPs stop resolving (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
 can tell a visitor whether a site that will not open was blocked, and which filters block it. The domain asked
 about is only compared in memory: it is not logged or stored."""
 
+import csv
+import io
 import re
 import threading
 import time
@@ -19,10 +21,14 @@ from app.ratelimit import Limiter
 
 router = APIRouter(prefix="/api")
 
-# the same files node/update-lists.sh downloads; the ads resolver loads both, so a site on the malware list is
-# blocked by both filters and one only on the ads list by the ads filter alone
+# the same files node/update-lists.sh downloads. Both filters load the malware and the 165 lists, and the ads
+# filter the ads list too, so a site on either of the first two is blocked by both filters, one only on the ads
+# list by the ads filter alone
 SOURCES = {
     "malware": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt",
+    # 165反詐騙諮詢專線_遭停止解析涉詐網站 (data.gov.tw dataset 176455), a CSV
+    "tw165": "https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/29E8E643-88ED-4952-B21E-BD42A3B7108C"
+    "/resource/D7839A03-8491-490E-BAF7-2ED2D98C5157/download",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
 REFRESH_SECONDS = 8 * 3600
@@ -49,6 +55,18 @@ def parse(text: str) -> frozenset[str]:
     return frozenset(names)
 
 
+def parse_165(text: str) -> frozenset[str]:
+    """The domains in the 165 CSV (民國年月, 網域, 網站性質, ...), cleaned like the node does: a scheme, a path or stray
+    characters in front are dropped, and entries that are still not a host name are skipped."""
+    names = set()
+    for row in csv.DictReader(io.StringIO(text.lstrip("\ufeff"))):
+        raw = (row.get("網域") or "").strip()
+        host = normalize(raw.lstrip("?？*. ")) if raw else None
+        if host:
+            names.add(host)
+    return frozenset(names)
+
+
 def set_lists(lists: dict[str, frozenset[str]], at: float | None = None) -> None:
     """Replace the lists; the background refresh calls this, and tests use it instead of the network."""
     global _lists, _loaded_at
@@ -60,7 +78,8 @@ def _download() -> None:
     for name, url in SOURCES.items():
         try:
             with urllib.request.urlopen(url, timeout=120) as r:
-                names = parse(r.read().decode("utf-8", "replace"))
+                text = r.read().decode("utf-8", "replace")
+            names = parse_165(text) if name == "tw165" else parse(text)
         except OSError:
             names = frozenset()
         # one failed list keeps its previous copy instead of emptying it
