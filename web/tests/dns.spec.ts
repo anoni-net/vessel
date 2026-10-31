@@ -13,7 +13,7 @@ async function resolve(page: Page, hidden: number[]) {
 }
 
 for (const [hidden, text] of [
-  [[1, 2, 3], "正在使用 Vessel 的 DNS，會擋下惡意網站與廣告。"],
+  [[1, 2, 3], "正在使用 Vessel 的 DNS，會擋下惡意網站、廣告與追蹤。"],
   [[1, 2], "正在使用 Vessel 的 DNS，會擋下惡意網站。"],
   [[1], "正在使用 Vessel 的 DNS，沒有過濾。"],
   [[], "這個瀏覽器沒有使用 Vessel 的 DNS。"],
@@ -68,7 +68,7 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
 
   await box.getByLabel("網址或網域").fill("ads.example");
   await box.getByRole("button", { name: "查詢" }).click();
-  await expect(box.getByTestId("lookup-answer")).toContainText("在擋廣告的名單上，只有選了「擋惡意網站與廣告」的裝置會擋下它。");
+  await expect(box.getByTestId("lookup-answer")).toContainText("在擋廣告與追蹤的名單上，只有選了「擋惡意網站、廣告與追蹤」的裝置會擋下它。");
 
   await box.getByLabel("網址或網域").fill("https://phish.example/login");
   await box.getByRole("button", { name: "查詢" }).click();
