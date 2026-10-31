@@ -35,7 +35,7 @@ export const EVENTS: Record<string, Record<string, readonly string[]>> = {
   redeem: { result: RESULTS },
   "number-continue": {},
   login: { result: RESULTS },
-  "device-step": { step: ["install", "region", "name", "config"], platform: PLATFORMS },
+  "device-step": { step: ["install", "region", "name", "filter", "config"], platform: PLATFORMS },
   "device-create": { result: RESULTS, platform: PLATFORMS },
   "device-config": { how: ["download", "qr", "text", "done"] },
 };
