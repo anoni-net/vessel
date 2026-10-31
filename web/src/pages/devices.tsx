@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { Icon } from "../icons.tsx";
 import { ApiError, type Device, type Me, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatBytes, formatCount, formatDate, formatPercent, formatTime } from "../format.ts";
@@ -190,11 +191,12 @@ export function Devices() {
               )}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
               {d.moved_until && (
-                <p class="card card--warn card--flat small" data-testid="moved">
-                  {fmt(t[d.moved_until < today ? "devices.movedGone" : "devices.moved"], {
+                <p class="card card--warn card--flat small notice" data-testid="moved">
+                  <Icon name="warning" />
+                  <span>{fmt(t[d.moved_until < today ? "devices.movedGone" : "devices.moved"], {
                     city: t[`region.${d.region}` as keyof typeof t] ?? d.region,
                     date: formatDate(locale, d.moved_until),
-                  })}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}
+                  })}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
                 </p>
               )}
               <div class="row small">

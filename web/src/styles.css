@@ -116,7 +116,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card--tint { background: var(--tint); }
 .check-results { display: grid; gap: 12px; margin: 0; }
 .check-verdict { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 14px 16px; border: var(--border); border-radius: var(--radius); font-size: 18px; font-weight: 800; }
-.check-verdict > span { flex: none; font-size: 22px; line-height: 1.2; }
+.check-verdict > .icon { font-size: 18px; margin-top: 2px; }
 .check-verdict--ok { background: var(--accent); }
 .check-verdict--bad { background: var(--warn); }
 .check-results dt { font-weight: 700; }
@@ -129,7 +129,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .passkey-badge { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--tint); color: var(--accent-strong); font-size: 20px; }
 .passkey-badge .icon { vertical-align: 0; }
 /* the icon before a button's words */
-.nb-button > .icon--passkey { margin-inline-end: .4em; }
+.nb-button > .icon { margin-inline-end: .4em; }
 /* the passkey sign-in above the number form, set apart from the page title */
 .passkey-login { margin: 20px 0 8px; }
 /* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
@@ -177,6 +177,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge--active { background: var(--accent); }
 .badge--pending, .badge--revoking { border-style: dashed; }
 .badge--suspended { background: var(--warn); }
+/* a state badge with its icon before the word, on the status page */
+.badge--icon { display: inline-flex; align-items: center; gap: 4px; }
 .badge--state-ok { background: var(--accent); }
 .badge--state-down { background: var(--warn); }
 .badge--state-unknown { border-style: dashed; }
@@ -336,3 +338,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .month > .row { flex-wrap: nowrap; align-items: baseline; }
 /* each grey line sits in a box one line of its text tall, so the row keeps its height when the text arrives */
 .month--skeleton > span { display: flex; align-items: center; min-height: 1lh; }
+
+/* a warning card with its icon beside the words */
+.notice { flex-direction: row; align-items: flex-start; gap: 8px; }
+.notice > .icon { margin-top: 1px; }

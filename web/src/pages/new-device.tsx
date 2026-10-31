@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { Icon } from "../icons.tsx";
 import { ApiError, type Device, type DnsFilter, type Me, type Region, api, last } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
@@ -293,7 +294,7 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
     <section class="wrap narrow stack">
       <p class="muted strong">{fmt(t["new.step"], { n: 5 })}</p>
       <h1>{t["config.title"]}</h1>
-      <button class="nb-button nb-button--primary" type="button" onClick={download}>{t["config.download"]}</button>
+      <button class="nb-button nb-button--primary" type="button" onClick={download}><Icon name="download" />{t["config.download"]}</button>
       <ol class="steps">
         {steps.map((s) => <li>{s}</li>)}
       </ol>
