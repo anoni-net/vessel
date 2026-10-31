@@ -449,6 +449,12 @@ test("the usage card adds up what the filters blocked this month", async ({ page
   await page.goto("/devices/");
   await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站的查詢");
   await expect(page.getByTestId("device-usage")).toHaveText("本月 3.1 GB · 擋下 12 次惡意網站的查詢");
+  // counts carry the thousands separator, in every language
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 12345 }]) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12,345 次惡意網站與廣告的查詢");
+  await page.goto("/en/devices/");
+  await expect(page.getByTestId("device-usage")).toHaveText(/12,345 malware and ad lookups blocked$/);
   // a filter that has not blocked anything yet still says the protection is on
   await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 0 }, plain]) });
   await page.goto("/devices/");

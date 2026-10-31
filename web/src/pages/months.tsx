@@ -1,6 +1,6 @@
 import type { DnsFilter, UsageMonth, UsageMonths } from "../api.ts";
 import { useCtx } from "../context.ts";
-import { formatBytes } from "../format.ts";
+import { formatBytes, formatCount } from "../format.ts";
 import { HTML_LANG, fmt } from "../i18n/index.ts";
 import { SkLine } from "./skeleton.tsx";
 
@@ -29,7 +29,6 @@ function skeletonCounts(guess: DnsFilter, back: number, today = new Date()): num
  */
 export function Months({ data, rows, guess }: { data: UsageMonths | null | undefined; rows: number; guess: DnsFilter }) {
   const { t, locale } = useCtx();
-  const num = (n: number) => new Intl.NumberFormat(HTML_LANG[locale]).format(n);
   const name = (m: UsageMonth, i: number) => {
     const month = new Intl.DateTimeFormat(HTML_LANG[locale], { year: "numeric", month: "long", timeZone: "UTC" })
       .format(new Date(m.month + "T00:00:00Z"));
@@ -39,7 +38,7 @@ export function Months({ data, rows, guess }: { data: UsageMonths | null | undef
   const showBlocked = data?.filter !== "none" || months.some((m) => (m.blocked ?? 0) + (m.blocked_ads ?? 0) > 0);
   const showAds = data?.filter === "ads" || months.some((m) => (m.blocked_ads ?? 0) > 0);
   const count = (label: string, n: number, id: string) => (
-    <span class="row small" data-testid={id}><span class="muted">{label}</span><span>{fmt(t["months.times"], { n: num(n) })}</span></span>
+    <span class="row small" data-testid={id}><span class="muted">{label}</span><span>{fmt(t["months.times"], { n: formatCount(locale, n) })}</span></span>
   );
   return (
     <div class="stack" data-testid="months">
