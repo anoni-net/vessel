@@ -108,6 +108,8 @@ export function Devices() {
   const amount = `${formatBytes(locale, me.used_bytes)} / ${formatBytes(locale, me.monthly_quota_bytes)}`;
   const full = devices.filter((d) => d.status !== "revoking").length >= me.device_limit;
   const overQuota = me.used_bytes >= me.monthly_quota_bytes;
+  // only devices with a DNS filter count blocked lookups; with none, the card says nothing about it
+  const blocked = devices.reduce((n, d) => n + (d.dns_filter === "none" ? 0 : d.blocked), 0);
   // the visitor's own date, as YYYY-MM-DD, to tell whether a moved device's old host is already gone
   const today = new Date().toLocaleDateString("sv");
 
@@ -130,6 +132,7 @@ export function Devices() {
           <div style={{ width: me.used_bytes > 0 ? `max(${pct}%, 6px)` : "0" }} />
         </div>
         <p class="strong">{amount}</p>
+        {blocked > 0 && <p data-testid="blocked-total">{fmt(t["devices.blockedTotal"], { n: blocked })}</p>}
         {me.usage_as_of && (
           <p class="muted small" data-testid="usage-as-of">{fmt(t["devices.usageAsOf"], { time: formatTime(locale, me.usage_as_of) })}</p>
         )}

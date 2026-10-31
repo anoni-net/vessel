@@ -35,20 +35,25 @@ async function mock(page: Page, opts: { pending?: boolean; createError?: string;
   return posted;
 }
 
-async function throughToName(page: Page) {
+async function throughToFilter(page: Page) {
   await page.goto("/devices/new/");
   await page.getByRole("button", { name: "已經安裝，下一步" }).click();
   await expect(page.getByRole("button", { name: /東京/ })).toBeDisabled();
   await page.getByRole("button", { name: /新加坡/ }).click();
   await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
 }
 
 test("create a device with keys made in the browser", async ({ page }) => {
   const violations: string[] = [];
   page.on("console", (m) => { if (/Content Security Policy/i.test(m.text())) violations.push(m.text()); });
   const posted = await mock(page);
-  await throughToName(page);
-  await page.getByLabel(/擋惡意網站與廣告/).check();
+  await throughToFilter(page);
+  // the protection step: new devices start with the malware list, marked as the recommended choice
+  await expect(page.getByRole("heading", { name: "額外的防護" })).toBeVisible();
+  await expect(page.getByText("新增裝置 4/5")).toBeVisible();
+  await expect(page.getByLabel(/＋擋惡意網站建議/)).toBeChecked();
+  await page.getByLabel(/＋再擋廣告與追蹤/).check();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
 
@@ -86,7 +91,7 @@ test("create a device with keys made in the browser", async ({ page }) => {
 
 test("waits for a slow node", async ({ page }) => {
   await mock(page, { pending: true });
-  await throughToName(page);
+  await throughToFilter(page);
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("status")).toHaveText("節點正在加入這台裝置，請稍候，不要離開這一頁。");
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible({ timeout: 10_000 });
@@ -94,7 +99,7 @@ test("waits for a slow node", async ({ page }) => {
 
 test("errors on create are shown", async ({ page }) => {
   await mock(page, { createError: "device_limit" });
-  await throughToName(page);
+  await throughToFilter(page);
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("alert")).toHaveText("這個帳號的裝置已經到上限。");
 });
@@ -143,7 +148,7 @@ test("with the allowance used up, the new-device page says when it comes back", 
 
 test("creating the third device still shows its config", async ({ page }) => {
   await mock(page, { devices: [d("a"), d("b")] });
-  await throughToName(page);
+  await throughToFilter(page);
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("button", { name: "下載設定檔" })).toBeVisible();
   await expect(page.getByTestId("device-gate")).toHaveCount(0);

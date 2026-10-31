@@ -434,6 +434,18 @@ test("a device that never connected says so and links to help", async ({ page })
   await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
 });
 
+test("the usage card adds up what the filters blocked this month", async ({ page }) => {
+  const plain = { ...DEVICES[1], id: "d-ccc", name: "tv", blocked: 99 };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], plain]) });
+  await page.goto("/devices/");
+  // the device without a filter does not count, even if the node reported a number for it
+  await expect(page.getByTestId("blocked-total")).toHaveText("這個月 Vessel 替你擋下 12 次惡意網站的查詢。");
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[1]]) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("device-list")).toBeVisible();
+  await expect(page.getByTestId("blocked-total")).toHaveCount(0);
+});
+
 test("devices made before their region moved host ask for a new config", async ({ page }) => {
   const soon = { ...DEVICES[0], id: "d-ccc", name: "tablet", region: "jp", moved_until: "2999-01-01" };
   const gone = { ...DEVICES[0], id: "d-ddd", name: "watch", region: "jp", moved_until: "2000-01-01" };
