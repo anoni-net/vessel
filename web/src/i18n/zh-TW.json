@@ -74,6 +74,7 @@
   "devices.used": "本月 {amount}",
   "devices.blocked": "擋下 {n} 次惡意網域查詢",
   "devices.blockedTotal": "本月替你擋下 {n} 次惡意網站的查詢",
+  "devices.blockedNone": "防護已開啟，本月還沒有遇到惡意網站",
   "devices.notConnected": "還沒連上過。在 AmneziaWG 打開這個通道之後，幾分鐘內這行提示就會消失。",
   "devices.moved": "{city}節點換了新的主機，這台裝置的設定檔 {date} 之後就不能連線。",
   "devices.movedGone": "{city}節點換了新的主機，這台裝置的設定檔已經不能連線。",

@@ -74,6 +74,7 @@
   "devices.used": "本月 {amount}",
   "devices.blocked": "拦下 {n} 次恶意域名查询",
   "devices.blockedTotal": "本月替你拦下 {n} 次恶意网站的查询",
+  "devices.blockedNone": "防护已开启，本月还没有遇到恶意网站",
   "devices.notConnected": "还没连接过。在 AmneziaWG 打开这个隧道之后，几分钟内这行提示就会消失。",
   "devices.moved": "{city}节点换了新的主机，这台设备的配置文件 {date} 之后就无法连接。",
   "devices.movedGone": "{city}节点换了新的主机，这台设备的配置文件已经无法连接。",

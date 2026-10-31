@@ -108,8 +108,10 @@ export function Devices() {
   const amount = `${formatBytes(locale, me.used_bytes)} / ${formatBytes(locale, me.monthly_quota_bytes)}`;
   const full = devices.filter((d) => d.status !== "revoking").length >= me.device_limit;
   const overQuota = me.used_bytes >= me.monthly_quota_bytes;
-  // only devices with a DNS filter count blocked lookups; with none, the card says nothing about it
-  const blocked = devices.reduce((n, d) => n + (d.dns_filter === "none" ? 0 : d.blocked), 0);
+  // only devices with a DNS filter count blocked lookups; with none, the card says nothing about it. With a filter
+  // and nothing blocked yet (early in the month, a new device), it says the protection is on.
+  const filtered = devices.filter((d) => d.dns_filter !== "none" && d.status !== "revoking");
+  const blocked = filtered.reduce((n, d) => n + d.blocked, 0);
   // the visitor's own date, as YYYY-MM-DD, to tell whether a moved device's old host is already gone
   const today = new Date().toLocaleDateString("sv");
 
@@ -139,7 +141,11 @@ export function Devices() {
           )}
         </div>
         <p class="muted small">{t["devices.usageNote"]}</p>
-        {blocked > 0 && <p class="usage-blocked" data-testid="blocked-total">{fmt(t["devices.blockedTotal"], { n: blocked })}</p>}
+        {filtered.length > 0 && (
+          <p class="usage-blocked" data-testid="blocked-total">
+            {blocked > 0 ? fmt(t["devices.blockedTotal"], { n: blocked }) : t["devices.blockedNone"]}
+          </p>
+        )}
       </div>
 
       {devices.length === 0 ? (
