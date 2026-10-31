@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from conftest import HEADERS, create, needs_db
 
-from app import auth, jobs, policy, worker
+from app import jobs, policy, worker
 
 pytestmark = needs_db
 GB = 10**9
@@ -284,11 +284,9 @@ def test_devices_remember_that_they_connected(signed_in, node, db):
     assert connected() == {"phone": True, "laptop": False}
 
 
-def test_monthly_record_lists_every_month_since_the_account_was_made(signed_in, db, monkeypatch):
+def test_monthly_record_lists_every_month_since_the_account_was_made(signed_in, db):
     this = date.today().replace(day=1)
     last = (this - timedelta(days=1)).replace(day=1)
-    # the kinds are counted apart from last month on: the month before has traffic only
-    monkeypatch.setattr(auth, "BLOCKED_SINCE", last)
     db.execute("UPDATE accounts SET created_on = date_trunc('month', current_date) - interval '2 months' + interval '9 days'")
     account = db.execute("SELECT id FROM accounts").fetchone()[0]
     db.execute(
@@ -299,7 +297,7 @@ def test_monthly_record_lists_every_month_since_the_account_was_made(signed_in, 
     body = signed_in.get("/api/usage/months").json()
     assert body["filter"] == "none"
     # a month with no use at all is still listed, so nobody wonders where it went
-    assert [(m["used_bytes"], m["blocked"], m["blocked_ads"]) for m in body["months"]] == [(0, 0, 0), (7, 5, 60), (2, None, None)]
+    assert [(m["used_bytes"], m["blocked"], m["blocked_ads"]) for m in body["months"]] == [(0, 0, 0), (7, 5, 60), (2, 9, 9)]
     assert body["months"][0]["month"] == this.isoformat()
 
 

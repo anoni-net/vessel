@@ -210,9 +210,6 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
     }
 
 
-# the node counts the two blocklists apart from this month on (toomore/anoni-net-ws#445); earlier months have
-# traffic only, and a few hours of blocked lookups that would read as a whole month's
-BLOCKED_SINCE = date(2026, 11, 1)
 MONTHS_KEPT = 12
 
 
@@ -236,9 +233,7 @@ def usage_months(account_id: Account, conn: Conn) -> dict:
     months, month, first = [], date.today().replace(day=1), created_on.replace(day=1)
     while month >= first and len(months) < MONTHS_KEPT:
         used, blocked, ads = rows.get(month, (0, 0, 0))
-        counted = month >= BLOCKED_SINCE
-        months.append({"month": month.isoformat(), "used_bytes": used,
-                       "blocked": blocked if counted else None, "blocked_ads": ads if counted else None})
+        months.append({"month": month.isoformat(), "used_bytes": used, "blocked": blocked, "blocked_ads": ads})
         month = (month - timedelta(days=1)).replace(day=1)
     return {"filter": ("none", "malware", "ads")[strongest or 0], "months": months}
 

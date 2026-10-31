@@ -109,7 +109,6 @@
   "months.malware": "拦下诈骗与恶意网站的查询",
   "months.ads": "拦下广告与追踪的查询",
   "months.times": "{n} 次",
-  "months.notYet": "拦下次数从 2026 年 11 月开始记录",
   "months.failed": "每月记录暂时无法读取，请稍后再试。",
   "months.kept": "保留最近 12 个月。",
   "passkey.offer.title": "添加通行密钥",
