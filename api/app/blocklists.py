@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api")
 # blocked by both filters and one only on the ads list by the ads filter alone
 SOURCES = {
     "malware": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt",
-    "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/multi.txt",
+    "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
 REFRESH_SECONDS = 8 * 3600
 # a list this short means the download went wrong; keep the copy already loaded

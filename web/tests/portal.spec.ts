@@ -377,11 +377,11 @@ test("password managers can save and fill the account number", async ({ page }) 
   await expect(number).toHaveAttribute("type", "password");
 });
 
-test("each device shows its traffic this month and, with a filter, the blocked malware lookups", async ({ page }) => {
+test("each device shows its traffic this month and, with a filter, the lookups its lists blocked", async ({ page }) => {
   await mockApi(page, signedIn);
   await page.goto("/devices/");
   const usage = page.getByTestId("device-usage");
-  await expect(usage).toHaveText(["本月 3.1 GB · 擋下 12 次惡意網域查詢", "本月 1.1 GB"]);
+  await expect(usage).toHaveText(["本月 3.1 GB · 擋下 12 次惡意網站與廣告的查詢", "本月 1.1 GB"]);
 });
 
 test("the devices page refreshes on its own", async ({ page }) => {
@@ -439,7 +439,12 @@ test("the usage card adds up what the filters blocked this month", async ({ page
   await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], plain]) });
   await page.goto("/devices/");
   // the device without a filter does not count, even if the node reported a number for it
+  await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站與廣告的查詢");
+  // with only the malware filter, the words say so
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], dns_filter: "malware" }]) });
+  await page.goto("/devices/");
   await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站的查詢");
+  await expect(page.getByTestId("device-usage")).toHaveText("本月 3.1 GB · 擋下 12 次惡意網站的查詢");
   // a filter that has not blocked anything yet still says the protection is on
   await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 0 }, plain]) });
   await page.goto("/devices/");

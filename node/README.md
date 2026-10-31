@@ -84,13 +84,17 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 |---|---|---|
 | `10.8.1.1` | 不過濾 | 無 |
 | `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini） |
-| `10.8.1.254` | 再擋廣告 | 上面那份，加上 HaGeZi Multi（Normal） |
+| `10.8.1.254` | 再擋廣告 | 上面那份，加上 HaGeZi Multi PRO |
 
-三個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。兩份名單載入後約佔 700 MB 記憶體，節點至少要 2 GB。
+三個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。兩份名單載入後約佔 800 MB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
+
+擋廣告的名單原本用 Multi（Normal），2026-10-31 改成 HaGeZi 建議的 PRO。比對一個家用網路 Pi-hole 近 7 天擋下最多的 300 個網域，Normal 涵蓋其中 16.5% 的擋下次數，PRO 涵蓋 30.3%。Pi-hole 擋下而 PRO 沒有擋的，多半是定位、iCloud、憑證、視訊通話的 STUN 這類擋了會壞掉功能的服務，不適合放在大家共用的服務上。
 
 ### 擋下次數
 
-裝置頁顯示每台裝置本月有幾次查詢被惡意網站的名單擋下，節點只計數，不記錄網域。兩個有過濾的解析器對這份名單開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 建立 `VESSEL-BLOCKED` 這條 chain，每個隧道位址（`.2` 到 `.249`）一條規則，用 `u32` 比對 DNS 標頭，只累計封包數。廣告名單擋下的不算，因為數字是用來發現裝置的異常。
+裝置頁顯示每台裝置本月有幾次查詢被名單擋下，擋惡意網站的裝置只算惡意網站的名單，擋廣告的裝置兩份名單都算。節點只計數，不記錄網域。兩份名單都開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 建立 `VESSEL-BLOCKED` 這條 chain，每個隧道位址（`.2` 到 `.249`）一條規則，用 `u32` 比對 DNS 標頭，只累計封包數。2026-10-31 以前廣告名單擋下的不算，使用者開了最高的過濾卻只看到個位數，以為過濾沒在運作。
+
+三個解析器開了 `extended-statistics`，`unbound-control stats_noreset` 的 `num.rpz.action.*` 是整個解析器擋下的總次數，用來比較換名單前後的差別，沒有網域也不分裝置。
 
 `awgctl` 把位址配給新的 peer 時歸零那條規則，`usage --json` 依位址帶出 `blocked`。計數跟著位址走，暫停與恢復不會歸零，容器重啟時歸零，入口網站的 worker 用跟流量相同的方式換算成增量。改了 `start.sh` 要重建映像再執行 `run.sh`，所有人會短暫斷線。
 

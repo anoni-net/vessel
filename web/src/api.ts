@@ -68,7 +68,7 @@ export interface Device {
   expires_on: string;
   /** this month, on this device */
   used_bytes: number;
-  /** lookups the malware list blocked this month; only counted for devices with a DNS filter */
+  /** lookups a blocklist stopped this month: the malware list, and the ad list too for the ads filter */
   blocked: number;
   /** whether the device has ever completed a handshake with its node */
   connected: boolean;
