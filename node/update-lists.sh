@@ -2,13 +2,13 @@
 # Refresh the RPZ blocklists and reload the resolvers. Run every 8 hours from root's crontab, which is how long
 # HaGeZi says a copy stays fresh ("Expires: 8 hours" in each list).
 #   malware.rpz  HaGeZi Threat Intelligence Feeds (mini)
-#   ads.rpz      HaGeZi Multi (normal)
+#   ads.rpz      HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
 set -uo pipefail
 D=/opt/vessel-node/rpz
 mkdir -p "$D"
 declare -A SRC=(
   [malware]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt
-  [ads]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/multi.txt
+  [ads]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt
 )
 # the domains in a list, without the header comments and the SOA serial, which change on every build
 entries() { grep -v -e '^;' -e ' SOA ' "$1" | sha256sum | cut -d' ' -f1; }

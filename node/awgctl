@@ -129,7 +129,7 @@ for l in lines[:sep]:
 for l in lines[sep + 1:sep2]:
     f = l.split("\t")
     dump[f[0]] = {"address": f[3].removesuffix("/32"), "latest_handshake": int(f[4]), "rx": int(f[5]), "tx": int(f[6])}
-# blocked malware lookups per tunnel address, from the VESSEL-BLOCKED chain (missing before a restart with it)
+# blocked lookups (malware, and ads for the ads filter) per tunnel address, from the VESSEL-BLOCKED chain (missing before a restart with it)
 blocked = dict(l.split("\t") for l in lines[sep2 + 1:] if "\t" in l)
 for d in dump.values():
     d["blocked"] = int(blocked.get(d["address"], 0))

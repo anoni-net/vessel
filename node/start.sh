@@ -52,8 +52,8 @@ iptables -A INPUT -i awg0 -j DROP
 ip6tables -P FORWARD DROP
 ip6tables -A INPUT -i awg0 -j DROP
 
-# --- blocked malware lookups, counted per tunnel address ---
-# The malware RPZ answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
+# --- blocked lookups, counted per tunnel address ---
+# Both RPZ lists answer with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
 # answer has. One rule per client address counts those packets; nothing records the names. awgctl zeroes a
 # rule when it hands its address to a new peer, and reports the counts in `usage --json`.
 iptables -N VESSEL-BLOCKED

@@ -145,7 +145,9 @@ export function Devices() {
         <p class="muted small">{t["devices.usageNote"]}</p>
         {filtered.length > 0 && (
           <p class="usage-blocked" data-testid="blocked-total">
-            {blocked > 0 ? fmt(t["devices.blockedTotal"], { n: blocked }) : t["devices.blockedNone"]}
+            {blocked > 0
+              ? fmt(t[filtered.some((d) => d.dns_filter === "ads") ? "devices.blockedTotalAds" : "devices.blockedTotal"], { n: blocked })
+              : t["devices.blockedNone"]}
           </p>
         )}
       </div>
@@ -178,7 +180,7 @@ export function Devices() {
               </p>
               <p class="small" data-testid="device-usage">
                 {fmt(t["devices.used"], { amount: formatBytes(locale, d.used_bytes) })}
-                {d.dns_filter !== "none" && <>{" · "}{fmt(t["devices.blocked"], { n: d.blocked })}</>}
+                {d.dns_filter !== "none" && <>{" · "}{fmt(t[d.dns_filter === "ads" ? "devices.blockedAds" : "devices.blocked"], { n: d.blocked })}</>}
               </p>
               {d.status === "pending" && <p class="muted small">{t["status.pendingNote"]}</p>}
               {d.status === "active" && !d.connected && (
