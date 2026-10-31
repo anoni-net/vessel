@@ -92,11 +92,18 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 ### 擋下次數
 
-裝置頁顯示每台裝置本月有幾次查詢被名單擋下，擋惡意網站的裝置只算惡意網站的名單，擋廣告的裝置兩份名單都算。節點只計數，不記錄網域。兩份名單都開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 建立 `VESSEL-BLOCKED` 這條 chain，每個隧道位址（`.2` 到 `.249`）一條規則，用 `u32` 比對 DNS 標頭，只累計封包數。2026-10-31 以前廣告名單擋下的不算，使用者開了最高的過濾卻只看到個位數，以為過濾沒在運作。
+裝置頁顯示每台裝置本月有幾次查詢被名單擋下，擋惡意網站的裝置只算惡意網站的名單，擋廣告的裝置兩份名單都算。節點只計數，不記錄網域。2026-10-31 以前廣告名單擋下的不算，使用者開了最高的過濾卻只看到個位數，以為過濾沒在運作。
+
+兩份名單分開計數，每月的防護成績單（toomore/anoni-net-ws#445）要分別列出「詐騙與惡意網站」與「廣告與追蹤」：
+
+- 惡意網站的名單開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 的 `VESSEL-BLOCKED` 用 `u32` 比對 DNS 標頭
+- 廣告的名單用 `rpz-action-override: cname`，擋下的回應是指向 `blocked.vessel.` 的 CNAME，這個名稱由 `ads.conf` 的 `local-zone` 回 NXDOMAIN，不會往外查。`VESSEL-ADS` 用 `string` 比對回應裡的這個名稱
+
+兩條 chain 都是每個隧道位址（`.2` 到 `.249`）一條規則，只累計封包數。兩份名單都有的網域，擋廣告的解析器先比對惡意網站的名單，只算在惡意網站那邊。
 
 三個解析器開了 `extended-statistics`，`unbound-control stats_noreset` 的 `num.rpz.action.*` 是整個解析器擋下的總次數，用來比較換名單前後的差別，沒有網域也不分裝置。
 
-`awgctl` 把位址配給新的 peer 時歸零那條規則，`usage --json` 依位址帶出 `blocked`。計數跟著位址走，暫停與恢復不會歸零，容器重啟時歸零，入口網站的 worker 用跟流量相同的方式換算成增量。改了 `start.sh` 要重建映像再執行 `run.sh`，所有人會短暫斷線。
+`awgctl` 把位址配給新的 peer 時歸零兩條規則，`usage --json` 依位址帶出 `blocked` 與 `blocked_ads`。計數跟著位址走，暫停與恢復不會歸零，容器重啟時歸零，入口網站的 worker 用跟流量相同的方式換算成增量。改了 `start.sh` 要重建映像再執行 `run.sh`，所有人會短暫斷線。只是新增規則時，可以用 `docker exec vessel-node iptables ...` 在運作中的容器照 `start.sh` 加上，再重建映像讓下次啟動也有。
 
 入口網站的 `/dns/` 有即時檢測，讓使用者確認目前生效的過濾。四個測試網址 `vessel-dns-0` 到 `vessel-dns-3.anoni.net` 是真的網域，三個解析器用 `local-zone ... always_nxdomain` 各藏起其中幾個：
 

@@ -78,6 +78,7 @@ class FakeNode:
         self.suspended: dict[str, dict] = {}
         self.counters: dict[str, tuple[int, int]] = {}
         self.blocked: dict[str, int] = {}
+        self.blocked_ads: dict[str, int] = {}
         self.handshakes: dict[str, int] = {}
         self.started = "2026-10-27T00:00:00Z"
         self.down = False
@@ -117,7 +118,8 @@ class FakeNode:
             raise NodeError("timeout")
         return {"interface_started": self.started,
                 "peers": [{"name": n, "rx": self.counters.get(n, (0, 0))[0], "tx": self.counters.get(n, (0, 0))[1],
-                           "latest_handshake": self.handshakes.get(n, 0), "blocked": self.blocked.get(n, 0)} for n in self.peers]}
+                           "latest_handshake": self.handshakes.get(n, 0), "blocked": self.blocked.get(n, 0),
+                           "blocked_ads": self.blocked_ads.get(n, 0)} for n in self.peers]}
 
 
 @pytest.fixture

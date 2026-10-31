@@ -145,11 +145,14 @@ def poll_usage(conn: psycopg.Connection) -> None:
                     # yes or no only, for counting devices that never connected (admin report)
                     conn.execute("UPDATE devices SET connected = true WHERE id = %s AND NOT connected", (peer["name"],))
                 prev = conn.execute(
-                    "SELECT interface_started, rx_bytes, tx_bytes, blocked FROM device_counters WHERE device_id = %s",
+                    "SELECT interface_started, rx_bytes, tx_bytes, blocked, blocked_ads FROM device_counters "
+                    "WHERE device_id = %s",
                     (peer["name"],),
                 ).fetchone()
-                # blocked: malware lookups counted per tunnel address on the node (node/start.sh); older nodes omit it
-                rx, tx, blocked = peer["rx"], peer["tx"], peer.get("blocked", 0)
+                # lookups the malware list and the ad list blocked, counted per tunnel address on the node
+                # (node/start.sh); older nodes omit them
+                rx, tx = peer["rx"], peer["tx"]
+                blocked, ads = peer.get("blocked", 0), peer.get("blocked_ads", 0)
                 same = prev is not None and prev[0] == started
                 if same and rx >= prev[1] and tx >= prev[2]:
                     d_rx, d_tx = rx - prev[1], tx - prev[2]
@@ -157,33 +160,38 @@ def poll_usage(conn: psycopg.Connection) -> None:
                     d_rx, d_tx = rx, tx
                 # the blocked counter belongs to the address, so it carries on across a suspend and resume
                 d_blocked = blocked - prev[3] if same and blocked >= prev[3] else blocked
+                d_ads = ads - prev[4] if same and ads >= prev[4] else ads
                 conn.execute(
-                    "INSERT INTO device_counters (device_id, interface_started, rx_bytes, tx_bytes, blocked) "
-                    "VALUES (%s, %s, %s, %s, %s) "
+                    "INSERT INTO device_counters (device_id, interface_started, rx_bytes, tx_bytes, blocked, blocked_ads) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) "
                     "ON CONFLICT (device_id) DO UPDATE SET interface_started = EXCLUDED.interface_started, "
-                    "rx_bytes = EXCLUDED.rx_bytes, tx_bytes = EXCLUDED.tx_bytes, blocked = EXCLUDED.blocked",
-                    (peer["name"], started, rx, tx, blocked),
+                    "rx_bytes = EXCLUDED.rx_bytes, tx_bytes = EXCLUDED.tx_bytes, blocked = EXCLUDED.blocked, "
+                    "blocked_ads = EXCLUDED.blocked_ads",
+                    (peer["name"], started, rx, tx, blocked, ads),
                 )
-                if d_rx or d_tx:
+                if d_rx or d_tx or d_blocked or d_ads:
                     conn.execute(
-                        "INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes) "
-                        "VALUES (%s, date_trunc('month', current_date), %s, %s) "
+                        "INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes, blocked, blocked_ads) "
+                        "VALUES (%s, date_trunc('month', current_date), %s, %s, %s, %s) "
                         "ON CONFLICT (account_id, period) DO UPDATE SET "
                         "rx_bytes = account_usage.rx_bytes + EXCLUDED.rx_bytes, "
-                        "tx_bytes = account_usage.tx_bytes + EXCLUDED.tx_bytes",
-                        (device[0], d_rx, d_tx),
+                        "tx_bytes = account_usage.tx_bytes + EXCLUDED.tx_bytes, "
+                        "blocked = account_usage.blocked + EXCLUDED.blocked, "
+                        "blocked_ads = account_usage.blocked_ads + EXCLUDED.blocked_ads",
+                        (device[0], d_rx, d_tx, d_blocked, d_ads),
                     )
                 day_rx += d_rx
                 day_tx += d_tx
-                if d_rx or d_tx or d_blocked:
+                if d_rx or d_tx or d_blocked or d_ads:
                     conn.execute(
-                        "INSERT INTO device_usage (device_id, period, rx_bytes, tx_bytes, blocked) "
-                        "VALUES (%s, date_trunc('month', current_date), %s, %s, %s) "
+                        "INSERT INTO device_usage (device_id, period, rx_bytes, tx_bytes, blocked, blocked_ads) "
+                        "VALUES (%s, date_trunc('month', current_date), %s, %s, %s, %s) "
                         "ON CONFLICT (device_id, period) DO UPDATE SET "
                         "rx_bytes = device_usage.rx_bytes + EXCLUDED.rx_bytes, "
                         "tx_bytes = device_usage.tx_bytes + EXCLUDED.tx_bytes, "
-                        "blocked = device_usage.blocked + EXCLUDED.blocked",
-                        (peer["name"], d_rx, d_tx, d_blocked),
+                        "blocked = device_usage.blocked + EXCLUDED.blocked, "
+                        "blocked_ads = device_usage.blocked_ads + EXCLUDED.blocked_ads",
+                        (peer["name"], d_rx, d_tx, d_blocked, d_ads),
                     )
         # handshakes only move forward within a day, but a node restart forgets them: keep the day's highest count
         conn.execute(
@@ -195,8 +203,9 @@ def poll_usage(conn: psycopg.Connection) -> None:
             (region_id, active, day_rx, day_tx),
         )
         beat(conn, f"usage:{region_id}")
-    # devices show this month only; earlier months are not kept
+    # devices show this month only; earlier months are not kept. The account's monthly totals last a year.
     conn.execute("DELETE FROM device_usage WHERE period < date_trunc('month', current_date)")
+    conn.execute("DELETE FROM account_usage WHERE period < date_trunc('month', current_date) - interval '11 months'")
     conn.execute("DELETE FROM daily_stats WHERE day < current_date - 400")
 
 

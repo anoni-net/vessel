@@ -95,8 +95,9 @@ new_peer() { # name filter pubkey psk
   umask 077
   printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32\n' \
     "$1" "$2" "$3" "$4" "$ip" > $D/peers/$1.conf
-  # the address's blocked-lookup counter (start.sh) starts over for its new owner; rule n counts .n+1
+  # the address's blocked-lookup counters (start.sh) start over for its new owner; rule n counts .n+1
   docker exec $C iptables -Z VESSEL-BLOCKED $(( ${ip##*.} - 1 )) >/dev/null 2>&1 || true
+  docker exec $C iptables -Z VESSEL-ADS $(( ${ip##*.} - 1 )) >/dev/null 2>&1 || true
   echo "$ip"
 }
 
@@ -116,30 +117,35 @@ case $cmd in
     [ "$cmd" = usage ] && json=1
     started=$(docker inspect -f '{{.State.StartedAt}}' $C)
     { peer_table; echo "--"; docker exec $C awg show awg0 dump | tail -n +2
-      echo "--"; docker exec $C iptables -nvxL VESSEL-BLOCKED 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'; } |
+      echo "--"; docker exec $C iptables -nvxL VESSEL-BLOCKED 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'
+      echo "--"; docker exec $C iptables -nvxL VESSEL-ADS 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'; } |
       CMD=$cmd JSON=$json STARTED=$started python3 -c '
 import json, os, sys, time
 peers, dump = {}, {}
 lines = sys.stdin.read().splitlines()
 sep = lines.index("--")
 sep2 = lines.index("--", sep + 1)
+sep3 = lines.index("--", sep2 + 1)
 for l in lines[:sep]:
     name, flt, pub = l.split("\t")
     peers[pub] = (name, flt)
 for l in lines[sep + 1:sep2]:
     f = l.split("\t")
     dump[f[0]] = {"address": f[3].removesuffix("/32"), "latest_handshake": int(f[4]), "rx": int(f[5]), "tx": int(f[6])}
-# blocked lookups (malware, and ads for the ads filter) per tunnel address, from the VESSEL-BLOCKED chain (missing before a restart with it)
-blocked = dict(l.split("\t") for l in lines[sep2 + 1:] if "\t" in l)
+# blocked lookups per tunnel address: the malware list (VESSEL-BLOCKED) and the ad list (VESSEL-ADS); a chain
+# a node does not have yet reads as zero
+blocked = dict(l.split("\t") for l in lines[sep2 + 1:sep3] if "\t" in l)
+ads = dict(l.split("\t") for l in lines[sep3 + 1:] if "\t" in l)
 for d in dump.values():
     d["blocked"] = int(blocked.get(d["address"], 0))
+    d["blocked_ads"] = int(ads.get(d["address"], 0))
 rows = []
 for pub, (name, flt) in sorted(peers.items(), key=lambda kv: kv[1][0]):
-    d = dump.get(pub, {"address": None, "latest_handshake": 0, "rx": 0, "tx": 0, "blocked": 0})
+    d = dump.get(pub, {"address": None, "latest_handshake": 0, "rx": 0, "tx": 0, "blocked": 0, "blocked_ads": 0})
     rows.append({"name": name, "filter": flt, "public_key": pub, **d})
 if os.environ["JSON"] == "1":
     if os.environ["CMD"] == "usage":
-        rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake", "blocked")} for r in rows]
+        rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake", "blocked", "blocked_ads")} for r in rows]
         print(json.dumps({"interface_started": os.environ["STARTED"], "peers": rows}))
     else:
         print(json.dumps(rows))
