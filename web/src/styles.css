@@ -189,11 +189,17 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .layers > .layers__on { background: var(--accent-strong); }
 .layers--small { gap: 2px; }
 .layers--small > span { width: 7px; height: 12px; border-width: 1.5px; border-radius: 2px; }
+/* the status badge stays on the right of the device's name, however long the name */
+.device-head { flex-wrap: nowrap; align-items: flex-start; }
+.device-head__name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.device-head > .badge { flex: none; }
 /* a device's city and filter: flag, name, strength bars, filter name */
-.device-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
-/* the boxes are centred, but Chinese glyphs sit above the middle of their line; lift the icons to match the ink */
-.device-meta > .flag, .device-meta > .layers { position: relative; top: -0.1em; }
-.choice__head > .layers, .choice__head > .badge { position: relative; top: -0.05em; }
+.device-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 6px; margin-top: -4px; }
+.device-meta__part { display: inline-flex; align-items: center; gap: 6px; }
+/* Centre the icons on the letters rather than on the line box. Fonts leave different space above and below their
+   glyphs: a fixed offset that lined the icons up with Noto Sans put them 1.5 px too high with PingFang on iPhone.
+   Trimming the text to its cap height and baseline makes the box hug the letters in any font. */
+.device-meta__text, .choice__head > .strong { text-box: trim-both cap alphabetic; }
 .stack-sm { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .stack-sm > legend { padding: 0; margin-bottom: 2px; }
 .picks { display: flex; flex-wrap: wrap; gap: 8px; }
