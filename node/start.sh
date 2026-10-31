@@ -65,8 +65,10 @@ for n in $(seq 2 249); do
 done
 # DNS header after the IP and UDP headers: the low byte of the flags is RA (0x80) and RCODE (0x0f); NXDOMAIN is 3
 iptables -A OUTPUT -o awg0 -p udp --sport 53 -m u32 --u32 "0>>22&0x3C@8&0x8F=0x3" -j VESSEL-BLOCKED
-# blocked.vessel. as it appears in the answer: each label's length, then the label
-iptables -A OUTPUT -o awg0 -p udp --sport 53 -m string --algo bm --hex-string "|07|blocked|06|vessel|00|" -j VESSEL-ADS
+# blocked.vessel. as it appears in the answer: each label's length, then the label. Some devices follow the CNAME
+# and ask for blocked.vessel. itself; that name then sits in the question at byte 40 (IP 20, UDP 8, DNS header 12),
+# so the search starts after it and counts the blocked lookup once.
+iptables -A OUTPUT -o awg0 -p udp --sport 53 -m string --algo bm --from 41 --hex-string "|07|blocked|06|vessel|00|" -j VESSEL-ADS
 
 # --- resolvers ---
 # the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,ads}.rpz present (an empty zone if a download never succeeded)
