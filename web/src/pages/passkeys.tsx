@@ -91,7 +91,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
   };
 
   return (
-    <div class="stack" data-testid="passkeys">
+    <div class="stack account-section" data-testid="passkeys">
       <h2>{t["passkey.title"]}</h2>
       <p>{t["passkey.body"]}</p>
       {!supported && <p class="card card--warn card--flat small">{t["passkey.unsupported"]}</p>}

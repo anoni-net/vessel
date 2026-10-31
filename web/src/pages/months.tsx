@@ -41,7 +41,7 @@ export function Months({ data, rows, guess }: { data: UsageMonths | null | undef
     <span class="row small" data-testid={id}><span class="muted">{label}</span><span>{fmt(t["months.times"], { n: formatCount(locale, n) })}</span></span>
   );
   return (
-    <div class="stack" data-testid="months">
+    <div class="stack account-section" data-testid="months">
       <h2>{t["months.title"]}</h2>
       {data === null ? (
         <p class="muted">{t["months.failed"]}</p>
