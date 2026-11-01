@@ -713,3 +713,25 @@ test("the header is as tall with the my-devices button as without it", async ({ 
   await expect(page.locator(".site-header .nb-button")).toHaveCount(0);
   expect(await page.locator(".site-header").evaluate((e) => e.getBoundingClientRect().height)).toBe(withButton);
 });
+
+test("beside 社群架設的原因, the cities' state on a wide screen only, asked for only there", async ({ page }) => {
+  let asked = 0;
+  await page.route("**/api/**", (route) => {
+    if (new URL(route.request().url()).pathname === "/api/status") {
+      asked++;
+      return route.fulfill({ json: { regions: [{ id: "sg", state: "ok" }, { id: "jp", state: "down" }], notices: [] } });
+    }
+    return route.fulfill({ status: 401, json: { error: "signed_out" } });
+  });
+  await page.goto("/");
+  const card = page.locator("#why .why-status");
+  if (page.viewportSize()!.width >= 960) {
+    await expect(card.locator("li")).toHaveText(["新加坡正常", "東京無法連線"]);
+    await expect(card).toContainText("最近 30 天沒有維護或中斷的紀錄。");
+    expect(asked).toBe(1);
+  } else {
+    await expect(card).toBeHidden();
+    await page.waitForLoadState("networkidle");
+    expect(asked).toBe(0);
+  }
+});

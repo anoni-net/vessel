@@ -219,6 +219,13 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge--state-down { background: var(--warn); }
 .badge--state-unknown { border-style: dashed; }
 .status-city { display: flex; align-items: center; gap: 12px; }
+/* home page, 社群架設的原因: the cities' state in a card beside the text, on a wide screen only */
+.why-status { display: none; }
+@media (min-width: 960px) {
+  .why-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 48px; align-items: start; }
+  .why-status { display: flex; }
+}
+.why-status__list { display: flex; flex-direction: column; gap: 12px; margin: 0; }
 .subnav { display: flex; flex-wrap: wrap; gap: 4px 20px; font-weight: 700; align-items: center; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
 .facts dt { font-weight: 800; }

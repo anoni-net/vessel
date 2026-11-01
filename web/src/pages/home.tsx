@@ -1,5 +1,9 @@
 import { useCtx } from "../context.ts";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { type Status, api } from "../api.ts";
+import type { MessageKey } from "../i18n/index.ts";
+import { flagOf } from "../regions.ts";
+import { SkLine } from "./skeleton.tsx";
 import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
@@ -86,11 +90,16 @@ export function Home() {
       <section id="why" class="band">
         <div class="wrap">
           <h2>{t["why.title"]}</h2>
-          <p class="section-lead">{t["why.body"]}</p>
-          <p class="section-lead">{t["why.reach"]}</p>
-          <div class="actions">
-            <a class="nb-button" href={href("/feedback/?from=home")}>{t["feedback.link"]}</a>
-            <a class="nb-button" href={href("/status/")}>{t["status.title"]}</a>
+          <div class="why-layout">
+            <div>
+              <p class="section-lead">{t["why.body"]}</p>
+              <p class="section-lead">{t["why.reach"]}</p>
+              <div class="actions">
+                <a class="nb-button" href={href("/feedback/?from=home")}>{t["feedback.link"]}</a>
+                <a class="nb-button" href={href("/status/")}>{t["status.title"]}</a>
+              </div>
+            </div>
+            <WhyStatus />
           </div>
         </div>
       </section>
@@ -126,5 +135,58 @@ function HeroArt() {
     <div class="hero__art" aria-hidden="true">
       <canvas ref={canvas} />
     </div>
+  );
+}
+
+const WIDE = "(min-width: 960px)";
+
+/** Beside 社群架設的原因 on a wide screen: each city's state, from the status page's data, which carries nothing
+ * about anyone. Asked for only once the card is shown, so a phone makes no extra request. */
+function WhyStatus() {
+  const { t } = useCtx();
+  const [status, setStatus] = useState<Status | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const wide = matchMedia(WIDE);
+    let asked = false;
+    const load = () => {
+      if (asked || !wide.matches) return;
+      asked = true;
+      api.status().then(setStatus, () => setFailed(true));
+    };
+    load();
+    wide.addEventListener("change", load);
+    return () => wide.removeEventListener("change", load);
+  }, []);
+  const city = (id: string | null) => (id ? t[`region.${id}` as MessageKey] ?? id : t["status.allRegions"]);
+  const ongoing = status?.notices.find((n) => !n.ends_at);
+  return (
+    <aside class="card card--flat why-status" aria-labelledby="why-status" aria-busy={!status && !failed}>
+      <h3 id="why-status">{t["status.regions"]}</h3>
+      {status ? (
+        <ul class="plain why-status__list">
+          {status.regions.map((r) => (
+            <li class="row">
+              <span class="status-city">
+                {flagOf(r.id) && <img class="flag" src={flagOf(r.id)} alt="" width="32" height="24" />}
+                <span class="strong">{city(r.id)}</span>
+              </span>
+              <span class={`badge badge--icon badge--state-${r.state}`}>
+                <Icon name={r.state === "down" ? "error" : r.state} />{t[`status.state.${r.state}`]}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : failed ? (
+        <p class="muted small">{t["status.failed"]}</p>
+      ) : (
+        <div class="why-status__list" aria-hidden="true"><SkLine w="long" big /><SkLine w="mid" big /></div>
+      )}
+      {ongoing ? (
+        <p class="small"><span class="badge">{t["status.ongoing"]}</span> {t[`status.kind.${ongoing.kind}`]} · {city(ongoing.region)}</p>
+      ) : status && status.notices.length === 0 ? (
+        <p class="muted small">{t["status.none"]}</p>
+      ) : null}
+    </aside>
   );
 }
