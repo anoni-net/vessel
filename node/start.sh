@@ -48,6 +48,10 @@ iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
+# A TCP SYN carrying IPv4 options (Record Route, Timestamp) can trigger a use-after-free in the kernel's handshake
+# code (CVE-2026-98432), and a client reaches the resolvers' TCP port 53. Nothing legitimate sends those options;
+# drop such SYNs in this namespace until every node runs a fixed kernel. The host has its own rule for its ports.
+iptables -t raw -I PREROUTING -p tcp --syn -m u32 --u32 "0>>24&0xF=6:15" -m comment --comment CVE-2026-98432 -j DROP
 
 # --- IPv6: peers only get IPv4 tunnel addresses, so nothing on awg0 should be IPv6; drop it in case that changes ---
 ip6tables -P FORWARD DROP
