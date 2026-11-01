@@ -135,6 +135,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .tools { gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .card { border: var(--border); border-radius: var(--radius); background: var(--paper); box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
 .card li { text-wrap: pretty; }
+/* a symbol for what the card is about, beside its title; square so it does not read as one of the numbered steps */
+.card__head { display: flex; align-items: center; gap: 14px; }
+.card__icon { flex: none; width: 48px; height: 48px; border: var(--border); border-radius: 12px; background: var(--tint); display: grid; place-items: center; }
+.card__icon .icon { width: 28px; height: 28px; }
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
 .check-results { display: grid; gap: 12px; margin: 0; }
