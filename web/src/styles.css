@@ -50,6 +50,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .note { margin-top: 24px; padding: 16px 20px; border: 3px dashed var(--ink); border-radius: 12px; }
 
 .site-header { border-bottom: var(--border); }
+/* the header's button (sign in, my devices) at the wordmark's 48px: with the usual padding it was 49.2px, so the
+   header grew by a pixel on the pages that show it and the rule under it moved on the way to the devices page */
+.site-header .nb-button { padding-block: 6px; }
 .site-header__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding-block: 14px; }
 .brand { display: inline-flex; align-items: center; gap: 14px; min-height: 48px; text-decoration: none; color: var(--ink); }
 .brand__logo { display: block; height: 26px; width: auto; }

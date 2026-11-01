@@ -700,3 +700,13 @@ test("the footer's links stay white under the pointer", async ({ page }) => {
   await link.hover();
   expect(await link.evaluate((e) => getComputedStyle(e).color)).toBe(before);
 });
+
+test("the header is as tall with the my-devices button as without it", async ({ page }) => {
+  await mockApi(page, signedIn);
+  await page.goto("/");
+  await expect(page.locator(".site-header").getByRole("link", { name: "我的裝置" })).toBeVisible();
+  const withButton = await page.locator(".site-header").evaluate((e) => e.getBoundingClientRect().height);
+  await page.goto("/devices/");
+  await expect(page.locator(".site-header .nb-button")).toHaveCount(0);
+  expect(await page.locator(".site-header").evaluate((e) => e.getBoundingClientRect().height)).toBe(withButton);
+});
