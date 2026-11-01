@@ -54,7 +54,8 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
     const malware = body.domain.includes("phish");
     const ads = malware || body.domain.includes("ads");
     const tw165 = body.domain.includes("scam");
-    return route.fulfill({ json: { domain: body.domain.replace(/^https?:\/\//, "").split("/")[0], malware, tw165, ads } });
+    const twmoda = body.domain.includes("fakeshop");
+    return route.fulfill({ json: { domain: body.domain.replace(/^https?:\/\//, "").split("/")[0], malware, tw165, twmoda, ads } });
   });
   await page.goto("/dns/");
   const box = page.getByTestId("dns-lookup");
@@ -76,6 +77,12 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
   await box.getByRole("button", { name: "查詢" }).click();
   await expect(box.getByTestId("lookup-answer")).toContainText("scam.example 在警政署 165 停止解析的涉詐網站名單上");
   await expect(box.getByTestId("lookup-answer")).toContainText("請撥 165 反詐騙諮詢專線申訴");
+  await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
+
+  await box.getByLabel("網址或網域").fill("fakeshop.example");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByTestId("lookup-answer")).toContainText("fakeshop.example 在數位產業署停止解析的詐騙購物網站名單上");
+  await expect(box.getByTestId("lookup-answer")).toContainText("請向數位產業署申訴");
   await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
 
   await box.getByLabel("網址或網域").fill("https://phish.example/login");

@@ -57,6 +57,8 @@ export interface BlocklistAnswer {
   malware: boolean;
   /** on the 165 list of scam sites Taiwan's ISPs stop resolving: blocked by both filters */
   tw165: boolean;
+  /** on MODA's list of fake shops Taiwan's ISPs stop resolving: blocked by both filters */
+  twmoda: boolean;
   /** on the ad list: blocked by the ads filter */
   ads: boolean;
 }

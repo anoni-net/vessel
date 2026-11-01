@@ -5,6 +5,7 @@ about is only compared in memory: it is not logged or stored."""
 
 import csv
 import io
+import json
 import re
 import ssl
 import threading
@@ -22,17 +23,21 @@ from app.ratelimit import Limiter
 
 router = APIRouter(prefix="/api")
 
-# the same files node/update-lists.sh downloads. Both filters load the malware and the 165 lists, and the ads
-# filter the ads list too, so a site on either of the first two is blocked by both filters, one only on the ads
-# list by the ads filter alone
+# the same files node/update-lists.sh downloads. Both filters load the malware list and the two Taiwanese lists,
+# and the ads filter the ads list too, so a site on any of the first three is blocked by both filters, one only on
+# the ads list by the ads filter alone
 SOURCES = {
     "malware": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt",
     # 165反詐騙諮詢專線_遭停止解析涉詐網站 (data.gov.tw dataset 176455), a CSV
     "tw165": "https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/29E8E643-88ED-4952-B21E-BD42A3B7108C"
     "/resource/D7839A03-8491-490E-BAF7-2ED2D98C5157/download",
+    # 數位發展部數位產業署聲請詐騙網域名稱停止解析網址清單 (data.gov.tw dataset 165027), JSON
+    "twmoda": "https://www-api.moda.gov.tw/OpenData/Files/16352",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
 REFRESH_SECONDS = 8 * 3600
+# the MODA server refuses Python's default User-Agent; every download says what it is
+USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
 # a list this short means the download went wrong; keep the copy already loaded
 MIN_ENTRIES = 1000
 
@@ -68,6 +73,24 @@ def parse_165(text: str) -> frozenset[str]:
     return frozenset(names)
 
 
+def parse_moda(text: str) -> frozenset[str]:
+    """The domains in the MODA JSON (網域名稱, 偽冒網址, ...), as the node reads them: the domain field, unless it and the
+    scam URL's host are both names and disagree (a typo in the field), when only the URL's host is kept."""
+    names = set()
+    for row in json.loads(text.lstrip("\ufeff")):
+        # an email address sometimes stands in the domain field
+        domain = normalize(str(row.get("網域名稱") or "").split("@")[-1].lstrip("?？*. "))
+        url = normalize(str(row.get("偽冒網址") or "").lstrip("?？*. "))
+        if url and domain and url != domain and not url.endswith("." + domain):
+            names.add(url)
+        elif domain or url:
+            names.add(domain or url)
+    return frozenset(names)
+
+
+PARSERS = {"tw165": parse_165, "twmoda": parse_moda}
+
+
 def tls_context(name: str) -> ssl.SSLContext:
     """The default checks, except for the 165 list: its server's certificate chain has a CA certificate without a
     Subject Key Identifier, which Python 3.13 rejects by default (VERIFY_X509_STRICT). The chain and the host name
@@ -88,10 +111,11 @@ def _download() -> None:
     fresh = {}
     for name, url in SOURCES.items():
         try:
-            with urllib.request.urlopen(url, timeout=120, context=tls_context(name)) as r:
+            request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(request, timeout=120, context=tls_context(name)) as r:
                 text = r.read().decode("utf-8", "replace")
-            names = parse_165(text) if name == "tw165" else parse(text)
-        except OSError:
+            names = PARSERS.get(name, parse)(text)
+        except (OSError, ValueError):
             names = frozenset()
         # one failed list keeps its previous copy instead of emptying it
         fresh[name] = names if len(names) >= MIN_ENTRIES else _lists.get(name, frozenset())

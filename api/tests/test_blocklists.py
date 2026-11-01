@@ -1,3 +1,4 @@
+import json
 import ssl
 import time
 
@@ -22,6 +23,7 @@ bad.example CNAME .
 def api():
     # fresh lists, so the request does not start a download
     blocklists.set_lists({"malware": frozenset({"bad.example"}), "tw165": frozenset({"scam.example"}),
+                          "twmoda": frozenset({"fakeshop.example"}),
                           "ads": frozenset({"ads.example", "bad.example"})})
     blocklists.lookup_limiter.reset()
     yield TestClient(app)
@@ -61,6 +63,16 @@ def test_normalize(raw, host):
     assert blocklists.normalize(raw) == host
 
 
+def test_parse_moda_prefers_the_scam_urls_host_when_the_domain_field_disagrees():
+    text = json.dumps([
+        {"網域名稱": "shop.example", "偽冒網址": "https://www.shop.example/p#/login"},
+        {"網域名稱": "aobeibi.example", "偽冒網址": "https://laobeibi.example/products/1"},
+        {"網域名稱": "help@mail.example", "偽冒網址": ";http"},
+        {"網域名稱": "parent.example", "偽冒網址": "https://pay.parent.example/x"},
+    ], ensure_ascii=False)
+    assert blocklists.parse_moda("\ufeff" + text) == frozenset({"shop.example", "laobeibi.example", "mail.example", "parent.example"})
+
+
 def test_lookup_names_the_filters_that_block_a_site(api):
     r = ask(api, "https://cdn.bad.example/x.js")
     assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
@@ -71,8 +83,9 @@ def test_lookup_names_the_filters_that_block_a_site(api):
     assert ask(api, "example").status_code == 400
     assert ask(api, "notbad.example").json()["malware"] is False
     # the 165 list, subdomains included
-    assert {k: ask(api, "www.scam.example").json()[k] for k in ("malware", "tw165", "ads")} == {
-        "malware": False, "tw165": True, "ads": False}
+    assert {k: ask(api, "www.scam.example").json()[k] for k in ("malware", "tw165", "twmoda", "ads")} == {
+        "malware": False, "tw165": True, "twmoda": False, "ads": False}
+    assert ask(api, "fakeshop.example").json()["twmoda"] is True
 
 
 def test_lookup_needs_the_app_header_and_is_rate_limited(api):
