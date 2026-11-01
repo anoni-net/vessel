@@ -56,7 +56,7 @@ test("frequently asked questions", async ({ page }) => {
   await faq.getByRole("link", { name: "所有常見問題" }).click();
   await expect(page).toHaveURL(/\/faq\/$/);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
-  await expect(page.locator("details")).toHaveCount(30);
+  await expect(page.locator("details")).toHaveCount(31);
   // opened straight from a link elsewhere, the page loads fresh with the question open
   await page.goto("/dns/");
   await page.goto("/faq/#q-noTraffic");
