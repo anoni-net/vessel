@@ -10,6 +10,8 @@ const OPTIONS = ["none", "malware", "ads"] as const;
 const LIMITS = [1, 2, 3, 4, 5] as const;
 const LISTS = "https://github.com/hagezi/dns-blocklists";
 const TW165 = "https://data.gov.tw/dataset/176455";
+// Citizen Lab, "Exposing AdFection" (2026-10-15): zero-click spyware delivered through targeted ads
+const AD_SPYWARE = "https://citizenlab.ca/research/how-discover-tech-turned-targeted-ads-into-a-pipeline-for-spyware/";
 
 export function Dns() {
   const { t, locale } = useCtx();
@@ -26,7 +28,15 @@ export function Dns() {
         {OPTIONS.map((o) => (
           <div class="card card--flat">
             <h3>{t[`filter.${o}`]}</h3>
-            <p>{t[`dns.option.${o}`]}</p>
+            <p>
+              {t[`dns.option.${o}`]}
+              {o === "ads" && (
+                <>
+                  <a href={AD_SPYWARE} target="_blank" rel="noopener">{t["dns.option.adsCase"]}</a>
+                  {t["dns.option.adsAfter"]}
+                </>
+              )}
+            </p>
           </div>
         ))}
       </div>
