@@ -20,7 +20,10 @@
 html { scroll-padding-top: 16px; }
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font); line-height: 1.7; }
 a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3px; }
-a:hover { color: var(--muted); }
+/* only where there is a pointer that hovers: a phone keeps a tapped link "hovered" until the next tap, which left the
+   tapped link grey. The wordmark and the buttons keep their colour; the buttons move when pressed instead. :where
+   keeps this as weak as a plain a:hover, so the footer's white links stay white */
+@media (hover: hover) { a:where(:not(.brand, .nb-button)):hover { color: var(--muted); } }
 :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); line-height: 1.2; font-weight: 900; }
 h2 { margin: 0 0 24px; font-size: clamp(26px, 5vw, 36px); font-weight: 900; }
