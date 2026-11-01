@@ -1,6 +1,9 @@
 #!/bin/bash
-# Refresh the RPZ blocklists and reload the resolvers. Run every 8 hours from root's crontab, which is how long
-# HaGeZi says a copy stays fresh ("Expires: 8 hours" in each list).
+# Refresh the RPZ blocklists and reload the resolvers. With no arguments every list; with names, only those.
+# root's crontab runs the malware and 165 lists every 8 hours, which is how long HaGeZi says a copy stays fresh
+# ("Expires: 8 hours" in each list), and the ad list once a day at 20:37 UTC (04:37 in Taiwan): the filter
+# resolver stops answering on both its addresses while it loads the ad list, and an ad list a few hours old
+# matters less than a pause in the evening.
 #   malware.rpz  HaGeZi Threat Intelligence Feeds (mini)
 #   tw165.rpz    the scam sites Taiwan's police have ISPs stop resolving (165, data.gov.tw dataset 176455), which
 #                HaGeZi barely covers; published as CSV, so it is turned into a zone here
@@ -46,8 +49,14 @@ for name in sorted(n for n in names if not covered(n)):
 PY
 }
 
+zones=("$@")
+[ ${#zones[@]} -gt 0 ] || zones=(malware tw165 ads)
+for z in "${zones[@]}"; do
+  [ -n "${SRC[$z]:-}" ] || { echo "unknown list: $z (malware, tw165, ads)" >&2; exit 2; }
+done
+
 changed=()
-for z in malware tw165 ads; do
+for z in "${zones[@]}"; do
   tmp=$(mktemp "$D/.$z.XXXXXX")
   ok=0
   if [ "$z" = tw165 ]; then

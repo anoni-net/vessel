@@ -10,7 +10,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
-| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時執行（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致 |
+| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時更新惡意網站與 165 的名單（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致。廣告的名單一天一次，在 UTC 20:37（台灣清晨 04:37），重新載入時有過濾的解析器會暫停約 20 秒，避開晚上的使用高峰 |
 | `unbound/*.conf` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
@@ -94,7 +94,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 - `interface-tag` 把 `.253` 標成 `malware`、`.254` 標成 `ads`。RPZ 用 `tags:` 限定套用的位址，惡意網站與 165 標 `malware ads`，廣告標 `ads`。測試網址與 Firefox 的偵測網域用 `local-zone-tag`
 - 不能寫 `access-control`：unbound 先用來源 IP 比對 `access-control`，比對到就不看介面的設定，標記會失效。所以兩個位址都用 `interface-action: allow`，只有隧道連得到這兩個位址
-- 需要 unbound 1.21 以上。1.20.0 經過遞迴的查詢不檢查標記，不過濾的查詢也會被擋（NLnetLabs/unbound#1079），這也是映像改用 Alpine 3.22 的原因
+- 需要 unbound 1.21 以上。1.20.0 經過遞迴的查詢不檢查標記，不過濾的查詢也會被擋（NLnetLabs/unbound#1079），這也是映像改用最新穩定版 Alpine 的原因
 - 不過濾的 `.1` 維持獨立的 unbound，只佔約 10 MB。名單更新時有過濾的 unbound 會暫停，獨立出來就不影響選了不過濾的使用者
 
 擋廣告的名單原本用 Multi（Normal），2026-10-31 改成 HaGeZi 建議的 PRO。比對一個家用網路 Pi-hole 近 7 天擋下最多的 300 個網域，Normal 涵蓋其中 16.5% 的擋下次數，PRO 涵蓋 30.3%。Pi-hole 擋下而 PRO 沒有擋的，多半是定位、iCloud、憑證、視訊通話的 STUN 這類擋了會壞掉功能的服務，不適合放在大家共用的服務上。
