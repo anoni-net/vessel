@@ -713,3 +713,21 @@ test("the header is as tall with the my-devices button as without it", async ({ 
   await expect(page.locator(".site-header .nb-button")).toHaveCount(0);
   expect(await page.locator(".site-header").evaluate((e) => e.getBoundingClientRect().height)).toBe(withButton);
 });
+
+test("beside 社群架設的原因, a map on a wide screen only, its grid fetched only there", async ({ page }) => {
+  const fetched: string[] = [];
+  page.on("request", (req) => { if (req.url().includes("region-map")) fetched.push(req.url()); });
+  await page.goto("/");
+  const map = page.locator("#why .region-map");
+  if (page.viewportSize()!.width >= 960) {
+    // Taiwan, two lines and two cities; no words
+    await expect(map.locator(".region-map__line")).toHaveCount(2);
+    await expect(map.locator(".region-map__node")).toHaveCount(2);
+    await expect(map).toHaveAttribute("aria-hidden", "true");
+    expect(await map.locator("svg").evaluate((e) => e.querySelectorAll("text").length)).toBe(0);
+  } else {
+    await expect(map).toBeHidden();
+    await page.waitForLoadState("networkidle");
+    expect(fetched).toHaveLength(0);
+  }
+});

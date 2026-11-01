@@ -1,5 +1,5 @@
 import { useCtx } from "../context.ts";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
@@ -84,14 +84,17 @@ export function Home() {
       </section>
 
       <section id="why" class="band">
-        <div class="wrap">
-          <h2>{t["why.title"]}</h2>
-          <p class="section-lead">{t["why.body"]}</p>
-          <p class="section-lead">{t["why.reach"]}</p>
-          <div class="actions">
-            <a class="nb-button" href={href("/feedback/?from=home")}>{t["feedback.link"]}</a>
-            <a class="nb-button" href={href("/status/")}>{t["status.title"]}</a>
+        <div class="wrap why-layout">
+          <div>
+            <h2>{t["why.title"]}</h2>
+            <p class="section-lead">{t["why.body"]}</p>
+            <p class="section-lead">{t["why.reach"]}</p>
+            <div class="actions">
+              <a class="nb-button" href={href("/feedback/?from=home")}>{t["feedback.link"]}</a>
+              <a class="nb-button" href={href("/status/")}>{t["status.title"]}</a>
+            </div>
           </div>
+          <RegionMap />
         </div>
       </section>
 
@@ -125,6 +128,58 @@ function HeroArt() {
   return (
     <div class="hero__art" aria-hidden="true">
       <canvas ref={canvas} />
+    </div>
+  );
+}
+
+const WIDE = "(min-width: 960px)";
+// a cell of the map grid, and the square drawn in it
+const CELL = 10;
+const DOT = 7;
+
+/** Beside 社群架設的原因 on a wide screen: Taiwan, and a line from it to each city with a node. No words: the text
+ * beside it says what the service is. The grid is loaded only when the map is shown, so a phone does not fetch it. */
+function RegionMap() {
+  const [map, setMap] = useState<typeof import("../region-map.ts") | null>(null);
+  useEffect(() => {
+    const wide = matchMedia(WIDE);
+    let asked = false;
+    const load = () => {
+      if (asked || !wide.matches) return;
+      asked = true;
+      import("../region-map.ts").then(setMap, () => undefined);
+    };
+    load();
+    wide.addEventListener("change", load);
+    return () => wide.removeEventListener("change", load);
+  }, []);
+  if (!map) return <div class="region-map" aria-hidden="true" />;
+  const square = (c: number, r: number) => `M${c * CELL} ${r * CELL}h${DOT}v${DOT}h-${DOT}z`;
+  const land = map.LAND.flatMap((row, r) => [...row].map((ch, c) => (ch === "#" ? square(c, r) : ""))).join("");
+  const taiwan = map.TAIWAN.map(([c, r]) => square(c, r)).join("");
+  const at = ([c, r]: [number, number]) => [c * CELL + DOT / 2, r * CELL + DOT / 2] as const;
+  const [ox, oy] = at(map.ORIGIN);
+  const size = map.LAND.length * CELL;
+  return (
+    <div class="region-map" aria-hidden="true">
+      <svg viewBox={`0 0 ${map.LAND[0].length * CELL} ${size}`}>
+        <path class="region-map__land" d={land} />
+        {map.NODES.map((node) => {
+          const [x, y] = at(node);
+          // bowed to the side, a quarter of the distance
+          const [mx, my] = [(ox + x) / 2 - (y - oy) / 4, (oy + y) / 2 + (x - ox) / 4];
+          return (
+            <>
+              <path class="region-map__line" d={`M${ox} ${oy}Q${mx} ${my} ${x} ${y}`} />
+              <rect class="region-map__ring" x={x - 16} y={y - 16} width="32" height="32" />
+              <rect class="region-map__node" x={x - 8} y={y - 8} width="16" height="16" />
+            </>
+          );
+        })}
+        {/* over the lines' start, so they leave from its edge; Taiwan's land on top */}
+        <rect class="region-map__start" x={ox - 26} y={oy - 30} width="52" height="60" />
+        <path class="region-map__home" d={taiwan} />
+      </svg>
     </div>
   );
 }

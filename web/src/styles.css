@@ -219,6 +219,23 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge--state-down { background: var(--warn); }
 .badge--state-unknown { border-style: dashed; }
 .status-city { display: flex; align-items: center; gap: 12px; }
+/* home page, 社群架設的原因: a dot map beside the text on a wide screen, Taiwan and a line to each node's city */
+.region-map { display: none; }
+@media (min-width: 960px) {
+  .why-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 48px; align-items: center; }
+  .region-map { display: block; aspect-ratio: 1; }
+}
+.region-map svg { display: block; width: 100%; height: 100%; }
+.region-map__land { fill: #ccd5da; }
+.region-map__home { fill: var(--ink); }
+.region-map__start { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+.region-map__line { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 12; }
+.region-map__node { fill: var(--accent-strong); }
+.region-map__ring { fill: none; stroke: var(--accent-strong); stroke-width: 4; }
+@media (prefers-reduced-motion: no-preference) {
+  .region-map__line { animation: region-map-flow 1.2s linear infinite; }
+}
+@keyframes region-map-flow { to { stroke-dashoffset: -14; } }
 .subnav { display: flex; flex-wrap: wrap; gap: 4px 20px; font-weight: 700; align-items: center; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
 .facts dt { font-weight: 800; }
