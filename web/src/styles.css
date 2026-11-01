@@ -122,10 +122,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lang-hint__inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-block: 10px; }
 .pill { align-self: flex-start; padding: 2px 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); font-size: 15px; font-weight: 700; }
 /* the home page's line under the buttons: the closed-test tag, and the sentence running on after it. Chinese breaks
-   only at its punctuation, so a phone wraps after the comma and never leaves one character alone */
+   only at its punctuation, so the sentence is never split in the middle of a word */
 .hero__status { word-break: keep-all; overflow-wrap: anywhere; }
-/* on the narrowest phones the words before the comma do not fit beside the tag; break between characters there */
-@media (max-width: 359px) { .hero__status { word-break: normal; } }
 .hero__status .pill { display: inline-block; margin-inline-end: 8px; padding: 0 10px; border-width: 1.5px; color: var(--ink); font-size: 13px; line-height: 1.7; vertical-align: 1px; }
 
 .cards { display: grid; gap: 24px; padding: 0; margin: 0; list-style: none; }

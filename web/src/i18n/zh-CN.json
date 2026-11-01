@@ -12,7 +12,7 @@
   "home.promise": "不需要 email，不用付费，有问题有人回应。",
   "home.invite": "我有邀请码",
   "home.login": "登录",
-  "home.inviteOnly": "目前只通过社区成员邀请，名额有限。",
+  "home.inviteOnly": "目前只通过社区成员邀请。",
   "how.title": "使用方式",
   "how.1.title": "兑换邀请码",
   "how.1.body": "输入邀请码之后，系统给你一组 16 位数的账号号码，之后用它登录。",

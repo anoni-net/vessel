@@ -12,7 +12,7 @@
   "home.promise": "不需要 email，不用付費，有問題有人回應。",
   "home.invite": "我有邀請碼",
   "home.login": "登入",
-  "home.inviteOnly": "目前只透過社群成員邀請，名額有限。",
+  "home.inviteOnly": "目前只透過社群成員邀請。",
   "how.title": "使用方式",
   "how.1.title": "兌換邀請碼",
   "how.1.body": "輸入邀請碼之後，系統給你一組 16 位數的帳號號碼，之後用它登入。",
