@@ -6,7 +6,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 
 | 檔案 | 放在主機的 | 用途 |
 |---|---|---|
-| `Dockerfile`、`start.sh` | `build/` | Alpine 3.22 加上 unbound 與 iptables，AmneziaWG 的程式從官方 `amneziavpn/amneziawg-go` 映像的固定版本複製過來。`start.sh` 起 AWG、加 DNS 位址、設防火牆、起三個 unbound |
+| `Dockerfile`、`start.sh` | `build/` | 最新穩定版的 Alpine（目前是 3.24）加上 unbound 與 iptables，AmneziaWG 的程式從官方 `amneziavpn/amneziawg-go` 映像的固定版本複製過來。`start.sh` 起 AWG、加 DNS 位址、設防火牆、起三個 unbound |
 | `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
@@ -152,8 +152,8 @@ docker build -t vessel-node:latest /opt/vessel-node/build
 /opt/vessel-node/run.sh    # 所有人斷線幾秒後自動接回
 ```
 
-`Dockerfile` 寫死兩個版本：AmneziaWG 來源映像的標籤，以及 Alpine 的版本。升級任一個都是明確的一步，改 `Dockerfile` 的版本、重建映像、執行 `run.sh`，不會因為重建映像就默默換掉。
+`Dockerfile` 寫死兩個版本：AmneziaWG 來源映像的標籤，以及 Alpine 的次版本號。Alpine 跟著最新的穩定版，unbound 用它提供的套件；重建映像會拿到 Alpine 在同一個次版本內補的安全修正。換 Alpine 的次版本（新的穩定版發布時）或 AmneziaWG 的版本都是明確的一步，改 `Dockerfile`、重建映像、執行 `run.sh`。
 
-2026-11-01 以前直接以 `amneziavpn/amneziawg-go:latest` 為基礎，裡面是 Alpine 3.19，unbound 停在 1.20.0。這一版經過遞迴的查詢不檢查 RPZ 的標記（NLnetLabs/unbound#1079，1.21 修正），合併解析器（toomore/anoni-net-ws#447）需要新版，所以改成自己的 Alpine 基礎，只從官方映像取 `amneziawg-go`、`awg`、`awg-quick`。`awg` 只依賴 musl，`amneziawg-go` 是靜態連結。
+2026-11-01 以前直接以 `amneziavpn/amneziawg-go:latest` 為基礎，裡面是 Alpine 3.19，unbound 停在 1.20.0。這一版經過遞迴的查詢不檢查 RPZ 的標記（NLnetLabs/unbound#1079，1.21 修正），合併解析器（toomore/anoni-net-ws#447）需要新版，所以改成最新穩定版的 Alpine，只從官方映像取 `amneziawg-go`、`awg`、`awg-quick`。`awg` 只依賴 musl，`amneziawg-go` 是靜態連結。
 
 AmneziaWG 換協定世代時，舊的設定檔可能不相容，要請所有人重新建立裝置。
