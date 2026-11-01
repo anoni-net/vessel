@@ -10,7 +10,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
-| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時更新惡意網站與 165 的名單（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致。廣告的名單一天一次，在 UTC 20:37（台灣清晨 04:37），重新載入時有過濾的解析器會暫停約 20 秒，避開晚上的使用高峰 |
+| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 與數位產業署的 JSON 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時更新惡意網站與兩份台灣的名單（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致。廣告的名單一天一次，在 UTC 20:37（台灣清晨 04:37），重新載入時有過濾的解析器會暫停約 20 秒，避開晚上的使用高峰 |
 | `unbound/*.conf` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
@@ -83,8 +83,8 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | 位址 | 選項 | 名單 |
 |---|---|---|
 | `10.8.1.1` | 不過濾 | 無 |
-| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 停止解析的涉詐網站 |
-| `10.8.1.254` | 再擋廣告 | 上面兩份，加上 HaGeZi Multi PRO |
+| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 與數位產業署停止解析的詐騙網站 |
+| `10.8.1.254` | 再擋廣告 | 上面三份，加上 HaGeZi Multi PRO |
 
 兩個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。三份名單載入後約佔 600 MB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
 
@@ -108,6 +108,15 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 - 開 `rpz-signal-nxdomain-ra`，擋下的次數算進詐騙與惡意網站
 - 兩個解析器各多約 80 MB 記憶體（2026-10-31 在 unbound 1.25 實測，去掉重複之前是 110 MB）
 - 名單只照資料集的內容，資料集刪掉的網域，下次更新時就不再擋
+
+### 數位產業署停止解析的詐騙購物網站
+
+數位發展部數位產業署是 TWNIC DNS RPZ 的可信任通報機構，受理電商通報的一頁式詐騙購物網站，多半冒用台灣的電商與金流業者。清單公布在政府資料開放平台的[數位產業署聲請詐騙網域名稱停止解析網址清單](https://data.gov.tw/dataset/165027)，JSON 格式，2026-11-01 有 1,734 筆，從 2023 年 6 月到 2026 年 10 月。165 的名單只涵蓋其中 11%，HaGeZi 的 TIF 約 1%，沒被涵蓋的網域約 15% 還能解析（toomore/anoni-net-ws#448）。
+
+- `update-lists.sh` 跟 165 的名單用同一段程式轉成 `rpz/twmoda.rpz`，清理、去重複的方式相同，擋網域與子網域
+- 「網域名稱」欄有打錯字的情況，例如詐騙網址是 `laobeibi.shop`，網域欄寫 `aobeibi.shop`。網域欄跟「偽冒網址」的主機一致，或是那個主機的上層網域時才用網域欄，兩者都合法卻不一致時只用網址的主機，避免擋到打錯字的無關網域（2026-11-01 有 3 筆）
+- 伺服器擋下 Python 預設的 User-Agent，入口網站下載時要帶自己的 User-Agent，`curl` 不受影響
+- 開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站，記憶體約 2 MB
 
 ### 擋下次數
 
@@ -161,7 +170,7 @@ docker build -t vessel-node:latest /opt/vessel-node/build
 /opt/vessel-node/run.sh    # 所有人斷線幾秒後自動接回
 ```
 
-`Dockerfile` 寫死兩個版本：AmneziaWG 來源映像的標籤，以及 Alpine 的次版本號。Alpine 跟著最新的穩定版，unbound 用它提供的套件；重建映像會拿到 Alpine 在同一個次版本內補的安全修正。換 Alpine 的次版本（新的穩定版發布時）或 AmneziaWG 的版本都是明確的一步，改 `Dockerfile`、重建映像、執行 `run.sh`。
+`Dockerfile` 寫死兩個版本：AmneziaWG 來源映像的標籤，以及 Alpine 的次版本號。Alpine 跟著最新的穩定版，unbound 用它提供的套件。重建映像會取得 Alpine 在同一個次版本內補的安全修正。換 Alpine 的次版本（新的穩定版發布時）或 AmneziaWG 的版本都是明確的一步，改 `Dockerfile`、重建映像、執行 `run.sh`。
 
 2026-11-01 以前直接以 `amneziavpn/amneziawg-go:latest` 為基礎，裡面是 Alpine 3.19，unbound 停在 1.20.0。這一版經過遞迴的查詢不檢查 RPZ 的標記（NLnetLabs/unbound#1079，1.21 修正），合併解析器（toomore/anoni-net-ws#447）需要新版，所以改成最新穩定版的 Alpine，只從官方映像取 `amneziawg-go`、`awg`、`awg-quick`。`awg` 只依賴 musl，`amneziawg-go` 是靜態連結。
 

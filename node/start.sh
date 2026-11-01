@@ -72,7 +72,7 @@ iptables -A OUTPUT -o awg0 -p udp --sport 53 -m u32 --u32 "0>>22&0x3C@8&0x8F=0x3
 iptables -A OUTPUT -o awg0 -p udp --sport 53 -m string --algo bm --from 41 --hex-string "|07|blocked|06|vessel|00|" -j VESSEL-ADS
 
 # --- resolvers ---
-# the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,tw165,ads}.rpz present (an empty zone if a download never succeeded)
+# the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,tw165,twmoda,ads}.rpz present (an empty zone if a download never succeeded)
 unbound-anchor -a /var/lib/unbound/root.key || true
 for p in none filter; do
   cp /var/lib/unbound/root.key /var/lib/unbound/root-$p.key
