@@ -33,7 +33,7 @@ export function Home() {
                   <a class="nb-button" href={href("/login/")} tabIndex={signedIn === null ? -1 : undefined}>{t["home.login"]}</a>
                 </div>
                 {/* the state of the service where a visitor decides whether to go on: invited only, and still a test */}
-                <p class="muted hero__status"><span class="pill">{t["home.badge"]}</span><span>{t["home.inviteOnly"]}</span></p>
+                <p class="muted hero__status"><span class="pill">{t["home.badge"]}</span>{t["home.inviteOnly"]}</p>
               </div>
             )}
           </div>
