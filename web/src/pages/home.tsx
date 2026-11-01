@@ -17,7 +17,6 @@ export function Home() {
       <section class="hero band band--tint">
         <div class="wrap hero__inner">
           <div class="hero__text">
-            <span class="pill">{t["home.badge"]}</span>
             <h1>{t["home.title"]}</h1>
             <p class="lead">{t["home.lead"]}</p>
             <p class="strong">{t["home.promise"]}</p>
@@ -33,7 +32,8 @@ export function Home() {
                   <a class="nb-button nb-button--primary" href={href("/redeem/")} tabIndex={signedIn === null ? -1 : undefined}>{t["home.invite"]}</a>
                   <a class="nb-button" href={href("/login/")} tabIndex={signedIn === null ? -1 : undefined}>{t["home.login"]}</a>
                 </div>
-                <p class="muted">{t["home.inviteOnly"]}</p>
+                {/* the state of the service where a visitor decides whether to go on: invited only, and still a test */}
+                <p class="muted hero__status"><span class="pill">{t["home.badge"]}</span>{t["home.inviteOnly"]}</p>
               </div>
             )}
           </div>
