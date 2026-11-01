@@ -15,12 +15,21 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
+| `host/cve-2026-98432-ipopt`、`host/cve-2026-98432-ipopt.service` | 腳本放 `/usr/local/sbin/`，服務放 `/etc/systemd/system/` | 核心修正之前丟棄帶 IPv4 選項的 TCP SYN，見「安裝」 |
 
 主機上另外有 `server/`（伺服器私鑰與 `HeaderProtectionKey`）、`peers/`、`clients/`、`conf/awg0.conf` 與 `rpz/`，都不進 repo。
 
 ## 安裝
 
-需要 Docker 與 Python 3。雲端防火牆只開 AWG 的 UDP 埠，SSH 限定來源。
+需要 Docker 與 Python 3。雲端防火牆只開 AWG 的 UDP 埠，SSH 限定來源。主機的 ufw 設定同樣的規則，雲端防火牆在主控台誤改或換主機時還有一層：預設擋下所有連入，SSH 只接受跳板主機與 Tailscale，AWG 的 UDP 埠全開，Beszel 的 45876 只開給 Tailscale。
+
+核心修正 CVE-2026-98432 之前，主機另外用一個 systemd 服務在 `raw` 表丟棄帶 IPv4 選項的 TCP SYN（跟容器內的規則相同，見「容器內的防火牆」）。換上修正的核心之後，停用並刪除這個服務。
+
+```bash
+install -m 755 host/cve-2026-98432-ipopt /usr/local/sbin/
+install -m 644 host/cve-2026-98432-ipopt.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now cve-2026-98432-ipopt.service
+```
 
 ```bash
 mkdir -p /opt/vessel-node/build /opt/vessel-node/unbound
@@ -159,6 +168,7 @@ VPN 使用者只能上網：
 - 連不到私有網段、`169.254.0.0/16`（雲端主機的中繼資料服務）、`100.64.0.0/10`、`127.0.0.0/8`、多播，以及節點自己的公開 IP。沒有擋的話，使用者可以經 Docker 閘道碰到主機的 SSH，繞過雲端防火牆
 - 對外的 TCP 25 回 reset
 - 從隧道連到容器本身只放行 53 埠
+- 帶 IPv4 選項（Record Route、Timestamp）的 TCP SYN 一律丟棄。這類 SYN 能觸發核心處理 TCP 握手時的釋放後使用漏洞（CVE-2026-98432），使用者連得到解析器的 TCP 53 埠，而正常的連線不會帶這些選項。所有節點換上修正的核心之後就可以拿掉
 - P2P 只計數、不擋：每條連線最前面 4 個封包裡，符合 BitTorrent 特徵（沒有加密的握手、DHT 查詢、UDP 與 HTTP tracker 的請求）的封包數，記在 `VESSEL-P2P`，另外 `VESSEL-NEW` 記新連線的總數當作對照。都是整個節點的總數，不分裝置，容器重啟時歸零，用 `awgctl p2p` 讀。加密的握手看不出來，所以數字是下限
 - IPv6 一律不轉送，隧道上的 IPv6 封包也不進容器。使用者只取得 IPv4 的隧道位址，AmneziaWG 本來就會丟掉其他來源的封包，這兩條是之後開了 IPv6 也不會漏的保險
 
