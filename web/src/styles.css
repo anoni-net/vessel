@@ -52,8 +52,23 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .brand__logo { display: block; height: 26px; width: auto; }
 .brand__product { padding-inline-start: 14px; border-inline-start: 2px solid var(--ink); font-size: 22px; font-weight: 900; line-height: 1.2; }
 /* a short line: break only at the spaces and balance the lines, so a narrow screen splits no word and strands no character */
-.footer-brand { display: flex; align-items: center; gap: 10px; text-wrap: balance; word-break: keep-all; }
-.footer-brand img { flex: none; }
+/* the footer: who runs Vessel on the left, three groups of links on the right; on a phone the first two groups
+   side by side and the "about" links below them, two to a row in the same columns */
+.footer-brand { display: flex; flex-direction: column; gap: 4px; }
+.footer-brand__name { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 900; }
+.footer-brand__name img { flex: none; }
+.footer-brand__tagline { color: #c3ced3; font-weight: 400; text-wrap: balance; word-break: keep-all; }
+.footer-groups { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); gap: 24px 40px; }
+.footer-heading { margin-bottom: 8px; font-size: 13px; font-weight: 700; letter-spacing: .04em; color: #c3ced3; }
+.footer-group__links { display: flex; flex-direction: column; gap: 6px; font-weight: 400; }
+.footer-group--about { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.footer-group--about > * { grid-column: 1 / -1; }
+.footer-group--about .footer-group__links { display: grid; grid-template-columns: subgrid; gap: 6px 40px; }
+@media (min-width: 720px) {
+  .footer-groups { grid-template-columns: repeat(3, max-content); gap: 24px 56px; }
+  .footer-group--about { grid-column: auto; display: block; }
+  .footer-group--about .footer-group__links { display: flex; }
+}
 /* the statistics note and the trademark notice read as one block of small print */
 .footer-legal { padding-block: 0 6px; font-size: 13px; color: #c3ced3; }
 .footer-legal:last-child { padding-bottom: 24px; }
@@ -63,12 +78,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }
 .site-footer { background: var(--ink); color: var(--paper); }
 .site-footer a { color: var(--paper); }
-.site-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-block: 32px; font-weight: 700; }
-.site-footer__links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-weight: 400; }
+.site-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 32px; padding-block: 40px 32px; }
 .icon { flex: none; vertical-align: -0.125em; }
 .site-header__langs { display: inline-flex; align-items: center; gap: 0 4px; font-weight: 700; }
 .site-header__langs a { padding: 4px 6px; }
-.site-footer__langs { padding-block: 0 24px; font-weight: 400; }
+.site-footer__langs { padding-block: 24px; border-top: 1px solid #2e3d44; font-weight: 400; }
 .site-footer__langs .icon { margin-inline-end: 4px; }
 
 .legal > * + * { margin-top: 16px; }

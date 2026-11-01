@@ -33,6 +33,10 @@ function NewDevice() {
 }
 
 // Material Design Icons "translate" (Apache 2.0), the icon the news site uses for its language links
+// the community's home page in the same language, and this service's code
+const COMMUNITY: Record<Locale, string> = { "zh-TW": "https://anoni.net/", "zh-CN": "https://anoni.net/zh-cn/", en: "https://anoni.net/en/" };
+const SOURCE = "https://github.com/anoni-net/vessel";
+
 function TranslateIcon() {
   return (
     <svg class="icon" viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false">
@@ -157,22 +161,40 @@ export function App({ url }: { url?: string } = {}) {
       <main class="site-main" key={path}>{route ? route[1]() : <NotFound />}</main>
       <footer class="site-footer">
         <div class="wrap site-footer__inner">
-          <p class="footer-brand">
-            <img src={FAVICON} alt="" width="24" height="24" />
-            {t["footer.service"]}
-          </p>
-          <nav aria-label={t["nav.footer"]} class="site-footer__links">
-            <a href={href("/faq/")}>{t["faq.title"]}</a>
-            <a href={href("/dns/")}>{t["dns.title"]}</a>
-            <a href={href("/check/")}>{t["check.title"]}</a>
-            <a href={href("/status/")}>{t["status.title"]}</a>
-            <a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a>
-            {(["/terms/", "/privacy/"] as const).map((p) => {
-              // the text loads with the page; start when the pointer or focus gets to the link
-              const early = () => void preloadLegal(locale, p).catch(() => undefined);
-              return <a href={href(p)} onPointerEnter={early} onFocus={early}>{t[p === "/terms/" ? "terms.title" : "privacy.title"]}</a>;
-            })}
-          </nav>
+          <div class="footer-brand">
+            <p class="footer-brand__name"><img src={FAVICON} alt="" width="24" height="24" />Vessel</p>
+            <p class="footer-brand__tagline">{t["footer.service"]}</p>
+          </div>
+          <div class="footer-groups">
+            <nav aria-labelledby="footer-help" class="footer-group">
+              <p class="footer-heading" id="footer-help">{t["footer.help"]}</p>
+              <ul class="plain footer-group__links">
+                <li><a href={href("/learn/")}>{t["learn.title"]}</a></li>
+                <li><a href={href("/faq/")}>{t["nav.faq"]}</a></li>
+                <li><a href={href("/dns/")}>{t["dns.title"]}</a></li>
+              </ul>
+            </nav>
+            <nav aria-labelledby="footer-checks" class="footer-group">
+              <p class="footer-heading" id="footer-checks">{t["footer.checks"]}</p>
+              <ul class="plain footer-group__links">
+                <li><a href={href("/check/")}>{t["check.title"]}</a></li>
+                <li><a href={href("/status/")}>{t["status.title"]}</a></li>
+                <li><a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a></li>
+              </ul>
+            </nav>
+            <nav aria-labelledby="footer-about" class="footer-group footer-group--about">
+              <p class="footer-heading" id="footer-about">{t["footer.about"]}</p>
+              <ul class="plain footer-group__links">
+                <li><a href={COMMUNITY[locale]} target="_blank" rel="noopener">{t["footer.community"]}</a></li>
+                <li><a href={SOURCE} target="_blank" rel="noopener">{t["footer.source"]}</a></li>
+                {(["/terms/", "/privacy/"] as const).map((p) => {
+                  // the text loads with the page; start when the pointer or focus gets to the link
+                  const early = () => void preloadLegal(locale, p).catch(() => undefined);
+                  return <li><a href={href(p)} onPointerEnter={early} onFocus={early}>{t[p === "/terms/" ? "terms.title" : "privacy.title"]}</a></li>;
+                })}
+              </ul>
+            </nav>
+          </div>
         </div>
         <div class="wrap">
           <nav class="site-footer__langs" aria-label={t["lang.label"]}>
