@@ -142,9 +142,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card__head { display: flex; align-items: center; gap: 14px; }
 .card__icon { flex: none; width: 48px; height: 48px; border: var(--border); border-radius: 12px; background: var(--tint); display: grid; place-items: center; }
 .card__icon .icon { width: 28px; height: 28px; }
-/* home page, 使用情境: six cards in two rows of three where each column is wide enough for its title on one line,
-   the first three below that (a phone, a narrow window) */
-@media (max-width: 959px) { .card--wide { display: none; } }
+/* home page, 使用情境: only as many cards as fill whole rows. The grid's 240px columns and 24px gaps in the wrap's
+   20px sides give one column below 544px (three cards), two up to 807px (four), three up to 959px (three); from
+   960px all six, two rows of three wide enough for each title on one line */
+.card--fourth, .card--wide { display: none; }
+@media (min-width: 544px) and (max-width: 807px) { .card--fourth { display: flex; } }
+@media (min-width: 960px) { .card--fourth, .card--wide { display: flex; } }
 @media (min-width: 960px) { .cards--six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .card__head h3 { text-wrap: balance; }
 .card > p { text-wrap: pretty; }
