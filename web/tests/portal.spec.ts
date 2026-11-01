@@ -43,6 +43,11 @@ test("home page in three languages", async ({ page }) => {
   // title, hidden from screen readers
   await expect(page.locator("#when .card .card__head .icon")).toHaveCount(6);
   await expect(page.locator("#when .card:visible")).toHaveCount(page.viewportSize()!.width >= 960 ? 6 : 3);
+  // whole rows at every width: one column, two, three, then two rows of three
+  for (const [width, cards] of [[400, 3], [600, 4], [880, 3], [1000, 6]] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator("#when .card:visible")).toHaveCount(cards);
+  }
   await expect(page.locator("#when .card:visible h3").first()).toHaveText("公共 Wi-Fi");
   await expect(page.locator("#when .card .icon").first()).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant-TW");

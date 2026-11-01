@@ -5,7 +5,7 @@ import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
-// the first three on every screen; the other three only on a wide screen (styles.css)
+// the first three on every screen, the fourth too where the cards sit two to a row, all six on a wide screen (styles.css)
 const WHEN = ["1", "2", "3", "4", "5", "6"] as const;
 // public Wi-Fi, travel, a blocked site, scam sites, ads and trackers, the carrier's network
 const WHEN_ICON: Record<(typeof WHEN)[number], IconName> = {
@@ -52,7 +52,7 @@ export function Home() {
           <h2>{t["when.title"]}</h2>
           <ul class="cards cards--3 cards--six plain">
             {WHEN.map((n) => (
-              <li class={Number(n) > 3 ? "card card--wide" : "card"}>
+              <li class={n === "4" ? "card card--fourth" : Number(n) > 4 ? "card card--wide" : "card"}>
                 <div class="card__head">
                   <span class="card__icon"><Icon name={WHEN_ICON[n]} /></span>
                   <h3>{t[`when.${n}.title`]}</h3>
