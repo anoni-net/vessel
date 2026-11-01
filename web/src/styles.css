@@ -142,6 +142,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card__head { display: flex; align-items: center; gap: 14px; }
 .card__icon { flex: none; width: 48px; height: 48px; border: var(--border); border-radius: 12px; background: var(--tint); display: grid; place-items: center; }
 .card__icon .icon { width: 28px; height: 28px; }
+/* home page, 使用情境: six cards in two rows of three where each column is wide enough for its title on one line,
+   the first three below that (a phone, a narrow window) */
+@media (max-width: 959px) { .card--wide { display: none; } }
+@media (min-width: 960px) { .cards--six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.card__head h3 { text-wrap: balance; }
+.card > p { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
 .check-results { display: grid; gap: 12px; margin: 0; }

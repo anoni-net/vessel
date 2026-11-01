@@ -5,9 +5,12 @@ import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
-const WHEN = ["1", "2", "3"] as const;
-// public Wi-Fi, travel, a blocked site
-const WHEN_ICON: Record<(typeof WHEN)[number], IconName> = { "1": "wifi", "2": "travel", "3": "blocked" };
+// the first three on every screen; the other three only on a wide screen (styles.css)
+const WHEN = ["1", "2", "3", "4", "5", "6"] as const;
+// public Wi-Fi, travel, a blocked site, scam sites, ads and trackers, the carrier's network
+const WHEN_ICON: Record<(typeof WHEN)[number], IconName> = {
+  "1": "wifi", "2": "travel", "3": "blocked", "4": "phishing", "5": "trackers", "6": "carrier",
+};
 // 三個語系的 when.note 都寫了這個產品名，連結就放在它上面
 const TOR_BROWSER = "Tor Browser";
 
@@ -47,9 +50,9 @@ export function Home() {
       <section id="when" class="band">
         <div class="wrap">
           <h2>{t["when.title"]}</h2>
-          <ul class="cards cards--3 plain">
+          <ul class="cards cards--3 cards--six plain">
             {WHEN.map((n) => (
-              <li class="card">
+              <li class={Number(n) > 3 ? "card card--wide" : "card"}>
                 <div class="card__head">
                   <span class="card__icon"><Icon name={WHEN_ICON[n]} /></span>
                   <h3>{t[`when.${n}.title`]}</h3>
