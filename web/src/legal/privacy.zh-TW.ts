@@ -37,7 +37,7 @@ export default {
     { p: "你連線的時候，節點的記憶體裡會有你目前的 IP，回傳資料給你時要用到它。節點也會處理你連往的網域與 IP，但無法取得 HTTPS 連線的內容。這些資料只在連線期間存在記憶體，不寫入硬碟，也不寫進任何紀錄。" },
     { p: "測試期間使用條款禁止 P2P 檔案分享，但不擋下連線。為了判斷之後是否需要擋，節點會統計每條連線最前面幾個封包裡，有多少符合 BitTorrent 協定的特徵（沒有加密的握手、DHT 查詢、tracker 的請求）。統計只有整個節點的總數，不分裝置，也不記錄連線的來源與目的地。" },
     { h: "網域過濾" },
-    { p: "建立裝置時可以選擇是否擋下惡意網站與廣告。過濾在節點的解析器上進行，不記錄被擋下的網域。擋惡意網站使用 HaGeZi 的 Threat Intelligence Feeds（mini），以及警政署 165 與數位產業署停止解析的詐騙網站，擋廣告再加上 HaGeZi Multi PRO，名單每 8 小時更新一次，內容公開在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists) 與[政府資料開放平臺](https://data.gov.tw/dataset/176455)。兩份台灣的名單依政府資料開放授權條款第 1 版使用。" },
+    { p: "建立裝置時可以選擇是否擋下惡意網站與廣告。過濾在節點的解析器上進行，不記錄被擋下的網域。擋惡意網站使用 HaGeZi 的 Threat Intelligence Feeds（mini），以及警政署 165 與數位產業署停止解析的詐騙網站，擋廣告再加上 HaGeZi Multi PRO。惡意網站的名單每 8 小時更新一次，廣告的名單每天更新一次，內容公開在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists) 與[政府資料開放平臺](https://data.gov.tw/dataset/176455)。兩份台灣的名單依政府資料開放授權條款第 1 版使用。" },
     { h: "統計" },
     { p: "公開頁面的瀏覽次數，以及兌換、登入、建立裝置每一步的結果，會送到 anoni.net 自架的 Umami，用來找出流程裡出問題的步驟。每筆資料只有頁面的路徑、語言、取到百位數的螢幕尺寸與步驟的結果，帳號號碼、裝置的名稱與設定、金鑰都不送。Umami 由 IP 推算國家與城市，但不保存 IP。" },
     { p: "瀏覽器開啟 Do Not Track 或 Global Privacy Control 時不送，也可以在頁尾選擇不要記錄。" },

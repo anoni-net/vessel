@@ -32,6 +32,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .narrow { max-width: 560px; padding-block: 32px 48px; }
 .narrow > h1 + form, .narrow > form + p { margin-top: 20px; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
+/* a page's section headings sit closer to their own text than to the section before (the gap above, plus 24px) */
+.narrow.stack > h2 { margin: 24px 0 0; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .plain { list-style: none; padding: 0; margin: 0; }
 .muted { color: var(--muted); }

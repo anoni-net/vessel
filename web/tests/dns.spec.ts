@@ -104,3 +104,16 @@ test("a report link with anything but a host name attaches nothing", async ({ pa
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByTestId("attach-check")).toHaveCount(0);
 });
+
+test("a section heading sits closer to its own text than to the section before", async ({ page }) => {
+  await page.goto("/dns/");
+  const heading = page.getByRole("heading", { level: 2, name: "做不到的事" });
+  const gaps = await heading.evaluate((h) => {
+    const box = h.getBoundingClientRect();
+    return {
+      above: box.top - h.previousElementSibling!.getBoundingClientRect().bottom,
+      below: h.nextElementSibling!.getBoundingClientRect().top - box.bottom,
+    };
+  });
+  expect(gaps.above).toBeGreaterThan(gaps.below * 2);
+});
