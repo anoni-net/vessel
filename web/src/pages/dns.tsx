@@ -95,8 +95,10 @@ function Lookup() {
       setBusy(false);
     }
   };
-  // the 165 list first: what it says (Taiwan's ISPs block the site too) matters most, and its appeals go to 165
-  const list = answer && (answer.tw165 ? "tw165" : answer.malware ? "malware" : answer.ads ? "ads" : null);
+  // the Taiwanese lists first: what they say (Taiwan's ISPs block the site too) matters most, and their appeals go
+  // to the agencies that keep them, not to us
+  const list = answer && (answer.tw165 ? "tw165" : answer.twmoda ? "twmoda" : answer.malware ? "malware" : answer.ads ? "ads" : null);
+  const agency = list === "tw165" || list === "twmoda";
   return (
     <form class="card stack" onSubmit={look} data-testid="dns-lookup">
       <h2>{t["dns.lookup.title"]}</h2>
@@ -113,7 +115,8 @@ function Lookup() {
         <div class={`lookup-answer${list ? " lookup-answer--hit" : ""}`} role="status" data-testid="lookup-answer">
           <p class="strong">{fmt(t[`dns.lookup.${list ?? "none"}`], { domain: answer.domain })}</p>
           {list === "tw165" && <p class="small">{t["dns.lookup.report165"]}</p>}
-          {list && list !== "tw165" && (
+          {list === "twmoda" && <p class="small">{t["dns.lookup.reportModa"]}</p>}
+          {list && !agency && (
             <p class="small">
               <a class="strong" href={href(`/feedback/?from=dns&${blockedReport(answer.domain, list)}`)}>{t["dns.lookup.report"]}</a>
               {" "}{t["dns.lookup.reportNote"]}
