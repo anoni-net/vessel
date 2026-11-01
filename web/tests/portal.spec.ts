@@ -39,6 +39,9 @@ test("home page in three languages", async ({ page }) => {
   await expect(page.locator(".hero__status")).toHaveText("封閉測試中目前只透過社群成員邀請。");
   await expect(page.locator(".hero__status .pill")).toHaveText("封閉測試中");
   expect(await page.locator(".hero__text > :first-child").evaluate((e) => e.tagName)).toBe("H1");
+  // each card under 使用情境 has a symbol beside its title, hidden from screen readers
+  await expect(page.locator("#when .card .card__head .icon")).toHaveCount(3);
+  await expect(page.locator("#when .card .icon").first()).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant-TW");
   await noSideways(page);
   await page.locator("footer").getByRole("link", { name: "English" }).click();
