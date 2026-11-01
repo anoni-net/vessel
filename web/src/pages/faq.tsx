@@ -11,8 +11,10 @@ const GROUPS = {
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
 
-// the home page shows these; the rest are on /faq/
-const ON_HOME: Question[] = ["invite", "cost", "protocols", "app", "ios", "lost", "twoDevices", "newPhone", "noTraffic", "expire", "quota", "see"];
+// the home page shows these, for someone deciding whether to use Vessel or setting up a first device; the rest are on
+// /faq/. Not here: protocols (the install step links to it, and "app" says what matters on the home page) and newPhone
+// (it comes up only after the first device)
+const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices", "noTraffic", "expire", "quota", "see"];
 
 // /faq/#q-protocols opens that answer; the device setup links to it
 export const faqAnchor = (id: Question) => `q-${id}`;
