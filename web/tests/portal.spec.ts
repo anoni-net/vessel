@@ -679,3 +679,21 @@ test("the footer: three groups of links, in the same order in every language, no
   await expect(page.locator("footer").getByRole("link", { name: "anoni.net community" })).toHaveAttribute("href", "https://anoni.net/en/");
   await expect(page.locator("footer").getByRole("link", { name: "Source code" })).toHaveAttribute("href", "https://github.com/anoni-net/vessel");
 });
+
+test("the wordmark and the buttons keep their colour under the pointer or after a tap", async ({ page }) => {
+  await page.goto("/");
+  const ink = await page.locator(".brand__product").evaluate((e) => getComputedStyle(e).color);
+  for (const sel of [".brand", ".hero .nb-button--primary", ".site-header .nb-button"]) {
+    await page.locator(sel).first().hover();
+    const target = sel === ".brand" ? ".brand__product" : sel;
+    expect(await page.locator(target).first().evaluate((e) => getComputedStyle(e).color)).toBe(ink);
+  }
+});
+
+test("the footer's links stay white under the pointer", async ({ page }) => {
+  await page.goto("/");
+  const link = page.locator("footer .footer-group a").first();
+  const before = await link.evaluate((e) => getComputedStyle(e).color);
+  await link.hover();
+  expect(await link.evaluate((e) => getComputedStyle(e).color)).toBe(before);
+});
