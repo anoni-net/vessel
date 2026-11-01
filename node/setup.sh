@@ -51,8 +51,8 @@ cp $D/server/interface.conf $D/conf/awg0.conf
 
 $D/update-lists.sh
 ln -sf $D/awgctl /usr/local/sbin/awgctl
-# the malware and 165 lists every 8 hours, everything (the ad list too) once a day at 04:37 in Taiwan
+# the malware and the two Taiwanese lists every 8 hours, everything (the ad list too) once a day at 04:37 in Taiwan
 { crontab -l 2>/dev/null | grep -v vessel-node/update-lists.sh || true
-  echo "37 4,12 * * * /opt/vessel-node/update-lists.sh malware tw165 >> /var/log/vessel-update-lists.log 2>&1"
+  echo "37 4,12 * * * /opt/vessel-node/update-lists.sh malware tw165 twmoda >> /var/log/vessel-update-lists.log 2>&1"
   echo "37 20 * * * /opt/vessel-node/update-lists.sh >> /var/log/vessel-update-lists.log 2>&1"; } | crontab -
 $D/run.sh
