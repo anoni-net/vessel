@@ -65,6 +65,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-footer a { color: var(--paper); }
 .site-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-block: 32px; font-weight: 700; }
 .site-footer__links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-weight: 400; }
+/* the Chinese links are all short: three to a row on a phone, so five break 3 + 2 instead of leaving one alone.
+   The English ones are too long for three columns and wrap as they fit */
+@media (max-width: 719px) { :lang(zh) .site-footer__links { display: grid; grid-template-columns: repeat(3, max-content); } }
 .icon { flex: none; vertical-align: -0.125em; }
 .site-header__langs { display: inline-flex; align-items: center; gap: 0 4px; font-weight: 700; }
 .site-header__langs a { padding: 4px 6px; }

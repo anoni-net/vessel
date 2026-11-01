@@ -659,3 +659,15 @@ test("the monthly record shows only the counts a filter made", async ({ page }) 
   await expect(months.getByTestId("month-used")).toHaveCount(3);
   await expect(months.getByTestId("month-malware")).toHaveCount(0);
 });
+
+test("the footer: five links, the terms and the privacy policy with the small print, nothing wider than the screen", async ({ page }) => {
+  for (const [path, links, legal] of [
+    ["/faq/", ["常見問題", "網域過濾", "連線檢測", "服務狀態", "意見回覆"], "條款與政策"],
+    ["/en/faq/", ["Frequently asked questions", "DNS filtering", "Connection check", "Service status", "Feedback"], "Terms and policies"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.locator(".site-footer__links a")).toHaveText([...links]);
+    await expect(page.getByRole("navigation", { name: legal }).getByRole("link")).toHaveCount(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+});

@@ -167,11 +167,6 @@ export function App({ url }: { url?: string } = {}) {
             <a href={href("/check/")}>{t["check.title"]}</a>
             <a href={href("/status/")}>{t["status.title"]}</a>
             <a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a>
-            {(["/terms/", "/privacy/"] as const).map((p) => {
-              // the text loads with the page; start when the pointer or focus gets to the link
-              const early = () => void preloadLegal(locale, p).catch(() => undefined);
-              return <a href={href(p)} onPointerEnter={early} onFocus={early}>{t[p === "/terms/" ? "terms.title" : "privacy.title"]}</a>;
-            })}
           </nav>
         </div>
         <div class="wrap">
@@ -186,6 +181,19 @@ export function App({ url }: { url?: string } = {}) {
           </nav>
         </div>
         <div class="wrap">
+          {/* the terms and the privacy policy with the rest of the small print, so the links above stay short */}
+          <nav class="footer-legal" aria-label={t["nav.legal"]}>
+            {(["/terms/", "/privacy/"] as const).map((p, i) => {
+              // the text loads with the page; start when the pointer or focus gets to the link
+              const early = () => void preloadLegal(locale, p).catch(() => undefined);
+              return (
+                <>
+                  {i > 0 && " · "}
+                  <a href={href(p)} onPointerEnter={early} onFocus={early}>{t[p === "/terms/" ? "terms.title" : "privacy.title"]}</a>
+                </>
+              );
+            })}
+          </nav>
           <StatsChoice />
           <p class="footer-legal">
             {t["footer.trademarks"]} <a href="https://www.wireguard.com/" target="_blank" rel="noopener">wireguard.com</a>
