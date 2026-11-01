@@ -1,17 +1,17 @@
 # node
 
-Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 AmneziaWG 3.1 與三個 unbound 解析器，裝在主機的 `/opt/vessel-node/`。
+Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 AmneziaWG 3.1 與兩個 unbound 解析器，裝在主機的 `/opt/vessel-node/`。
 
 ## 檔案
 
 | 檔案 | 放在主機的 | 用途 |
 |---|---|---|
-| `Dockerfile`、`start.sh` | `build/` | 最新穩定版的 Alpine（目前是 3.24）加上 unbound 與 iptables，AmneziaWG 的程式從官方 `amneziavpn/amneziawg-go` 映像的固定版本複製過來。`start.sh` 起 AWG、加 DNS 位址、設防火牆、起三個 unbound |
+| `Dockerfile`、`start.sh` | `build/` | 最新穩定版的 Alpine（目前是 3.24）加上 unbound 與 iptables，AmneziaWG 的程式從官方 `amneziavpn/amneziawg-go` 映像的固定版本複製過來。`start.sh` 起 AWG、加 DNS 位址、設防火牆、起兩個 unbound |
 | `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
-| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時執行（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致 |
-| `unbound/*.conf` | `unbound/` | 三個解析器的設定 |
+| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時更新惡意網站與 165 的名單（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致。廣告的名單一天一次，在 UTC 20:37（台灣清晨 04:37），重新載入時有過濾的解析器會暫停約 20 秒，避開晚上的使用高峰 |
+| `unbound/*.conf` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
@@ -86,7 +86,16 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 停止解析的涉詐網站 |
 | `10.8.1.254` | 再擋廣告 | 上面兩份，加上 HaGeZi Multi PRO |
 
-三個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。三份名單載入後約佔 1 GB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
+兩個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。三份名單載入後約佔 600 MB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
+
+### 一個 unbound 服務兩種過濾
+
+`.253` 與 `.254` 由同一個 unbound（`filter.conf`）回應，依查詢進來的位址套用不同的名單，惡意網站與 165 的名單只載入一次（toomore/anoni-net-ws#447）。2026-11-01 以前是兩個 unbound，各載入一份，合併之後記憶體從 338 ＋ 608 MB 降到約 606 MB。
+
+- `interface-tag` 把 `.253` 標成 `malware`、`.254` 標成 `ads`。RPZ 用 `tags:` 限定套用的位址，惡意網站與 165 標 `malware ads`，廣告標 `ads`。測試網址與 Firefox 的偵測網域用 `local-zone-tag`
+- 不能寫 `access-control`：unbound 先用來源 IP 比對 `access-control`，比對到就不看介面的設定，標記會失效。所以兩個位址都用 `interface-action: allow`，只有隧道連得到這兩個位址
+- 需要 unbound 1.21 以上。1.20.0 經過遞迴的查詢不檢查標記，不過濾的查詢也會被擋（NLnetLabs/unbound#1079），這也是映像改用最新穩定版 Alpine 的原因
+- 不過濾的 `.1` 維持獨立的 unbound，只佔約 10 MB。名單更新時有過濾的 unbound 會暫停，獨立出來就不影響選了不過濾的使用者
 
 擋廣告的名單原本用 Multi（Normal），2026-10-31 改成 HaGeZi 建議的 PRO。比對一個家用網路 Pi-hole 近 7 天擋下最多的 300 個網域，Normal 涵蓋其中 16.5% 的擋下次數，PRO 涵蓋 30.3%。Pi-hole 擋下而 PRO 沒有擋的，多半是定位、iCloud、憑證、視訊通話的 STUN 這類擋了會壞掉功能的服務，不適合放在大家共用的服務上。
 
@@ -107,15 +116,15 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 兩份名單分開計數，每月的防護成績單（toomore/anoni-net-ws#445）要分別列出「詐騙與惡意網站」與「廣告與追蹤」：
 
 - 惡意網站的名單開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 的 `VESSEL-BLOCKED` 用 `u32` 比對 DNS 標頭
-- 廣告的名單用 `rpz-action-override: cname`，擋下的回應是指向 `blocked.vessel.` 的 CNAME，這個名稱由 `ads.conf` 的 `local-zone` 回 NXDOMAIN，不會往外查。`VESSEL-ADS` 從第 41 個位元組開始比對：有些裝置收到 CNAME 之後會再查一次 `blocked.vessel.` 本身，這時名稱在問題區段的開頭（第 40 個位元組），從第 41 個位元組開始比對就不會把同一次擋下算兩次。2026-10-31 的東京節點上，這類回應佔了 `VESSEL-ADS` 的三分之二。`VESSEL-ADS` 用 `string` 比對回應裡的這個名稱
+- 廣告的名單用 `rpz-action-override: cname`，擋下的回應是指向 `blocked.vessel.` 的 CNAME，這個名稱由 `filter.conf` 的 `local-zone` 回 NXDOMAIN，不會往外查。`VESSEL-ADS` 從第 41 個位元組開始比對：有些裝置收到 CNAME 之後會再查一次 `blocked.vessel.` 本身，這時名稱在問題區段的開頭（第 40 個位元組），從第 41 個位元組開始比對就不會把同一次擋下算兩次。2026-10-31 的東京節點上，這類回應佔了 `VESSEL-ADS` 的三分之二。`VESSEL-ADS` 用 `string` 比對回應裡的這個名稱
 
-兩條 chain 都是每個隧道位址（`.2` 到 `.249`）一條規則，只累計封包數。兩份名單都有的網域，擋廣告的解析器先比對惡意網站的名單，只算在惡意網站那邊。
+兩條 chain 都是每個隧道位址（`.2` 到 `.249`）一條規則，只累計封包數。兩份名單都有的網域，`.254` 先比對惡意網站的名單，只算在惡意網站那邊。
 
-三個解析器開了 `extended-statistics`，`unbound-control stats_noreset` 的 `num.rpz.action.*` 是整個解析器擋下的總次數，用來比較換名單前後的差別，沒有網域也不分裝置。
+兩個解析器開了 `extended-statistics`，`unbound-control -c /etc/unbound/conf.d/filter.conf stats_noreset` 的 `num.rpz.action.*` 是兩種過濾合計擋下的次數，`rpz-nxdomain` 是惡意網站與 165，`rpz-cname-override` 是廣告，用來比較換名單前後的差別，沒有網域也不分裝置。
 
 `awgctl` 把位址配給新的 peer 時歸零兩條規則，`usage --json` 依位址帶出 `blocked` 與 `blocked_ads`。計數跟著位址走，暫停與恢復不會歸零，容器重啟時歸零，入口網站的 worker 用跟流量相同的方式換算成增量。改了 `start.sh` 要重建映像再執行 `run.sh`，所有人會短暫斷線。只是新增規則時，可以用 `docker exec vessel-node iptables ...` 在運作中的容器照 `start.sh` 加上，再重建映像讓下次啟動也有。
 
-入口網站的 `/dns/` 有即時檢測，讓使用者確認目前生效的過濾。四個測試網址 `vessel-dns-0` 到 `vessel-dns-3.anoni.net` 是真的網域，三個解析器用 `local-zone ... always_nxdomain` 各藏起其中幾個：
+入口網站的 `/dns/` 有即時檢測，讓使用者確認目前生效的過濾。四個測試網址 `vessel-dns-0` 到 `vessel-dns-3.anoni.net` 是真的網域，解析器用 `local-zone ... always_nxdomain` 依位址藏起其中幾個：
 
 | 測試網址 | 不過濾 | 擋惡意網站 | 再擋廣告 |
 |---|---|---|---|
@@ -124,13 +133,13 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | `vessel-dns-2` | 正常解析 | 回 NXDOMAIN | 回 NXDOMAIN |
 | `vessel-dns-3` | 正常解析 | 正常解析 | 回 NXDOMAIN |
 
-三個解析器的快取至少保留 5 分鐘（`cache-min-ttl: 300`），記錄過期後先用舊的答案回應、同時在背景更新（`serve-expired`，最多再用一天）。很多網站的 TTL 只有一分鐘上下，原本快取幾乎留不住，2026-10-29 東京擋廣告的解析器命中率只有一半。代價是網站換了 IP 時，最多 5 分鐘或多一次查詢會取得舊的位址。
+兩個解析器的快取至少保留 5 分鐘（`cache-min-ttl: 300`），記錄過期後先用舊的答案回應、同時在背景更新（`serve-expired`，最多再用一天）。很多網站的 TTL 只有一分鐘上下，原本快取幾乎留不住，2026-10-29 東京擋廣告的解析器命中率只有一半。代價是網站換了 IP 時，最多 5 分鐘或多一次查詢會取得舊的位址。
 
-有過濾的兩個解析器另外對 `use-application-dns.net` 回 NXDOMAIN。這是 Firefox 的偵測網域，Firefox 每次啟動與切換網路時查詢它，查不到就關掉預設開啟的 DNS over HTTPS，查詢才會繼續經過 Vessel、讓過濾生效。不過濾的解析器不回應這個訊號，因為它的意思是「這個網路有過濾」。使用者手動指定其他安全 DNS 服務時不受影響，過濾仍然不會生效。
+有過濾的兩個位址另外對 `use-application-dns.net` 回 NXDOMAIN。這是 Firefox 的偵測網域，Firefox 每次啟動與切換網路時查詢它，查不到就關掉預設開啟的 DNS over HTTPS，查詢才會繼續經過 Vessel、讓過濾生效。不過濾的解析器不回應這個訊號，因為它的意思是「這個網路有過濾」。使用者手動指定其他安全 DNS 服務時不受影響，過濾仍然不會生效。
 
-改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓三個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
+改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
 
-`update-lists.sh` 換名單時不用 HUP，改用 `unbound-control auth_zone_reload` 只重新載入有變的那份名單，一次一個解析器。擋惡意網站與擋廣告兩個解析器各有一個只在容器內的控制 socket（`/run/unbound-<過濾>.ctl`）。載入期間那個解析器仍然不回應，但時間大約是 HUP 的一半，另外兩個照常運作。在限制 CPU 的測試裡，擋廣告的名單重新載入約 20 秒，HUP 約 40 秒以上。控制 socket 不存在時（設定更新前啟動的解析器），腳本退回 HUP。
+`update-lists.sh` 換名單時不用 HUP，改用 `unbound-control auth_zone_reload` 只重新載入有變的那份名單，每份名單只載入一次。有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。載入期間 `.253` 與 `.254` 都不回應，但時間大約是 HUP 的一半，不過濾的 `.1` 照常運作。在限制 CPU 的測試裡，擋廣告的名單重新載入約 20 秒，HUP 約 40 秒以上。重新載入失敗時（例如 `filter.conf` 新增了名單，執行中的解析器還沒有這個 zone），腳本退回 HUP。
 
 ## 容器內的防火牆
 

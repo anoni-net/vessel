@@ -1,12 +1,13 @@
 #!/bin/sh
-# Vessel node: AmneziaWG + three unbound resolvers (none / malware / ads) in one network namespace
+# Vessel node: AmneziaWG + two unbound resolvers in one network namespace: none (10.8.1.1) and filter (10.8.1.253
+# blocks malware, 10.8.1.254 also ads)
 set -e
 CONF=/etc/amnezia/amneziawg/awg0.conf
 SUBNET=10.8.1.0/24
 NODE_IP=${NODE_IP:?NODE_IP is required}
 
 awg-quick up "$CONF"
-# extra resolver addresses: .1 none (from awg0.conf), .253 malware, .254 ads
+# extra resolver addresses: .1 none (from awg0.conf), .253 and .254 the filter resolver
 ip addr add 10.8.1.253/32 dev awg0
 ip addr add 10.8.1.254/32 dev awg0
 
@@ -54,7 +55,7 @@ ip6tables -A INPUT -i awg0 -j DROP
 
 # --- blocked lookups, counted per tunnel address ---
 # The malware list answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
-# answer has; the ad list answers with a CNAME to blocked.vessel. (unbound/ads.conf). One rule per client
+# answer has; the ad list answers with a CNAME to blocked.vessel. (unbound/filter.conf). One rule per client
 # address in each chain counts those packets; nothing records the names. awgctl zeroes both rules when it hands
 # an address to a new peer, and reports the counts in `usage --json`.
 iptables -N VESSEL-BLOCKED
@@ -73,7 +74,7 @@ iptables -A OUTPUT -o awg0 -p udp --sport 53 -m string --algo bm --from 41 --hex
 # --- resolvers ---
 # the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,tw165,ads}.rpz present (an empty zone if a download never succeeded)
 unbound-anchor -a /var/lib/unbound/root.key || true
-for p in none malware ads; do
+for p in none filter; do
   cp /var/lib/unbound/root.key /var/lib/unbound/root-$p.key
   chown unbound:unbound /var/lib/unbound/root-$p.key
   unbound -c /etc/unbound/conf.d/$p.conf
