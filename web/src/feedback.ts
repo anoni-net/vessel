@@ -72,7 +72,7 @@ export function feedbackPayload(f: Feedback, locale: Locale, from: string) {
   return { surveyId: SURVEYS[survey], finished: true as const, data };
 }
 
-export const FROM = ["devices", "faq", "footer", "new-device", "home", "check", "status", "learn"];
+export const FROM = ["devices", "faq", "footer", "new-device", "home", "check", "status", "learn", "dns"];
 
 export type FeedbackResult = "sent" | "closed" | "network" | "other";
 
@@ -93,4 +93,18 @@ export async function sendFeedback(payload: ReturnType<typeof feedbackPayload>):
   }
   if (res.ok) return "sent";
   return res.status === 403 ? "closed" : "other";
+}
+
+/** A site reported as blocked by mistake, from the lookup on the DNS page: `?blocked=<domain>&list=<malware|ads>` */
+export type BlockedReport = { domain: string; list: "malware" | "ads" };
+
+export const blockedReport = (domain: string, list: BlockedReport["list"]) =>
+  `blocked=${encodeURIComponent(domain)}&list=${list}`;
+
+export function decodeBlocked(q: URLSearchParams): BlockedReport | null {
+  const domain = q.get("blocked") ?? "";
+  const list = q.get("list");
+  // only what the backend could have answered with: an ASCII host name
+  if (domain.length > 253 || !/^[a-z0-9_-]+(\.[a-z0-9_-]+)+$/.test(domain)) return null;
+  return list === "malware" || list === "ads" ? { domain, list } : null;
 }

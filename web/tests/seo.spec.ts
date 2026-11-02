@@ -58,7 +58,7 @@ test("the app takes over the prerendered page without doubling it", async ({ pag
   await expect(page.locator("header")).toHaveCount(1);
   await expect(page.locator("main")).toHaveCount(1);
   // the app is running: moving to another page happens without a reload
-  await page.locator("footer").getByRole("link", { name: "Frequently asked questions" }).click();
+  await page.locator("footer").getByRole("link", { name: "FAQ", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/faq\/$/);
   await expect(page).toHaveTitle("Frequently asked questions · Vessel");
   expect(errors).toEqual([]);

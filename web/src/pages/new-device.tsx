@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { Icon } from "../icons.tsx";
 import { ApiError, type Device, type DnsFilter, type Me, type Region, api, last } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
@@ -9,16 +10,16 @@ import { PLANNED, flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
+import { FILTERS, Layers } from "./layers.tsx";
 import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
-const FILTERS: DnsFilter[] = ["none", "malware", "ads"];
 const IMPORT_STEPS: Record<Platform, number> = { android: 4, apple: 4, windows: 3 };
 const POLL_MS = 2000;
 const POLL_TRIES = 60;
 
-type Step = "install" | "region" | "name" | "config";
+type Step = "install" | "region" | "name" | "filter" | "config";
 
 type Gate = "ok" | "limit" | "quota";
 
@@ -57,7 +58,8 @@ export function NewDevice() {
   const [regions, setRegions] = useState<Region[] | null>(null);
   const [region, setRegion] = useState("");
   const [name, setName] = useState("");
-  const [filter, setFilter] = useState<DnsFilter>("none");
+  // the malware list rarely blocks a site by mistake, so new devices start protected; "connect only" stays one tap away
+  const [filter, setFilter] = useState<DnsFilter>("malware");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [config, setConfig] = useState<{ text: string; file: string } | null>(null);
@@ -218,21 +220,39 @@ export function NewDevice() {
   if (step === "name") {
     return (
       <section class="wrap narrow">
-        <form class="stack" onSubmit={create}>
+        <form class="stack" onSubmit={(e) => { e.preventDefault(); go("filter"); }}>
           {stepLabel(3)}
           <h1>{t["name.title"]}</h1>
           <label for="device-name" class="strong">{t["name.label"]}</label>
           <input id="device-name" class="nb-input" maxLength={40} required placeholder={t["name.placeholder"]}
             value={name} onInput={(e) => setName(e.currentTarget.value)} aria-describedby="name-hint" />
           <p id="name-hint" class="muted small">{t["name.hint"]}</p>
+          <button class="nb-button nb-button--ink" type="submit">{t["name.next"]}</button>
+          <button class="link-button" type="button" onClick={() => go("region")}>{t["back"]}</button>
+        </form>
+      </section>
+    );
+  }
+
+  if (step === "filter") {
+    return (
+      <section class="wrap narrow">
+        <form class="stack" onSubmit={create}>
+          {stepLabel(4)}
+          <h1>{t["protect.title"]}</h1>
+          <p>{t["protect.body"]}</p>
           <fieldset class="stack plain-fieldset">
-            <legend class="strong">{t["filter.title"]}</legend>
+            <legend class="sr-only">{t["protect.title"]}</legend>
             {FILTERS.map((f) => (
-              <label class={`choice choice--radio${f === filter ? " choice--on" : ""}`}>
+              <label class={`choice choice--radio choice--layer${f === filter ? " choice--on" : ""}`}>
                 <input type="radio" name="filter" value={f} checked={f === filter} onChange={() => setFilter(f)} />
-                <span>
-                  <span class="strong">{t[`filter.${f}`]}</span>
-                  <span class="muted small block">{t[`filter.${f}.desc`]}</span>
+                <span class="choice__text">
+                  <span class="choice__head">
+                    <Layers filter={f} />
+                    <span class="strong">{t[`protect.${f}`]}</span>
+                    {f === "malware" && <span class="badge badge--active">{t["protect.recommended"]}</span>}
+                  </span>
+                  <span class="muted small">{t[`filter.${f}.desc`]}</span>
                 </span>
               </label>
             ))}
@@ -248,7 +268,7 @@ export function NewDevice() {
           <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
             {busy ? <><Spin />{t["busy.create"]}</> : t["name.submit"]}
           </button>
-          <button class="link-button" type="button" onClick={() => go("region")} disabled={busy}>{t["back"]}</button>
+          <button class="link-button" type="button" onClick={() => go("name")} disabled={busy}>{t["back"]}</button>
         </form>
       </section>
     );
@@ -272,9 +292,9 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
 
   return (
     <section class="wrap narrow stack">
-      <p class="muted strong">{fmt(t["new.step"], { n: 4 })}</p>
+      <p class="muted strong">{fmt(t["new.step"], { n: 5 })}</p>
       <h1>{t["config.title"]}</h1>
-      <button class="nb-button nb-button--primary" type="button" onClick={download}>{t["config.download"]}</button>
+      <button class="nb-button nb-button--primary" type="button" onClick={download}><Icon name="download" />{t["config.download"]}</button>
       <ol class="steps">
         {steps.map((s) => <li>{s}</li>)}
       </ol>

@@ -5,6 +5,7 @@
   --paper: #ffffff;
   --grey: #f3f6f7;
   --accent: #c4b5fd;
+  --accent-strong: #7c3aed;
   --tint: #f3efff;
   --warn: #fff6d6;
   --danger: #b3261e;
@@ -19,7 +20,10 @@
 html { scroll-padding-top: 16px; }
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font); line-height: 1.7; }
 a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3px; }
-a:hover { color: var(--muted); }
+/* only where there is a pointer that hovers: a phone keeps a tapped link "hovered" until the next tap, which left the
+   tapped link grey. The wordmark and the buttons keep their colour; the buttons move when pressed instead. :where
+   keeps this as weak as a plain a:hover, so the footer's white links stay white */
+@media (hover: hover) { a:where(:not(.brand, .nb-button)):hover { color: var(--muted); } }
 :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); line-height: 1.2; font-weight: 900; }
 h2 { margin: 0 0 24px; font-size: clamp(26px, 5vw, 36px); font-weight: 900; }
@@ -31,6 +35,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .narrow { max-width: 560px; padding-block: 32px 48px; }
 .narrow > h1 + form, .narrow > form + p { margin-top: 20px; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
+/* a page's section headings sit closer to their own text than to the section before (the gap above, plus 24px) */
+.narrow.stack > h2 { margin: 24px 0 0; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .plain { list-style: none; padding: 0; margin: 0; }
 .muted { color: var(--muted); }
@@ -44,13 +50,31 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .note { margin-top: 24px; padding: 16px 20px; border: 3px dashed var(--ink); border-radius: 12px; }
 
 .site-header { border-bottom: var(--border); }
+/* the header's button (sign in, my devices) at the wordmark's 48px: with the usual padding it was 49.2px, so the
+   header grew by a pixel on the pages that show it and the rule under it moved on the way to the devices page */
+.site-header .nb-button { padding-block: 6px; }
 .site-header__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding-block: 14px; }
 .brand { display: inline-flex; align-items: center; gap: 14px; min-height: 48px; text-decoration: none; color: var(--ink); }
 .brand__logo { display: block; height: 26px; width: auto; }
 .brand__product { padding-inline-start: 14px; border-inline-start: 2px solid var(--ink); font-size: 22px; font-weight: 900; line-height: 1.2; }
 /* a short line: break only at the spaces and balance the lines, so a narrow screen splits no word and strands no character */
-.footer-brand { display: flex; align-items: center; gap: 10px; text-wrap: balance; word-break: keep-all; }
-.footer-brand img { flex: none; }
+/* the footer: who runs Vessel on the left, three groups of links on the right; on a phone the first two groups
+   side by side and the "about" links below them, two to a row in the same columns */
+.footer-brand { display: flex; flex-direction: column; gap: 4px; }
+.footer-brand__name { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 900; }
+.footer-brand__name img { flex: none; }
+.footer-brand__tagline { color: #c3ced3; font-weight: 400; text-wrap: balance; word-break: keep-all; }
+.footer-groups { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); gap: 24px 40px; }
+.footer-heading { margin-bottom: 8px; font-size: 13px; font-weight: 700; letter-spacing: .04em; color: #c3ced3; }
+.footer-group__links { display: flex; flex-direction: column; gap: 6px; font-weight: 400; }
+.footer-group--about { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.footer-group--about > * { grid-column: 1 / -1; }
+.footer-group--about .footer-group__links { display: grid; grid-template-columns: subgrid; gap: 6px 40px; }
+@media (min-width: 720px) {
+  .footer-groups { grid-template-columns: repeat(3, max-content); gap: 24px 56px; }
+  .footer-group--about { grid-column: auto; display: block; }
+  .footer-group--about .footer-group__links { display: flex; }
+}
 /* the statistics note and the trademark notice read as one block of small print */
 .footer-legal { padding-block: 0 6px; font-size: 13px; color: #c3ced3; }
 .footer-legal:last-child { padding-bottom: 24px; }
@@ -60,12 +84,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }
 .site-footer { background: var(--ink); color: var(--paper); }
 .site-footer a { color: var(--paper); }
-.site-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding-block: 32px; font-weight: 700; }
-.site-footer__links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-weight: 400; }
+.site-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 32px; padding-block: 40px 32px; }
 .icon { flex: none; vertical-align: -0.125em; }
 .site-header__langs { display: inline-flex; align-items: center; gap: 0 4px; font-weight: 700; }
 .site-header__langs a { padding: 4px 6px; }
-.site-footer__langs { padding-block: 0 24px; font-weight: 400; }
+.site-footer__langs { padding-block: 24px; border-top: 1px solid #2e3d44; font-weight: 400; }
 .site-footer__langs .icon { margin-inline-end: 4px; }
 
 .legal > * + * { margin-top: 16px; }
@@ -104,6 +127,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lang-hint { background: var(--tint); border-bottom: 2px solid var(--ink); font-size: 15px; }
 .lang-hint__inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-block: 10px; }
 .pill { align-self: flex-start; padding: 2px 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); font-size: 15px; font-weight: 700; }
+/* the home page's line under the buttons: the closed-test tag, and the sentence running on after it. Chinese breaks
+   only at its punctuation, so the sentence is never split in the middle of a word */
+.hero__status { word-break: keep-all; overflow-wrap: anywhere; }
+.hero__status .pill { display: inline-block; margin-inline-end: 8px; padding: 0 10px; border-width: 1.5px; color: var(--ink); font-size: 13px; line-height: 1.7; vertical-align: 1px; }
 
 .cards { display: grid; gap: 24px; padding: 0; margin: 0; list-style: none; }
 .cards--2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
@@ -111,16 +138,42 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .tools { gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .card { border: var(--border); border-radius: var(--radius); background: var(--paper); box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
 .card li { text-wrap: pretty; }
+/* a symbol for what the card is about, beside its title; square so it does not read as one of the numbered steps */
+.card__head { display: flex; align-items: center; gap: 14px; }
+.card__icon { flex: none; width: 48px; height: 48px; border: var(--border); border-radius: 12px; background: var(--tint); display: grid; place-items: center; }
+.card__icon .icon { width: 28px; height: 28px; }
+/* home page, 使用情境: only as many cards as fill whole rows. The grid's 240px columns and 24px gaps in the wrap's
+   20px sides give one column below 544px (three cards), two up to 807px (four), three up to 959px (three); from
+   960px all six, two rows of three wide enough for each title on one line */
+.card--fourth, .card--wide { display: none; }
+@media (min-width: 544px) and (max-width: 807px) { .card--fourth { display: flex; } }
+@media (min-width: 960px) { .card--fourth, .card--wide { display: flex; } }
+@media (min-width: 960px) { .cards--six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.card__head h3 { text-wrap: balance; }
+.card > p { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
 .check-results { display: grid; gap: 12px; margin: 0; }
 .check-verdict { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 14px 16px; border: var(--border); border-radius: var(--radius); font-size: 18px; font-weight: 800; }
-.check-verdict > span { flex: none; font-size: 22px; line-height: 1.2; }
+.check-verdict > .icon { font-size: 18px; margin-top: 2px; }
 .check-verdict--ok { background: var(--accent); }
 .check-verdict--bad { background: var(--warn); }
 .check-results dt { font-weight: 700; }
 .check-results dd { margin: 4px 0 0; }
 .card--warn { background: var(--warn); }
+/* a passkey on the account page: its name and date on the left, delete on the right */
+.passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
+.passkey-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* the passkey icon in a round tinted badge, beside each passkey's name */
+.passkey-badge { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--tint); color: var(--accent-strong); font-size: 20px; }
+.passkey-badge .icon { vertical-align: 0; }
+/* the icon before a button's words */
+.nb-button > .icon { margin-inline-end: .4em; }
+/* the passkey sign-in above the number form, set apart from the page title */
+.passkey-login { margin: 20px 0 8px; }
+/* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
+.lookup-answer { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 2px solid var(--ink); border-radius: 12px; background: var(--tint); }
+.lookup-answer--hit { background: var(--warn); }
 .card--dashed { border-style: dashed; box-shadow: none; text-align: center; }
 .step { width: 48px; height: 48px; border: var(--border); border-radius: 999px; background: var(--accent); display: grid; place-items: center; font-size: 22px; font-weight: 900; }
 
@@ -154,16 +207,38 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .number { font-size: clamp(22px, 6.5vw, 30px); font-weight: 800; letter-spacing: 1px; }
 .usage-head { align-items: baseline; }
 .usage-pct { font-size: 32px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.usage-amount { align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+/* what the filters did this month, set apart from the usage figures above it */
+.usage-blocked { margin-top: 4px; padding-top: 12px; border-top: 2px dashed var(--ink); font-weight: 700; }
 .meter { height: 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); overflow: hidden; }
 .meter > div { height: 100%; background: var(--ink); }
 .badge { padding: 2px 12px; border: 2px solid var(--ink); border-radius: 999px; font-size: 14px; font-weight: 800; white-space: nowrap; }
 .badge--active { background: var(--accent); }
 .badge--pending, .badge--revoking { border-style: dashed; }
 .badge--suspended { background: var(--warn); }
+/* a state badge with its icon before the word, on the status page */
+.badge--icon { display: inline-flex; align-items: center; gap: 4px; }
 .badge--state-ok { background: var(--accent); }
 .badge--state-down { background: var(--warn); }
 .badge--state-unknown { border-style: dashed; }
 .status-city { display: flex; align-items: center; gap: 12px; }
+/* home page, 社群架設的原因: a dot map beside the text on a wide screen, Taiwan and a line to each node's city */
+.region-map { display: none; }
+@media (min-width: 960px) {
+  .why-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 48px; align-items: center; }
+  .region-map { display: block; aspect-ratio: 1; }
+}
+.region-map svg { display: block; width: 100%; height: 100%; }
+.region-map__land { fill: #ccd5da; }
+.region-map__home { fill: var(--ink); }
+.region-map__start { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+.region-map__line { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 12; }
+.region-map__node { fill: var(--accent-strong); }
+.region-map__ring { fill: none; stroke: var(--accent-strong); stroke-width: 4; }
+@media (prefers-reduced-motion: no-preference) {
+  .region-map__line { animation: region-map-flow 1.2s linear infinite; }
+}
+@keyframes region-map-flow { to { stroke-dashoffset: -14; } }
 .subnav { display: flex; flex-wrap: wrap; gap: 4px 20px; font-weight: 700; align-items: center; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
 .facts dt { font-weight: 800; }
@@ -178,6 +253,24 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .choice--radio { flex-direction: row; gap: 12px; box-shadow: none; min-height: 0; }
 .choice--radio input { width: 20px; height: 20px; margin: 4px 0 0; accent-color: var(--ink); flex: none; }
 .choice--on { background: var(--tint); }
+.choice__head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+/* the protection steps on the new-device page: one more filled bar per layer */
+.layers { display: inline-flex; align-items: flex-end; gap: 3px; flex: none; }
+.layers > span { width: 10px; height: 18px; border: 2px solid var(--ink); border-radius: 3px; background: var(--paper); }
+.layers > .layers__on { background: var(--accent-strong); }
+.layers--small { gap: 2px; }
+.layers--small > span { width: 7px; height: 12px; border-width: 1.5px; border-radius: 2px; }
+/* the status badge stays on the right of the device's name, however long the name */
+.device-head { flex-wrap: nowrap; align-items: flex-start; }
+.device-head__name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.device-head > .badge { flex: none; }
+/* a device's city and filter: flag, name, strength bars, filter name */
+.device-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 6px; margin-top: -4px; }
+.device-meta__part { display: inline-flex; align-items: center; gap: 6px; }
+/* Centre the icons on the letters rather than on the line box. Fonts leave different space above and below their
+   glyphs: a fixed offset that lined the icons up with Noto Sans put them 1.5 px too high with PingFang on iPhone.
+   Trimming the text to its cap height and baseline makes the box hug the letters in any font. */
+.device-meta__text, .choice__head > .strong { text-box: trim-both cap alphabetic; }
 .stack-sm { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .stack-sm > legend { padding: 0; margin-bottom: 2px; }
 .picks { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -188,6 +281,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .choice__text { display: flex; flex-direction: column; gap: 2px; }
 /* a thin frame: the flags of Japan and Singapore are partly white */
 .flag { flex: none; width: 32px; height: 24px; border: 1px solid #c9d2d6; border-radius: 3px; object-fit: cover; }
+.flag--small { width: 20px; height: 15px; border-radius: 2px; }
 .plain-fieldset { border: none; padding: 0; margin: 0; gap: 8px; }
 .plain-fieldset legend { padding: 0; margin-bottom: 8px; }
 .steps { margin: 0; padding-inline-start: 1.4em; display: flex; flex-direction: column; gap: 6px; }
@@ -260,6 +354,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .sk--mid { width: 55%; }
 .sk--short { width: 30%; }
 .sk--button { width: 100%; height: 53px; border-radius: 999px; }
+.sk--field { width: 100%; height: 58px; border-radius: var(--radius); }
+/* the grey line for the passkey name's label takes the label's line height, so the button below does not move */
+.passkey-skeleton > .sk--short { margin: 5.5px 0; }
 .sk-card { border-color: #dfe5e8; gap: 14px; }
 /* heights of the real usage and device cards on the devices page */
 .sk-card--usage { min-height: 213px; }
@@ -267,6 +364,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (max-width: 599px) { .sk-card--usage { min-height: 237px; } }
 @keyframes sk-pulse { 50% { opacity: 0.5; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+/* a page that was a skeleton a moment ago eases in instead of popping in */
+.appear { animation: appear 0.18s ease-out; }
+@keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .appear { animation: none; } }
 
 /* waiting for the server: the button keeps its colour and shows a turning ring with what it is doing */
 .card[aria-busy="true"] { opacity: .75; }
@@ -285,3 +386,19 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .printable, .printable * { visibility: visible; }
   .printable { position: absolute; inset: 0 auto auto 0; box-shadow: none; }
 }
+
+/* the account page's monthly record: one card, a month per row, newest first */
+.months { gap: 0; padding: 4px 20px; }
+.month { display: flex; flex-direction: column; gap: 2px; padding: 12px 0; }
+.month + .month { border-top: 2px dashed #dfe5e8; }
+.month > .row { flex-wrap: nowrap; align-items: baseline; }
+/* each grey line sits in a box one line of its text tall, so the row keeps its height when the text arrives */
+.month--skeleton > span { display: flex; align-items: center; min-height: 1lh; }
+
+/* a warning card with its icon beside the words */
+.notice { flex-direction: row; align-items: flex-start; gap: 8px; }
+.notice > .icon { margin-top: 1px; }
+
+/* the account page's sections, the monthly record, the passkeys and deleting the account, each set off by a rule */
+.account-section { margin-top: 16px; padding-top: 32px; border-top: 2px dashed #c3ced3; }
+.account-section > h2, .account-section > .card > h2 { margin-bottom: 0; }

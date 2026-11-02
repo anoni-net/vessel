@@ -10,11 +10,12 @@ export class ApiError extends Error {
  * The last account and device list, kept in this tab's memory (never in storage) so a signed-in page can show
  * them at once while it asks again. Any change (signing in or out, redeeming, adding or deleting) drops them.
  */
-export const last: { me?: Me; devices?: Device[] } = {};
+export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[]; months?: UsageMonths } = {};
 
 export function forgetAccount(): void {
   delete last.me;
   delete last.devices;
+  delete last.months;
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
@@ -49,6 +50,19 @@ export interface Me {
 export type DnsFilter = "none" | "malware" | "ads";
 export type DeviceStatus = "pending" | "active" | "suspended" | "revoking";
 
+export interface BlocklistAnswer {
+  /** the host name the backend read from what was typed */
+  domain: string;
+  /** on the malware list: blocked by both filters */
+  malware: boolean;
+  /** on the 165 list of scam sites Taiwan's ISPs stop resolving: blocked by both filters */
+  tw165: boolean;
+  /** on MODA's list of fake shops Taiwan's ISPs stop resolving: blocked by both filters */
+  twmoda: boolean;
+  /** on the ad list: blocked by the ads filter */
+  ads: boolean;
+}
+
 export interface Device {
   id: string;
   name: string;
@@ -59,7 +73,7 @@ export interface Device {
   expires_on: string;
   /** this month, on this device */
   used_bytes: number;
-  /** lookups the malware list blocked this month; only counted for devices with a DNS filter */
+  /** lookups a blocklist stopped this month: the malware list, and the ad list too for the ads filter */
   blocked: number;
   /** whether the device has ever completed a handshake with its node */
   connected: boolean;
@@ -87,6 +101,32 @@ export interface Status {
   notices: { region: string | null; kind: NoticeKind; starts_at: string; ends_at: string | null }[];
 }
 
+export interface Passkey {
+  id: number;
+  /** the name the person gave it, or "" */
+  label: string;
+  created_on: string;
+}
+
+export interface UsageMonth {
+  /** the first day of the month */
+  month: string;
+  used_bytes: number;
+  /** lookups the scam and malware list blocked */
+  blocked: number;
+  /** lookups the ads and trackers list blocked */
+  blocked_ads: number;
+}
+
+export interface UsageMonths {
+  /** the strongest DNS filter on the account's devices now */
+  filter: DnsFilter;
+  /** since the account was made, the last twelve months, newest first */
+  months: UsageMonth[];
+}
+
+type WebAuthnJson = Record<string, unknown>;
+
 export interface NewDevice {
   name: string;
   region: string;
@@ -112,9 +152,33 @@ export const api = {
     }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   deleteAccount: () => call("DELETE", "/account"),
+  usageMonths: () =>
+    call<UsageMonths>("GET", "/usage/months").then((r) => {
+      if (Array.isArray(r.data?.months)) last.months = r.data;
+      return r.data;
+    }),
+  passkeys: () =>
+    call<Passkey[]>("GET", "/passkeys").then((r) => {
+      if (Array.isArray(r.data)) last.passkeys = r.data;
+      return r.data;
+    }),
+  passkeyOptions: () => call<WebAuthnJson>("POST", "/passkeys/options").then((r) => r.data),
+  addPasskey: (credential: WebAuthnJson, label: string) =>
+    call<Passkey[]>("POST", "/passkeys", { credential, label }).then((r) => r.data),
+  deletePasskey: (id: number) => call<Passkey[]>("DELETE", `/passkeys/${id}`).then((r) => r.data),
+  /** sign-in with a passkey: needs no session and no account number */
+  passkeyLoginOptions: () => call<WebAuthnJson>("POST", "/passkeys/login/options").then((r) => r.data),
+  passkeyLogin: (credential: WebAuthnJson) => call("POST", "/passkeys/login", { credential }),
+  /** a new account number, confirmed with one of the account's passkeys; shown once */
+  rotateOptions: () => call<WebAuthnJson>("POST", "/account/number/options").then((r) => r.data),
+  rotateNumber: (credential: WebAuthnJson) =>
+    call<{ account_number: string }>("POST", "/account/number", { credential }).then((r) => r.data),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),
+  /** which DNS filters block a site; needs no session, and the domain is not kept */
+  blocklist: (domain: string) =>
+    call<BlocklistAnswer>("POST", "/blocklist", { domain }).then((r) => r.data),
   /** public, no session */
   status: () => call<Status>("GET", "/status").then((r) => r.data),
   createDevice: (body: NewDevice) =>

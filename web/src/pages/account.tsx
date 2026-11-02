@@ -1,11 +1,14 @@
 import { useEffect, useState } from "preact/hooks";
-import { ApiError, type Me, api, last } from "../api.ts";
+import { ApiError, type DnsFilter, type Me, type Passkey, type UsageMonths, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate } from "../format.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
-import { Busy, SkCard, SkLine, Spin } from "./skeleton.tsx";
+import { Months, monthsSince } from "./months.tsx";
+import { Passkeys } from "./passkeys.tsx";
+import { AccountNumber } from "./redeem.tsx";
+import { Busy, SkLine, Spin } from "./skeleton.tsx";
 
 /** Links shown on the signed-in pages. */
 export function AccountNav() {
@@ -28,14 +31,32 @@ export function AccountNav() {
   );
 }
 
+/**
+ * The strongest DNS filter on the devices, from the list the devices page already loaded; malware (the default)
+ * when it has not. The monthly record's skeleton takes the shape this filter gives the rows.
+ */
+function filterGuess(): DnsFilter {
+  const list = last.devices;
+  if (!list) return "malware";
+  return list.some((d) => d.dns_filter === "ads") ? "ads" : list.some((d) => d.dns_filter === "malware") ? "malware" : "none";
+}
+
 export function Account() {
   const { t, href, locale } = useCtx();
   const [me, setMe] = useState<Me | null>(last.me ?? null);
+  // undefined while loading, null if the passkeys failed to load (the rest of the page still works)
+  const [passkeys, setPasskeys] = useState<Passkey[] | null | undefined>(last.passkeys);
+  // likewise for the monthly record
+  const [months, setMonths] = useState<UsageMonths | null | undefined>(last.months);
   const [sure, setSure] = useState(false);
   const [err, setErr] = useState("");
   const [deleting, setDeleting] = useState(false);
+  // a number just replaced with a passkey: shown on its own, once, then back to the account page
+  const [newNumber, setNewNumber] = useState("");
 
   useEffect(() => {
+    api.passkeys().then(setPasskeys).catch(() => setPasskeys(null));
+    api.usageMonths().then(setMonths).catch(() => setMonths(null));
     api.me().then(setMe).catch((x) => {
       if (x instanceof ApiError && x.code === "signed_out") {
         setSignedIn(false);
@@ -56,44 +77,39 @@ export function Account() {
     }
   };
 
+  if (newNumber) return <AccountNumber number={newNumber} rotated onContinue={() => setNewNumber("")} />;
   if (err && !me) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
-  if (!me) {
-    return (
-      <section class="wrap narrow stack" aria-busy="true">
-        <AccountNav />
-        <h1>{t["account.title"]}</h1>
-        <div class="stack" aria-hidden="true">
-          <SkLine w="mid" />
-          <SkLine w="mid" />
-          <SkCard lines={["mid", "full", "long", "short"]} />
-        </div>
-        <Busy />
-      </section>
-    );
-  }
-
+  // The page keeps its final layout while loading: the words are there from the start, and only what comes
+  // from the server (the dates, the monthly record, the passkeys) is grey until it arrives, then eases in.
+  const loading = !me || months === undefined || passkeys === undefined;
+  const day = (iso: string | null | undefined) => (iso ? formatDate(locale, iso) : "-");
   return (
-    <section class="wrap narrow stack">
+    <section class="wrap narrow stack" aria-busy={loading}>
       <AccountNav />
       <h1>{t["account.title"]}</h1>
       <dl class="facts">
         <dt>{t["account.created"]}</dt>
-        <dd>{formatDate(locale, me.created_on)}</dd>
+        <dd>{me ? <span class="appear">{day(me.created_on)}</span> : <SkLine w="short" />}</dd>
         <dt>{t["account.lastLogin"]}</dt>
-        <dd>{me.last_login_on ? formatDate(locale, me.last_login_on) : "-"}</dd>
+        <dd>{me ? <span class="appear">{day(me.last_login_on)}</span> : <SkLine w="short" />}</dd>
       </dl>
-      <div class="card card--warn card--flat stack">
-        <h2>{t["account.deleteTitle"]}</h2>
-        <p>{t["account.deleteBody"]}</p>
-        <label class="check">
-          <input type="checkbox" checked={sure} onChange={(e) => setSure(e.currentTarget.checked)} />
-          {t["account.deleteCheck"]}
-        </label>
-        {err && <p class="error" role="alert">{err}</p>}
-        <button class="nb-button nb-button--danger" type="button" disabled={!sure || deleting} aria-busy={deleting} onClick={remove}>
-          {deleting ? <><Spin />{t["busy.delete"]}</> : t["account.deleteSubmit"]}
-        </button>
+      <Months data={months} rows={monthsSince(me?.created_on)} guess={filterGuess()} />
+      <Passkeys initial={passkeys} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
+      <div class="account-section">
+        <div class="card card--warn card--flat stack">
+          <h2>{t["account.deleteTitle"]}</h2>
+          <p>{t["account.deleteBody"]}</p>
+          <label class="check">
+            <input type="checkbox" checked={sure} onChange={(e) => setSure(e.currentTarget.checked)} />
+            {t["account.deleteCheck"]}
+          </label>
+          {err && <p class="error" role="alert">{err}</p>}
+          <button class="nb-button nb-button--danger" type="button" disabled={!sure || deleting} aria-busy={deleting} onClick={remove}>
+            {deleting ? <><Spin />{t["busy.delete"]}</> : t["account.deleteSubmit"]}
+          </button>
+        </div>
       </div>
+      {loading && <Busy />}
     </section>
   );
 }

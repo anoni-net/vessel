@@ -2,9 +2,11 @@ import { useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
+import { PasskeyOffer } from "./passkeys.tsx";
 import { Spin } from "./skeleton.tsx";
 import { errorText } from "../i18n/index.ts";
 import { INVITE, PM_USERNAME, groupedLength, regroup } from "../grouped.ts";
+import { passkeysSupported } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
 
@@ -14,9 +16,15 @@ export function Redeem() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [number, setNumber] = useState("");
+  const [offer, setOffer] = useState(false);
   const signedIn = useSignedIn();
 
-  if (number) return <AccountNumber number={number} />;
+  const toDevices = () => navigate(href("/devices/"));
+  // the number is saved; then a passkey, so it never has to be typed again, unless this browser cannot make one
+  if (offer) return <PasskeyOffer onDone={toDevices} />;
+  if (number) {
+    return <AccountNumber number={number} onContinue={() => (passkeysSupported() ? setOffer(true) : toDevices())} />;
+  }
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -75,8 +83,9 @@ async function offerToSave(number: string): Promise<void> {
   }
 }
 
-function AccountNumber({ number }: { number: string }) {
-  const { t, href } = useCtx();
+/** The account number, shown once: after redeeming an invite, or after replacing the number with a passkey. */
+export function AccountNumber({ number, rotated = false, onContinue }: { number: string; rotated?: boolean; onContinue: () => void }) {
+  const { t } = useCtx();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -99,8 +108,8 @@ function AccountNumber({ number }: { number: string }) {
 
   return (
     <section class="wrap narrow stack">
-      <h1>{t["number.title"]}</h1>
-      <p class="muted">{t["number.lead"]}</p>
+      <h1>{t[rotated ? "passkey.rotate.doneTitle" : "number.title"]}</h1>
+      <p class="muted">{t[rotated ? "passkey.rotate.doneLead" : "number.lead"]}</p>
       <div class="number-box printable">
         <p class="small strong">{t["number.label"]}</p>
         <p class="mono number" data-testid="account-number">{number}</p>
@@ -118,7 +127,11 @@ function AccountNumber({ number }: { number: string }) {
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.currentTarget.checked)} />
         {t["number.saved"]}
       </label>
-      <button class="nb-button nb-button--ink" type="button" disabled={!saved} onClick={() => { track("number-continue"); void offerToSave(number); navigate(href("/devices/")); }}>
+      <button class="nb-button nb-button--ink" type="button" disabled={!saved} onClick={() => {
+        if (!rotated) track("number-continue");
+        void offerToSave(number);
+        onContinue();
+      }}>
         {saved ? t["number.continue"] : t["number.locked"]}
       </button>
     </section>

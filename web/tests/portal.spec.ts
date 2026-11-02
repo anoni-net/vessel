@@ -35,6 +35,21 @@ test("home page in three languages", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vessel");
   await expect(page.getByRole("link", { name: "我有邀請碼" })).toBeVisible();
+  // the closed-test tag opens the line under the buttons, next to who can join; nothing above the name
+  await expect(page.locator(".hero__status")).toHaveText("封閉測試中目前只透過社群成員邀請。");
+  await expect(page.locator(".hero__status .pill")).toHaveText("封閉測試中");
+  expect(await page.locator(".hero__text > :first-child").evaluate((e) => e.tagName)).toBe("H1");
+  // six cards under 使用情境 on a wide screen, the first three on a phone; each with a symbol beside its
+  // title, hidden from screen readers
+  await expect(page.locator("#when .card .card__head .icon")).toHaveCount(6);
+  await expect(page.locator("#when .card:visible")).toHaveCount(page.viewportSize()!.width >= 960 ? 6 : 3);
+  // whole rows at every width: one column, two, three, then two rows of three
+  for (const [width, cards] of [[400, 3], [600, 4], [880, 3], [1000, 6]] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator("#when .card:visible")).toHaveCount(cards);
+  }
+  await expect(page.locator("#when .card:visible h3").first()).toHaveText("公共 Wi-Fi");
+  await expect(page.locator("#when .card .icon").first()).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-Hant-TW");
   await noSideways(page);
   await page.locator("footer").getByRole("link", { name: "English" }).click();
@@ -48,7 +63,7 @@ test("home page in three languages", async ({ page }) => {
 test("frequently asked questions", async ({ page }) => {
   await page.goto("/");
   const faq = page.locator("#faq");
-  await expect(faq.locator("details")).toHaveCount(12);
+  await expect(faq.locator("details")).toHaveCount(10);
   const answer = faq.getByText("服務沒有你的 email，也只保存號碼的雜湊值");
   await expect(answer).toBeHidden();
   await faq.getByText("帳號號碼弄丟了怎麼辦？").click();
@@ -56,7 +71,7 @@ test("frequently asked questions", async ({ page }) => {
   await faq.getByRole("link", { name: "所有常見問題" }).click();
   await expect(page).toHaveURL(/\/faq\/$/);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
-  await expect(page.locator("details")).toHaveCount(28);
+  await expect(page.locator("details")).toHaveCount(31);
   // opened straight from a link elsewhere, the page loads fresh with the question open
   await page.goto("/dns/");
   await page.goto("/faq/#q-noTraffic");
@@ -78,6 +93,9 @@ test("redeem shows the number once and gates continue", async ({ page }) => {
   await expect(go).toBeDisabled();
   await page.getByLabel("我已經把號碼存在安全的地方").check();
   await page.getByRole("button", { name: "繼續" }).click();
+  // then a passkey is offered; skipping it goes on to the devices
+  await expect(page.getByTestId("passkey-offer")).toBeVisible();
+  await page.getByRole("button", { name: "先略過，之後在帳號頁加" }).click();
   await expect(page).toHaveURL(/\/devices\/$/);
   await expect(page.getByRole("heading", { name: "我的裝置" })).toBeVisible();
 });
@@ -356,6 +374,7 @@ test("password managers can save and fill the account number", async ({ page }) 
   await page.getByRole("button", { name: "兌換" }).click();
   await page.getByLabel("我已經把號碼存在安全的地方").check();
   await page.getByRole("button", { name: "繼續" }).click();
+  await page.getByRole("button", { name: "先略過，之後在帳號頁加" }).click();
   await expect(page).toHaveURL(/\/devices\/$/);
   expect(await page.evaluate(() => (window as unknown as { stored: unknown[] }).stored))
     .toEqual([{ id: "Vessel", password: "4821 0937 5564 2018", name: "Vessel" }]);
@@ -377,11 +396,11 @@ test("password managers can save and fill the account number", async ({ page }) 
   await expect(number).toHaveAttribute("type", "password");
 });
 
-test("each device shows its traffic this month and, with a filter, the blocked malware lookups", async ({ page }) => {
+test("each device shows its traffic this month and, with a filter, the lookups its lists blocked", async ({ page }) => {
   await mockApi(page, signedIn);
   await page.goto("/devices/");
   const usage = page.getByTestId("device-usage");
-  await expect(usage).toHaveText(["本月 3.1 GB · 擋下 12 次惡意網域查詢", "本月 1.1 GB"]);
+  await expect(usage).toHaveText(["本月 3.1 GB · 擋下 12 次惡意網站與廣告的查詢", "本月 1.1 GB"]);
 });
 
 test("the devices page refreshes on its own", async ({ page }) => {
@@ -399,7 +418,7 @@ test("the devices page refreshes on its own", async ({ page }) => {
   await page.goto("/devices/");
   const badge = page.getByTestId("device-list").locator(".badge");
   await expect(badge).toHaveText("建立中");
-  await expect(page.getByTestId("usage-as-of")).toContainText("用量更新於");
+  await expect(page.getByTestId("usage-as-of")).toContainText("更新");
 
   // a pending device is checked every 10 seconds until the node has added it
   status = "active";
@@ -432,6 +451,34 @@ test("a device that never connected says so and links to help", async ({ page })
   await note.getByRole("link", { name: "連不上怎麼辦？" }).click();
   await expect(page).toHaveURL(/\/faq\/#q-trouble$/);
   await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
+});
+
+test("the usage card adds up what the filters blocked this month", async ({ page }) => {
+  const plain = { ...DEVICES[1], id: "d-ccc", name: "tv", blocked: 99 };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], plain]) });
+  await page.goto("/devices/");
+  // the device without a filter does not count, even if the node reported a number for it
+  await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站與廣告的查詢");
+  // with only the malware filter, the words say so
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], dns_filter: "malware" }]) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站的查詢");
+  await expect(page.getByTestId("device-usage")).toHaveText("本月 3.1 GB · 擋下 12 次惡意網站的查詢");
+  // counts carry the thousands separator, in every language
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 12345 }]) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12,345 次惡意網站與廣告的查詢");
+  await page.goto("/en/devices/");
+  await expect(page.getByTestId("device-usage")).toHaveText(/12,345 malware and ad lookups blocked$/);
+  // a filter that has not blocked anything yet still says the protection is on
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 0 }, plain]) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("blocked-total")).toHaveText("防護已開啟，本月還沒有遇到惡意網站");
+  // no device with a filter: nothing about it at all
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[1]]) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("device-list")).toBeVisible();
+  await expect(page.getByTestId("blocked-total")).toHaveCount(0);
 });
 
 test("devices made before their region moved host ask for a new config", async ({ page }) => {
@@ -532,4 +579,160 @@ test("signing in shows that it is working", async ({ page }) => {
   await expect(busy).toHaveAttribute("aria-busy", "true");
   release();
   await expect(page.locator("form").getByRole("button", { name: "登入", exact: true })).toBeEnabled();
+});
+
+test("the account page keeps its layout while the dates and passkeys load", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-31T03:00:00Z"));
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await mockApi(page, {
+    "GET /api/me": async (route) => { await held; await route.fulfill({ json: ME }); },
+    "GET /api/passkeys": async (route) => { await held; await route.fulfill({ json: [] }); },
+    "GET /api/usage/months": async (route) => { await held; await route.fulfill({ json: { filter: "malware", months: [
+      { month: "2026-10-01", used_bytes: 4.2e9, blocked: 0, blocked_ads: 0 }] } }); },
+  });
+  await page.goto("/account/");
+  const section = page.locator("main section");
+  await expect(section).toHaveAttribute("aria-busy", "true");
+  // the words are there at once; only the dates and the passkey form are grey
+  await expect(page.getByRole("heading", { name: "passkey" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "刪除帳號" })).toBeVisible();
+  const before = await page.locator("[data-testid=passkeys] .sk--button").boundingBox();
+  const card = await page.getByRole("heading", { name: "刪除帳號" }).boundingBox();
+  release();
+  await expect(page.getByRole("button", { name: "加上 passkey" })).toBeVisible();
+  await expect(section).toHaveAttribute("aria-busy", "false");
+  await expect(page.locator("main .sk")).toHaveCount(0);
+  // nothing moved when the data arrived; fonts differ between machines by a fraction of a pixel, which nobody sees
+  const moved = async (name: Parameters<typeof page.getByRole>[0], label: string, y: number) =>
+    Math.abs((await page.getByRole(name, { name: label }).boundingBox())!.y - y);
+  expect(await moved("button", "加上 passkey", before!.y)).toBeLessThanOrEqual(2);
+  expect(await moved("heading", "刪除帳號", card!.y)).toBeLessThanOrEqual(2);
+});
+
+// the monthly record, seen in December 2026
+const monthsFor = (filter: "none" | "malware" | "ads") => {
+  const n = (a: number, b: number) => ({ blocked: filter === "none" ? 0 : a, blocked_ads: filter === "ads" ? b : 0 });
+  return {
+    filter,
+    months: [
+      { month: "2026-12-01", used_bytes: 0.4e9, ...n(1, 96) },
+      { month: "2026-11-01", used_bytes: 8.7e9, ...n(14, 1260) },
+      { month: "2026-10-01", used_bytes: 3.1e9, ...n(5, 221) },
+    ],
+  };
+};
+const MADE_IN_OCTOBER = { ...ME, created_on: "2026-10-20" };
+
+for (const [filter, fromDevices] of [["ads", true], ["none", true], ["malware", false]] as const) {
+  test(`the monthly record keeps its layout while it loads (${filter})`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-12-05T03:00:00Z"));
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    await mockApi(page, {
+      "GET /api/me": json(MADE_IN_OCTOBER),
+      "GET /api/devices": json([{ ...DEVICES[0], dns_filter: filter }]),
+      "GET /api/passkeys": json([]),
+      "GET /api/usage/months": async (route) => { await held; await route.fulfill({ json: monthsFor(filter) }); },
+    });
+    // from the devices page the skeleton knows the filter; opened directly it assumes the default
+    if (fromDevices) {
+      await page.goto("/devices/");
+      await expect(page.getByTestId("usage-percent")).toBeVisible();
+      await page.locator(".subnav").getByRole("link", { name: "帳號" }).click();
+    } else {
+      await page.goto("/account/");
+    }
+    await expect(page.locator(".month--skeleton")).toHaveCount(3);
+    const before = (await page.getByRole("heading", { name: "passkey" }).boundingBox())!.y;
+    release();
+    await expect(page.locator(".month.appear")).toHaveCount(3);
+    expect(Math.abs((await page.getByRole("heading", { name: "passkey" }).boundingBox())!.y - before)).toBeLessThanOrEqual(2);
+  });
+}
+
+test("the monthly record shows only the counts a filter made", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-12-05T03:00:00Z"));
+  let filter: "none" | "malware" | "ads" = "ads";
+  await mockApi(page, {
+    "GET /api/me": json(MADE_IN_OCTOBER),
+    "GET /api/passkeys": json([]),
+    "GET /api/usage/months": (route) => route.fulfill({ json: monthsFor(filter) }),
+  });
+  await page.goto("/account/");
+  const months = page.getByTestId("months");
+  await expect(months.locator("li").first()).toContainText("2026年12月（至今）");
+  await expect(months.getByTestId("month-ads").nth(1)).toHaveText("擋下廣告與追蹤的查詢1,260 次");
+  // every month shows what was counted, the first one too
+  await expect(months.locator("li").nth(2).getByTestId("month-ads")).toHaveText("擋下廣告與追蹤的查詢221 次");
+  filter = "malware";
+  await page.reload();
+  await expect(months.getByTestId("month-malware")).toHaveCount(3);
+  await expect(months.getByTestId("month-ads")).toHaveCount(0);
+  filter = "none";
+  await page.reload();
+  await expect(months.getByTestId("month-used")).toHaveCount(3);
+  await expect(months.getByTestId("month-malware")).toHaveCount(0);
+});
+
+test("the footer: three groups of links, in the same order in every language, nothing wider than the screen", async ({ page }) => {
+  for (const [path, groups] of [
+    ["/faq/", { 使用說明: ["VPN 入門", "常見問題", "網域過濾"], 檢查與回報: ["連線檢測", "服務狀態", "意見回覆"], 關於: ["anoni.net 社群", "原始碼", "使用條款", "隱私權政策"] }],
+    ["/en/faq/", { Help: ["VPN basics", "FAQ", "DNS filtering"], "Check and report": ["Connection check", "Service status", "Feedback"], About: ["anoni.net community", "Source code", "Terms of use", "Privacy policy"] }],
+  ] as const) {
+    await page.goto(path);
+    for (const [name, links] of Object.entries(groups)) {
+      await expect(page.locator("footer").getByRole("navigation", { name }).getByRole("link")).toHaveText([...links]);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+  // the community's page in the same language, and the code
+  await expect(page.locator("footer").getByRole("link", { name: "anoni.net community" })).toHaveAttribute("href", "https://anoni.net/en/");
+  await expect(page.locator("footer").getByRole("link", { name: "Source code" })).toHaveAttribute("href", "https://github.com/anoni-net/vessel");
+});
+
+test("the wordmark and the buttons keep their colour under the pointer or after a tap", async ({ page }) => {
+  await page.goto("/");
+  const ink = await page.locator(".brand__product").evaluate((e) => getComputedStyle(e).color);
+  for (const sel of [".brand", ".hero .nb-button--primary", ".site-header .nb-button"]) {
+    await page.locator(sel).first().hover();
+    const target = sel === ".brand" ? ".brand__product" : sel;
+    expect(await page.locator(target).first().evaluate((e) => getComputedStyle(e).color)).toBe(ink);
+  }
+});
+
+test("the footer's links stay white under the pointer", async ({ page }) => {
+  await page.goto("/");
+  const link = page.locator("footer .footer-group a").first();
+  const before = await link.evaluate((e) => getComputedStyle(e).color);
+  await link.hover();
+  expect(await link.evaluate((e) => getComputedStyle(e).color)).toBe(before);
+});
+
+test("the header is as tall with the my-devices button as without it", async ({ page }) => {
+  await mockApi(page, signedIn);
+  await page.goto("/");
+  await expect(page.locator(".site-header").getByRole("link", { name: "我的裝置" })).toBeVisible();
+  const withButton = await page.locator(".site-header").evaluate((e) => e.getBoundingClientRect().height);
+  await page.goto("/devices/");
+  await expect(page.locator(".site-header .nb-button")).toHaveCount(0);
+  expect(await page.locator(".site-header").evaluate((e) => e.getBoundingClientRect().height)).toBe(withButton);
+});
+
+test("beside 社群架設的原因, a map on a wide screen only, its grid fetched only there", async ({ page }) => {
+  const fetched: string[] = [];
+  page.on("request", (req) => { if (req.url().includes("region-map")) fetched.push(req.url()); });
+  await page.goto("/");
+  const map = page.locator("#why .region-map");
+  if (page.viewportSize()!.width >= 960) {
+    // Taiwan, two lines and two cities; no words
+    await expect(map.locator(".region-map__line")).toHaveCount(2);
+    await expect(map.locator(".region-map__node")).toHaveCount(2);
+    await expect(map).toHaveAttribute("aria-hidden", "true");
+    expect(await map.locator("svg").evaluate((e) => e.querySelectorAll("text").length)).toBe(0);
+  } else {
+    await expect(map).toBeHidden();
+    await page.waitForLoadState("networkidle");
+    expect(fetched).toHaveLength(0);
+  }
 });

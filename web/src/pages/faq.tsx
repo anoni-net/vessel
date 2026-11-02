@@ -3,16 +3,18 @@ import { useCtx } from "../context.ts";
 import type { MessageKey } from "../i18n/index.ts";
 
 const GROUPS = {
-  start: ["invite", "cost", "lost", "number", "share"],
-  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities"],
+  start: ["invite", "cost", "lost", "number", "passkey", "share"],
+  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities"],
   rules: ["expire", "expired", "quota", "p2p"],
-  privacy: ["see", "anomaly", "law", "cloudflare", "delete"],
+  privacy: ["see", "anomaly", "adId", "law", "cloudflare", "delete"],
 } as const;
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
 
-// the home page shows these; the rest are on /faq/
-const ON_HOME: Question[] = ["invite", "cost", "protocols", "app", "ios", "lost", "twoDevices", "newPhone", "noTraffic", "expire", "quota", "see"];
+// the home page shows these, for someone deciding whether to use Vessel or setting up a first device; the rest are on
+// /faq/. Not here: protocols (the install step links to it, and "app" says what matters on the home page) and newPhone
+// (it comes up only after the first device)
+const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices", "noTraffic", "expire", "quota", "see"];
 
 // /faq/#q-protocols opens that answer; the device setup links to it
 export const faqAnchor = (id: Question) => `q-${id}`;

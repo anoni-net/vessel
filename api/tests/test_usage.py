@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from conftest import HEADERS, create, needs_db
 
 from app import jobs, policy, worker
@@ -146,11 +148,52 @@ def test_nodes_without_blocked_counts_still_work(signed_in, node, db):
         data = original(host)
         for p in data["peers"]:
             p.pop("blocked")
+            p.pop("blocked_ads")
         return data
 
     node.usage = old_usage
     worker.tick(db)
     assert (devices(signed_in)[phone]["used_bytes"], devices(signed_in)[phone]["blocked"]) == (200, 0)
+
+
+def month(db) -> list[tuple]:
+    return db.execute("SELECT rx_bytes + tx_bytes, blocked, blocked_ads FROM account_usage ORDER BY period").fetchall()
+
+
+def test_the_two_lists_are_counted_apart(signed_in, node, db):
+    phone = create(signed_in).json()["id"]
+    node.blocked[phone], node.blocked_ads[phone] = 2, 30
+    worker.tick(db)
+    node.blocked[phone], node.blocked_ads[phone] = 3, 45
+    worker.tick(db)
+    # the device list shows both together, the account's month keeps them apart
+    assert devices(signed_in)[phone]["blocked"] == 48
+    assert month(db) == [(0, 3, 45)]
+    # blocked lookups alone, with no traffic counted yet, still make the month
+    node.started = "2026-10-28T00:00:00Z"
+    node.blocked[phone], node.blocked_ads[phone] = 0, 5
+    worker.tick(db)
+    assert month(db) == [(0, 3, 50)]
+
+
+def test_account_months_are_kept_for_a_year(signed_in, node, db):
+    phone = create(signed_in).json()["id"]
+    node.counters[phone] = (100, 100)
+    node.blocked[phone] = 1
+    worker.tick(db)
+    account = db.execute("SELECT account_id FROM account_usage").fetchone()[0]
+    for back in (11, 12):
+        db.execute(
+            "INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes, blocked, blocked_ads) "
+            "VALUES (%s, date_trunc('month', current_date) - make_interval(months => %s), 1, 1, 1, 1)",
+            (account, back),
+        )
+    worker.tick(db)
+    kept = db.execute(
+        "SELECT (extract(year FROM age(date_trunc('month', current_date), period)) * 12 "
+        "+ extract(month FROM age(date_trunc('month', current_date), period)))::int FROM account_usage ORDER BY period"
+    ).fetchall()
+    assert [k[0] for k in kept] == [11, 0]
 
 
 def test_usage_says_when_it_was_read(signed_in, node, db):
@@ -239,3 +282,31 @@ def test_devices_remember_that_they_connected(signed_in, node, db):
     node.handshakes.clear()
     worker.tick(db)
     assert connected() == {"phone": True, "laptop": False}
+
+
+def test_monthly_record_lists_every_month_since_the_account_was_made(signed_in, db):
+    this = date.today().replace(day=1)
+    last = (this - timedelta(days=1)).replace(day=1)
+    db.execute("UPDATE accounts SET created_on = date_trunc('month', current_date) - interval '2 months' + interval '9 days'")
+    account = db.execute("SELECT id FROM accounts").fetchone()[0]
+    db.execute(
+        "INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes, blocked, blocked_ads) "
+        "VALUES (%s, %s, 3, 4, 5, 60), (%s, %s, 1, 1, 9, 9)",
+        (account, last, account, (last - timedelta(days=1)).replace(day=1)),
+    )
+    body = signed_in.get("/api/usage/months").json()
+    assert body["filter"] == "none"
+    # a month with no use at all is still listed, so nobody wonders where it went
+    assert [(m["used_bytes"], m["blocked"], m["blocked_ads"]) for m in body["months"]] == [(0, 0, 0), (7, 5, 60), (2, 9, 9)]
+    assert body["months"][0]["month"] == this.isoformat()
+
+
+def test_monthly_record_keeps_twelve_months_and_names_the_strongest_filter(signed_in, db):
+    db.execute("UPDATE accounts SET created_on = current_date - 1000")
+    create(signed_in, dns_filter="malware")
+    body = signed_in.get("/api/usage/months").json()
+    assert (len(body["months"]), body["filter"]) == (12, "malware")
+    create(signed_in, name="laptop", dns_filter="ads")
+    assert signed_in.get("/api/usage/months").json()["filter"] == "ads"
+    signed_in.post("/api/logout", headers=HEADERS)
+    assert signed_in.get("/api/usage/months").status_code == 401

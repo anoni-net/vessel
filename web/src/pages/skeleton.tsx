@@ -18,6 +18,11 @@ export function SkCard({ lines, tint = false, size }: { lines: Width[]; tint?: b
   );
 }
 
+/** A text field's outline, for forms that appear with the data. */
+export function SkField() {
+  return <span class="sk sk--field" />;
+}
+
 export function SkButton() {
   return <span class="sk sk--button" />;
 }

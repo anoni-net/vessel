@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-10-31",
+  updated: "2026-11-02",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -13,9 +13,10 @@ export default {
           ["The account's creation date and the last day it opened the portal (day only)", "Deciding when devices expire", "Until the account is deleted"],
           ["A hash of each invite code, the date it was redeemed and the account that redeemed it", "Making sure each code is used once", "The link to the account is removed when the account is deleted; the code's record is kept for now, and the final version will set a limit"],
           ["Each device's name, public key, city, tunnel IP address, DNS filter option, expiry date, and whether it has ever connected (yes or no only)", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
-          ["The account's monthly traffic total", "Counting the allowance", "Until the account is deleted"],
-          ["Each device's traffic this month, and how many lookups the malware filter blocked (a count only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
+          ["The account's monthly traffic total, and how many lookups the scam and malware list and the ads and trackers list each blocked (counts only, no names or days)", "Counting the allowance, and the monthly record on the account page", "The last 12 months, or until the account is deleted"],
+          ["Each device's traffic this month, and how many lookups each of its two lists blocked (counts only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
           ["Daily totals per city: how many devices connected that day, the traffic, and how many devices expired (totals only, not tied to any account or device)", "Understanding how the service is used and how much the nodes can take", "400 days"],
+          ["Each passkey's public key, the name you gave it and the day it was added (day only), and a random identifier made for the account", "Signing you in with a passkey, or giving you a new account number", "Until the passkey or the account is deleted"],
           ["A hash of the sign-in session", "Keeping you signed in", "Until you sign out, or after 30 days without opening the portal"],
         ],
       },
@@ -29,14 +30,14 @@ export default {
         "Device private keys. They are generated in your browser and never sent to our servers",
         "Which sites you visit, or when you connect",
         "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment",
-        "DNS queries. The node's resolvers do not log them",
+        "DNS queries. The node's resolvers do not log them, and the site lookup on the DNS filtering page only compares a domain with the lists at that moment",
       ],
     },
     { h: "What a node handles while you are connected" },
     { p: "While you are connected, the node holds your current IP address in memory, since it needs it to send data back to you. It also handles the domains and IP addresses you connect to, but not the contents of HTTPS connections. This exists only in memory while you are connected, and is never written to disk or to any log." },
     { p: "During the test the terms forbid P2P file sharing, but connections are not blocked. To decide whether blocking will be needed, each node counts how many of the first few packets of each connection look like BitTorrent (an unencrypted handshake, a DHT query, a tracker request). Only the node's total is kept: nothing per device, and no record of where connections come from or go." },
     { h: "DNS filtering" },
-    { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), and blocking ads adds HaGeZi Multi (Normal). The lists are updated every 8 hours and published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists)." },
+    { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), together with the scam sites Taiwan's ISPs stop resolving on the requests of the National Police Agency (the 165 list) and the Ministry of Digital Affairs, and blocking ads adds HaGeZi Multi PRO. The malicious site lists are updated every 8 hours and the ad list once a day, and all of them are published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists) and [Taiwan's open government data platform](https://data.gov.tw/dataset/176455). The two Taiwanese lists are used under Taiwan's Open Government Data License, version 1." },
     { h: "Statistics" },
     { p: "Views of public pages, and the result of each step of redeeming, signing in and creating a device, go to the Umami instance anoni.net hosts, so problems along the way show up. Each record holds only the page path, the language, the screen size rounded to hundreds and the step's result. Account numbers, device names and settings, and keys are never sent. Umami works out the country and city from the IP address but does not keep the address." },
     { p: "Nothing is sent when your browser has Do Not Track or Global Privacy Control turned on, and you can turn it off in the footer." },

@@ -10,6 +10,7 @@ import {
   LIMITS,
   NETWORKS,
   PLATFORMS,
+  decodeBlocked,
   feedbackPayload,
   feedbackReady,
   sendFeedback,
@@ -50,8 +51,18 @@ export function Feedback() {
   // prerendered page has no query string
   const [check, setCheck] = useState<ReturnType<typeof decodeCheck>>(null);
   const [attach, setAttach] = useState(true);
-  useEffect(() => setCheck(decodeCheck(new URLSearchParams(location.search).get("check"))), []);
-  const line = check ? checkLine(t, check.exit, check.dns) : "";
+  // or a site the DNS page's lookup found on a list, reported as blocked by mistake
+  const [blocked, setBlocked] = useState<ReturnType<typeof decodeBlocked>>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    setCheck(decodeCheck(q.get("check")));
+    const b = decodeBlocked(q);
+    setBlocked(b);
+    if (b) set({ kind: "other" });
+  }, []);
+  const line = check
+    ? checkLine(t, check.exit, check.dns)
+    : blocked ? fmt(t["feedback.blockedLine"], { domain: blocked.domain, list: t[`dns.lookup.list.${blocked.list}`] }) : "";
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -106,7 +117,7 @@ export function Feedback() {
           <label class={`choice choice--radio${attach ? " choice--on" : ""}`} data-testid="attach-check">
             <input type="checkbox" checked={attach} onChange={() => setAttach(!attach)} />
             <span>
-              <span class="strong">{t["feedback.attachCheck"]}</span>
+              <span class="strong">{t[blocked && !check ? "feedback.attachBlocked" : "feedback.attachCheck"]}</span>
               <br />
               <span class="muted small">{line}</span>
             </span>

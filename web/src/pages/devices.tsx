@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { Icon } from "../icons.tsx";
 import { ApiError, type Device, type Me, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
-import { formatBytes, formatDate, formatPercent, formatTime } from "../format.ts";
+import { formatBytes, formatCount, formatDate, formatPercent, formatTime } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
+import { flagOf } from "../regions.ts";
 import { AccountNav } from "./account.tsx";
+import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
 import { Busy, SkButton, SkCard, Spin } from "./skeleton.tsx";
 
@@ -108,6 +111,10 @@ export function Devices() {
   const amount = `${formatBytes(locale, me.used_bytes)} / ${formatBytes(locale, me.monthly_quota_bytes)}`;
   const full = devices.filter((d) => d.status !== "revoking").length >= me.device_limit;
   const overQuota = me.used_bytes >= me.monthly_quota_bytes;
+  // only devices with a DNS filter count blocked lookups; with none, the card says nothing about it. With a filter
+  // and nothing blocked yet (early in the month, a new device), it says the protection is on.
+  const filtered = devices.filter((d) => d.dns_filter !== "none" && d.status !== "revoking");
+  const blocked = filtered.reduce((n, d) => n + d.blocked, 0);
   // the visitor's own date, as YYYY-MM-DD, to tell whether a moved device's old host is already gone
   const today = new Date().toLocaleDateString("sv");
 
@@ -129,11 +136,21 @@ export function Devices() {
           {/* any use at all shows a sliver, so a few MB does not look like nothing */}
           <div style={{ width: me.used_bytes > 0 ? `max(${pct}%, 6px)` : "0" }} />
         </div>
-        <p class="strong">{amount}</p>
-        {me.usage_as_of && (
-          <p class="muted small" data-testid="usage-as-of">{fmt(t["devices.usageAsOf"], { time: formatTime(locale, me.usage_as_of) })}</p>
-        )}
+        {/* the amount and when it was read share one line; the note explains both */}
+        <div class="row usage-amount">
+          <span class="strong">{amount}</span>
+          {me.usage_as_of && (
+            <span class="muted small" data-testid="usage-as-of">{fmt(t["devices.usageAsOf"], { time: formatTime(locale, me.usage_as_of) })}</span>
+          )}
+        </div>
         <p class="muted small">{t["devices.usageNote"]}</p>
+        {filtered.length > 0 && (
+          <p class="usage-blocked" data-testid="blocked-total">
+            {blocked > 0
+              ? fmt(t[filtered.some((d) => d.dns_filter === "ads") ? "devices.blockedTotalAds" : "devices.blockedTotal"], { n: formatCount(locale, blocked) })
+              : t["devices.blockedNone"]}
+          </p>
+        )}
       </div>
 
       {devices.length === 0 ? (
@@ -146,18 +163,25 @@ export function Devices() {
         <ul class="stack plain" data-testid="device-list">
           {devices.map((d) => (
             <li class="card" aria-busy={deleting.has(d.id)}>
-              <div class="row">
-                <div>
-                  <p class="strong big">{d.name}</p>
-                  <p class="muted small">
-                    {t[`region.${d.region}` as keyof typeof t] ?? d.region} · {t[`filter.${d.dns_filter}`]}
-                  </p>
-                </div>
+              <div class="row device-head">
+                <p class="strong big device-head__name">{d.name}</p>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
+              {/* the full width of the card, so it rarely wraps; when it does, each icon stays with its words */}
+              <p class="muted small device-meta">
+                <span class="device-meta__part">
+                  {flagOf(d.region) && <img class="flag flag--small" src={flagOf(d.region)} alt="" width="20" height="15" />}
+                  <span class="device-meta__text">{t[`region.${d.region}` as keyof typeof t] ?? d.region}</span>
+                </span>
+                <span class="device-meta__text" aria-hidden="true">·</span>
+                <span class="device-meta__part">
+                  <Layers filter={d.dns_filter} small />
+                  <span class="device-meta__text">{t[`filter.${d.dns_filter}`]}</span>
+                </span>
+              </p>
               <p class="small" data-testid="device-usage">
                 {fmt(t["devices.used"], { amount: formatBytes(locale, d.used_bytes) })}
-                {d.dns_filter !== "none" && <>{" · "}{fmt(t["devices.blocked"], { n: d.blocked })}</>}
+                {d.dns_filter !== "none" && <>{" · "}{fmt(t[d.dns_filter === "ads" ? "devices.blockedAds" : "devices.blocked"], { n: formatCount(locale, d.blocked) })}</>}
               </p>
               {d.status === "pending" && <p class="muted small">{t["status.pendingNote"]}</p>}
               {d.status === "active" && !d.connected && (
@@ -167,11 +191,12 @@ export function Devices() {
               )}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
               {d.moved_until && (
-                <p class="card card--warn card--flat small" data-testid="moved">
-                  {fmt(t[d.moved_until < today ? "devices.movedGone" : "devices.moved"], {
+                <p class="card card--warn card--flat small notice" data-testid="moved">
+                  <Icon name="warning" />
+                  <span>{fmt(t[d.moved_until < today ? "devices.movedGone" : "devices.moved"], {
                     city: t[`region.${d.region}` as keyof typeof t] ?? d.region,
                     date: formatDate(locale, d.moved_until),
-                  })}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}
+                  })}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
                 </p>
               )}
               <div class="row small">

@@ -1,12 +1,13 @@
 #!/bin/sh
-# Vessel node: AmneziaWG + three unbound resolvers (none / malware / ads) in one network namespace
+# Vessel node: AmneziaWG + two unbound resolvers in one network namespace: none (10.8.1.1) and filter (10.8.1.253
+# blocks malware, 10.8.1.254 also ads)
 set -e
 CONF=/etc/amnezia/amneziawg/awg0.conf
 SUBNET=10.8.1.0/24
 NODE_IP=${NODE_IP:?NODE_IP is required}
 
 awg-quick up "$CONF"
-# extra resolver addresses: .1 none (from awg0.conf), .253 malware, .254 ads
+# extra resolver addresses: .1 none (from awg0.conf), .253 and .254 the filter resolver
 ip addr add 10.8.1.253/32 dev awg0
 ip addr add 10.8.1.254/32 dev awg0
 
@@ -47,24 +48,37 @@ iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
+# A TCP SYN carrying IPv4 options (Record Route, Timestamp) can trigger a use-after-free in the kernel's handshake
+# code (CVE-2026-98432), and a client reaches the resolvers' TCP port 53. Nothing legitimate sends those options;
+# drop such SYNs in this namespace until every node runs a fixed kernel. The host has its own rule for its ports.
+iptables -t raw -I PREROUTING -p tcp --syn -m u32 --u32 "0>>24&0xF=6:15" -m comment --comment CVE-2026-98432 -j DROP
 
 # --- IPv6: peers only get IPv4 tunnel addresses, so nothing on awg0 should be IPv6; drop it in case that changes ---
 ip6tables -P FORWARD DROP
 ip6tables -A INPUT -i awg0 -j DROP
 
-# --- blocked malware lookups, counted per tunnel address ---
-# The malware RPZ answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
-# answer has. One rule per client address counts those packets; nothing records the names. awgctl zeroes a
-# rule when it hands its address to a new peer, and reports the counts in `usage --json`.
+# --- blocked lookups, counted per tunnel address ---
+# The malware list answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
+# answer has; the ad list answers with a CNAME to blocked.vessel. (unbound/filter.conf). One rule per client
+# address in each chain counts those packets; nothing records the names. awgctl zeroes both rules when it hands
+# an address to a new peer, and reports the counts in `usage --json`.
 iptables -N VESSEL-BLOCKED
-for n in $(seq 2 249); do iptables -A VESSEL-BLOCKED -d 10.8.1.$n -j RETURN; done
+iptables -N VESSEL-ADS
+for n in $(seq 2 249); do
+  iptables -A VESSEL-BLOCKED -d 10.8.1.$n -j RETURN
+  iptables -A VESSEL-ADS -d 10.8.1.$n -j RETURN
+done
 # DNS header after the IP and UDP headers: the low byte of the flags is RA (0x80) and RCODE (0x0f); NXDOMAIN is 3
 iptables -A OUTPUT -o awg0 -p udp --sport 53 -m u32 --u32 "0>>22&0x3C@8&0x8F=0x3" -j VESSEL-BLOCKED
+# blocked.vessel. as it appears in the answer: each label's length, then the label. Some devices follow the CNAME
+# and ask for blocked.vessel. itself; that name then sits in the question at byte 40 (IP 20, UDP 8, DNS header 12),
+# so the search starts after it and counts the blocked lookup once.
+iptables -A OUTPUT -o awg0 -p udp --sport 53 -m string --algo bm --from 41 --hex-string "|07|blocked|06|vessel|00|" -j VESSEL-ADS
 
 # --- resolvers ---
-# the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,ads}.rpz present (an empty zone if a download never succeeded)
+# the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,tw165,twmoda,ads}.rpz present (an empty zone if a download never succeeded)
 unbound-anchor -a /var/lib/unbound/root.key || true
-for p in none malware ads; do
+for p in none filter; do
   cp /var/lib/unbound/root.key /var/lib/unbound/root-$p.key
   chown unbound:unbound /var/lib/unbound/root-$p.key
   unbound -c /etc/unbound/conf.d/$p.conf
