@@ -155,6 +155,14 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .hero-fig__header { fill: var(--ink); stroke: var(--ink); stroke-width: .6; }
 .hero-fig__scan { fill: none; stroke: var(--danger); stroke-width: 1; stroke-dasharray: 2 3; opacity: .7; }
 .hero-fig__glint { fill: var(--paper); }
+/* FIG. 03's two beams sweep to and fro about the eye, at 171.3, 36.1 in the drawing (hero-figures-data.ts); the
+   CSP allows no inline styles, so the turning point is written here */
+.hero-fig__sweep { stroke-width: 1.4; opacity: .85; transform-box: view-box; transform-origin: 171.3px 36.1px; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-fig__sweep { animation: hero-fig-sweep 2.6s ease-in-out infinite alternate; }
+  .hero-fig__sweep--b { animation-delay: -1.3s; }
+}
+@keyframes hero-fig-sweep { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
 .hero-fig__scan--ground { stroke: var(--ink); opacity: .55; stroke-dasharray: 4 3; }
 @media (min-width: 900px) {
   .hero__inner { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: center; }

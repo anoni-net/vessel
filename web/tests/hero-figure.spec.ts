@@ -27,10 +27,19 @@ test("under 使用情境, the blocklists and the disguise, each with a few words
   expect(ids.slice(0, 3)).toEqual(["when", "works", "how"]);
 });
 
+test("the lines move: the dashes to the node and FIG. 03's two beams, which sweep to and fro", async ({ page }) => {
+  await page.goto("/");
+  const beams = page.locator("#works .hero-fig__sweep");
+  await expect(beams).toHaveCount(2);
+  for (const beam of await beams.all()) expect(await beam.evaluate((e) => getComputedStyle(e).animationName)).toBe("hero-fig-sweep");
+});
+
 test("with prefers-reduced-motion the lines hold still", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  for (const line of await page.locator(".hero-fig__path--live").all()) expect(await line.evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
+  for (const line of await page.locator(".hero-fig__path--live, .hero-fig__sweep").all()) {
+    expect(await line.evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
+  }
 });
 
 test("on phones the hero's picture sits under the buttons, on wide screens beside the words", async ({ page, isMobile }) => {
