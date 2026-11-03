@@ -15,6 +15,9 @@
   --tint: #eef3fd;
   --warn: #fff3df;
   --warn-ink: #8a4500;
+  /* the line colour of a note that asks for attention: hatching and frame, never a whole background */
+  --caution: #d97706;
+  --hatch: repeating-linear-gradient(-45deg, var(--caution) 0 2px, transparent 2px 7px);
   --danger: #b3261e;
   --footer: #0a2463;
   --border: 1.5px solid var(--ink);
@@ -290,10 +293,16 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .check-verdict { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 14px 16px; border: var(--border); border-radius: var(--radius); color: var(--ink); font-size: 18px; font-weight: 700; }
 .check-verdict > .icon { font-size: 18px; margin-top: 2px; }
 .check-verdict--ok { background: var(--accent); }
-.check-verdict--bad { background: var(--warn); border-color: var(--warn-ink); color: var(--warn-ink); }
+/* a drawing's note: white, an orange frame, a hatched strip down the left and NOTE written into the top of the frame
+   (the strip and the label are drawn here, so every warning gets them without its own markup) */
+.card--warn, .check-verdict--bad, .lookup-answer--hit { position: relative; border-color: var(--caution); color: var(--text);
+  background: var(--hatch) left top / 10px 100% no-repeat, var(--paper); padding-left: 28px; }
+.card--warn::before, .check-verdict--bad::before, .lookup-answer--hit::before { content: "NOTE"; position: absolute; top: -.75em; left: 18px;
+  padding: 0 6px; background: var(--paper); color: var(--caution); font: 600 10px/1.5 var(--mono); letter-spacing: .18em; }
+.card--warn .icon, .check-verdict--bad > .icon { color: var(--caution); }
 .check-results dt { font-weight: 700; }
 .check-results dd { margin: 4px 0 0; }
-.card--warn { background: var(--warn); border-color: var(--warn-ink); color: var(--warn-ink); }
+
 /* a passkey on the account page: its name and date on the left, delete on the right */
 .passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
 .passkey-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -306,7 +315,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .passkey-login { margin: 20px 0 8px; }
 /* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
 .lookup-answer { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--tint); }
-.lookup-answer--hit { background: var(--warn); border-color: var(--warn-ink); }
+
 .card--dashed { border-style: dashed; box-shadow: none; text-align: center; }
 .step { width: 44px; height: 44px; border: var(--border); border-radius: var(--radius); background: var(--paper); color: var(--ink); display: grid; place-items: center; font-family: var(--mono); font-size: 20px; font-weight: 700; }
 
@@ -376,11 +385,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge { padding: 2px 10px; border: 1.5px solid var(--ink); border-radius: var(--radius); color: var(--ink); font-size: 14px; font-weight: 700; white-space: nowrap; }
 .badge--active { background: var(--accent); }
 .badge--pending, .badge--revoking { border-style: dashed; }
-.badge--suspended { background: var(--warn); border-color: var(--warn-ink); color: var(--warn-ink); }
+.badge--suspended { background: var(--paper); border-color: var(--caution); color: var(--warn-ink); }
 /* a state badge with its icon before the word, on the status page */
 .badge--icon { display: inline-flex; align-items: center; gap: 4px; }
 .badge--state-ok { background: var(--accent); }
-.badge--state-down { background: var(--warn); border-color: var(--warn-ink); color: var(--warn-ink); }
+.badge--state-down { background: var(--paper); border-color: var(--caution); color: var(--warn-ink); }
 .badge--state-unknown { border-style: dashed; }
 .status-city { display: flex; align-items: center; gap: 12px; }
 /* home page, 社群架設的原因: the region as a tabletop seen from above at a slant, beside the text on a wide screen */
