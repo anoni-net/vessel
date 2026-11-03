@@ -26,8 +26,9 @@ const PLATE = "rgba(214, 226, 251, 0.6)";
 // a block's depth, up and to the right like the title's (pages/block-title.tsx), and a plate's
 const DX = 2.6;
 const DY = 2;
-const PLATE_DX = 26;
-const PLATE_DY = 11;
+const PLATE_DX = 32;
+const PLATE_DY = 14;
+const PLATE_T = 7; // how thick a plate is
 
 // a colour lighter (k > 0) or darker (k < 0), for a block's top and side
 function shade(hex: string, k: number): string {
@@ -178,28 +179,47 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
       const y = top(l);
       const x1 = w - PLATE_DX - 2;
       // the plate, its front edge, and an opening where each lane goes through
+      // the top, the front edge and the right end, so the plate has a thickness
       ctx!.fillStyle = PLATE;
       slab(0, x1, y);
       ctx!.fill();
-      ctx!.fillStyle = "rgba(11, 60, 168, 0.18)";
-      ctx!.fillRect(0, y, x1, 3);
+      ctx!.fillStyle = "rgba(11, 60, 168, 0.22)";
+      ctx!.fillRect(0, y, x1, PLATE_T);
+      ctx!.fillStyle = "rgba(11, 60, 168, 0.32)";
+      ctx!.beginPath();
+      ctx!.moveTo(x1, y);
+      ctx!.lineTo(x1 + PLATE_DX, y - PLATE_DY);
+      ctx!.lineTo(x1 + PLATE_DX, y - PLATE_DY + PLATE_T);
+      ctx!.lineTo(x1, y + PLATE_T);
+      ctx!.closePath();
+      ctx!.fill();
       ctx!.globalCompositeOperation = "destination-out";
       for (const lane of [0.42, 0.78]) {
         const cx = w * lane;
-        slab(cx - hole / 2 - PLATE_DX / 2, cx + hole / 2 - PLATE_DX / 2, y - 1.5);
+        slab(cx - hole / 2 - PLATE_DX / 2, cx + hole / 2 - PLATE_DX / 2, y - 2);
         ctx!.fill();
-        ctx!.fillRect(cx - hole / 2 - PLATE_DX / 2, y - 2, hole, 6);
+        ctx!.fillRect(cx - hole / 2 - PLATE_DX / 2, y - 2, hole, PLATE_T + 3);
       }
       ctx!.globalCompositeOperation = "source-over";
-      ctx!.lineWidth = 1;
+      ctx!.lineWidth = 1.2;
       ctx!.strokeStyle = YOU;
-      ctx!.globalAlpha = 0.55;
+      ctx!.globalAlpha = 0.7;
       slab(0, x1, y);
       ctx!.stroke();
+      ctx!.strokeRect(0, y, x1, PLATE_T);
       for (const lane of [0.42, 0.78]) {
         const cx = w * lane;
-        slab(cx - hole / 2 - PLATE_DX / 2, cx + hole / 2 - PLATE_DX / 2, y - 1.5);
+        // the opening, and the far wall of its cut through the plate
+        slab(cx - hole / 2 - PLATE_DX / 2, cx + hole / 2 - PLATE_DX / 2, y - 2);
         ctx!.stroke();
+        ctx!.fillStyle = "rgba(11, 60, 168, 0.18)";
+        ctx!.beginPath();
+        ctx!.moveTo(cx - hole / 2 + PLATE_DX / 2, y - 2 - PLATE_DY);
+        ctx!.lineTo(cx + hole / 2 + PLATE_DX / 2, y - 2 - PLATE_DY);
+        ctx!.lineTo(cx + hole / 2 + PLATE_DX / 2, y - 2 - PLATE_DY + PLATE_T);
+        ctx!.lineTo(cx - hole / 2 + PLATE_DX / 2, y - 2 - PLATE_DY + PLATE_T);
+        ctx!.closePath();
+        ctx!.fill();
       }
       ctx!.globalAlpha = 1;
     }
