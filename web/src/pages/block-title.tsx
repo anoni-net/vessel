@@ -89,7 +89,8 @@ function PixelPerson() {
   );
 }
 
-export function BlockTitle() {
+/** `plain`: just the blocks, as outlines, standing still; for the footer's title block. */
+export function BlockTitle({ plain = false }: { plain?: boolean }) {
   const svg = useRef<SVGSVGElement>(null);
   // a tap: the person jumps; restarting the class restarts the animation
   const jump = () => {
@@ -100,7 +101,8 @@ export function BlockTitle() {
     el.classList.add("pixel-person__jump--on");
   };
   return (
-    <svg ref={svg} class="block-title" viewBox={`-1 -22 ${W + 2} ${H + 23}`} aria-hidden="true" onClick={jump}>
+    <svg ref={svg} class={`block-title${plain ? " block-title--plain" : ""}`} viewBox={plain ? `-1 -1 ${W + 2} ${H + 2}` : `-1 -22 ${W + 2} ${H + 23}`}
+      aria-hidden="true" onClick={plain ? undefined : jump}>
       {BLOCKS.map(({ col, row, top, side }) => {
         const x = col * S;
         const y = DY + row * S;
@@ -112,7 +114,7 @@ export function BlockTitle() {
           </g>
         );
       })}
-      <PixelPerson />
+      {!plain && <PixelPerson />}
     </svg>
   );
 }

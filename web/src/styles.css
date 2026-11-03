@@ -68,26 +68,41 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .brand__logo { display: block; height: 26px; width: auto; }
 .brand__product { padding-inline-start: 14px; border-inline-start: 1.5px solid var(--ink); font-family: var(--mono); font-size: 21px; font-style: italic; font-weight: 700; letter-spacing: .12em; line-height: 1.2; text-transform: uppercase; }
 /* a short line: break only at the spaces and balance the lines, so a narrow screen splits no word and strands no character */
-/* the footer: who runs Vessel on the left, three groups of links on the right; on a phone the first two groups
-   side by side and the "about" links below them, two to a row in the same columns */
-.footer-brand { display: flex; flex-direction: column; gap: 4px; }
-.footer-brand__name { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 19px; font-style: italic; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.footer-brand__name img { flex: none; }
-.footer-brand__tagline { color: #b9c8ee; font-weight: 400; text-wrap: balance; word-break: keep-all; }
-.footer-groups { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); gap: 24px 40px; }
-.footer-heading { margin-bottom: 8px; font-size: 13px; font-weight: 700; letter-spacing: .04em; color: #b9c8ee; }
+/* the footer as a drawing's title block (app.tsx): a frame of cells on blueprint paper, each with a short field
+   name; on a phone two columns, the wordmark, the community and the languages across both */
+.title-block { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "project project" "help check" "about about" "by by" "langs langs";
+  border: 1px solid rgb(255 255 255 / .55); }
+.title-block__cell { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 14px 14px; border: 0 solid rgb(255 255 255 / .35); border-width: 0 1px 1px 0; }
+.title-block__cell--project { grid-area: project; }
+.title-block__cell--by { grid-area: by; }
+.title-block__cell--about { grid-area: about; }
+.title-block__cell--langs { grid-area: langs; }
+.title-block > nav:nth-of-type(1) { grid-area: help; }
+.title-block > nav:nth-of-type(2) { grid-area: check; }
+.title-block__field { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .18em; color: #8fa6dc; }
+.title-block__mark { display: block; width: min(100%, 240px); }
+.title-block__mark .block-title { height: auto; width: 100%; }
+.footer-brand__tagline { display: flex; align-items: center; gap: 8px; color: #dbe4f8; text-wrap: balance; word-break: keep-all; }
+.footer-brand__tagline img { flex: none; }
+.footer-heading { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: #b9c8ee; }
 .footer-group__links { display: flex; flex-direction: column; gap: 6px; font-weight: 400; }
-.footer-group--about { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
-.footer-group--about > * { grid-column: 1 / -1; }
-.footer-group--about .footer-group__links { display: grid; grid-template-columns: subgrid; gap: 6px 40px; }
+.footer-group--about .footer-group__links { display: grid; grid-template-columns: repeat(2, max-content); gap: 6px 32px; }
 @media (min-width: 720px) {
-  .footer-groups { grid-template-columns: repeat(3, max-content); gap: 24px 56px; }
-  .footer-group--about { grid-column: auto; display: block; }
+  .title-block { grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); grid-template-areas: "project help check about" "by langs langs langs"; }
   .footer-group--about .footer-group__links { display: flex; }
 }
-/* the statistics note and the trademark notice read as one block of small print */
+/* the right and bottom cells meet the frame, which draws those lines */
+.title-block__cell--about, .title-block__cell--langs { border-right-width: 0; }
+.title-block__cell--by, .title-block__cell--langs { border-bottom-width: 0; }
+@media (max-width: 719px) { .title-block > nav:nth-of-type(2) { border-right-width: 0; } .title-block__cell--project { border-right-width: 0; } .title-block__cell--by { border-bottom-width: 1px; border-right-width: 0; } }
+/* the footer's blocks: white outlines, standing still */
+.block-title--plain .block-title__front, .block-title--plain .block-title__top, .block-title--plain .block-title__side { fill: rgb(255 255 255 / .06); stroke: #dbe4f8; stroke-width: .9; animation: none; }
+.block-title--plain .block-title__top { fill: rgb(255 255 255 / .16); }
+.block-title--plain .block-title__side { fill: rgb(255 255 255 / .1); }
+.block-title--plain .block-title__row { animation: none; }
+/* the statistics note and the trademark notice read as one block of small print, a drawing's notes */
+.title-block__notes { padding-block: 16px 28px; }
 .footer-legal { padding-block: 0 6px; font-size: 13px; color: #b9c8ee; }
-.footer-legal:last-child { padding-bottom: 24px; }
 .section-lead { max-width: 46em; margin: -8px 0 24px; text-wrap: pretty; }
 /* a section's heading over a rule, its English label at the right (pages/section-head.tsx) */
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 1.5px solid var(--ink); }
@@ -95,13 +110,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-footer .footer-legal a { color: #b9c8ee; }
 .footer-toggle { padding: 0; border: 0; background: none; color: #b9c8ee; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }
-.site-footer { background: var(--footer); color: var(--paper); }
+.site-footer { background-color: var(--footer); background-image: linear-gradient(rgb(255 255 255 / .05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .05) 1px, transparent 1px); background-size: 24px 24px; color: var(--paper); padding-top: 40px; }
 .site-footer a { color: var(--paper); }
-.site-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 32px; padding-block: 40px 32px; }
 .icon { flex: none; vertical-align: -0.125em; }
 .site-header__langs { display: inline-flex; align-items: center; gap: 0 4px; font-weight: 700; }
 .site-header__langs a { padding: 4px 6px; }
-.site-footer__langs { padding-block: 24px; border-top: 1px solid #2a4488; font-weight: 400; }
+.site-footer__langs { font-weight: 400; }
 .site-footer__langs .icon { margin-inline-end: 4px; }
 
 .legal > * + * { margin-top: 16px; }
