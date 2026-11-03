@@ -212,6 +212,28 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .usage-blocked { margin-top: 4px; padding-top: 12px; border-top: 2px dashed var(--ink); font-weight: 700; }
 .meter { height: 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper); overflow: hidden; }
 .meter > div { height: 100%; background: var(--ink); }
+/* live parts of the devices page (pages/live.tsx): the bar eases to a new read, "+12 MB" rises and fades, a ring
+   fills until the next read, and a dot shows the devices in use during the last read */
+@media (prefers-reduced-motion: no-preference) { .meter > div { transition: width .9s cubic-bezier(.2, .7, .3, 1); } }
+.card--live { position: relative; }
+.added { position: absolute; top: -15px; inset-inline-end: 20px; display: flex; gap: 6px; pointer-events: none; animation: added-rise 6s ease-out forwards; }
+.added__item { padding: 0 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--accent); box-shadow: 2px 2px 0 var(--ink); color: var(--ink); font-size: 14px; font-weight: 800; line-height: 1.7; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@keyframes added-rise { 0% { opacity: 0; transform: translateY(8px); } 8%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px); } }
+@keyframes added-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .added { animation-name: added-fade; } }
+.usage-as-of { display: inline-flex; align-items: center; gap: 6px; }
+.next-read { display: inline-flex; flex: none; }
+.next-read svg { transform: rotate(-90deg); }
+.next-read circle { fill: none; stroke-width: 3; }
+.next-read__track { stroke: #dfe5e8; }
+.next-read__fill { stroke: var(--accent-strong); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation-name: next-read; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes next-read { to { stroke-dashoffset: 0; } }
+.device-usage { display: flex; align-items: flex-start; gap: 8px; }
+/* the dot sits on the first line when the words wrap */
+.live-dot { flex: none; width: 10px; height: 10px; margin-top: calc((1.7em - 10px) / 2); border: 2px solid #a7b5bb; border-radius: 50%; }
+.live-dot--on { border-color: var(--accent-strong); background: var(--accent-strong); }
+@media (prefers-reduced-motion: no-preference) { .live-dot--on { animation: live-pulse 2.4s ease-out infinite; } }
+@keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgb(124 58 237 / .45); } 70%, 100% { box-shadow: 0 0 0 8px rgb(124 58 237 / 0); } }
 .badge { padding: 2px 12px; border: 2px solid var(--ink); border-radius: 999px; font-size: 14px; font-weight: 800; white-space: nowrap; }
 .badge--active { background: var(--accent); }
 .badge--pending, .badge--revoking { border-style: dashed; }
