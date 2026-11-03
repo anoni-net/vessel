@@ -3,7 +3,7 @@
 // web pages, which needs no key. Vessel draws the form itself, so nobody has to meet another service.
 //
 // Formbricks has one survey for zh-TW and one for en; the simplified Chinese page sends to the zh-TW one with
-// locale zh-CN. Question ids (kind, message, network, platform, city, contact) and the hidden fields (from,
+// locale zh-CN. Question ids (kind, message, network, platform, city, wanted, contact) and the hidden fields (from,
 // locale) follow formbricks/vessel_survey.py in the community workspace. Choice questions store the option's
 // text, so SENT below must match that file word for word; change both together. Nothing here is linked to the
 // Vessel account: no account number, device or key is sent.
@@ -18,10 +18,13 @@ export const KINDS = ["connect", "setup", "speed", "idea", "other"] as const;
 export const NETWORKS = ["home", "mobile", "work", "public", "other"] as const;
 export const PLATFORMS = ["android", "apple", "windows", "linux", "other"] as const;
 export const CITIES = ["sg", "jp", "none"] as const;
+// the city people would most like next, to help decide where the next node goes
+export const WANTED = ["tw", "osaka", "seoul", "bangkok", "sydney", "europe", "namerica", "other"] as const;
 export type Kind = (typeof KINDS)[number];
 export type Network = (typeof NETWORKS)[number];
 export type FeedbackPlatform = (typeof PLATFORMS)[number];
 export type City = (typeof CITIES)[number];
+export type Wanted = (typeof WANTED)[number];
 
 // the option texts each survey stores, from formbricks/vessel_survey.py
 export const SENT = {
@@ -30,6 +33,7 @@ export const SENT = {
     network: { home: "家裡的網路", mobile: "行動網路", work: "學校或公司的網路", public: "咖啡店、旅館等公共 Wi-Fi", other: "其他" },
     platform: { android: "Android", apple: "iPhone 或 Mac", windows: "Windows", linux: "Linux", other: "其他" },
     city: { sg: "新加坡", jp: "東京", none: "還沒有裝置" },
+    wanted: { tw: "台灣", osaka: "大阪", seoul: "首爾", bangkok: "曼谷", sydney: "雪梨", europe: "歐洲", namerica: "北美", other: "其他" },
   },
   en: {
     kind: {
@@ -42,6 +46,10 @@ export const SENT = {
     network: { home: "Home network", mobile: "Mobile data", work: "School or work network", public: "Public Wi-Fi, such as a café or hotel", other: "Other" },
     platform: { android: "Android", apple: "iPhone or Mac", windows: "Windows", linux: "Linux", other: "Other" },
     city: { sg: "Singapore", jp: "Tokyo", none: "No device yet" },
+    wanted: {
+      tw: "Taiwan", osaka: "Osaka", seoul: "Seoul", bangkok: "Bangkok", sydney: "Sydney", europe: "Europe",
+      namerica: "North America", other: "Other",
+    },
   },
 } as const;
 
@@ -54,6 +62,7 @@ export interface Feedback {
   network?: Network;
   platform?: FeedbackPlatform;
   city?: City;
+  wanted?: Wanted;
   contact: string;
 }
 
@@ -67,6 +76,7 @@ export function feedbackPayload(f: Feedback, locale: Locale, from: string) {
   if (f.network) data.network = sent.network[f.network];
   if (f.platform) data.platform = sent.platform[f.platform];
   if (f.city) data.city = sent.city[f.city];
+  if (f.wanted) data.wanted = sent.wanted[f.wanted];
   if (f.contact.trim()) data.contact = f.contact.trim();
   if (FROM.includes(from)) data.from = from;
   return { surveyId: SURVEYS[survey], finished: true as const, data };
