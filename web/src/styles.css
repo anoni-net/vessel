@@ -216,8 +216,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
    fills until the next read, and a dot shows the devices in use during the last read */
 @media (prefers-reduced-motion: no-preference) { .meter > div { transition: width .9s cubic-bezier(.2, .7, .3, 1); } }
 .card--live { position: relative; }
-.added { position: absolute; top: -15px; inset-inline-end: 20px; display: flex; gap: 6px; pointer-events: none; animation: added-rise 6s ease-out forwards; }
-.added__item { padding: 0 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--accent); box-shadow: 2px 2px 0 var(--ink); color: var(--ink); font-size: 14px; font-weight: 800; line-height: 1.7; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.device-list { gap: 20px; }
+/* half of a chip (22px) above the card: inside the 16px gap less the card above's 4px shadow, a little more room
+   in the device list */
+.added { position: absolute; top: -11px; inset-inline-end: 20px; display: flex; gap: 6px; pointer-events: none; animation: added-rise 6s ease-out forwards; }
+.added__item { padding: 0 9px; border: 2px solid var(--ink); border-radius: 999px; background: var(--accent); color: var(--ink); font-size: 13px; font-weight: 800; line-height: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @keyframes added-rise { 0% { opacity: 0; transform: translateY(8px); } 8%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px); } }
 @keyframes added-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .added { animation-name: added-fade; } }

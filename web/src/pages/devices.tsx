@@ -241,7 +241,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
           <p class="muted small">{t["devices.emptyExpired"]}</p>
         </div>
       ) : (
-        <ul class="stack plain" data-testid="device-list">
+        <ul class="stack plain device-list" data-testid="device-list">
           {devices.map((d) => (
             <li class="card card--live" aria-busy={deleting.has(d.id)}>
               {added?.devices.get(d.id) && (
