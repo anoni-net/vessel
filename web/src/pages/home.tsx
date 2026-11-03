@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
+import { BlockTitle } from "./block-title.tsx";
 import { HeroFigure, HowItWorks } from "./hero-figure.tsx";
 import { SectionHead } from "./section-head.tsx";
 
@@ -25,7 +26,7 @@ export function Home() {
       <section class="hero band band--tint">
         <div class="wrap hero__inner">
           <div class="hero__text">
-            <h1>{t["home.title"]}</h1>
+            <h1 class="hero__title"><BlockTitle /><span class="sr-only">{t["home.title"]}</span></h1>
             <p class="lead">{t["home.lead"]}</p>
             <p class="strong">{t["home.promise"]}</p>
             <p><a href={href("/learn/")}>{t["learn.link"]}</a></p>

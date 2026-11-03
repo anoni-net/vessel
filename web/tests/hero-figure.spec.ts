@@ -49,3 +49,36 @@ test("on phones the hero's picture sits under the buttons, on wide screens besid
   if (isMobile) expect(figs!.y).toBeGreaterThan(words!.y + words!.height);
   else expect(figs!.x).toBeGreaterThan(words!.x + words!.width);
 });
+
+test("the title is the word for screen readers, blocks to the eye, filled once the pixel person delivers its packet", async ({ page }) => {
+  await page.goto("/");
+  const title = page.getByRole("heading", { level: 1 });
+  await expect(title).toHaveText("Vessel");
+  await expect(title.locator("svg")).toHaveAttribute("aria-hidden", "true");
+  const person = page.locator(".pixel-person");
+  expect(await person.evaluate((e) => getComputedStyle(e).animationName)).toBe("pixel-person-path");
+  // a tap makes it jump
+  await title.locator("svg").click();
+  await expect(page.locator(".pixel-person__jump")).toHaveClass(/pixel-person__jump--on/);
+  // with prefers-reduced-motion it simply stands there
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await person.evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
+  expect(await person.evaluate((e) => getComputedStyle(e).transform)).toBe("matrix(1, 0, 0, 1, 305, 1.5)");
+  // and the word is already filled with cobalt, the packet already in the l
+  expect(await page.locator(".block-title__front").first().evaluate((e) => getComputedStyle(e).fill)).toBe("rgb(11, 60, 168)");
+  expect(await page.locator(".pixel-person__packet").evaluate((e) => getComputedStyle(e).opacity)).toBe("0");
+});
+
+test("the two pictures under 使用情境 are framed alike, side by side on a wide screen", async ({ page, isMobile }) => {
+  await page.goto("/");
+  const drawings = page.locator("#works .hero-fig svg");
+  const [a, b] = [await drawings.nth(0).boundingBox(), await drawings.nth(1).boundingBox()];
+  // the same frame for both drawings, at any width
+  expect(Math.abs(a!.height - b!.height)).toBeLessThanOrEqual(1);
+  if (isMobile) return;
+  // side by side, the frames and the captions under them line up
+  const figs = page.locator("#works .hero-fig");
+  const [fa, fb] = [await figs.nth(0).boundingBox(), await figs.nth(1).boundingBox()];
+  expect(Math.abs(fa!.y - fb!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(fa!.height - fb!.height)).toBeLessThanOrEqual(1);
+});

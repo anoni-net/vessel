@@ -119,6 +119,67 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .band--tint { background-color: var(--tint); background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
 .band--grey { background: var(--grey); }
 .hero h1 { font-family: var(--mono); font-size: clamp(52px, 11vw, 76px); font-style: italic; line-height: 1.05; letter-spacing: .04em; margin-block: 16px; }
+/* the title as blocks (pages/block-title.tsx): rows rise into place from the bottom, once */
+.hero__title { margin-block: 12px 8px; line-height: 0; }
+.block-title { display: block; height: clamp(92px, 24vw, 120px); width: auto; max-width: 100%; overflow: visible; }
+/* filled with cobalt, as the word ends up; thin light seams keep the blocks apart */
+.block-title__front { fill: var(--ink); stroke: #c5d3f3; stroke-width: .8; }
+.block-title__top { fill: #3a66cf; stroke: #c5d3f3; stroke-width: .8; stroke-linejoin: round; }
+.block-title__side { fill: #072a78; stroke: #c5d3f3; stroke-width: .8; stroke-linejoin: round; }
+@media (prefers-reduced-motion: no-preference) {
+  .block-title__row { animation: block-title-drop .45s cubic-bezier(.3, 1.4, .5, 1) backwards; }
+  .block-title__r1 { animation-delay: .05s; --fill-at: 6.65s; }
+  .block-title__r2 { animation-delay: .12s; --fill-at: 6.77s; }
+  .block-title__r3 { animation-delay: .19s; --fill-at: 6.89s; }
+  .block-title__r4 { animation-delay: .26s; --fill-at: 7.01s; }
+  .block-title__r5 { animation-delay: .33s; --fill-at: 7.13s; }
+  .block-title__r6 { animation-delay: .4s; --fill-at: 7.25s; }
+  .block-title__r7 { animation-delay: .47s; --fill-at: 7.37s; }
+  /* outlines until the packet goes into the l, then cobalt row by row from the bottom */
+  .block-title__row .block-title__front { animation: block-title-fill-front .35s ease var(--fill-at) backwards; }
+  .block-title__row .block-title__top { animation: block-title-fill-top .35s ease var(--fill-at) backwards; }
+  .block-title__row .block-title__side { animation: block-title-fill-side .35s ease var(--fill-at) backwards; }
+}
+@keyframes block-title-fill-front { from { fill: var(--paper); stroke: var(--ink); stroke-width: 1px; } }
+@keyframes block-title-fill-top { from { fill: #dfe7fa; stroke: var(--ink); stroke-width: 1px; } }
+@keyframes block-title-fill-side { from { fill: #c5d3f3; stroke: var(--ink); stroke-width: 1px; } }
+@keyframes block-title-drop { from { opacity: 0; transform: translateY(-14px); } }
+/* the pixel person on the title: where it ends up, on the l, unless it may move */
+.pixel-person { transform: translate(305px, 1.5px); }
+.pixel-person__ink rect { fill: var(--ink); }
+.pixel-person__eye { fill: var(--paper); }
+.pixel-person__legs--a, .pixel-person__legs--b { opacity: 0; }
+.pixel-person__packet { opacity: 0; }
+.pixel-person__packet-front { fill: var(--ink); stroke: #c5d3f3; stroke-width: .5; }
+.pixel-person__packet-top { fill: #3a66cf; stroke: #c5d3f3; stroke-width: .5; }
+.pixel-person__packet-side { fill: #072a78; stroke: #c5d3f3; stroke-width: .5; }
+@media (prefers-reduced-motion: no-preference) {
+  /* after the blocks: in on the V, a hop to its other arm, down onto the e, along the x-height, up onto the l */
+  .pixel-person { animation: pixel-person-path 5s linear 1.1s both; }
+  .pixel-person__legs--a { animation: pixel-person-leg .3125s steps(1) 1.1s 16; }
+  .pixel-person__legs--b { animation: pixel-person-leg .3125s steps(1) 1.256s 15.5; }
+  .pixel-person__legs--stand { animation: pixel-person-away 5s 1.1s backwards; }
+  .pixel-person__eye { animation: pixel-person-blink 4.5s 7.8s infinite; }
+  /* carried all the way, then pressed down into the l's top block */
+  .pixel-person__packet { animation: pixel-person-packet 5.5s 1.1s both; }
+  .pixel-person__jump--on { animation: pixel-person-jump .5s ease-out; }
+}
+@keyframes pixel-person-path {
+  0% { opacity: 0; transform: translate(5px, 1.5px); }
+  5%, 12% { opacity: 1; transform: translate(5px, 1.5px); }
+  15% { transform: translate(25px, -9px); }
+  18% { transform: translate(45px, 1.5px); }
+  21% { transform: translate(60px, 4px); }
+  24% { transform: translate(77px, 21.5px); }
+  80% { transform: translate(277px, 21.5px); }
+  83% { transform: translate(292px, -4px); }
+  86%, 100% { opacity: 1; transform: translate(305px, 1.5px); }
+}
+@keyframes pixel-person-leg { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes pixel-person-packet { 0%, 91% { opacity: 1; transform: none; } 97% { opacity: 1; transform: translate(-1px, 9px); } 100% { opacity: 0; transform: translate(-1px, 11px); } }
+@keyframes pixel-person-away { from, to { opacity: 0; } }
+@keyframes pixel-person-blink { 0%, 95% { fill: var(--paper); } 96%, 100% { fill: var(--ink); } }
+@keyframes pixel-person-jump { 40% { transform: translateY(-9px); } }
 .hero__text { display: flex; flex-direction: column; gap: 16px; max-width: 40em; }
 /* the hero's picture (pages/hero-figure.tsx): under the buttons on phones, beside the text on wide screens */
 .hero-fig { margin: 28px 0 0; border: 1px solid var(--line); background: rgb(255 255 255 / .6); }
@@ -127,6 +188,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .how-it-works__item { display: flex; flex-direction: column; gap: 12px; }
 .how-it-works__item > p { text-wrap: pretty; }
 .how-it-works .hero-fig { margin: 0; background: var(--paper); }
+/* the two drawings have different proportions; one frame for both, the drawing centred in it, so the frames, the
+   captions and the words under them line up side by side */
+.how-it-works .hero-fig svg { aspect-ratio: 3 / 2; height: auto; }
 .hero-fig svg { display: block; width: 100%; height: auto; }
 .hero-fig figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .hero-fig__grid { fill: none; stroke: rgb(11 60 168 / .1); stroke-width: .6; }
