@@ -1,4 +1,4 @@
-import { type Page, expect, test } from "@playwright/test";
+import { type Locator, type Page, expect, test } from "@playwright/test";
 import { FEEDBACK_ENDPOINT } from "../src/feedback.ts";
 
 /** The exit answer from /api/exit, and which DNS test addresses Vessel's resolvers hide (see dns.spec.ts). */
@@ -9,6 +9,16 @@ async function network(page: Page, exit: { region: string | null; ipv6: boolean;
   await page.route(/https:\/\/vessel-dns-(\d)\.anoni\.net\/check/, (route) => {
     const n = Number(/vessel-dns-(\d)/.exec(route.request().url())![1]);
     return hidden.includes(n) ? route.abort("namenotresolved") : route.fulfill({ status: 200, body: "ok\n" });
+  });
+}
+
+/** How far the verdict's icon sits from the middle of the first line of its words, in px. */
+async function iconOffset(verdict: Locator) {
+  return verdict.evaluate((p) => {
+    const icon = p.querySelector(".icon")!.getBoundingClientRect();
+    const style = getComputedStyle(p);
+    const line = p.getBoundingClientRect().top + parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop) + parseFloat(style.lineHeight) / 2;
+    return icon.top + icon.height / 2 - line;
   });
 }
 
@@ -26,6 +36,7 @@ test("a passing check, carried into feedback", async ({ page }) => {
   await expect(box.getByTestId("check-dns")).toHaveText("正在使用 Vessel 的 DNS，會擋下惡意網站。");
   await expect(box.getByRole("status")).toContainText("兩項都通過，連線經過 Vessel，DNS 也由 Vessel 處理。");
   await expect(box.getByRole("button", { name: "再檢測一次" })).toBeVisible();
+  expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
 
   await box.getByRole("link", { name: "附上結果寫意見回覆" }).click();
   await expect(page).toHaveURL(/\/feedback\/\?from=check&check=sg\.malware$/);
@@ -52,6 +63,7 @@ for (const [exit, hidden, exitText] of [
     const box = page.getByTestId("connection-check");
     await expect(box.getByTestId("check-exit")).toContainText(exitText);
     await expect(box.getByRole("status")).toContainText("有項目沒有通過，可以參考下方的處理方式，或把結果附在意見回覆裡。");
+    expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
   });
 }
 
