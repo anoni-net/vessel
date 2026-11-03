@@ -17,7 +17,7 @@ import { loadNewDevice, loadedNewDevice } from "./pages/lazy.ts";
 import { NewDeviceSkeleton } from "./pages/skeleton.tsx";
 import { Legal, NotFound, preloadLegal } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
-import { FAVICON, LOGO } from "./images.ts";
+import { FAVICON, LOGO, LOGO_DARK } from "./images.ts";
 import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
 import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
@@ -135,7 +135,10 @@ export function App({ url }: { url?: string } = {}) {
         <div class="wrap site-header__inner">
           {/* same as Gears and the news site: the anoni.net wordmark, a divider, then the product name */}
           <a class="brand" href={href("/")}>
-            <img class="brand__logo" src={LOGO} alt="anoni.net" width="116" height="28" />
+            <picture>
+              <source srcset={LOGO_DARK} media="(prefers-color-scheme: dark)" />
+              <img class="brand__logo" src={LOGO} alt="anoni.net" width="116" height="28" />
+            </picture>
             <span class="brand__product">Vessel</span>
           </a>
           <nav aria-label={t["nav.main"]} class="site-nav">
