@@ -38,11 +38,12 @@ const DESCRIPTIONS: Record<string, MessageKey> = {
   "/privacy/": "meta.privacy",
 };
 
-// 1200 × 630, made from the site's own card style; hosted on assets.anoni.net, not in the repo
+// 1200 × 630, one for every page of a language: the home page's blocks and FIG. 01 in a drawing's frame, rendered
+// from the built site so they match it; hosted on assets.anoni.net, not in the repo
 const OG_IMAGE: Record<Locale, string> = {
-  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-c9448313.png",
-  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-b45ac04f.png",
-  en: "https://assets.anoni.net/vessel/og-en-b9b2e293.png",
+  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-655d7733.png",
+  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-7ef5e5a8.png",
+  en: "https://assets.anoni.net/vessel/og-en-9fd2abd3.png",
 };
 
 const OG_LOCALE: Record<Locale, string> = { "zh-TW": "zh_TW", "zh-CN": "zh_CN", en: "en_US" };
