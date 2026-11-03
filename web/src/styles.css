@@ -369,19 +369,24 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge--state-down { background: var(--warn); border-color: var(--warn-ink); color: var(--warn-ink); }
 .badge--state-unknown { border-style: dashed; }
 .status-city { display: flex; align-items: center; gap: 12px; }
-/* home page, 社群架設的原因: a dot map beside the text on a wide screen, Taiwan and a line to each node's city */
+/* home page, 社群架設的原因: the region as a tabletop seen from above at a slant, beside the text on a wide screen */
 .region-map { display: none; }
 @media (min-width: 960px) {
-  .why-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 48px; align-items: center; }
-  .region-map { display: block; aspect-ratio: 1; }
+  .why-layout { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 48px; align-items: center; }
+  .region-map { display: block; }
 }
-.region-map svg { display: block; width: 100%; height: 100%; }
+.region-map svg { display: block; width: 100%; height: auto; }
 .region-map__land { fill: #c3d1f0; }
-.region-map__home { fill: var(--ink); }
-.region-map__start { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
-.region-map__line { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 12; }
-.region-map__node { fill: var(--accent-strong); }
-.region-map__ring { fill: none; stroke: var(--accent-strong); stroke-width: 4; }
+.region-map__home .region-map__top { fill: #3a66cf; }
+.region-map__home .region-map__south { fill: var(--ink); }
+.region-map__home .region-map__east { fill: #072a78; }
+.region-map__home polygon { stroke: #c5d3f3; stroke-width: 1; stroke-linejoin: round; }
+.region-map__node polygon { stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.region-map__node .region-map__top { fill: var(--paper); }
+.region-map__node .region-map__south { fill: #dfe7fa; }
+.region-map__node .region-map__east { fill: #c5d3f3; }
+.region-map__slot { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.region-map__line { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 3 11; }
 @media (prefers-reduced-motion: no-preference) {
   .region-map__line { animation: region-map-flow 1.2s linear infinite; }
 }
@@ -455,15 +460,19 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .faq-layout { display: grid; grid-template-columns: minmax(0, 760px) minmax(0, 1fr); gap: 40px; align-items: start; }
   .faq-art { display: block; position: sticky; top: 24px; }
 }
-.faq-art__stage { position: relative; height: min(560px, calc(100vh - 140px)); }
+/* framed like the home page's other pictures (FIG. 01–03): a light border, the key under the drawing */
+.faq-art { border: 1px solid var(--line); background: rgb(255 255 255 / .6); }
+.faq-art__stage { position: relative; height: min(560px, calc(100vh - 160px)); margin: 12px 12px 0; }
 .faq-art__stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.faq-art__label { position: absolute; left: 0; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--muted); pointer-events: none; }
+.faq-art__label { position: absolute; left: 0; display: flex; flex-direction: column; margin-top: 8px; font-size: 12px; font-weight: 700; line-height: 1.4; color: var(--ink); pointer-events: none; }
+.faq-art__en { font-family: var(--mono); font-size: 9px; font-weight: 500; letter-spacing: .12em; color: var(--muted); }
 /* where each layer starts; keep in step with LAYERS in src/faq-art.ts */
 .faq-art__label--0 { top: 0; }
 .faq-art__label--1 { top: 16%; }
 .faq-art__label--2 { top: 48%; }
 .faq-art__label--3 { top: 72%; }
-.faq-art__legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }
+.faq-art__key { display: grid; gap: 6px; margin-top: 8px; padding: 8px 12px 10px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.faq-art__legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); }
 .faq-art__legend li { display: inline-flex; align-items: center; gap: 6px; }
 .faq-art__swatch { width: 10px; height: 10px; }
 .faq-art__swatch--dest { background: #2f6bff; }

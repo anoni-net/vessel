@@ -10,8 +10,13 @@ test("the connection picture names each part and says what it shows", async ({ p
   await expect(fig.locator(".hero-fig__label")).toHaveText(["你的裝置YOUR DEVICE", "東京節點NODE · TYO", "新加坡節點NODE · SIN", "網際網路INTERNET", "加密連線ENCRYPTED"]);
   await expect(fig.locator("figcaption")).toHaveText("FIG. 01連線經過 Vessel 的節點");
   await page.goto("/en/");
-  await expect(page.locator(".hero-fig__en")).toHaveCount(0);
+  await expect(page.locator(".hero-fig__en")).toHaveText(["NODE", "NODE"]);
   await expect(page.locator(".hero .hero-fig__label").first()).toHaveText("Your device");
+  // the cities alone, "node" under them, so "Singapore" stays clear of the globe
+  await expect(page.locator(".hero .hero-fig__label").nth(2)).toHaveText("SingaporeNODE");
+  const sg = await page.locator(".hero .hero-fig__label").nth(2).boundingBox();
+  const globe = await page.locator(".hero circle.hero-fig__top").boundingBox();
+  expect(sg!.x + sg!.width).toBeLessThanOrEqual(globe!.x);
 });
 
 test("under 使用情境, the blocklists and the disguise, each with a few words and a link", async ({ page }) => {

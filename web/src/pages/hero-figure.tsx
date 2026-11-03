@@ -7,15 +7,17 @@ import type { MessageKey } from "../i18n/index.ts";
 const EN = { device: "YOUR DEVICE", tokyo: "NODE · TYO", sg: "NODE · SIN", internet: "INTERNET", encrypted: "ENCRYPTED" } as const;
 type Part = keyof typeof EN;
 
-/** A label: the name in the page's language, and under it, except on the English pages, the short English one. */
-function Label({ x, y, anchor, name, en, note = false, on = false }: {
-  x: number; y: number; anchor: "start" | "middle" | "end"; name: string; en: string; note?: boolean; on?: boolean;
+/** A label: the name in the page's language, and under it, except on the English pages, the short English one.
+ * `enLine` is a second line for the English pages, where the name alone would run too long on one line. */
+function Label({ x, y, anchor, name, en, enLine, note = false, on = false }: {
+  x: number; y: number; anchor: "start" | "middle" | "end"; name: string; en: string; enLine?: string; note?: boolean; on?: boolean;
 }) {
   const { locale } = useCtx();
+  const under = locale === "en" ? enLine : en;
   return (
     <text class={`hero-fig__label${note ? " hero-fig__label--note" : ""}${on ? " hero-fig__label--on" : ""}`} x={x} y={y} text-anchor={anchor}>
       {name}
-      {locale !== "en" && <tspan class="hero-fig__en" x={x} dy="11">{en}</tspan>}
+      {under && <tspan class="hero-fig__en" x={x} dy="11">{under}</tspan>}
     </text>
   );
 }
@@ -60,7 +62,9 @@ function Connection() {
       <path class="hero-fig__slot" d={`M${GLOBE.c[0]},${GLOBE.c[1] - GLOBE.r} V${GLOBE.c[1] + GLOBE.r}`} />
       {(Object.keys(EN) as Part[]).map((part) => {
         const [x, y, anchor] = LABELS[part] as [number, number, "start" | "middle" | "end"];
-        return <Label x={x} y={y} anchor={anchor} name={t[`hero.fig.${part}`]} en={EN[part]} note={part === "encrypted"} />;
+        // the English pages name the cities alone, "node" on the line under them, like the other languages' labels
+        const enLine = part === "tokyo" || part === "sg" ? "NODE" : undefined;
+        return <Label x={x} y={y} anchor={anchor} name={t[`hero.fig.${part}`]} en={EN[part]} enLine={enLine} note={part === "encrypted"} />;
       })}
     </Figure>
   );

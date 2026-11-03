@@ -85,8 +85,11 @@ const LEGEND = [
   ["account", "faqArt.legend.account"],
 ] as const;
 
+// the layers' short English names, under the Chinese ones as on the home page's other pictures
+const LAYER_EN = ["YOUR DEVICE", "YOUR ISP", "VESSEL NODE", "WEBSITES"];
+
 function FaqArt() {
-  const { t } = useCtx();
+  const { t, locale } = useCtx();
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (!window.matchMedia(ROOM).matches || !canvas.current) return;
@@ -110,14 +113,20 @@ function FaqArt() {
         <canvas ref={canvas} />
         {LAYER_NAMES.map((key, i) => (
           // positioned by class: the CSP blocks style attributes in the prerendered HTML
-          <span class={`faq-art__label faq-art__label--${i}`}>{t[key]}</span>
+          <span class={`faq-art__label faq-art__label--${i}`}>
+            {t[key]}
+            {locale !== "en" && <span class="faq-art__en">{LAYER_EN[i]}</span>}
+          </span>
         ))}
       </div>
-      <ul class="faq-art__legend">
-        {LEGEND.map(([kind, key]) => (
-          <li><span class={`faq-art__swatch faq-art__swatch--${kind}`} />{t[key]}</li>
-        ))}
-      </ul>
+      <div class="faq-art__key">
+        <p><span class="eyebrow">FIG. 04</span> {t["faq.art.title"]}</p>
+        <ul class="faq-art__legend">
+          {LEGEND.map(([kind, key]) => (
+            <li><span class={`faq-art__swatch faq-art__swatch--${kind}`} />{t[key]}</li>
+          ))}
+        </ul>
+      </div>
     </aside>
   );
 }

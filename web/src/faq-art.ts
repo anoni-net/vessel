@@ -10,8 +10,9 @@
 //   Vessel node    the destination and your IP, not the account (HTTPS)
 //   websites       the destination, the node's IP instead of yours, and your account once you sign in
 //
-// The pointer marks what the layer under it can read. Plain Canvas 2D, loaded after the page is up, only
-// where there is room beside the questions (pages/faq.tsx).
+// The pointer marks what the layer under it can read. Drawn like the home page's other pictures: the layers are thin
+// plates seen from above at a slant, with an opening for each lane, and every cell of a packet is a small block.
+// Plain Canvas 2D, loaded after the page is up, only where there is room beside the questions (pages/faq.tsx).
 
 // the blueprint's cobalt in a few shades (styles.css, .faq-art__swatch); orange for the account, red for the lens
 const DEST = "#2f6bff";
@@ -21,6 +22,19 @@ const ACCOUNT = "#e08a00";
 const BODY = ["#a9b7d6", "#c3cde6", "#93a3c9"];
 const NOISE = ["#0b3ca8", "#4a62a3", "#7d90c4", "#a9b7d6", "#6f95f5", "#a5bcf2"];
 const RED = "#b3261e"; // the lens marks what a layer can read
+const PLATE = "rgba(214, 226, 251, 0.6)";
+// a block's depth, up and to the right like the title's (pages/block-title.tsx), and a plate's
+const DX = 2.6;
+const DY = 2;
+const PLATE_DX = 26;
+const PLATE_DY = 11;
+
+// a colour lighter (k > 0) or darker (k < 0), for a block's top and side
+function shade(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k)));
+  return `rgb(${ch.join(",")})`;
+}
 
 const COLS = 5;
 const ROWS = 3;
@@ -140,26 +154,77 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
     return false;
   }
 
+  // a parallelogram on a plate at y: from x0 to x1 along the front, PLATE_DX by PLATE_DY deep
+  function slab(x0: number, x1: number, y: number) {
+    ctx!.beginPath();
+    ctx!.moveTo(x0, y);
+    ctx!.lineTo(x1, y);
+    ctx!.lineTo(x1 + PLATE_DX, y - PLATE_DY);
+    ctx!.lineTo(x0 + PLATE_DX, y - PLATE_DY);
+    ctx!.closePath();
+  }
+
   function drawLayers(focus: Layer | null) {
-    ctx!.lineWidth = 2;
-    ctx!.strokeStyle = YOU;
-    for (const l of [1, 2, 3] as Layer[]) {
-      ctx!.globalAlpha = 0.25;
-      ctx!.setLineDash([6, 6]);
-      ctx!.beginPath();
-      ctx!.moveTo(0, top(l));
-      ctx!.lineTo(w, top(l));
-      ctx!.stroke();
-    }
-    ctx!.setLineDash([]);
     if (focus !== null) {
       const y0 = top(focus);
       const y1 = focus === 3 ? h : top((focus + 1) as Layer);
-      ctx!.globalAlpha = 0.55;
+      ctx!.globalAlpha = 0.5;
       ctx!.fillStyle = "#ffffff";
       ctx!.fillRect(0, y0, w, y1 - y0);
+      ctx!.globalAlpha = 1;
     }
-    ctx!.globalAlpha = 1;
+    const hole = width + 22;
+    for (const l of [1, 2, 3] as Layer[]) {
+      const y = top(l);
+      const x1 = w - PLATE_DX - 2;
+      // the plate, its front edge, and an opening where each lane goes through
+      ctx!.fillStyle = PLATE;
+      slab(0, x1, y);
+      ctx!.fill();
+      ctx!.fillStyle = "rgba(11, 60, 168, 0.18)";
+      ctx!.fillRect(0, y, x1, 3);
+      ctx!.globalCompositeOperation = "destination-out";
+      for (const lane of [0.42, 0.78]) {
+        const cx = w * lane;
+        slab(cx - hole / 2 - PLATE_DX / 2, cx + hole / 2 - PLATE_DX / 2, y - 1.5);
+        ctx!.fill();
+        ctx!.fillRect(cx - hole / 2 - PLATE_DX / 2, y - 2, hole, 6);
+      }
+      ctx!.globalCompositeOperation = "source-over";
+      ctx!.lineWidth = 1;
+      ctx!.strokeStyle = YOU;
+      ctx!.globalAlpha = 0.55;
+      slab(0, x1, y);
+      ctx!.stroke();
+      for (const lane of [0.42, 0.78]) {
+        const cx = w * lane;
+        slab(cx - hole / 2 - PLATE_DX / 2, cx + hole / 2 - PLATE_DX / 2, y - 1.5);
+        ctx!.stroke();
+      }
+      ctx!.globalAlpha = 1;
+    }
+  }
+
+  // a cell as a block: its front in the cell's colour, the top lighter and the right side darker
+  function block(x: number, y: number, color: string) {
+    ctx!.fillStyle = shade(color, 0.35);
+    ctx!.beginPath();
+    ctx!.moveTo(x, y);
+    ctx!.lineTo(x + DX, y - DY);
+    ctx!.lineTo(x + CELL + DX, y - DY);
+    ctx!.lineTo(x + CELL, y);
+    ctx!.closePath();
+    ctx!.fill();
+    ctx!.fillStyle = shade(color, -0.35);
+    ctx!.beginPath();
+    ctx!.moveTo(x + CELL, y);
+    ctx!.lineTo(x + CELL + DX, y - DY);
+    ctx!.lineTo(x + CELL + DX, y + CELL - DY);
+    ctx!.lineTo(x + CELL, y + CELL);
+    ctx!.closePath();
+    ctx!.fill();
+    ctx!.fillStyle = color;
+    ctx!.fillRect(x, y, CELL, CELL);
   }
 
   function drawPacket(p: Packet, focus: Layer | null) {
@@ -169,7 +234,9 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
     const nearLine = [1, 2, 3].some((l) => Math.abs(p.y + height / 2 - top(l as Layer)) < 10);
     const disguised = layer === 1;
     ctx!.globalAlpha = edge;
-    for (const c of p.cells) {
+    // back to front: top rows first, right to left, so each block's front covers the depth of the ones behind it
+    const cells = [...p.cells].sort((a, b) => a.gy - b.gy || b.gx - a.gx);
+    for (const c of cells) {
       let x = p.x + c.gx * PITCH;
       let y = p.y + c.gy * PITCH;
       if (disguised) {
@@ -180,8 +247,7 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
         x += rand(-2, 2);
         y += rand(-2, 2);
       }
-      ctx!.fillStyle = colorOf(c, layer);
-      ctx!.fillRect(x, y, CELL, CELL);
+      block(x, y, colorOf(c, layer));
       if (focus === layer && readable(c, layer)) {
         ctx!.strokeStyle = RED;
         ctx!.lineWidth = 2;
@@ -192,8 +258,7 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
       // padding of no fixed length, so not even the size gives it away; on the inner side of each lane
       const padX = (i: number) => (p.dir === 1 ? p.x + COLS * PITCH + (i % 3) * PITCH : p.x - (1 + (i % 3)) * PITCH);
       for (let i = 0; i < p.pad; i++) {
-        ctx!.fillStyle = NOISE[(i * 7 + p.pad) % NOISE.length]!;
-        ctx!.fillRect(padX(i), p.y + Math.floor(i / 3) * PITCH, CELL, CELL);
+        block(padX(i), p.y + Math.floor(i / 3) * PITCH, NOISE[(i * 7 + p.pad) % NOISE.length]!);
       }
       if (focus === 1) {
         // the provider has nothing to read: the whole thing is one unknown

@@ -6,7 +6,8 @@ test("beside the questions on wide screens, with translated layer names", async 
   const art = page.locator(".faq-art");
   await expect(art).toBeVisible();
   await expect(art).toHaveAttribute("aria-hidden", "true");
-  await expect(art.locator(".faq-art__label")).toHaveText(["你的裝置", "網路業者", "Vessel 節點", "網站"]);
+  await expect(art.locator(".faq-art__label")).toHaveText(["你的裝置YOUR DEVICE", "網路業者YOUR ISP", "Vessel 節點VESSEL NODE", "網站WEBSITES"]);
+  await expect(art.locator(".faq-art__key")).toContainText("FIG. 04 每一層看得到什麼");
   await expect(art.locator(".faq-art__legend li")).toHaveText(["目的地", "你的 IP", "節點的 IP", "你的帳號"]);
   // the layer names sit at different heights, placed by class rather than a style attribute
   const tops = await art.locator(".faq-art__label").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
