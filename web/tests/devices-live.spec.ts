@@ -58,6 +58,11 @@ test("the page asks again once the next read has landed and shows what it added"
   const laptop = page.getByTestId("device-list").locator("li", { hasText: "laptop" });
   await expect(added(phone)).toHaveText(["+200 MB", "擋下 +3"]);
   await expect(added(laptop)).toHaveCount(0);
+  // they stay until the page asks for the next read (04:08:20) and fade out in the last second before it
+  const delay = await phone.locator(".added").evaluate((el) => (el as HTMLElement).style.animationDelay);
+  const out = Number(/,\s*(\d+)ms/.exec(delay)![1]);
+  expect(out).toBeGreaterThan(4 * 60_000);
+  expect(out).toBeLessThanOrEqual(5 * 60_000 - 1_000);
   await expect(phone.locator(".live-dot--on")).toHaveAttribute("title", "最近 5 分鐘有流量");
   await expect(laptop.locator(".live-dot")).toHaveAttribute("title", "最近 5 分鐘沒有流量");
   await expect(laptop.locator(".live-dot--on")).toHaveCount(0);

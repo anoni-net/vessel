@@ -219,11 +219,13 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .device-list { gap: 20px; }
 /* half of a chip (22px) above the card: inside the 16px gap less the card above's 4px shadow, a little more room
    in the device list */
-.added { position: absolute; top: -11px; inset-inline-end: 20px; display: flex; gap: 6px; pointer-events: none; animation: added-rise 6s ease-out forwards; }
+.added { position: absolute; top: -11px; inset-inline-end: 20px; display: flex; gap: 6px; pointer-events: none; animation: added-in .5s ease-out, added-out 1s ease-in forwards; }
 .added__item { padding: 0 9px; border: 2px solid var(--ink); border-radius: 999px; background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 800; line-height: 18px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-@keyframes added-rise { 0% { opacity: 0; transform: translateY(8px); } 8%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px); } }
-@keyframes added-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .added { animation-name: added-fade; } }
+/* in when a read arrives, out just before the next one; the delay of the second is set on the element */
+@keyframes added-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes added-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .added { animation-name: added-fade-in, added-out; } }
+@keyframes added-fade-in { from { opacity: 0; } }
 .usage-as-of { display: inline-flex; align-items: center; gap: 6px; }
 .next-read { display: inline-flex; flex: none; }
 .next-read svg { transform: rotate(-90deg); }

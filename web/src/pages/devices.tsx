@@ -191,6 +191,8 @@ function DeviceList({ me, devices, added, deleting, remove }: {
   // and nothing blocked yet (early in the month, a new device), it says the protection is on.
   const filtered = devices.filter(countsBlocked);
   const blocked = Math.round(useTween(blockedOf(devices)));
+  // the "+…" of a read stay until the page asks for the next one
+  const nextAt = me.usage_as_of ? dueAfter(me.usage_as_of) : Date.now() + READ_EVERY;
   // the visitor's own date, as YYYY-MM-DD, to tell whether a moved device's old host is already gone
   const today = new Date().toLocaleDateString("sv");
 
@@ -203,7 +205,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
       </div>
 
       <div class="card card--tint card--flat card--live">
-        {added && <Added key={added.n} items={plusOf(t, locale, added.used, filtered.length > 0 ? added.blocked : 0)} />}
+        {added && <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.used, filtered.length > 0 ? added.blocked : 0)} />}
         <div class="row usage-head">
           <span class="strong">{t["devices.usage"]}</span>
           <span class="usage-pct" data-testid="usage-percent">{share}</span>
@@ -245,7 +247,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
           {devices.map((d) => (
             <li class="card card--live" aria-busy={deleting.has(d.id)}>
               {added?.devices.get(d.id) && (
-                <Added key={added.n} items={plusOf(t, locale, added.devices.get(d.id)!.used, d.dns_filter === "none" ? 0 : added.devices.get(d.id)!.blocked)} />
+                <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.devices.get(d.id)!.used, d.dns_filter === "none" ? 0 : added.devices.get(d.id)!.blocked)} />
               )}
               <div class="row device-head">
                 <p class="strong big device-head__name">{d.name}</p>

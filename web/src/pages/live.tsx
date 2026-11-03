@@ -32,16 +32,21 @@ export function useTween(value: number, ms = 900): number {
   return shown;
 }
 
-/** What the last read added to a card, pinned to its top edge for a few seconds so nothing in the card moves. Give
- * it a `key` that changes with every read, so the same amount read twice in a row shows again. */
-export function Added({ items }: { items: string[] }) {
+/** What the last read added to a card, pinned to its top edge so nothing in the card moves. It stays until `until`,
+ * when the page asks for the next read, and fades out just before. Give it a `key` that changes with every read, so
+ * the same amount read twice in a row shows again. */
+export function Added({ items, until }: { items: string[]; until: number }) {
+  // from when this read's chips appeared, so a re-render does not move the fade
+  const shownAt = useRef(Date.now());
   if (items.length === 0) return null;
+  const out = Math.max(6_000, until - shownAt.current - FADE_MS);
   return (
-    <span class="added" aria-hidden="true">
+    <span class="added" aria-hidden="true" style={{ animationDelay: `0ms, ${out}ms` }}>
       {items.map((x) => <span class="added__item">{x}</span>)}
     </span>
   );
 }
+const FADE_MS = 1_000;
 
 /** A ring that fills from the last read until `dueAt`, when the page asks again. */
 export function NextRead({ from, dueAt, label }: { from: number; dueAt: number; label: string }) {
