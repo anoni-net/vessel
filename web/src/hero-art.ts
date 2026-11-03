@@ -15,13 +15,14 @@
 // On touch screens there is no hovering, so a tap shows the lens for a moment instead; dragging stays free
 // for scrolling the page. Plain Canvas 2D, no dependencies, loaded after the page is up (pages/home.tsx).
 
-const INK = "#13232a";
-const HEADER = "#7c5cf0";
+// the blueprint's cobalt in a few shades (styles.css); red stays for what the checkpoint stops
+const INK = "#0b3ca8";
+const HEADER = "#2f6bff";
 const RED = "#b3261e";
 // bodies are encrypted, so any shade; headers are what an observer reads
-const BODY = ["#13232a", "#2c3b42", "#52646b", "#7d8b91"];
-const HEADERS = ["#7c5cf0", "#a78bfa", "#13232a", "#52646b", "#c4b5fd"];
-const DECOY = ["#c4b5fd", "#d8ccfe", "#b9a6fb"];
+const BODY = ["#0b3ca8", "#203f8a", "#4a62a3", "#7d90c4"];
+const HEADERS = ["#2f6bff", "#6f95f5", "#0b3ca8", "#4a62a3", "#a5bcf2"];
+const DECOY = ["#a5bcf2", "#cbd8f8", "#93aef0"];
 
 const CELL = 7; // px, before devicePixelRatio
 const GAP = 3;

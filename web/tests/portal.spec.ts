@@ -706,11 +706,11 @@ test("the footer: three groups of links, in the same order in every language, no
 
 test("the wordmark and the buttons keep their colour under the pointer or after a tap", async ({ page }) => {
   await page.goto("/");
-  const ink = await page.locator(".brand__product").evaluate((e) => getComputedStyle(e).color);
   for (const sel of [".brand", ".hero .nb-button--primary", ".site-header .nb-button"]) {
+    const target = page.locator(sel === ".brand" ? ".brand__product" : sel).first();
+    const before = await target.evaluate((e) => getComputedStyle(e).color);
     await page.locator(sel).first().hover();
-    const target = sel === ".brand" ? ".brand__product" : sel;
-    expect(await page.locator(target).first().evaluate((e) => getComputedStyle(e).color)).toBe(ink);
+    expect(await target.evaluate((e) => getComputedStyle(e).color)).toBe(before);
   }
 });
 

@@ -13,12 +13,13 @@
 // The pointer marks what the layer under it can read. Plain Canvas 2D, loaded after the page is up, only
 // where there is room beside the questions (pages/faq.tsx).
 
-const DEST = "#7c5cf0";
-const YOU = "#13232a";
-const NODE = "#c4b5fd";
-const ACCOUNT = "#e39a0b";
-const BODY = ["#9aa6ab", "#b6bfc3", "#87959b"];
-const NOISE = ["#13232a", "#52646b", "#7d8b91", "#9aa6ab", "#a78bfa", "#c4b5fd"];
+// the blueprint's cobalt in a few shades (styles.css, .faq-art__swatch); orange for the account, red for the lens
+const DEST = "#2f6bff";
+const YOU = "#0b3ca8";
+const NODE = "#a5bcf2";
+const ACCOUNT = "#e08a00";
+const BODY = ["#a9b7d6", "#c3cde6", "#93a3c9"];
+const NOISE = ["#0b3ca8", "#4a62a3", "#7d90c4", "#a9b7d6", "#6f95f5", "#a5bcf2"];
 const RED = "#b3261e"; // the lens marks what a layer can read
 
 const COLS = 5;
