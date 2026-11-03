@@ -154,6 +154,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .hero-fig__mesh { fill: none; stroke: var(--ink); stroke-width: .5; opacity: .45; }
 .hero-fig__header { fill: var(--ink); stroke: var(--ink); stroke-width: .6; }
 .hero-fig__scan { fill: none; stroke: var(--danger); stroke-width: 1; stroke-dasharray: 2 3; opacity: .7; }
+.hero-fig__glint { fill: var(--paper); }
 .hero-fig__scan--ground { stroke: var(--ink); opacity: .55; stroke-dasharray: 4 3; }
 @media (min-width: 900px) {
   .hero__inner { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
