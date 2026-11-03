@@ -49,7 +49,7 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
         "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
-        "CASE WHEN d.moved THEN r.previous_until END FROM devices d JOIN regions r ON r.id = d.region_id "
+        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6 FROM devices d JOIN regions r ON r.id = d.region_id "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
         "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
         (account_id,),
@@ -59,7 +59,9 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          "created_on": r[5].isoformat(), "expires_on": r[6].isoformat(), "used_bytes": r[7], "blocked": r[8],
          "connected": r[9],
          # made before the region moved host: the config stops working after this day, or already has
-         "moved_until": r[10].isoformat() if r[10] else None}
+         "moved_until": r[10].isoformat() if r[10] else None,
+         # made before configs had a private IPv6 address; on Apple devices some connections may go around the VPN
+         "ipv6": r[11]}
         for r in rows
     ]
 

@@ -92,6 +92,7 @@
   "devices.movedGone": "{city}節點換了新的主機，這台裝置的設定檔已經不能連線。",
   "devices.movedAdd": "請新增一台裝置、匯入新的設定檔，再刪除這一台。",
   "devices.movedDeleteFirst": "請先刪除這一台，再新增一台裝置、匯入新的設定檔。",
+  "devices.oldConfig": "這台裝置的設定檔是 11 月 3 日更新之前建立的，在 iPhone、iPad 與 Mac 上，有些連線可能不會經過 Vessel。",
   "devices.limitNote": "每個帳號最多 {max} 台裝置，每月共用 {quota}，每次打開 Vessel 入口網站就延長 30 天",
   "devices.delete": "刪除",
   "devices.confirmDelete": "確定要刪除「{name}」嗎？刪除之後，這台裝置會立刻斷線。",

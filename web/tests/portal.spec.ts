@@ -481,6 +481,19 @@ test("the usage card adds up what the filters blocked this month", async ({ page
   await expect(page.getByTestId("blocked-total")).toHaveCount(0);
 });
 
+test("devices whose config has no IPv6 address suggest a new one", async ({ page }) => {
+  const fresh = { ...DEVICES[0], ipv6: true };
+  const old = { ...DEVICES[0], id: "d-ccc", name: "tablet", ipv6: false };
+  const moved = { ...DEVICES[0], id: "d-ddd", name: "watch", region: "jp", ipv6: false, moved_until: "2999-01-01" };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([fresh, old, moved]) });
+  await page.goto("/devices/");
+  const list = page.getByTestId("device-list");
+  // the moved device already asks for a new config; one notice is enough
+  await expect(list.getByTestId("old-config")).toHaveCount(1);
+  await expect(list.locator("li", { hasText: "tablet" }).getByTestId("old-config"))
+    .toHaveText("這台裝置的設定檔是 11 月 3 日更新之前建立的，在 iPhone、iPad 與 Mac 上，有些連線可能不會經過 Vessel。請先刪除這一台，再新增一台裝置、匯入新的設定檔。");
+});
+
 test("devices made before their region moved host ask for a new config", async ({ page }) => {
   const soon = { ...DEVICES[0], id: "d-ccc", name: "tablet", region: "jp", moved_until: "2999-01-01" };
   const gone = { ...DEVICES[0], id: "d-ddd", name: "watch", region: "jp", moved_until: "2000-01-01" };
