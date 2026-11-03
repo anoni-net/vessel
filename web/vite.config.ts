@@ -1,4 +1,17 @@
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
+
+// The commit the pages are built from, for the footer's REV cell and the feedback form. deploy.sh passes it, since
+// its build container has no git; elsewhere ask git. Without either the cell says "dev".
+function commit() {
+  const passed = process.env.VESSEL_REV ?? "";
+  if (/^[0-9a-f]{40}$/.test(passed)) return passed;
+  try {
+    return execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return "";
+  }
+}
 
 // The same policy nginx sends (deploy/nginx/vessel.anoni.net.conf). The preview server sends it too, so the
 // Playwright tests run under it; the dev server does not, since its hot reload needs inline scripts.
@@ -19,6 +32,11 @@ export default defineConfig({
     headers: { "Content-Security-Policy": CSP },
     // tests/analytics.spec.ts reaches the preview as vessel.anoni.net
     allowedHosts: ["vessel.anoni.net"],
+  },
+  define: {
+    __REV__: JSON.stringify(commit()),
+    // the day of the build, in UTC
+    __BUILT__: JSON.stringify(new Date().toISOString().slice(0, 10)),
   },
   build: {
     target: "es2022",

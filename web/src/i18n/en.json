@@ -201,6 +201,7 @@
   "footer.about": "About",
   "footer.community": "anoni.net community",
   "footer.source": "Source code",
+  "footer.rev": "Version",
   "new.title": "Add a device",
   "new.step": "Add a device {n}/5",
   "new.fullTitle": "Device limit reached",

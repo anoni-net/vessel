@@ -201,6 +201,7 @@
   "footer.about": "關於",
   "footer.community": "anoni.net 社群",
   "footer.source": "原始碼",
+  "footer.rev": "版本",
   "new.title": "新增裝置",
   "new.step": "新增裝置 {n}/5",
   "new.fullTitle": "裝置已經到上限",

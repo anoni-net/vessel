@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { type Page, type Route, expect, test } from "@playwright/test";
 
 const ME = { created_on: "2026-10-27", last_login_on: "2026-10-27", device_limit: 3, monthly_quota_bytes: 50e9, used_bytes: 4.2e9 };
@@ -704,6 +705,17 @@ test("the footer: three groups of links, in the same order in every language, no
   // the community's page in the same language, and the code
   await expect(page.locator("footer").getByRole("link", { name: "anoni.net community" })).toHaveAttribute("href", "https://anoni.net/en/");
   await expect(page.locator("footer").getByRole("link", { name: "Source code" })).toHaveAttribute("href", "https://github.com/anoni-net/vessel");
+});
+
+test("the footer's revision: the commit the pages are built from, and the day", async ({ page }) => {
+  const full = execSync("git rev-parse HEAD").toString().trim();
+  for (const [path, heading] of [["/", "版本"], ["/en/", "Version"]] as const) {
+    await page.goto(path);
+    const cell = page.locator("footer .title-block__cell--rev");
+    await expect(cell).toContainText(heading);
+    await expect(cell.locator(".title-block__rev")).toHaveText(new RegExp(`^${full.slice(0, 7)} · \\d{4}-\\d{2}-\\d{2}$`));
+    await expect(cell.getByRole("link", { name: full.slice(0, 7) })).toHaveAttribute("href", `https://github.com/anoni-net/vessel/commit/${full}`);
+  }
 });
 
 test("the wordmark and the buttons keep their colour under the pointer or after a tap", async ({ page }) => {

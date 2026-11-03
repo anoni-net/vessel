@@ -201,6 +201,7 @@
   "footer.about": "关于",
   "footer.community": "anoni.net 社区",
   "footer.source": "源代码",
+  "footer.rev": "版本",
   "new.title": "添加设备",
   "new.step": "添加设备 {n}/5",
   "new.fullTitle": "设备已经到上限",
