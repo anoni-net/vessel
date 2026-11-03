@@ -134,13 +134,19 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* a short line: break only at the spaces and balance the lines, so a narrow screen splits no word and strands no character */
 /* the footer as a drawing's title block (app.tsx): a frame of cells on blueprint paper, each with a short field
    name; on a phone two columns, the wordmark, the community and the languages across both */
-.title-block { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "project project" "help check" "about about" "by by" "langs langs";
+.title-block { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "project project" "help check" "about about" "by rev" "langs langs";
   border: 1px solid color-mix(in srgb, var(--footer-text) 55%, transparent); }
 .title-block__cell { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 14px 14px; border: 0 solid color-mix(in srgb, var(--footer-text) 35%, transparent); border-width: 0 1px 1px 0; }
 .title-block__cell--project { grid-area: project; }
 .title-block__cell--by { grid-area: by; }
 .title-block__cell--about { grid-area: about; }
 .title-block__cell--langs { grid-area: langs; }
+.title-block__cell--rev { grid-area: rev; }
+/* the commit and the day, like a drawing's revision letter and date */
+.title-block__rev { font-family: var(--mono); font-size: 13px; color: var(--footer-text); font-variant-numeric: tabular-nums; }
+.title-block__rev > * { white-space: nowrap; }
+/* a phone's half-width cell: the commit and the day on lines of their own */
+@media (max-width: 719px) { .title-block__rev { display: flex; flex-direction: column; } .title-block__rev-sep { display: none; } }
 .title-block > nav:nth-of-type(1) { grid-area: help; }
 .title-block > nav:nth-of-type(2) { grid-area: check; }
 .title-block__field { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .18em; color: var(--footer-field); }
@@ -152,13 +158,14 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .footer-group__links { display: flex; flex-direction: column; gap: 6px; font-weight: 400; }
 .footer-group--about .footer-group__links { display: grid; grid-template-columns: repeat(2, max-content); gap: 6px 32px; }
 @media (min-width: 720px) {
-  .title-block { grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); grid-template-areas: "project help check about" "by langs langs langs"; }
+  .title-block { grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); grid-template-areas: "project help check about" "by langs langs rev"; }
   .footer-group--about .footer-group__links { display: flex; }
 }
 /* the right and bottom cells meet the frame, which draws those lines */
-.title-block__cell--about, .title-block__cell--langs { border-right-width: 0; }
-.title-block__cell--by, .title-block__cell--langs { border-bottom-width: 0; }
-@media (max-width: 719px) { .title-block > nav:nth-of-type(2) { border-right-width: 0; } .title-block__cell--project { border-right-width: 0; } .title-block__cell--by { border-bottom-width: 1px; border-right-width: 0; } }
+.title-block__cell--about, .title-block__cell--rev { border-right-width: 0; }
+.title-block__cell--by, .title-block__cell--langs, .title-block__cell--rev { border-bottom-width: 0; }
+@media (max-width: 719px) { .title-block > nav:nth-of-type(2) { border-right-width: 0; } .title-block__cell--project { border-right-width: 0; }
+  .title-block__cell--by, .title-block__cell--rev { border-bottom-width: 1px; } .title-block__cell--langs { border-right-width: 0; } }
 /* the footer's blocks: white outlines, standing still */
 .block-title--plain .block-title__front, .block-title--plain .block-title__top, .block-title--plain .block-title__side { fill: rgb(255 255 255 / .06); stroke: var(--footer-text); stroke-width: .9; animation: none; }
 .block-title--plain .block-title__top { fill: rgb(255 255 255 / .16); }

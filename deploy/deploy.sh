@@ -11,7 +11,8 @@ if [ "${VESSEL_DEPLOY_PULLED:-}" != 1 ]; then
   VESSEL_DEPLOY_PULLED=1 exec "$0" "$@"
 fi
 # build in a container, so the host needs no particular Node.js version
-docker run --rm -u "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -v "$PWD/web:/web" -w /web node:22.20-alpine \
+# (the container has no git, so pass the commit for the footer's REV cell)
+docker run --rm -u "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -e VESSEL_REV="$(git rev-parse HEAD)" -v "$PWD/web:/web" -w /web node:22.20-alpine \
   sh -c 'npm ci --no-audit --no-fund && npm run build'
 rsync -a --delete web/dist/ "$WEB_ROOT/"
 # compose reads the root-only env files in /etc/vessel, so it runs as root

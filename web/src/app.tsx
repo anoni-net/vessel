@@ -18,6 +18,7 @@ import { NewDeviceSkeleton } from "./pages/skeleton.tsx";
 import { Legal, NotFound, preloadLegal } from "./pages/simple.tsx";
 import { usePath } from "./router.ts";
 import { FAVICON, LOGO, LOGO_DARK } from "./images.ts";
+import { BUILT, REV, REV_URL } from "./rev.ts";
 import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
 import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
@@ -207,6 +208,14 @@ export function App({ url }: { url?: string } = {}) {
                 })}
               </ul>
             </nav>
+            <div class="title-block__cell title-block__cell--rev">
+              {locale !== "en" && <span class="title-block__field">REV</span>}
+              <p class="footer-heading">{t["footer.rev"]}</p>
+              <p class="title-block__rev">
+                {REV_URL ? <a href={REV_URL} target="_blank" rel="noopener">{REV}</a> : "dev"}
+                <span class="title-block__rev-sep" aria-hidden="true"> · </span><time dateTime={BUILT}>{BUILT}</time>
+              </p>
+            </div>
             <nav class="title-block__cell title-block__cell--langs site-footer__langs" aria-label={t["lang.label"]}>
               {locale !== "en" && <span class="title-block__field">LANGUAGES</span>}
               <span><TranslateIcon /> {t["lang.others"]}

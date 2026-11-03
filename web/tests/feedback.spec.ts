@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { type Page, type Route, expect, test } from "@playwright/test";
 import { FEEDBACK_ENDPOINT, SENT } from "../src/feedback.ts";
 import zhTW from "../src/i18n/zh-TW.json" with { type: "json" };
@@ -16,6 +17,9 @@ async function formServer(page: Page, status = 200) {
   await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
   return sent;
 }
+
+// the commit the pages under test are built from, sent with every reply (see src/rev.ts)
+const REV = execSync("git rev-parse HEAD").toString().trim().slice(0, 7);
 
 test("the zh-TW labels on the page are the texts the survey stores", () => {
   const ui = zhTW as Record<string, string>;
@@ -56,6 +60,7 @@ test("send feedback with the optional answers and where it came from", async ({ 
       wanted: "首爾",
       contact: "me@example.org",
       from: "devices",
+      rev: REV,
     },
   }]);
 });
@@ -68,7 +73,7 @@ test("the simplified Chinese page sends traditional option texts to the zh-TW su
   await page.getByRole("button", { name: "提交" }).click();
   await expect(page.getByTestId("feedback-sent")).toBeVisible();
   // an unknown "from" is dropped
-  expect(sent).toEqual([{ surveyId: "cmvrpvj5f001001o1wzcld0xe", finished: true, data: { kind: "速度太慢", message: "晚上速度只有平常的一半左右", locale: "zh-CN" } }]);
+  expect(sent).toEqual([{ surveyId: "cmvrpvj5f001001o1wzcld0xe", finished: true, data: { kind: "速度太慢", message: "晚上速度只有平常的一半左右", locale: "zh-CN", rev: REV } }]);
 });
 
 test("English goes to the English survey; a closed survey says so", async ({ page }) => {

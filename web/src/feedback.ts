@@ -4,10 +4,11 @@
 //
 // Formbricks has one survey for zh-TW and one for en; the simplified Chinese page sends to the zh-TW one with
 // locale zh-CN. Question ids (kind, message, network, platform, city, wanted, contact) and the hidden fields (from,
-// locale) follow formbricks/vessel_survey.py in the community workspace. Choice questions store the option's
+// locale, rev) follow formbricks/vessel_survey.py in the community workspace. Choice questions store the option's
 // text, so SENT below must match that file word for word; change both together. Nothing here is linked to the
 // Vessel account: no account number, device or key is sent.
 import type { Locale } from "./i18n/index.ts";
+import { REV } from "./rev.ts";
 
 const SURVEYS = { "zh-TW": "cmvrpvj5f001001o1wzcld0xe", en: "cmvrpvjmc001101o17lirnihu" } as const;
 
@@ -79,6 +80,7 @@ export function feedbackPayload(f: Feedback, locale: Locale, from: string) {
   if (f.wanted) data.wanted = sent.wanted[f.wanted];
   if (f.contact.trim()) data.contact = f.contact.trim();
   if (FROM.includes(from)) data.from = from;
+  if (REV) data.rev = REV;
   return { surveyId: SURVEYS[survey], finished: true as const, data };
 }
 
