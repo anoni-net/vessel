@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
-import { HeroFigure } from "./hero-figure.tsx";
+import { HeroFigure, HowItWorks } from "./hero-figure.tsx";
 import { SectionHead } from "./section-head.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
@@ -66,6 +66,13 @@ export function Home() {
           <p class="note">
             {torBefore}<a href="https://www.torproject.org/" target="_blank" rel="noopener">{TOR_BROWSER}</a>{torAfter}
           </p>
+        </div>
+      </section>
+
+      <section id="works" class="band">
+        <div class="wrap">
+          <SectionHead title={t["works.title"]} en="How it works" />
+          <HowItWorks />
         </div>
       </section>
 

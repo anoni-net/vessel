@@ -1,14 +1,11 @@
-import { useEffect, useState } from "preact/hooks";
 import { useCtx } from "../context.ts";
 import { GLOBE, GRID, LABELS, NODES, PATHS, PHONE, SCREEN, VIEWBOX } from "../hero-figure-data.ts";
 import { DISGUISE, type Drawing, LISTS } from "../hero-figures-data.ts";
-import { type MessageKey, fmt } from "../i18n/index.ts";
+import type { MessageKey } from "../i18n/index.ts";
 
 // short English names under the Chinese ones: an aid in the drawing's own vernacular, left out on the English pages
 const EN = { device: "YOUR DEVICE", tokyo: "NODE · TYO", sg: "NODE · SIN", internet: "INTERNET", encrypted: "ENCRYPTED" } as const;
 type Part = keyof typeof EN;
-// how long each picture stays before the next one
-const ROTATE_EVERY = 7000;
 
 /** A label: the name in the page's language, and under it, except on the English pages, the short English one. */
 function Label({ x, y, anchor, name, en, note = false, on = false }: {
@@ -88,45 +85,23 @@ function Drawn({ n, drawing, label, caption }: { n: number; drawing: Drawing; la
   );
 }
 
-/** The home page's hero pictures: the connection, the blocklists and the disguise, one after another. The next
- * comes every few seconds, holding while the pointer or the keyboard is on them; choosing one stops the turning, and
- * with prefers-reduced-motion they turn only when chosen. */
-export function HeroFigure() {
-  const { t } = useCtx();
-  const [at, setAt] = useState(0);
-  const [held, setHeld] = useState(false);
-  const [chosen, setChosen] = useState(false);
-  const slides = [
-    <Connection />,
-    <Drawn n={2} drawing={LISTS} label={t["hero.fig2.label"]} caption={t["hero.fig2.caption"]} />,
-    <Drawn n={3} drawing={DISGUISE} label={t["hero.fig3.label"]} caption={t["hero.fig3.caption"]} />,
-  ];
-  const captions = [t["hero.fig.caption"], t["hero.fig2.caption"], t["hero.fig3.caption"]];
-  useEffect(() => {
-    if (held || chosen || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const id = setInterval(() => document.visibilityState === "visible" && setAt((x) => (x + 1) % slides.length), ROTATE_EVERY);
-    return () => clearInterval(id);
-  }, [held, chosen]);
+/** The hero's picture: the connection through a node. */
+export const HeroFigure = Connection;
+
+/** Under 使用情境: how Vessel does two of them, the blocklists and the disguise, a picture and a few words each. */
+export function HowItWorks() {
+  const { t, href } = useCtx();
   return (
-    <div class="hero-figs" role="group" aria-roledescription={t["hero.figs.role"]} aria-label={t["hero.figs.label"]}
-      onMouseEnter={() => setHeld(true)} onMouseLeave={() => setHeld(false)}
-      onFocusIn={() => setHeld(true)} onFocusOut={() => setHeld(false)}>
-      <div class="hero-figs__stage">
-        {slides.map((slide, n) => (
-          <div class={`hero-figs__slide${n === at ? " hero-figs__slide--on" : ""}`} aria-hidden={n === at ? undefined : "true"}
-            inert={n === at ? undefined : true}>
-            {slide}
-          </div>
-        ))}
+    <div class="how-it-works">
+      <div class="how-it-works__item">
+        <Drawn n={2} drawing={LISTS} label={t["hero.fig2.label"]} caption={t["hero.fig2.caption"]} />
+        <p>{t["works.lists"]}</p>
+        <p class="small"><a href={href("/dns/")}>{t["dns.link"]}</a></p>
       </div>
-      <div class="hero-figs__pick">
-        {slides.map((_, n) => (
-          <button type="button" class="hero-figs__dot" aria-pressed={n === at}
-            aria-label={fmt(t["hero.figs.show"], { n: n + 1, caption: captions[n] })}
-            onClick={() => { setAt(n); setChosen(true); }}>
-            0{n + 1}
-          </button>
-        ))}
+      <div class="how-it-works__item">
+        <Drawn n={3} drawing={DISGUISE} label={t["hero.fig3.label"]} caption={t["hero.fig3.caption"]} />
+        <p>{t["works.disguise"]}</p>
+        <p class="small"><a href={href("/faq/#q-disguise")}>{t["faq.disguise.q"]}</a></p>
       </div>
     </div>
   );
