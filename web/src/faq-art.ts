@@ -15,14 +15,24 @@
 // Plain Canvas 2D, loaded after the page is up, only where there is room beside the questions (pages/faq.tsx).
 
 // the blueprint's cobalt in a few shades (styles.css, .faq-art__swatch); orange for the account, red for the lens
-const DEST = "#2f6bff";
-const YOU = "#0b3ca8";
-const NODE = "#a5bcf2";
-const ACCOUNT = "#e08a00";
-const BODY = ["#a9b7d6", "#c3cde6", "#93a3c9"];
-const NOISE = ["#0b3ca8", "#4a62a3", "#7d90c4", "#a9b7d6", "#6f95f5", "#a5bcf2"];
-const RED = "#b3261e"; // the lens marks what a layer can read
-const PLATE = "rgba(214, 226, 251, 0.6)";
+// one set of colours for each scheme, the dark one for light lines on deep blue (styles.css, :root); the four that
+// mean something match the key's swatches (--fig-dest, --fig-you, --fig-node, --fig-account)
+const LIGHT = {
+  dest: "#2f6bff", you: "#0b3ca8", node: "#a5bcf2", account: "#e08a00",
+  body: ["#a9b7d6", "#c3cde6", "#93a3c9"],
+  noise: ["#0b3ca8", "#4a62a3", "#7d90c4", "#a9b7d6", "#6f95f5", "#a5bcf2"],
+  red: "#b3261e", // the lens marks what a layer can read
+  plate: "rgba(214, 226, 251, 0.6)", edge: "11, 60, 168", veil: "#ffffff",
+};
+const DARK: typeof LIGHT = {
+  dest: "#6f9bff", you: "#c2d4ff", node: "#4f71bd", account: "#f59e0b",
+  body: ["#2c4683", "#36518f", "#253d75"],
+  noise: ["#c2d4ff", "#8fb2ff", "#5c84d6", "#36518f", "#6f9bff", "#4f71bd"],
+  red: "#ff8a80",
+  plate: "rgba(37, 68, 138, 0.55)", edge: "143, 178, 255", veil: "#0b1838",
+};
+const SCHEME = "(prefers-color-scheme: dark)";
+let pal = typeof matchMedia === "function" && matchMedia(SCHEME).matches ? DARK : LIGHT;
 // a block's depth, up and to the right like the title's (pages/block-title.tsx), and a plate's
 const DX = 2.6;
 const DY = 2;
@@ -51,8 +61,8 @@ type Layer = 0 | 1 | 2 | 3;
 interface Cell {
   gx: number;
   gy: number;
-  body: string;
-  noise: string;
+  body: number; // which of the palette's shades, so a change of scheme recolours the packets already on screen
+  noise: number;
   jx: number; // where it sits in the noise
   jy: number;
 }
@@ -94,7 +104,7 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
     const cells: Cell[] = [];
     for (let gy = 0; gy < ROWS; gy++) {
       for (let gx = 0; gx < COLS; gx++) {
-        cells.push({ gx, gy, body: pick(BODY), noise: pick(NOISE), jx: rand(-4, 4), jy: rand(-4, 4) });
+        cells.push({ gx, gy, body: pick([0, 1, 2]), noise: pick([0, 1, 2, 3, 4, 5]), jx: rand(-4, 4), jy: rand(-4, 4) });
       }
     }
     // the left edge belongs to the layer names (pages/faq.tsx)
@@ -139,11 +149,11 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
 
   function colorOf(c: Cell, layer: Layer): string {
     const r = role(c);
-    if (layer === 1) return c.noise;
-    if (r === "dest") return DEST;
-    if (r === "source") return layer === 3 ? NODE : YOU;
-    if (r === "account") return layer === 2 ? c.body : ACCOUNT;
-    return c.body;
+    if (layer === 1) return pal.noise[c.noise]!;
+    if (r === "dest") return pal.dest;
+    if (r === "source") return layer === 3 ? pal.node : pal.you;
+    if (r === "account") return layer === 2 ? pal.body[c.body]! : pal.account;
+    return pal.body[c.body]!;
   }
 
   // which cells the layer under the pointer can read
@@ -170,7 +180,7 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
       const y0 = top(focus);
       const y1 = focus === 3 ? h : top((focus + 1) as Layer);
       ctx!.globalAlpha = 0.5;
-      ctx!.fillStyle = "#ffffff";
+      ctx!.fillStyle = pal.veil;
       ctx!.fillRect(0, y0, w, y1 - y0);
       ctx!.globalAlpha = 1;
     }
@@ -180,12 +190,12 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
       const x1 = w - PLATE_DX - 2;
       // the plate, its front edge, and an opening where each lane goes through
       // the top, the front edge and the right end, so the plate has a thickness
-      ctx!.fillStyle = PLATE;
+      ctx!.fillStyle = pal.plate;
       slab(0, x1, y);
       ctx!.fill();
-      ctx!.fillStyle = "rgba(11, 60, 168, 0.22)";
+      ctx!.fillStyle = `rgba(${pal.edge}, 0.22)`;
       ctx!.fillRect(0, y, x1, PLATE_T);
-      ctx!.fillStyle = "rgba(11, 60, 168, 0.32)";
+      ctx!.fillStyle = `rgba(${pal.edge}, 0.32)`;
       ctx!.beginPath();
       ctx!.moveTo(x1, y);
       ctx!.lineTo(x1 + PLATE_DX, y - PLATE_DY);
@@ -202,7 +212,7 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
       }
       ctx!.globalCompositeOperation = "source-over";
       ctx!.lineWidth = 1.2;
-      ctx!.strokeStyle = YOU;
+      ctx!.strokeStyle = pal.you;
       ctx!.globalAlpha = 0.7;
       slab(0, x1, y);
       ctx!.stroke();
@@ -212,7 +222,7 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
         // the opening, and the far wall of its cut through the plate
         slab(cx - hole / 2 - PLATE_DX / 2, cx + hole / 2 - PLATE_DX / 2, y - 2);
         ctx!.stroke();
-        ctx!.fillStyle = "rgba(11, 60, 168, 0.18)";
+        ctx!.fillStyle = `rgba(${pal.edge}, 0.18)`;
         ctx!.beginPath();
         ctx!.moveTo(cx - hole / 2 + PLATE_DX / 2, y - 2 - PLATE_DY);
         ctx!.lineTo(cx + hole / 2 + PLATE_DX / 2, y - 2 - PLATE_DY);
@@ -269,7 +279,7 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
       }
       block(x, y, colorOf(c, layer));
       if (focus === layer && readable(c, layer)) {
-        ctx!.strokeStyle = RED;
+        ctx!.strokeStyle = pal.red;
         ctx!.lineWidth = 2;
         ctx!.strokeRect(x - 2, y - 2, CELL + 4, CELL + 4);
       }
@@ -278,11 +288,11 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
       // padding of no fixed length, so not even the size gives it away; on the inner side of each lane
       const padX = (i: number) => (p.dir === 1 ? p.x + COLS * PITCH + (i % 3) * PITCH : p.x - (1 + (i % 3)) * PITCH);
       for (let i = 0; i < p.pad; i++) {
-        block(padX(i), p.y + Math.floor(i / 3) * PITCH, NOISE[(i * 7 + p.pad) % NOISE.length]!);
+        block(padX(i), p.y + Math.floor(i / 3) * PITCH, pal.noise[(i * 7 + p.pad) % pal.noise.length]!);
       }
       if (focus === 1) {
         // the provider has nothing to read: the whole thing is one unknown
-        ctx!.strokeStyle = RED;
+        ctx!.strokeStyle = pal.red;
         ctx!.lineWidth = 1.5;
         ctx!.setLineDash([3, 3]);
         const extra = p.pad ? 3 * PITCH : 0;
@@ -342,6 +352,13 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
     draw();
   });
 
+  const scheme = matchMedia(SCHEME);
+  const onScheme = () => {
+    pal = scheme.matches ? DARK : LIGHT;
+    draw();
+  };
+  scheme.addEventListener("change", onScheme);
+
   resize();
   draw();
   ro.observe(canvas);
@@ -360,5 +377,6 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
     canvas.removeEventListener("pointermove", onMove);
     canvas.removeEventListener("pointerleave", onLeave);
     document.removeEventListener("visibilitychange", onVisibility);
+    scheme.removeEventListener("change", onScheme);
   };
 }
