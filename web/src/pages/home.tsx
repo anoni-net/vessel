@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
+import { BlockTitle } from "./block-title.tsx";
+import { HeroFigure, HowItWorks } from "./hero-figure.tsx";
+import { SectionHead } from "./section-head.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
 // the first three on every screen, the fourth too where the cards sit two to a row, all six on a wide screen (styles.css)
@@ -23,7 +26,7 @@ export function Home() {
       <section class="hero band band--tint">
         <div class="wrap hero__inner">
           <div class="hero__text">
-            <h1>{t["home.title"]}</h1>
+            <h1 class="hero__title"><BlockTitle /><span class="sr-only">{t["home.title"]}</span></h1>
             <p class="lead">{t["home.lead"]}</p>
             <p class="strong">{t["home.promise"]}</p>
             <p><a href={href("/learn/")}>{t["learn.link"]}</a></p>
@@ -43,13 +46,13 @@ export function Home() {
               </div>
             )}
           </div>
-          <HeroArt />
+          <HeroFigure />
         </div>
       </section>
 
       <section id="when" class="band">
         <div class="wrap">
-          <h2>{t["when.title"]}</h2>
+          <SectionHead title={t["when.title"]} en="Use cases" />
           <ul class="cards cards--3 cards--six plain">
             {WHEN.map((n) => (
               <li class={n === "4" ? "card card--fourth" : Number(n) > 4 ? "card card--wide" : "card"}>
@@ -67,9 +70,16 @@ export function Home() {
         </div>
       </section>
 
+      <section id="works" class="band">
+        <div class="wrap">
+          <SectionHead title={t["works.title"]} en="How it works" />
+          <HowItWorks />
+        </div>
+      </section>
+
       <section id="how" class="band band--grey">
         <div class="wrap">
-          <h2>{t["how.title"]}</h2>
+          <SectionHead title={t["how.title"]} en="3 steps" />
           <ol class="cards cards--3">
             {STEPS.map((n) => (
               <li class="card">
@@ -86,7 +96,7 @@ export function Home() {
       <section id="why" class="band">
         <div class="wrap why-layout">
           <div>
-            <h2>{t["why.title"]}</h2>
+            <SectionHead title={t["why.title"]} en="Why" />
             <p class="section-lead">{t["why.body"]}</p>
             <p class="section-lead">{t["why.reach"]}</p>
             <div class="actions">
@@ -103,42 +113,16 @@ export function Home() {
   );
 }
 
-// decoration only: beside the text on wide screens, under the buttons on phones; loaded after the page is
-// up, and still for prefers-reduced-motion
-
-function HeroArt() {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (!canvas.current) return;
-    let stop: (() => void) | undefined;
-    let cancelled = false;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const load = () =>
-      import("../hero-art.ts").then((m) => {
-        if (!cancelled && canvas.current) stop = m.start(canvas.current, { reduced });
-      }).catch(() => {});
-    // after the text and buttons are up
-    const timer = window.setTimeout(load, 600);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      stop?.();
-    };
-  }, []);
-  return (
-    <div class="hero__art" aria-hidden="true">
-      <canvas ref={canvas} />
-    </div>
-  );
-}
-
 const WIDE = "(min-width: 960px)";
-// a cell of the map grid, and the square drawn in it
-const CELL = 10;
-const DOT = 7;
+// the map seen from above at a slant: a cell is A wide, its row D deep on screen, and each row north shifts B right
+const A = 10;
+const B = 3;
+const D = 7.5;
 
-/** Beside 社群架設的原因 on a wide screen: Taiwan, and a line from it to each city with a node. No words: the text
- * beside it says what the service is. The grid is loaded only when the map is shown, so a phone does not fetch it. */
+/** Beside 社群架設的原因 on a wide screen: East and Southeast Asia as a tabletop seen from above at a slant, the land in
+ * tiles, Taiwan raised in cobalt blocks, a server tower at each city with a node, and a dashed arc from Taiwan to
+ * each. No words: the text beside it says what the service is. The grid is loaded only when the map is shown, so a
+ * phone does not fetch it. */
 function RegionMap() {
   const [map, setMap] = useState<typeof import("../region-map.ts") | null>(null);
   useEffect(() => {
@@ -154,31 +138,47 @@ function RegionMap() {
     return () => wide.removeEventListener("change", load);
   }, []);
   if (!map) return <div class="region-map" aria-hidden="true" />;
-  const square = (c: number, r: number) => `M${c * CELL} ${r * CELL}h${DOT}v${DOT}h-${DOT}z`;
-  const land = map.LAND.flatMap((row, r) => [...row].map((ch, c) => (ch === "#" ? square(c, r) : ""))).join("");
-  const taiwan = map.TAIWAN.map(([c, r]) => square(c, r)).join("");
-  const at = ([c, r]: [number, number]) => [c * CELL + DOT / 2, r * CELL + DOT / 2] as const;
-  const [ox, oy] = at(map.ORIGIN);
-  const size = map.LAND.length * CELL;
+  const rows = map.LAND.length;
+  // a point of the table: column, row, height above it
+  const P = (c: number, r: number, z = 0) => [c * A + (rows - r) * B, r * D - z] as const;
+  const poly = (...ps: (readonly [number, number])[]) => ps.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const tile = (c: number, r: number, z = 0, g = 0.12) =>
+    `M${poly(P(c + g, r + g, z), P(c + 1 - g, r + g, z), P(c + 1 - g, r + 1 - g, z), P(c + g, r + 1 - g, z)).replaceAll(" ", "L")}Z`;
+  const land = map.LAND.flatMap((row, r) => [...row].map((ch, c) => (ch === "#" ? tile(c, r) : ""))).join("");
+  // a box on the table: its top, the face toward us (south) and the one to the right (east)
+  const box = (c: number, r: number, w: number, d: number, h: number, cls: string) => (
+    <g class={cls}>
+      <polygon class="region-map__south" points={poly(P(c, r + d), P(c + w, r + d), P(c + w, r + d, h), P(c, r + d, h))} />
+      <polygon class="region-map__east" points={poly(P(c + w, r + d), P(c + w, r), P(c + w, r, h), P(c + w, r + d, h))} />
+      <polygon class="region-map__top" points={poly(P(c, r, h), P(c + w, r, h), P(c + w, r + d, h), P(c, r + d, h))} />
+    </g>
+  );
+  const HOME = 10; // how high Taiwan's blocks stand
+  const TOWER = 110;
+  // north first, so what is nearer covers what is behind it
+  const taiwan = [...map.TAIWAN].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  const [oc, or] = map.ORIGIN;
+  const [ox, oy] = P(oc + 0.5, or + 0.5, HOME);
+  const width = map.LAND[0].length * A + rows * B;
   return (
     <div class="region-map" aria-hidden="true">
-      <svg viewBox={`0 0 ${map.LAND[0].length * CELL} ${size}`}>
+      <svg viewBox={`-4 ${-TOWER - 20} ${width + 8} ${rows * D + TOWER + 24}`}>
         <path class="region-map__land" d={land} />
-        {map.NODES.map((node) => {
-          const [x, y] = at(node);
-          // bowed to the side, a quarter of the distance
-          const [mx, my] = [(ox + x) / 2 - (y - oy) / 4, (oy + y) / 2 + (x - ox) / 4];
+        {taiwan.map(([c, r]) => box(c, r, 1, 1, HOME, "region-map__home"))}
+        {[...map.NODES].sort((a, b) => a[1] - b[1]).map(([c, r]) => {
+          const [tx, ty] = P(c + 0.5, r - 0.5, TOWER);
+          // an arc from Taiwan up and over to the top of the tower
+          const [mx, my] = [(ox + tx) / 2, Math.min(oy, ty) - Math.hypot(tx - ox, ty - oy) * 0.28];
           return (
             <>
-              <path class="region-map__line" d={`M${ox} ${oy}Q${mx} ${my} ${x} ${y}`} />
-              <rect class="region-map__ring" x={x - 16} y={y - 16} width="32" height="32" />
-              <rect class="region-map__node" x={x - 8} y={y - 8} width="16" height="16" />
+              <path class="region-map__line" d={`M${ox} ${oy}Q${mx} ${my} ${tx} ${ty}`} />
+              {box(c - 1, r - 2, 3, 3, TOWER, "region-map__node")}
+              {[0.2, 0.35, 0.5, 0.65, 0.8].map((k) => (
+                <path class="region-map__slot" d={`M${poly(P(c - 0.6, r + 1, TOWER * k), P(c + 1.6, r + 1, TOWER * k)).replace(" ", "L")}`} />
+              ))}
             </>
           );
         })}
-        {/* over the lines' start, so they leave from its edge; Taiwan's land on top */}
-        <rect class="region-map__start" x={ox - 26} y={oy - 30} width="52" height="60" />
-        <path class="region-map__home" d={taiwan} />
       </svg>
     </div>
   );

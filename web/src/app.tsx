@@ -22,6 +22,7 @@ import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
 import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
 import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import { BlockTitle } from "./pages/block-title.tsx";
 
 // key generation and the QR code are only needed here, so they load with this page (see pages/lazy.ts)
 function NewDevice() {
@@ -160,13 +161,20 @@ export function App({ url }: { url?: string } = {}) {
       </header>
       <main class="site-main" key={path}>{route ? route[1]() : <NotFound />}</main>
       <footer class="site-footer">
-        <div class="wrap site-footer__inner">
-          <div class="footer-brand">
-            <p class="footer-brand__name"><img src={FAVICON} alt="" width="24" height="24" />Vessel</p>
-            <p class="footer-brand__tagline">{t["footer.service"]}</p>
-          </div>
-          <div class="footer-groups">
-            <nav aria-labelledby="footer-help" class="footer-group">
+        {/* a drawing's title block: a frame of cells, each with a short English field name above it (left out on the
+            English pages, where the cell's own heading says the same) */}
+        <div class="wrap">
+          <div class="title-block">
+            <div class="title-block__cell title-block__cell--project">
+              {locale !== "en" && <span class="title-block__field">PROJECT</span>}
+              <a class="title-block__mark" href={href("/")} aria-label="Vessel"><BlockTitle plain /></a>
+            </div>
+            <div class="title-block__cell title-block__cell--by">
+              {locale !== "en" && <span class="title-block__field">BY</span>}
+              <p class="footer-brand__tagline"><img src={FAVICON} alt="" width="20" height="20" />{t["footer.service"]}</p>
+            </div>
+            <nav aria-labelledby="footer-help" class="title-block__cell footer-group">
+              {locale !== "en" && <span class="title-block__field">HELP</span>}
               <p class="footer-heading" id="footer-help">{t["footer.help"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={href("/learn/")}>{t["learn.title"]}</a></li>
@@ -174,7 +182,8 @@ export function App({ url }: { url?: string } = {}) {
                 <li><a href={href("/dns/")}>{t["dns.title"]}</a></li>
               </ul>
             </nav>
-            <nav aria-labelledby="footer-checks" class="footer-group">
+            <nav aria-labelledby="footer-checks" class="title-block__cell footer-group">
+              {locale !== "en" && <span class="title-block__field">CHECK</span>}
               <p class="footer-heading" id="footer-checks">{t["footer.checks"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={href("/check/")}>{t["check.title"]}</a></li>
@@ -182,7 +191,8 @@ export function App({ url }: { url?: string } = {}) {
                 <li><a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a></li>
               </ul>
             </nav>
-            <nav aria-labelledby="footer-about" class="footer-group footer-group--about">
+            <nav aria-labelledby="footer-about" class="title-block__cell title-block__cell--about footer-group footer-group--about">
+              {locale !== "en" && <span class="title-block__field">ABOUT</span>}
               <p class="footer-heading" id="footer-about">{t["footer.about"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={COMMUNITY[locale]} target="_blank" rel="noopener">{t["footer.community"]}</a></li>
@@ -194,24 +204,25 @@ export function App({ url }: { url?: string } = {}) {
                 })}
               </ul>
             </nav>
+            <nav class="title-block__cell title-block__cell--langs site-footer__langs" aria-label={t["lang.label"]}>
+              {locale !== "en" && <span class="title-block__field">LANGUAGES</span>}
+              <span><TranslateIcon /> {t["lang.others"]}
+                {others.map((l, i) => (
+                  <>
+                    {i > 0 && t["lang.sep"]}
+                    <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} onClick={() => rememberLocale(l)}>{LANGUAGE_NAME[l]}</a>
+                  </>
+                ))}
+              </span>
+            </nav>
           </div>
-        </div>
-        <div class="wrap">
-          <nav class="site-footer__langs" aria-label={t["lang.label"]}>
-            <TranslateIcon /> {t["lang.others"]}
-            {others.map((l, i) => (
-              <>
-                {i > 0 && t["lang.sep"]}
-                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} onClick={() => rememberLocale(l)}>{LANGUAGE_NAME[l]}</a>
-              </>
-            ))}
-          </nav>
-        </div>
-        <div class="wrap">
-          <StatsChoice />
-          <p class="footer-legal">
-            {t["footer.trademarks"]} <a href="https://www.wireguard.com/" target="_blank" rel="noopener">wireguard.com</a>
-          </p>
+          {/* the small print under the frame, like a drawing's notes */}
+          <div class="title-block__notes">
+            <StatsChoice />
+            <p class="footer-legal">
+              {t["footer.trademarks"]} <a href="https://www.wireguard.com/" target="_blank" rel="noopener">wireguard.com</a>
+            </p>
+          </div>
         </div>
       </footer>
     </LocaleContext.Provider>

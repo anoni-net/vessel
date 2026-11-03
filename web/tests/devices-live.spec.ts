@@ -35,7 +35,8 @@ test("the page asks again once the next read has landed and shows what it added"
   const api = await mockReads(page);
   await page.goto("/devices/");
   const usage = page.getByTestId("device-usage");
-  await expect(usage.first()).toHaveText("本月 3.1 GB · 擋下 12 次惡意網站的查詢");
+  await expect(usage.first()).toHaveText("3.1 GB");
+  await expect(page.getByTestId("device-blocked").first()).toHaveText("12 次");
   // one read seen: no dot yet, since the page cannot tell what changed
   await expect(page.locator(".live-dot")).toHaveCount(0);
   await expect(page.locator(".next-read")).toHaveAttribute("title", /下次更新約/);
@@ -50,7 +51,8 @@ test("the page asks again once the next read has landed and shows what it added"
   await expect.poll(() => api.calls.length).toBe(first + 1);
 
   await page.clock.runFor(2000);
-  await expect(usage.first()).toHaveText("本月 3.3 GB · 擋下 15 次惡意網站的查詢");
+  await expect(usage.first()).toHaveText("3.3 GB");
+  await expect(page.getByTestId("device-blocked").first()).toHaveText("15 次");
   // what the read added sits on the card's top edge, so nothing in the card moves
   const added = (card: Locator) => card.locator(".added__item");
   await expect(added(page.locator(".card--tint"))).toHaveText(["+200 MB", "擋下 +3"]);
