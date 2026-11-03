@@ -120,8 +120,18 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .band--grey { background: var(--grey); }
 .hero h1 { font-family: var(--mono); font-size: clamp(52px, 11vw, 76px); font-style: italic; line-height: 1.05; letter-spacing: .04em; margin-block: 16px; }
 .hero__text { display: flex; flex-direction: column; gap: 16px; max-width: 40em; }
-/* the connection picture (pages/hero-figure.tsx): under the buttons on phones, beside the text on wide screens */
-.hero-fig { margin: 28px 0 0; border: 1px solid var(--line); background: rgb(255 255 255 / .6); }
+/* the hero's three pictures (pages/hero-figure.tsx): under the buttons on phones, beside the text on wide screens.
+   They lie on top of each other in one cell, as tall as the tallest, and fade from one to the next */
+.hero-figs { margin-top: 28px; display: grid; gap: 10px; }
+.hero-figs__stage { display: grid; }
+.hero-figs__slide { grid-area: 1 / 1; display: flex; opacity: 0; visibility: hidden; transition: opacity .6s ease, visibility 0s linear .6s; }
+.hero-figs__slide--on { opacity: 1; visibility: visible; transition: opacity .6s ease, visibility 0s; }
+@media (prefers-reduced-motion: reduce) { .hero-figs__slide, .hero-figs__slide--on { transition: none; } }
+.hero-figs__pick { display: flex; gap: 6px; }
+.hero-figs__dot { min-width: 44px; min-height: 32px; padding: 0 10px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--paper); color: var(--ink); font: 600 12px var(--mono); letter-spacing: .1em; cursor: pointer; }
+.hero-figs__dot[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.hero-fig { flex: 1; display: flex; flex-direction: column; margin: 0; border: 1px solid var(--line); background: rgb(255 255 255 / .6); }
+.hero-fig figcaption { margin-top: auto; }
 .hero-fig svg { display: block; width: 100%; height: auto; }
 .hero-fig figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .hero-fig__grid { fill: none; stroke: rgb(11 60 168 / .1); stroke-width: .6; }
@@ -140,9 +150,18 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .hero-fig__label { fill: var(--ink); font-family: var(--font); font-size: 10px; font-weight: 700; }
 .hero-fig__label--note { fill: var(--muted); font-weight: 400; }
 .hero-fig__en { fill: var(--muted); font-family: var(--mono); font-size: 7px; font-weight: 500; letter-spacing: .12em; }
+/* names written on a picture's walls keep a white edge over the mesh behind them */
+.hero-fig__label--on, .hero-fig__label--on .hero-fig__en { paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; }
+/* FIG. 02 and 03: what is stopped is pale red with a red cross; the lists are mesh walls; the plain VPN's header is solid ink */
+.hero-fig__bad { fill: #fde7e4; }
+.hero-fig__x { fill: none; stroke: var(--danger); stroke-width: 2.2; stroke-linecap: round; }
+.hero-fig__wall { fill-opacity: .7; }
+.hero-fig__mesh { fill: none; stroke: var(--ink); stroke-width: .5; opacity: .45; }
+.hero-fig__header { fill: var(--ink); stroke: var(--ink); stroke-width: .6; }
+.hero-fig__scan { fill: none; stroke: var(--danger); stroke-width: 1; stroke-dasharray: 2 3; opacity: .7; }
 @media (min-width: 900px) {
   .hero__inner { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
-  .hero-fig { margin-top: 0; }
+  .hero-figs { margin-top: 0; }
 }
 .lead { font-size: 20px; }
 .actions { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; }
