@@ -42,8 +42,9 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
                     node.remove(host, device_id)
                     result = node.add_pubkey(host, device_id, payload["public_key"], payload["psk"], payload["dns_filter"])
                 conn.execute(
-                    "UPDATE devices SET status = 'active', tunnel_address = %s WHERE id = %s AND status = 'pending'",
-                    (result["interface"]["Address"].split("/")[0], device_id),
+                    "UPDATE devices SET status = 'active', tunnel_address = %s, ipv6 = %s WHERE id = %s AND status = 'pending'",
+                    # "10.8.1.7/32, fd60:f74e:973c::7/128": the IPv4 address first, then the private IPv6 one
+                    (result["interface"]["Address"].split("/")[0], ":" in result["interface"]["Address"], device_id),
                 )
                 conn.execute(
                     "UPDATE jobs SET status = 'done', payload = NULL, result = %s, done_at = now(), updated_at = now() "

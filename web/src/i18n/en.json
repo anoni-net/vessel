@@ -92,6 +92,7 @@
   "devices.movedGone": "The {city} node has moved to a new server, and this device's config no longer works.",
   "devices.movedAdd": "Add a new device, import the new config, then delete this one.",
   "devices.movedDeleteFirst": "Delete this one first, then add a new device and import the new config.",
+  "devices.oldConfig": "This device's config was made before the update on 3 November, and on an iPhone, iPad or Mac some connections may not go through Vessel.",
   "devices.limitNote": "Up to {max} devices per account, {quota} a month shared between them. Each visit to the Vessel portal extends them by 30 days",
   "devices.delete": "Delete",
   "devices.confirmDelete": "Delete “{name}”? The device disconnects right away.",

@@ -79,6 +79,8 @@ export interface Device {
   connected: boolean;
   /** made before its region moved to a new host: the config stops working after this day (or already has) */
   moved_until: string | null;
+  /** the config has the private IPv6 address (anoni-net/vessel#122); without it, iOS sends IPv6 around the tunnel */
+  ipv6: boolean;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */

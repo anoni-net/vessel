@@ -282,6 +282,13 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                   })}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
                 </p>
               )}
+              {/* only an answer that says false: a device page cached before this field existed shows nothing */}
+              {!d.moved_until && d.ipv6 === false && (d.status === "active" || d.status === "suspended") && (
+                <p class="card card--warn card--flat small notice" data-testid="old-config">
+                  <Icon name="warning" />
+                  <span>{t["devices.oldConfig"]}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
+                </p>
+              )}
               <div class="row small">
                 <span>{fmt(t["devices.expires"], { date: formatDate(locale, d.expires_on) })}</span>
                 {deleting.has(d.id) ? (

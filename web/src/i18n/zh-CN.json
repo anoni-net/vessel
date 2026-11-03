@@ -92,6 +92,7 @@
   "devices.movedGone": "{city}节点换了新的主机，这台设备的配置文件已经无法连接。",
   "devices.movedAdd": "请添加一台设备、导入新的配置文件，再删除这一台。",
   "devices.movedDeleteFirst": "请先删除这一台，再添加一台设备、导入新的配置文件。",
+  "devices.oldConfig": "这台设备的配置文件是 11 月 3 日更新之前创建的，在 iPhone、iPad 与 Mac 上，有些连接可能不会经过 Vessel。",
   "devices.limitNote": "每个账号最多 {max} 台设备，每月共用 {quota}，每次打开 Vessel 门户网站就延长 30 天",
   "devices.delete": "删除",
   "devices.confirmDelete": "确定要删除“{name}”吗？删除之后，这台设备会立刻断开。",
