@@ -30,6 +30,8 @@ D=/opt/vessel-node
 C=vessel-node
 IMG=vessel-node:latest
 SUBNET=10.8.1
+# the tunnel's private IPv6 range, the same as in start.sh; a peer's address ends in the same number as its IPv4 one
+SUBNET6=fd60:f74e:973c::
 # shellcheck source=/dev/null
 . $D/node.env
 : "${NODE_IP:?NODE_IP missing in $D/node.env}" "${LISTEN_PORT:?LISTEN_PORT missing in $D/node.env}"
@@ -80,7 +82,7 @@ client_params() {
 next_ip() {
   local used n
   # suspended peers keep their address for when they resume
-  used=$(grep -h '^AllowedIPs' $D/peers/*.conf $D/suspended/*.conf 2>/dev/null | sed -E "s/.*$SUBNET\.([0-9]+)\/32/\1/")
+  used=$(grep -h '^AllowedIPs' $D/peers/*.conf $D/suspended/*.conf 2>/dev/null | grep -oE "$SUBNET\.[0-9]+/32" | sed -E 's/.*\.([0-9]+)\/32/\1/')
   # .250-.254 are reserved for the node's own services
   for n in $(seq 2 249); do
     grep -qx "$n" <<<"$used" || { echo "$SUBNET.$n"; return; }
@@ -88,13 +90,16 @@ next_ip() {
   die "no free address in $SUBNET.0/24"
 }
 
-# write peers/<name>.conf; prints the peer's tunnel address
+# the IPv6 address that goes with an IPv4 tunnel address
+ip6_of() { echo "$SUBNET6${1##*.}"; }
+
+# write peers/<name>.conf; prints the peer's tunnel address (IPv4)
 new_peer() { # name filter pubkey psk
   local ip
   ip=$(next_ip)
   umask 077
-  printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32\n' \
-    "$1" "$2" "$3" "$4" "$ip" > $D/peers/$1.conf
+  printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32, %s/128\n' \
+    "$1" "$2" "$3" "$4" "$ip" "$(ip6_of "$ip")" > $D/peers/$1.conf
   # the address's blocked-lookup counters (start.sh) start over for its new owner; rule n counts .n+1
   docker exec $C iptables -Z VESSEL-BLOCKED $(( ${ip##*.} - 1 )) >/dev/null 2>&1 || true
   docker exec $C iptables -Z VESSEL-ADS $(( ${ip##*.} - 1 )) >/dev/null 2>&1 || true
@@ -131,7 +136,9 @@ for l in lines[:sep]:
     peers[pub] = (name, flt)
 for l in lines[sep + 1:sep2]:
     f = l.split("\t")
-    dump[f[0]] = {"address": f[3].removesuffix("/32"), "latest_handshake": int(f[4]), "rx": int(f[5]), "tx": int(f[6])}
+    # allowed IPs are comma-separated; the IPv4 one names the peer in the counters
+    v4 = [a for a in f[3].split(",") if "." in a]
+    dump[f[0]] = {"address": v4[0].removesuffix("/32") if v4 else None, "latest_handshake": int(f[4]), "rx": int(f[5]), "tx": int(f[6])}
 # blocked lookups per tunnel address: the malware list (VESSEL-BLOCKED) and the ad list (VESSEL-ADS); a chain
 # a node does not have yet reads as zero
 blocked = dict(l.split("\t") for l in lines[sep2 + 1:sep3] if "\t" in l)
@@ -170,7 +177,7 @@ else:
     srv_pub=$(docker exec $C awg show awg0 public-key)
     ip=$(new_peer "$name" "$filter" "$pub" "$psk")
     umask 077
-    { printf '[Interface]\nAddress = %s/32\nDNS = %s\nPrivateKey = %s\nMTU = 1280\n' "$ip" "${RESOLVER[$filter]}" "$priv"
+    { printf '[Interface]\nAddress = %s/32, %s/128\nDNS = %s\nPrivateKey = %s\nMTU = 1280\n' "$ip" "$(ip6_of "$ip")" "${RESOLVER[$filter]}" "$priv"
       client_params
       printf '\n[Peer]\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = %s:%s\nPersistentKeepalive = 25-35\n' \
         "$srv_pub" "$psk" "$NODE_IP" "$LISTEN_PORT"
@@ -188,7 +195,7 @@ else:
     ip=$(new_peer "$name" "$filter" "$pub" "$psk")
     params=$(client_params)
     apply
-    ADDRESS="$ip/32" DNS="${RESOLVER[$filter]}" SRV_PUB="$srv_pub" ENDPOINT="$NODE_IP:$LISTEN_PORT" PARAMS="$params" NAME="$name" \
+    ADDRESS="$ip/32, $(ip6_of "$ip")/128" DNS="${RESOLVER[$filter]}" SRV_PUB="$srv_pub" ENDPOINT="$NODE_IP:$LISTEN_PORT" PARAMS="$params" NAME="$name" \
       python3 -c '
 import json, os
 iface = {"Address": os.environ["ADDRESS"], "DNS": os.environ["DNS"], "MTU": "1280"}

@@ -4,12 +4,15 @@
 set -e
 CONF=/etc/amnezia/amneziawg/awg0.conf
 SUBNET=10.8.1.0/24
+# a private IPv6 range (ULA) for the tunnel: see the IPv6 section below
+SUBNET6=fd60:f74e:973c::
 NODE_IP=${NODE_IP:?NODE_IP is required}
 
 awg-quick up "$CONF"
 # extra resolver addresses: .1 none (from awg0.conf), .253 and .254 the filter resolver
 ip addr add 10.8.1.253/32 dev awg0
 ip addr add 10.8.1.254/32 dev awg0
+ip -6 addr add "${SUBNET6}1/64" dev awg0
 
 # --- forwarding from clients ---
 iptables -P FORWARD DROP
@@ -53,9 +56,14 @@ iptables -A INPUT -i awg0 -j DROP
 # drop such SYNs in this namespace until every node runs a fixed kernel. The host has its own rule for its ports.
 iptables -t raw -I PREROUTING -p tcp --syn -m u32 --u32 "0>>24&0xF=6:15" -m comment --comment CVE-2026-98432 -j DROP
 
-# --- IPv6: peers only get IPv4 tunnel addresses, so nothing on awg0 should be IPv6; drop it in case that changes ---
+# --- IPv6: the node has no IPv6 way out, so IPv6 from clients is refused ---
+# Each peer also gets an address in SUBNET6. Without one, iOS does not send IPv6 into the tunnel even with ::/0 in
+# AllowedIPs, and sites with an IPv6 address are reached around the VPN. With a private address only, systems
+# prefer IPv4 for addresses on the internet (RFC 6724), and an IPv6 attempt that still comes in is refused at once
+# so the app moves on to IPv4. Forwarding is on (run.sh) only so these packets reach the FORWARD chain.
 ip6tables -P FORWARD DROP
-ip6tables -A INPUT -i awg0 -j DROP
+ip6tables -A FORWARD -i awg0 -j REJECT --reject-with icmp6-adm-prohibited
+ip6tables -A INPUT -i awg0 -j REJECT --reject-with icmp6-adm-prohibited
 
 # --- blocked lookups, counted per tunnel address ---
 # The malware list answers with an NXDOMAIN whose RA flag is cleared (rpz-signal-nxdomain-ra), which no other
