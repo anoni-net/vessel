@@ -40,6 +40,7 @@ test("send feedback with the optional answers and where it came from", async ({ 
   await page.getByRole("button", { name: "Android" }).click();
   await page.getByRole("button", { name: "東京" }).click();
   await page.getByRole("button", { name: "東京" }).click(); // pressing it again clears it
+  await page.getByRole("button", { name: "首爾" }).click();
   await page.getByLabel("聯絡方式").fill("me@example.org");
   await page.getByRole("button", { name: "送出" }).click();
   await expect(page.getByTestId("feedback-sent")).toContainText("收到了，謝謝");
@@ -52,6 +53,7 @@ test("send feedback with the optional answers and where it came from", async ({ 
       locale: "zh-TW",
       network: "行動網路",
       platform: "Android",
+      wanted: "首爾",
       contact: "me@example.org",
       from: "devices",
     },

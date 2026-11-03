@@ -10,6 +10,7 @@ import {
   LIMITS,
   NETWORKS,
   PLATFORMS,
+  WANTED,
   decodeBlocked,
   feedbackPayload,
   feedbackReady,
@@ -19,7 +20,7 @@ import { type MessageKey, fmt } from "../i18n/index.ts";
 
 /** Optional single choice: a row of buttons, pressing the chosen one again clears it. */
 function Pick<T extends string>({ name, options, value, onChange }: {
-  name: "network" | "platform" | "city";
+  name: "network" | "platform" | "city" | "wanted";
   options: readonly T[];
   value?: T;
   onChange: (v?: T) => void;
@@ -127,6 +128,7 @@ export function Feedback() {
         <Pick name="network" options={NETWORKS} value={f.network} onChange={(network) => set({ network })} />
         <Pick name="platform" options={PLATFORMS} value={f.platform} onChange={(platform) => set({ platform })} />
         <Pick name="city" options={CITIES} value={f.city} onChange={(city) => set({ city })} />
+        <Pick name="wanted" options={WANTED} value={f.wanted} onChange={(wanted) => set({ wanted })} />
 
         <label for="fb-contact" class="strong">{t["feedback.contact"]} <span class="muted small">{t["feedback.optional"]}</span></label>
         <input id="fb-contact" class="nb-input" type="text" maxLength={LIMITS.contact} autoComplete="off"
