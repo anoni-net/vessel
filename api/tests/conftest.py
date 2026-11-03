@@ -91,7 +91,7 @@ class FakeNode:
         n = len(self.peers) + 2
         self.peers[device_id] = {"public_key": public_key, "psk": psk, "dns_filter": dns_filter}
         return {"name": device_id,
-                "interface": {"Address": f"10.8.1.{n}/32", "DNS": "10.8.1.1", "MTU": "1280", "Jc": "5"},
+                "interface": {"Address": f"10.8.1.{n}/32, fd60:f74e:973c::{n}/128", "DNS": "10.8.1.1", "MTU": "1280", "Jc": "5"},
                 "peer": {"PublicKey": "srv", "AllowedIPs": "0.0.0.0/0, ::/0", "Endpoint": "198.51.100.1:443"}}
 
     def remove(self, host, device_id):

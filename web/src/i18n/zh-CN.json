@@ -457,7 +457,7 @@
   "check.exit.vessel": "经过 Vessel 的{city}节点。",
   "check.exit.previous": "经过 Vessel {city}节点的旧主机。这个配置文件很快就无法连接，请到“我的设备”添加一台设备、导入新的配置文件。",
   "check.exit.none": "没有经过 Vessel。可能是 VPN 没有开，或这个浏览器的连接没有走 VPN。",
-  "check.exit.ipv6": "这次连接走 IPv6，没有经过 Vessel。VPN 开着的时候不会发生，请确认 App 里的隧道已经打开。",
+  "check.exit.ipv6": "这次连接走 IPv6，没有经过 Vessel。请先确认 App 里的隧道已经打开。已经打开的话，代表这台设备的配置文件是旧版，请到「我的设备」添加一台设备、导入新的配置文件，再删除旧的。",
   "check.exit.error": "无法完成出口的检测，请稍后再试。",
   "check.ok": "两项都通过，连接经过 Vessel，DNS 也由 Vessel 处理。",
   "check.problem": "有项目没有通过，可以参考下方的处理方法，或把结果附在反馈里。",

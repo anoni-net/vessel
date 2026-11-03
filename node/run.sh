@@ -8,6 +8,7 @@ docker rm -f vessel-node >/dev/null 2>&1 || true
 docker run -d --name vessel-node --restart unless-stopped --log-driver none \
   --cap-add NET_ADMIN --device /dev/net/tun \
   --sysctl net.ipv4.ip_forward=1 --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+  --sysctl net.ipv6.conf.all.forwarding=1 \
   -e NODE_IP="$NODE_IP" \
   -p "$LISTEN_PORT:$LISTEN_PORT/udp" \
   -v $D/conf:/etc/amnezia/amneziawg \

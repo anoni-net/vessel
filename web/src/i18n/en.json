@@ -457,7 +457,7 @@
   "check.exit.vessel": "Through Vessel's {city} node.",
   "check.exit.previous": "Through the old server of Vessel's {city} node. This config will stop working soon. Go to My devices, add a new device and import the new config.",
   "check.exit.none": "Not through Vessel. The VPN may be off, or this browser's traffic is not going through it.",
-  "check.exit.ipv6": "This request went over IPv6, not through Vessel. That does not happen while the VPN is on, so check that the tunnel is turned on in the app.",
+  "check.exit.ipv6": "This request went over IPv6, not through Vessel. First check that the tunnel is on in the app. If it is, this device has an older config: add a new device in My devices, import its config, then delete the old one.",
   "check.exit.error": "The exit check could not finish. Please try again later.",
   "check.ok": "Both passed. Your traffic goes through Vessel, and so do your DNS lookups.",
   "check.problem": "Not everything passed. See below for what to try, or attach the result to your feedback.",

@@ -457,7 +457,7 @@
   "check.exit.vessel": "經過 Vessel 的{city}節點。",
   "check.exit.previous": "經過 Vessel {city}節點的舊主機。這個設定檔很快就不能連線，請到「我的裝置」新增一台裝置、匯入新的設定檔。",
   "check.exit.none": "沒有經過 Vessel。可能是 VPN 沒有開，或這個瀏覽器的連線沒有走 VPN。",
-  "check.exit.ipv6": "這次連線走 IPv6，沒有經過 Vessel。VPN 開著的時候不會發生，請確認 App 裡的通道已經打開。",
+  "check.exit.ipv6": "這次連線走 IPv6，沒有經過 Vessel。請先確認 App 裡的通道已經打開。已經打開的話，代表這台裝置的設定檔是舊版，請到「我的裝置」新增一台裝置、匯入新的設定檔，再刪除舊的。",
   "check.exit.error": "無法完成出口的檢測，請稍後再試。",
   "check.ok": "兩項都通過，連線經過 Vessel，DNS 也由 Vessel 處理。",
   "check.problem": "有項目沒有通過，可以參考下方的處理方式，或把結果附在意見回覆裡。",

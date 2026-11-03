@@ -9,7 +9,9 @@ def test_create_device_returns_config_once(signed_in, node, db):
     r = create(signed_in)
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "active" and body["config"]["interface"]["Address"] == "10.8.1.2/32"
+    assert body["status"] == "active" and body["config"]["interface"]["Address"] == "10.8.1.2/32, fd60:f74e:973c::2/128"
+    # the device keeps its IPv4 tunnel address, the one the node's counters go by
+    assert str(db.execute("SELECT tunnel_address FROM devices").fetchone()[0]) == "10.8.1.2"
     assert node.peers[body["id"]]["dns_filter"] == "ads"
     # nothing in the config came from the private key, and the backend never stored one
     assert "PrivateKey" not in body["config"]["interface"]
