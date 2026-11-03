@@ -1,7 +1,8 @@
 import { type Page, expect, test } from "@playwright/test";
 
 // The dark scheme follows the system's setting (toomore/anoni-net-ws#456). Every piece of text has to stay readable
-// on what is behind it, which a single colour borrowed from the light scheme (the footer's links once were) breaks.
+// on what is behind it, at 7:1 or more, which a single colour borrowed from the light scheme (the footer's links once
+// were) breaks.
 
 const DEVICE = { id: "d-a", name: "phone", region: "jp", dns_filter: "ads", status: "active", created_on: "2026-10-27",
   expires_on: "2026-11-26", used_bytes: 3.1e9, blocked: 12, connected: true, moved_until: null, ipv6: false };
@@ -55,8 +56,9 @@ for (const path of ["/", "/en/", "/devices/", "/account/", "/faq/", "/dns/", "/f
     await signedIn(page);
     await page.goto(path);
     await page.waitForLoadState("networkidle");
-    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(11, 24, 56)");
-    expect(await lowContrast(page, 4.5)).toEqual([]);
+    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(8, 20, 48)");
+    // 7:1, the higher of the two WCAG levels, for every piece of text
+    expect(await lowContrast(page, 7)).toEqual([]);
   });
 }
 

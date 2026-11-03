@@ -29,7 +29,7 @@ const DARK: typeof LIGHT = {
   body: ["#2c4683", "#36518f", "#253d75"],
   noise: ["#c2d4ff", "#8fb2ff", "#5c84d6", "#36518f", "#6f9bff", "#4f71bd"],
   red: "#ff8a80",
-  plate: "rgba(37, 68, 138, 0.55)", edge: "143, 178, 255", veil: "#0b1838",
+  plate: "rgba(37, 68, 138, 0.55)", edge: "143, 178, 255", veil: "#081430",
 };
 const SCHEME = "(prefers-color-scheme: dark)";
 let pal = typeof matchMedia === "function" && matchMedia(SCHEME).matches ? DARK : LIGHT;
