@@ -399,8 +399,9 @@ test("password managers can save and fill the account number", async ({ page }) 
 test("each device shows its traffic this month and, with a filter, the lookups its lists blocked", async ({ page }) => {
   await mockApi(page, signedIn);
   await page.goto("/devices/");
-  const usage = page.getByTestId("device-usage");
-  await expect(usage).toHaveText(["本月 3.1 GB · 擋下 12 次惡意網站與廣告的查詢", "本月 1.1 GB"]);
+  await expect(page.getByTestId("device-usage")).toHaveText(["3.1 GB", "1.1 GB"]);
+  // only the device with a filter has a line for what its lists blocked
+  await expect(page.getByTestId("device-blocked")).toHaveText(["12 次"]);
 });
 
 test("the devices page refreshes on its own", async ({ page }) => {
@@ -463,13 +464,14 @@ test("the usage card adds up what the filters blocked this month", async ({ page
   await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], dns_filter: "malware" }]) });
   await page.goto("/devices/");
   await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12 次惡意網站的查詢");
-  await expect(page.getByTestId("device-usage")).toHaveText("本月 3.1 GB · 擋下 12 次惡意網站的查詢");
+  await expect(page.getByTestId("device-usage")).toHaveText("3.1 GB");
+  await expect(page.getByTestId("device-blocked")).toHaveText("12 次");
   // counts carry the thousands separator, in every language
   await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 12345 }]) });
   await page.goto("/devices/");
   await expect(page.getByTestId("blocked-total")).toHaveText("本月替你擋下 12,345 次惡意網站與廣告的查詢");
   await page.goto("/en/devices/");
-  await expect(page.getByTestId("device-usage")).toHaveText(/12,345 malware and ad lookups blocked$/);
+  await expect(page.getByTestId("device-blocked")).toHaveText("12,345 lookups");
   // a filter that has not blocked anything yet still says the protection is on
   await mockApi(page, { ...signedIn, "GET /api/devices": json([{ ...DEVICES[0], blocked: 0 }, plain]) });
   await page.goto("/devices/");

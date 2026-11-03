@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
+import { HeroFigure } from "./hero-figure.tsx";
+import { SectionHead } from "./section-head.tsx";
 
 const STEPS = ["1", "2", "3"] as const;
 // the first three on every screen, the fourth too where the cards sit two to a row, all six on a wide screen (styles.css)
@@ -43,13 +45,13 @@ export function Home() {
               </div>
             )}
           </div>
-          <HeroArt />
+          <HeroFigure />
         </div>
       </section>
 
       <section id="when" class="band">
         <div class="wrap">
-          <h2>{t["when.title"]}</h2>
+          <SectionHead title={t["when.title"]} en="Use cases" />
           <ul class="cards cards--3 cards--six plain">
             {WHEN.map((n) => (
               <li class={n === "4" ? "card card--fourth" : Number(n) > 4 ? "card card--wide" : "card"}>
@@ -69,7 +71,7 @@ export function Home() {
 
       <section id="how" class="band band--grey">
         <div class="wrap">
-          <h2>{t["how.title"]}</h2>
+          <SectionHead title={t["how.title"]} en="3 steps" />
           <ol class="cards cards--3">
             {STEPS.map((n) => (
               <li class="card">
@@ -86,7 +88,7 @@ export function Home() {
       <section id="why" class="band">
         <div class="wrap why-layout">
           <div>
-            <h2>{t["why.title"]}</h2>
+            <SectionHead title={t["why.title"]} en="Why" />
             <p class="section-lead">{t["why.body"]}</p>
             <p class="section-lead">{t["why.reach"]}</p>
             <div class="actions">
@@ -100,35 +102,6 @@ export function Home() {
 
       <HomeFaq />
     </>
-  );
-}
-
-// decoration only: beside the text on wide screens, under the buttons on phones; loaded after the page is
-// up, and still for prefers-reduced-motion
-
-function HeroArt() {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (!canvas.current) return;
-    let stop: (() => void) | undefined;
-    let cancelled = false;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const load = () =>
-      import("../hero-art.ts").then((m) => {
-        if (!cancelled && canvas.current) stop = m.start(canvas.current, { reduced });
-      }).catch(() => {});
-    // after the text and buttons are up
-    const timer = window.setTimeout(load, 600);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      stop?.();
-    };
-  }, []);
-  return (
-    <div class="hero__art" aria-hidden="true">
-      <canvas ref={canvas} />
-    </div>
   );
 }
 

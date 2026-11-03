@@ -163,8 +163,8 @@ export function Devices() {
         <h1>{t["devices.title"]}</h1>
         <div class="stack" aria-hidden="true">
           <SkCard tint size="usage" lines={["mid", "full", "short", "short", "long"]} />
-          <SkCard size="device" lines={["mid", "long", "long", "short"]} />
-          <SkCard size="device" lines={["mid", "long", "long", "short"]} />
+          <SkCard size="device" lines={["mid", "long", "long", "long", "long", "short"]} />
+          <SkCard size="device" lines={["mid", "long", "long", "long", "long", "short"]} />
           <SkButton />
         </div>
         <Busy />
@@ -250,22 +250,22 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                 <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.devices.get(d.id)!.used, d.dns_filter === "none" ? 0 : added.devices.get(d.id)!.blocked)} />
               )}
               <div class="row device-head">
-                <p class="strong big device-head__name">{d.name}</p>
+                <p class="strong big device-head__name"><LiveDot d={d} />{d.name}</p>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
-              {/* the full width of the card, so it rarely wraps; when it does, each icon stays with its words */}
-              <p class="muted small device-meta">
-                <span class="device-meta__part">
+              {/* the device as a spec sheet: one line per fact, the name of each on the left */}
+              <dl class="spec small">
+                <dt>{t["devices.spec.node"]}</dt>
+                <dd class="spec__with-icon">
                   {flagOf(d.region) && <img class="flag flag--small" src={flagOf(d.region)} alt="" width="20" height="15" />}
-                  <span class="device-meta__text">{t[`region.${d.region}` as keyof typeof t] ?? d.region}</span>
-                </span>
-                <span class="device-meta__text" aria-hidden="true">·</span>
-                <span class="device-meta__part">
-                  <Layers filter={d.dns_filter} small />
-                  <span class="device-meta__text">{t[`filter.${d.dns_filter}`]}</span>
-                </span>
-              </p>
-              <DeviceUsage d={d} />
+                  <span>{t[`region.${d.region}` as keyof typeof t] ?? d.region}</span>
+                </dd>
+                <dt>{t["devices.spec.filter"]}</dt>
+                <dd class="spec__with-icon"><Layers filter={d.dns_filter} small /><span>{t[`filter.${d.dns_filter}`]}</span></dd>
+                <DeviceNumbers d={d} />
+                <dt>{t["devices.spec.expires"]}</dt>
+                <dd class="spec__figure">{formatDate(locale, d.expires_on)}</dd>
+              </dl>
               {d.status === "pending" && <p class="muted small">{t["status.pendingNote"]}</p>}
               {d.status === "active" && !d.connected && (
                 <p class="muted small" data-testid="not-connected">
@@ -289,8 +289,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                   <span>{t["devices.oldConfig"]}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
                 </p>
               )}
-              <div class="row small">
-                <span>{fmt(t["devices.expires"], { date: formatDate(locale, d.expires_on) })}</span>
+              <div class="row small device-foot">
                 {deleting.has(d.id) ? (
                   <span class="muted strong" role="status"><Spin />{t["busy.delete"]}</span>
                 ) : d.status !== "revoking" && (
@@ -317,24 +316,31 @@ function DeviceList({ me, devices, added, deleting, remove }: {
   );
 }
 
-/** This month's traffic and blocked lookups of one device, with a dot for whether it was in use in the last read. */
-function DeviceUsage({ d }: { d: Device }) {
+/** A dot before the device's name for whether it was in use in the last read; nothing until the tab has seen two. */
+function LiveDot({ d }: { d: Device }) {
+  const { t } = useCtx();
+  const active = d.status === "active" ? inUse.get(d.id) : undefined;
+  if (active === undefined) return null;
+  const words = t[active ? "devices.inUse" : "devices.idle"];
+  return <span class={`live-dot${active ? " live-dot--on" : ""}`} title={words}><span class="sr-only">{words}</span></span>;
+}
+
+/** This month's traffic and, with a filter, the lookups its lists blocked: two lines of the spec sheet. */
+function DeviceNumbers({ d }: { d: Device }) {
   const { t, locale } = useCtx();
   const used = useTween(d.used_bytes);
   const blocked = Math.round(useTween(d.blocked));
-  const active = d.status === "active" ? inUse.get(d.id) : undefined;
   return (
-    <div class="device-usage small">
-      {active !== undefined && (
-        <span class={`live-dot${active ? " live-dot--on" : ""}`} title={t[active ? "devices.inUse" : "devices.idle"]}>
-          <span class="sr-only">{t[active ? "devices.inUse" : "devices.idle"]}</span>
-        </span>
+    <>
+      <dt>{t["devices.spec.month"]}</dt>
+      <dd class="spec__figure" data-testid="device-usage">{formatBytes(locale, used)}</dd>
+      {d.dns_filter !== "none" && (
+        <>
+          <dt>{t["devices.spec.blocked"]}</dt>
+          <dd class="spec__figure" data-testid="device-blocked">{fmt(t["devices.spec.times"], { n: formatCount(locale, blocked) })}</dd>
+        </>
       )}
-      <p data-testid="device-usage">
-        {fmt(t["devices.used"], { amount: formatBytes(locale, used) })}
-        {d.dns_filter !== "none" && <>{" · "}{fmt(t[d.dns_filter === "ads" ? "devices.blockedAds" : "devices.blocked"], { n: formatCount(locale, blocked) })}</>}
-      </p>
-    </div>
+    </>
   );
 }
 

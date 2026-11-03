@@ -89,6 +89,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .footer-legal { padding-block: 0 6px; font-size: 13px; color: #b9c8ee; }
 .footer-legal:last-child { padding-bottom: 24px; }
 .section-lead { max-width: 46em; margin: -8px 0 24px; text-wrap: pretty; }
+/* a section's heading over a rule, its English label at the right (pages/section-head.tsx) */
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 1.5px solid var(--ink); }
+.section-head > h2 { margin: 0; }
 .site-footer .footer-legal a { color: #b9c8ee; }
 .footer-toggle { padding: 0; border: 0; background: none; color: #b9c8ee; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }
@@ -117,12 +120,29 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .band--grey { background: var(--grey); }
 .hero h1 { font-family: var(--mono); font-size: clamp(52px, 11vw, 76px); font-style: italic; line-height: 1.05; letter-spacing: .04em; margin-block: 16px; }
 .hero__text { display: flex; flex-direction: column; gap: 16px; max-width: 40em; }
-/* the packet picture: under the buttons on phones, beside the text on wide screens */
-.hero__art { height: 200px; margin-top: 28px; }
-.hero__art canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+/* the connection picture (pages/hero-figure.tsx): under the buttons on phones, beside the text on wide screens */
+.hero-fig { margin: 28px 0 0; border: 1px solid var(--line); background: rgb(255 255 255 / .6); }
+.hero-fig svg { display: block; width: 100%; height: auto; }
+.hero-fig figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.hero-fig__grid { fill: none; stroke: rgb(11 60 168 / .1); stroke-width: .6; }
+.hero-fig__shadow { fill: rgb(11 60 168 / .08); }
+.hero-fig__solid { stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.hero-fig__top { fill: var(--paper); }
+.hero-fig__left { fill: #dfe7fa; }
+.hero-fig__right { fill: #c5d3f3; }
+.hero-fig__screen { fill: var(--tint); stroke: var(--ink); stroke-width: .8; }
+.hero-fig__slot { fill: none; stroke: var(--ink); stroke-width: .7; }
+.hero-fig__led { fill: var(--ink); }
+.hero-fig__path { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 4; }
+.hero-fig__path--live { stroke: var(--ink); stroke-width: 1.6; }
+@media (prefers-reduced-motion: no-preference) { .hero-fig__path--live { animation: hero-fig-flow 1.4s linear infinite; } }
+@keyframes hero-fig-flow { to { stroke-dashoffset: -14; } }
+.hero-fig__label { fill: var(--ink); font-family: var(--font); font-size: 10px; font-weight: 700; }
+.hero-fig__label--note { fill: var(--muted); font-weight: 400; }
+.hero-fig__en { fill: var(--muted); font-family: var(--mono); font-size: 7px; font-weight: 500; letter-spacing: .12em; }
 @media (min-width: 900px) {
   .hero__inner { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
-  .hero__art { height: 380px; margin-top: 0; }
+  .hero-fig { margin-top: 0; }
 }
 .lead { font-size: 20px; }
 .actions { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; }
@@ -246,9 +266,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .next-read__track { stroke: var(--accent); }
 .next-read__fill { stroke: var(--accent-strong); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation-name: next-read; animation-timing-function: linear; animation-fill-mode: forwards; }
 @keyframes next-read { to { stroke-dashoffset: 0; } }
-.device-usage { display: flex; align-items: flex-start; gap: 8px; }
-/* the dot sits on the first line when the words wrap */
-.live-dot { flex: none; width: 10px; height: 10px; margin-top: calc((1.7em - 10px) / 2); border: 2px solid var(--line); border-radius: 50%; }
+/* the dot before a device's name, on the name's first line */
+.live-dot { display: inline-block; width: 10px; height: 10px; margin-inline-end: 10px; vertical-align: .12em; border: 2px solid var(--line); border-radius: 50%; }
 .live-dot--on { border-color: var(--accent-strong); background: var(--accent-strong); }
 @media (prefers-reduced-motion: no-preference) { .live-dot--on { animation: live-pulse 2.4s ease-out infinite; } }
 @keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgb(11 60 168 / .45); } 70%, 100% { box-shadow: 0 0 0 8px rgb(11 60 168 / 0); } }
@@ -304,13 +323,18 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .device-head { flex-wrap: nowrap; align-items: flex-start; }
 .device-head__name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .device-head > .badge { flex: none; }
-/* a device's city and filter: flag, name, strength bars, filter name */
-.device-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 6px; margin-top: -4px; }
-.device-meta__part { display: inline-flex; align-items: center; gap: 6px; }
+/* a device as a spec sheet: the name of each fact on the left, a hairline between the lines */
+.spec { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; border-top: 1px solid var(--line); }
+.spec > dt, .spec > dd { margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.spec > dt { padding-inline-end: 20px; color: var(--muted); }
+.spec > dd { color: var(--text); }
+.spec__with-icon { display: flex; align-items: center; gap: 8px; }
+.spec__figure { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.device-foot { justify-content: flex-end; }
 /* Centre the icons on the letters rather than on the line box. Fonts leave different space above and below their
    glyphs: a fixed offset that lined the icons up with Noto Sans put them 1.5 px too high with PingFang on iPhone.
    Trimming the text to its cap height and baseline makes the box hug the letters in any font. */
-.device-meta__text, .choice__head > .strong { text-box: trim-both cap alphabetic; }
+.spec__with-icon > span, .choice__head > .strong { text-box: trim-both cap alphabetic; }
 .stack-sm { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .stack-sm > legend { padding: 0; margin-bottom: 2px; }
 .picks { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -400,7 +424,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .sk-card { border-color: #e1e8f8; gap: 14px; }
 /* heights of the real usage and device cards on the devices page */
 .sk-card--usage { min-height: 230.4px; }
-.sk-card--device { min-height: 184.8px; }
+.sk-card--device { min-height: 335px; }
 @keyframes sk-pulse { 50% { opacity: 0.5; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
 /* a page that was a skeleton a moment ago eases in instead of popping in */

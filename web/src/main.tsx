@@ -7,6 +7,7 @@ import { preloadLegal } from "./pages/simple.tsx";
 // IBM Plex Mono (SIL OFL) for the wordmark, labels and figures, served from the site itself: the latin subset only,
 // since Chinese falls back to the system's sans-serif
 import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
 import "@fontsource/ibm-plex-mono/latin-600.css";
 import "@fontsource/ibm-plex-mono/latin-700.css";
 import "@fontsource/ibm-plex-mono/latin-700-italic.css";
