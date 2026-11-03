@@ -61,6 +61,11 @@ test("the page asks again once the next read has landed and shows what it added"
   await expect(phone.locator(".live-dot--on")).toHaveAttribute("title", "最近 5 分鐘有流量");
   await expect(laptop.locator(".live-dot")).toHaveAttribute("title", "最近 5 分鐘沒有流量");
   await expect(laptop.locator(".live-dot--on")).toHaveCount(0);
+
+  // the chips stay clear of the card above, its 4px shadow included
+  const chip = await added(phone).first().boundingBox();
+  const above = await page.locator(".card--tint").boundingBox();
+  expect(chip!.y).toBeGreaterThanOrEqual(above!.y + above!.height + 4);
 });
 
 test("a late read is asked for again after a minute, not five", async ({ page }) => {
