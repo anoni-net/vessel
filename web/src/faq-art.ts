@@ -81,6 +81,9 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const role = (c: Cell) =>
   c.gy === 0 ? "dest" : c.gy === 1 && c.gx === 0 ? "source" : c.gy === 2 && c.gx === COLS - 1 ? "account" : "body";
 
+/** How long the packets move after the page opens, in seconds, counting only while the drawing is in view. */
+const MOVES_FOR = 5;
+
 export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): () => void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return () => {};
@@ -94,6 +97,8 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
   let frame = 0;
   let last = 0;
   let running = false;
+  // seconds it has moved on its own; it holds still after five (WCAG 2.2.2), wherever the packets are then
+  let moved = 0;
 
   const width = COLS * PITCH - GAP;
   const height = ROWS * PITCH - GAP;
@@ -314,13 +319,15 @@ export function start(canvas: HTMLCanvasElement, opts: { reduced: boolean }): ()
     if (!running) return;
     const dt = Math.min(0.05, (now - (last || now)) / 1000);
     last = now;
+    moved += dt;
     step(dt);
     draw();
+    if (moved >= MOVES_FOR) return pause();
     frame = requestAnimationFrame(loop);
   }
 
   function play() {
-    if (running || opts.reduced) return;
+    if (running || opts.reduced || moved >= MOVES_FOR) return;
     running = true;
     last = 0;
     frame = requestAnimationFrame(loop);

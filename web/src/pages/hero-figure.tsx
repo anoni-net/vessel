@@ -2,6 +2,7 @@ import { useCtx } from "../context.ts";
 import { GLOBE, GRID, LABELS, NODES, PATHS, PHONE, SCREEN, VIEWBOX } from "../hero-figure-data.ts";
 import { DISGUISE, type Drawing, LISTS } from "../hero-figures-data.ts";
 import type { MessageKey } from "../i18n/index.ts";
+import { useInView } from "./in-view.ts";
 
 // short English names under the Chinese ones: an aid in the drawing's own vernacular, left out on the English pages
 const EN = { device: "YOUR DEVICE", tokyo: "NODE · TYO", sg: "NODE · SIN", internet: "INTERNET", encrypted: "ENCRYPTED" } as const;
@@ -25,8 +26,9 @@ function Label({ x, y, anchor, name, en, enLine, note = false, on = false }: {
 function Figure({ n, viewBox, label, caption, children }: {
   n: number; viewBox: string; label: string; caption: string; children: preact.ComponentChildren;
 }) {
+  const [ref, seen] = useInView<HTMLElement>();
   return (
-    <figure class="hero-fig">
+    <figure ref={ref} class={`hero-fig${seen ? " hero-fig--live" : ""}`}>
       <svg viewBox={viewBox} role="img" aria-label={label}>{children}</svg>
       <figcaption><span class="eyebrow">FIG. 0{n}</span><span>{caption}</span></figcaption>
     </figure>
