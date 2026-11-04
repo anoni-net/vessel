@@ -187,6 +187,8 @@ function DeviceList({ me, devices, added, deleting, remove }: {
   const ariaAmount = `${formatBytes(locale, me.used_bytes)} / ${formatBytes(locale, me.monthly_quota_bytes)}`;
   const full = devices.filter((d) => d.status !== "revoking").length >= me.device_limit;
   const overQuota = me.used_bytes >= me.monthly_quota_bytes;
+  // at four fifths of the allowance, say what is left and what happens when it runs out, before it does
+  const quotaSoon = !overQuota && me.used_bytes >= me.monthly_quota_bytes * 0.8;
   // only devices with a DNS filter count blocked lookups; with none, the card says nothing about it. With a filter
   // and nothing blocked yet (early in the month, a new device), it says the protection is on.
   const filtered = devices.filter(countsBlocked);
@@ -227,6 +229,11 @@ function DeviceList({ me, devices, added, deleting, remove }: {
           )}
         </div>
         <p class="muted small">{t["devices.usageNote"]}</p>
+        {quotaSoon && (
+          <p class="usage-soon small" data-testid="quota-soon">
+            {fmt(t["devices.quotaSoon"], { left: formatBytes(locale, me.monthly_quota_bytes - me.used_bytes) })}
+          </p>
+        )}
         {filtered.length > 0 && (
           <p class="usage-blocked" data-testid="blocked-total">
             {blocked > 0
@@ -267,9 +274,17 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                 <dd class="spec__figure">{formatDate(locale, d.expires_on)}</dd>
               </dl>
               {d.status === "pending" && <p class="muted small">{t["status.pendingNote"]}</p>}
+              {/* a few minutes is the usual wait; from the day after it was made, what to try */}
               {d.status === "active" && !d.connected && (
                 <p class="muted small" data-testid="not-connected">
-                  {t["devices.notConnected"]} <a href={href("/faq/#q-trouble")}>{t["faq.trouble.q"]}</a>
+                  {d.created_on < today ? (
+                    <>
+                      {t["devices.notConnectedLong"]} <a href={href("/check/")}>{t["check.title"]}</a>
+                      <span aria-hidden="true"> · </span><a href={href("/faq/#q-trouble")}>{t["faq.trouble.q"]}</a>
+                    </>
+                  ) : (
+                    <>{t["devices.notConnected"]} <a href={href("/faq/#q-trouble")}>{t["faq.trouble.q"]}</a></>
+                  )}
                 </p>
               )}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
