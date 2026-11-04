@@ -13,6 +13,7 @@ async function signedIn(page: Page) {
     if (path === "/api/me") return route.fulfill({ json: { created_on: "2026-10-27", last_login_on: "2026-10-27", device_limit: 3, monthly_quota_bytes: 50e9, used_bytes: 4.2e9 } });
     if (path === "/api/devices") return route.fulfill({ json: [DEVICE] });
     if (path === "/api/passkeys") return route.fulfill({ json: [] });
+    if (path === "/api/invites") return route.fulfill({ json: { per_account: 2, used: 1, left: 0, reason: null, eligible_on: "2026-10-15", days: 7, open: [{ id: 1, created_at: "2026-11-04T01:00:00Z", expires_at: "2026-11-11T01:00:00Z" }] } });
     if (path === "/api/usage/months") return route.fulfill({ json: { filter: "ads", months: [{ month: "2026-11-01", used_bytes: 4.2e9, blocked: 3, blocked_ads: 40 }] } });
     if (path === "/api/status") return route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "down" }], notices: [] } });
     return route.fulfill({ status: 404, json: { error: "not_found" } });

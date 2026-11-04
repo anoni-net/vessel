@@ -10,12 +10,13 @@ export class ApiError extends Error {
  * The last account and device list, kept in this tab's memory (never in storage) so a signed-in page can show
  * them at once while it asks again. Any change (signing in or out, redeeming, adding or deleting) drops them.
  */
-export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[]; months?: UsageMonths } = {};
+export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[]; months?: UsageMonths; invites?: Invites } = {};
 
 export function forgetAccount(): void {
   delete last.me;
   delete last.devices;
   delete last.months;
+  delete last.invites;
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
@@ -127,6 +128,24 @@ export interface UsageMonths {
   months: UsageMonth[];
 }
 
+/** Why the account cannot make an invite now, the first that applies (api/app/invites.py), or null if it can. */
+export type InviteBlock = "off" | "full" | "too_new" | "not_connected" | "none_left" | null;
+
+export interface Invites {
+  /** how many an account may make in all; 0 when the service has them off */
+  per_account: number;
+  /** how many of this account's were used */
+  used: number;
+  left: number;
+  reason: InviteBlock;
+  /** the day the account may start inviting */
+  eligible_on: string;
+  /** how long an invite works */
+  days: number;
+  /** the unused ones, oldest first; the codes themselves were shown once, when made */
+  open: { id: number; created_at: string; expires_at: string }[];
+}
+
 type WebAuthnJson = Record<string, unknown>;
 
 export interface NewDevice {
@@ -175,6 +194,14 @@ export const api = {
   rotateOptions: () => call<WebAuthnJson>("POST", "/account/number/options").then((r) => r.data),
   rotateNumber: (credential: WebAuthnJson) =>
     call<{ account_number: string }>("POST", "/account/number", { credential }).then((r) => r.data),
+  invites: () =>
+    call<Invites>("GET", "/invites").then((r) => {
+      if (Array.isArray(r.data?.open)) last.invites = r.data;
+      return r.data;
+    }),
+  /** a new invite; its code comes back this once */
+  makeInvite: () => call<{ code: string; id: number; created_at: string; expires_at: string }>("POST", "/invites").then((r) => r.data),
+  withdrawInvite: (id: number) => call<Invites>("DELETE", `/invites/${id}`).then((r) => r.data),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),

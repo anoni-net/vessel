@@ -6,6 +6,7 @@ import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { Months, monthsSince } from "./months.tsx";
+import { Invites } from "./invites.tsx";
 import { Passkeys } from "./passkeys.tsx";
 import { AccountNumber } from "./redeem.tsx";
 import { Busy, SkLine, Spin } from "./skeleton.tsx";
@@ -94,6 +95,7 @@ export function Account() {
         <dd>{me ? <span class="appear">{day(me.last_login_on)}</span> : <SkLine w="short" />}</dd>
       </dl>
       <Months data={months} rows={monthsSince(me?.created_on)} guess={filterGuess()} />
+      <Invites />
       <Passkeys initial={passkeys} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
       <div class="account-section">
         <div class="card card--warn card--flat stack">

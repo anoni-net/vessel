@@ -674,5 +674,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .notice > .icon { margin-top: calc((1lh - 1.25em) / 2); }
 
 /* the account page's sections, the monthly record, the passkeys and deleting the account, each set off by a rule */
+/* a new invite on the account page (pages/invites.tsx): the code large, the link under it, then copy and share */
+.invite-made { background: var(--tint); }
+.invite-made .number { font-size: clamp(20px, 6vw, 26px); }
+.invite-link { color: var(--muted); overflow-wrap: anywhere; }
+.invite-tools { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
 .account-section { margin-top: 16px; padding-top: 32px; border-top: 2px dashed var(--line); }
 .account-section > h2, .account-section > .card > h2 { margin-bottom: 0; }

@@ -33,6 +33,11 @@ export function formatDate(locale: Locale, iso: string): string {
     .format(new Date(iso + "T00:00:00Z"));
 }
 
+/** The day of a moment (a full ISO time, not a bare date), in the visitor's own time zone. */
+export function formatDay(locale: Locale, iso: string): string {
+  return new Intl.DateTimeFormat(HTML_LANG[locale], { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+}
+
 /** A moment in the visitor's own time zone: the time alone when it is today, otherwise with the date. */
 export function formatTime(locale: Locale, iso: string, now = new Date()): string {
   const at = new Date(iso);
