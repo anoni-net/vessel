@@ -115,7 +115,8 @@ def redeem(body: RedeemBody, response: Response, conn: Conn) -> dict[str, str]:
         if cap > 0 and conn.execute("SELECT count(*) FROM accounts").fetchone()[0] >= cap:
             raise error(409, "full")
         invite = conn.execute(
-            "SELECT id FROM invites WHERE code_hmac = %s AND redeemed_at IS NULL AND expires_at > now() FOR UPDATE",
+            "SELECT id, from_account, created_by FROM invites "
+            "WHERE code_hmac = %s AND redeemed_at IS NULL AND expires_at > now() FOR UPDATE",
             (crypto.keyed_hash(settings.hmac_key, code),),
         ).fetchone()
         if invite is None:
@@ -131,9 +132,15 @@ def redeem(body: RedeemBody, response: Response, conn: Conn) -> dict[str, str]:
                 break
             except psycopg.errors.UniqueViolation:
                 continue
-        conn.execute(
-            "UPDATE invites SET redeemed_at = now(), redeemed_account = %s WHERE id = %s", (account_id, invite[0])
-        )
+        if invite[1]:
+            # an account's invite: count it for the account that made it, and forget which account that was, so
+            # the database never says who invited whom (app/invites.py)
+            conn.execute("UPDATE accounts SET invites_used = invites_used + 1 WHERE id = %s", (invite[2],))
+            conn.execute("UPDATE invites SET redeemed_at = now(), created_by = NULL WHERE id = %s", (invite[0],))
+        else:
+            conn.execute(
+                "UPDATE invites SET redeemed_at = now(), redeemed_account = %s WHERE id = %s", (account_id, invite[0])
+            )
         start_session(conn, response, account_id)
     return {"account_number": crypto.format_account_number(number)}
 

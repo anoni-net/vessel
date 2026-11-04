@@ -111,6 +111,13 @@ def expire_devices(conn: psycopg.Connection) -> int:
     return len(rows)
 
 
+def forget_expired_invites(conn: psycopg.Connection) -> None:
+    """An account's invite that expired unused no longer says which account made it (app/invites.py)."""
+    conn.execute(
+        "UPDATE invites SET created_by = NULL WHERE created_by IS NOT NULL AND redeemed_at IS NULL AND expires_at <= now()"
+    )
+
+
 def clear_stale_results(conn: psycopg.Connection) -> None:
     conn.execute("UPDATE jobs SET result = NULL WHERE result IS NOT NULL AND done_at < now() - interval '1 hour'")
 

@@ -20,7 +20,8 @@
   python -m app.admin notices end ID [--at ISO]
   python -m app.admin notices delete ID
 
-Settings: account_cap (0 means no cap), redeem_paused (true/false).
+Settings: account_cap (0 means no cap), redeem_paused (true/false), user_invites (how many invites each account
+may make, 0 turns it off; toomore/anoni-net-ws#458).
 """
 
 import argparse
@@ -85,8 +86,10 @@ def main(argv: list[str] | None = None) -> None:
                 print(code)
         elif args.cmd == "settings":
             if args.key and args.value is not None:
-                if args.key not in ("account_cap", "redeem_paused"):
+                if args.key not in ("account_cap", "redeem_paused", "user_invites"):
                     sys.exit(f"unknown setting {args.key}")
+                if args.key in ("account_cap", "user_invites") and not args.value.isdigit():
+                    sys.exit(f"{args.key} is a number")
                 conn.execute("UPDATE settings SET value = %s WHERE key = %s", (args.value, args.key))
             for key, value in conn.execute("SELECT key, value FROM settings ORDER BY key"):
                 print(f"{key} = {value}")
@@ -187,11 +190,14 @@ def report(conn: psycopg.Connection, days: int) -> None:
         "WHEN last_login_on > current_date - 30 THEN 'within 30 days' ELSE 'longer ago' END AS k, count(*) "
         "FROM accounts GROUP BY k ORDER BY k DESC",
     ))
-    print("invites: " + counts(
-        conn,
-        "SELECT CASE WHEN redeemed_at IS NOT NULL THEN 'redeemed' WHEN expires_at <= now() THEN 'expired' "
-        "ELSE 'unused' END AS k, count(*) FROM invites GROUP BY k ORDER BY k",
-    ))
+    state = ("SELECT CASE WHEN redeemed_at IS NOT NULL THEN 'redeemed' WHEN expires_at <= now() THEN 'expired' "
+             "ELSE 'unused' END AS k, count(*) FROM invites WHERE {} GROUP BY k ORDER BY k")
+    print("invites from maintainers: " + counts(conn, state.format("NOT from_account")))
+    print("invites from accounts: " + counts(conn, state.format("from_account")))
+    made = one(conn, "SELECT count(*) FROM invites WHERE from_account")
+    if made:
+        redeemed = one(conn, "SELECT count(*) FROM invites WHERE from_account AND redeemed_at IS NOT NULL")
+        print(f"  redeemed {redeemed} of {made} ({redeemed * 100 // made}%)")
     print(f"devices: {one(conn, 'SELECT count(*) FROM devices')}")
     for label, column in (("by region", "region_id"), ("by filter", "dns_filter"), ("by status", "status")):
         print(f"  {label}: " + counts(conn, f"SELECT {column}, count(*) FROM devices GROUP BY 1 ORDER BY 1"))
