@@ -63,6 +63,7 @@ test("create a device with keys made in the browser", async ({ page }) => {
   expect(body.preshared_key).toMatch(KEY);
   expect(body).not.toHaveProperty("private_key");
 
+  await expect(page.locator(".todo__title")).toHaveText(["存下設定檔", "在 AmneziaWG 裡匯入", "匯入之後回到這裡"]);
   await page.getByRole("button", { name: "顯示設定檔的文字內容" }).click();
   const text = await page.getByTestId("config-text").innerText();
   const priv = /PrivateKey = (\S+)/.exec(text)![1];
@@ -157,7 +158,7 @@ test("creating the third device still shows its config", async ({ page }) => {
 test("the install step: two numbered things to do, the longer notes folded away", async ({ page }) => {
   await mock(page);
   await page.goto("/devices/new/");
-  await expect(page.locator(".install-step__title")).toHaveText(["下載 AmneziaWG", "裝好之後回到這裡"]);
+  await expect(page.locator(".todo__title")).toHaveText(["下載 AmneziaWG", "裝好之後回到這裡"]);
   await page.getByRole("button", { name: "iPhone、Mac" }).click();
   const missing = page.getByText("少數地區找不到的話");
   await expect(missing).toBeHidden();

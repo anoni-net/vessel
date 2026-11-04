@@ -489,15 +489,19 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .facts dd { margin: 0; }
 
 .block { display: block; }
-/* the install step's two things to do (new-device.tsx), numbered like a drawing's callouts, a dashed line between */
-.install-steps { display: flex; flex-direction: column; gap: 20px; margin: 8px 0 0; padding: 0; list-style: none; counter-reset: install; }
-.install-step { display: flex; flex-direction: column; gap: 12px; counter-increment: install; }
-.install-step + .install-step { padding-top: 20px; border-top: 1.5px dashed var(--line); }
-.install-step__title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 18px; line-height: 1.4; }
-.install-step__title::before { content: counter(install, decimal-leading-zero); flex: none; display: grid; place-items: center; width: 30px; height: 30px;
+/* the things to do on a step of adding a device (new-device.tsx), numbered like a drawing's callouts, a dashed line between */
+.todo { display: flex; flex-direction: column; gap: 20px; margin: 8px 0 0; padding: 0; list-style: none; counter-reset: todo; }
+.todo__step { display: flex; flex-direction: column; gap: 12px; counter-increment: todo; }
+.todo__step + .todo__step { padding-top: 20px; border-top: 1.5px dashed var(--line); }
+.todo__title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 18px; line-height: 1.4; }
+.todo__title::before { content: counter(todo, decimal-leading-zero); flex: none; display: grid; place-items: center; width: 30px; height: 30px;
   border: var(--border); border-radius: var(--radius); background: var(--paper); color: var(--ink); font: 600 13px/1 var(--mono); }
-.install-help summary { width: fit-content; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
-.install-help p { margin: 6px 0 0; }
+.todo__more summary { width: fit-content; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.todo__more p { margin: 6px 0 0; }
+/* the other ways inside a step (the QR code, the text) read as links under it, not as buttons */
+.todo__links { display: flex; flex-direction: column; align-items: flex-start; }
+.todo__links > :not(.link-button) { align-self: stretch; }
+.todo .link-button { text-align: start; font-size: 15px; }
 /* the reading for newcomers, out of the way under the step */
 .install-more { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
 .tabs { display: flex; gap: 8px; }
