@@ -151,46 +151,63 @@ export function NewDevice() {
   }
 
   if (step === "install") {
+    // two things to do, numbered: get the app, then come back; the longer notes open on request
     return (
       <section class="wrap narrow stack">
         {stepLabel(1)}
         <h1>{t["install.title"]}</h1>
         <p>{t["install.body"]}</p>
-        <p class="small"><a class="strong" href={href("/learn/")}>{t["learn.link"]}</a></p>
-        <p class="small"><a class="strong" href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></p>
-        <div class="tabs" role="group" aria-label={t["install.platform"]}>
-          {PLATFORMS.map((p) => (
-            <button type="button" class={`tab${p === platform ? " tab--on" : ""}`} aria-pressed={p === platform}
-              onClick={() => setPlatform(p)}>{t[`platform.${p}`]}</button>
-          ))}
-        </div>
-        <p class="muted small">{fmt(t["install.detected"], { platform: t[`platform.${detectPlatform()}`] })}</p>
-        <div class="card stack">
-          {platform === "android" && (
-            <>
-              <a class="nb-button nb-button--primary" href="https://play.google.com/store/apps/details?id=org.amnezia.awg"
-                target="_blank" rel="noopener">{t["install.android.store"]}</a>
-              <a class="center small strong" href="https://github.com/amnezia-vpn/amneziawg-android/releases/latest"
-                target="_blank" rel="noopener">{t["install.android.apk"]}</a>
-            </>
-          )}
-          {platform === "apple" && (
-            <>
-              <a class="nb-button nb-button--primary" href="https://apps.apple.com/app/id6478942365" target="_blank"
-                rel="noopener">{t["install.apple.store"]}</a>
-              <p class="small">{t["install.apple.note"]}</p>
-            </>
-          )}
-          {platform === "windows" && (
-            <>
-              <a class="nb-button nb-button--primary" href="https://github.com/amnezia-vpn/amneziawg-windows-client/releases/latest"
-                target="_blank" rel="noopener">{t["install.windows.download"]}</a>
-              <p class="small">{t["install.windows.note"]}</p>
-            </>
-          )}
-        </div>
-        <button class="nb-button nb-button--ink" type="button" onClick={() => go("region")}>{t["install.next"]}</button>
+        <ol class="install-steps">
+          <li class="install-step">
+            <h2 class="install-step__title">{t["install.get"]}</h2>
+            <div class="tabs" role="group" aria-label={t["install.platform"]}>
+              {PLATFORMS.map((p) => (
+                <button type="button" class={`tab${p === platform ? " tab--on" : ""}`} aria-pressed={p === platform}
+                  onClick={() => setPlatform(p)}>{t[`platform.${p}`]}</button>
+              ))}
+            </div>
+            {platform === "android" && (
+              <>
+                <a class="nb-button" href="https://play.google.com/store/apps/details?id=org.amnezia.awg"
+                  target="_blank" rel="noopener">{t["install.android.store"]}</a>
+                <a class="small strong" href="https://github.com/amnezia-vpn/amneziawg-android/releases/latest"
+                  target="_blank" rel="noopener">{t["install.android.apk"]}</a>
+              </>
+            )}
+            {platform === "apple" && (
+              <>
+                <a class="nb-button" href="https://apps.apple.com/app/id6478942365" target="_blank"
+                  rel="noopener">{t["install.apple.store"]}</a>
+                <p class="muted small">{t["install.apple.note"]}</p>
+                <details class="install-help">
+                  <summary>{t["install.apple.missing"]}</summary>
+                  <p class="small">{t["install.apple.missingBody"]}</p>
+                </details>
+              </>
+            )}
+            {platform === "windows" && (
+              <>
+                <a class="nb-button" href="https://github.com/amnezia-vpn/amneziawg-windows-client/releases/latest"
+                  target="_blank" rel="noopener">{t["install.windows.download"]}</a>
+                <p class="muted small">{t["install.windows.note"]}</p>
+                <details class="install-help">
+                  <summary>{t["install.windows.blocked"]}</summary>
+                  <p class="small">{t["install.windows.blockedBody"]}</p>
+                </details>
+              </>
+            )}
+          </li>
+          <li class="install-step">
+            <h2 class="install-step__title">{t["install.back"]}</h2>
+            <button class="nb-button nb-button--ink" type="button" onClick={() => go("region")}>{t["install.next"]}</button>
+            <p class="muted small">{t["install.update"]}</p>
+          </li>
+        </ol>
         <a class="center strong" href={href("/devices/")}>{t["cancel"]}</a>
+        <ul class="plain install-more small">
+          <li><a href={href("/learn/")}>{t["learn.link"]}</a></li>
+          <li><a href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></li>
+        </ul>
       </section>
     );
   }
