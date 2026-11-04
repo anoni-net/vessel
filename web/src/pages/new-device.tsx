@@ -15,7 +15,8 @@ import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
-const IMPORT_STEPS: Record<Platform, number> = { android: 4, apple: 4, windows: 3 };
+// the steps inside AmneziaWG, after the config is saved
+const IMPORT_STEPS: Record<Platform, number> = { android: 3, apple: 3, windows: 2 };
 const POLL_MS = 2000;
 const POLL_TRIES = 60;
 
@@ -151,46 +152,63 @@ export function NewDevice() {
   }
 
   if (step === "install") {
+    // two things to do, numbered (.todo): get the app, then come back; the longer notes open on request
     return (
       <section class="wrap narrow stack">
         {stepLabel(1)}
         <h1>{t["install.title"]}</h1>
         <p>{t["install.body"]}</p>
-        <p class="small"><a class="strong" href={href("/learn/")}>{t["learn.link"]}</a></p>
-        <p class="small"><a class="strong" href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></p>
-        <div class="tabs" role="group" aria-label={t["install.platform"]}>
-          {PLATFORMS.map((p) => (
-            <button type="button" class={`tab${p === platform ? " tab--on" : ""}`} aria-pressed={p === platform}
-              onClick={() => setPlatform(p)}>{t[`platform.${p}`]}</button>
-          ))}
-        </div>
-        <p class="muted small">{fmt(t["install.detected"], { platform: t[`platform.${detectPlatform()}`] })}</p>
-        <div class="card stack">
-          {platform === "android" && (
-            <>
-              <a class="nb-button nb-button--primary" href="https://play.google.com/store/apps/details?id=org.amnezia.awg"
-                target="_blank" rel="noopener">{t["install.android.store"]}</a>
-              <a class="center small strong" href="https://github.com/amnezia-vpn/amneziawg-android/releases/latest"
-                target="_blank" rel="noopener">{t["install.android.apk"]}</a>
-            </>
-          )}
-          {platform === "apple" && (
-            <>
-              <a class="nb-button nb-button--primary" href="https://apps.apple.com/app/id6478942365" target="_blank"
-                rel="noopener">{t["install.apple.store"]}</a>
-              <p class="small">{t["install.apple.note"]}</p>
-            </>
-          )}
-          {platform === "windows" && (
-            <>
-              <a class="nb-button nb-button--primary" href="https://github.com/amnezia-vpn/amneziawg-windows-client/releases/latest"
-                target="_blank" rel="noopener">{t["install.windows.download"]}</a>
-              <p class="small">{t["install.windows.note"]}</p>
-            </>
-          )}
-        </div>
-        <button class="nb-button nb-button--ink" type="button" onClick={() => go("region")}>{t["install.next"]}</button>
+        <ol class="todo">
+          <li class="todo__step">
+            <h2 class="todo__title">{t["install.get"]}</h2>
+            <div class="tabs" role="group" aria-label={t["install.platform"]}>
+              {PLATFORMS.map((p) => (
+                <button type="button" class={`tab${p === platform ? " tab--on" : ""}`} aria-pressed={p === platform}
+                  onClick={() => setPlatform(p)}>{t[`platform.${p}`]}</button>
+              ))}
+            </div>
+            {platform === "android" && (
+              <>
+                <a class="nb-button" href="https://play.google.com/store/apps/details?id=org.amnezia.awg"
+                  target="_blank" rel="noopener">{t["install.android.store"]}</a>
+                <a class="small strong" href="https://github.com/amnezia-vpn/amneziawg-android/releases/latest"
+                  target="_blank" rel="noopener">{t["install.android.apk"]}</a>
+              </>
+            )}
+            {platform === "apple" && (
+              <>
+                <a class="nb-button" href="https://apps.apple.com/app/id6478942365" target="_blank"
+                  rel="noopener">{t["install.apple.store"]}</a>
+                <p class="muted small">{t["install.apple.note"]}</p>
+                <details class="todo__more">
+                  <summary>{t["install.apple.missing"]}</summary>
+                  <p class="small">{t["install.apple.missingBody"]}</p>
+                </details>
+              </>
+            )}
+            {platform === "windows" && (
+              <>
+                <a class="nb-button" href="https://github.com/amnezia-vpn/amneziawg-windows-client/releases/latest"
+                  target="_blank" rel="noopener">{t["install.windows.download"]}</a>
+                <p class="muted small">{t["install.windows.note"]}</p>
+                <details class="todo__more">
+                  <summary>{t["install.windows.blocked"]}</summary>
+                  <p class="small">{t["install.windows.blockedBody"]}</p>
+                </details>
+              </>
+            )}
+          </li>
+          <li class="todo__step">
+            <h2 class="todo__title">{t["install.back"]}</h2>
+            <button class="nb-button nb-button--ink" type="button" onClick={() => go("region")}>{t["install.next"]}</button>
+            <p class="muted small">{t["install.update"]}</p>
+          </li>
+        </ol>
         <a class="center strong" href={href("/devices/")}>{t["cancel"]}</a>
+        <ul class="plain install-more small">
+          <li><a href={href("/learn/")}>{t["learn.link"]}</a></li>
+          <li><a href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></li>
+        </ul>
       </section>
     );
   }
@@ -223,7 +241,7 @@ export function NewDevice() {
         <form class="stack" onSubmit={(e) => { e.preventDefault(); go("filter"); }}>
           {stepLabel(3)}
           <h1>{t["name.title"]}</h1>
-          <label for="device-name" class="strong">{t["name.label"]}</label>
+          <label for="device-name" class="sr-only">{t["name.label"]}</label>
           <input id="device-name" class="nb-input" maxLength={40} required placeholder={t["name.placeholder"]}
             value={name} onInput={(e) => setName(e.currentTarget.value)} aria-describedby="name-hint" />
           <p id="name-hint" class="muted small">{t["name.hint"]}</p>
@@ -262,7 +280,6 @@ export function NewDevice() {
             {/* a new tab, so the device being set up is not lost */}
             <a href={href("/dns/")} target="_blank" rel="noopener">{t["dns.link"]}</a>
           </p>
-          <p class="card card--tint card--flat small">{t["name.keysNote"]}</p>
           {busy && <p class="muted" role="status">{t["config.waiting"]}</p>}
           {errorLine}
           <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
@@ -294,25 +311,41 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
     <section class="wrap narrow stack">
       <p class="muted strong">{fmt(t["new.step"], { n: 5 })}</p>
       <h1>{t["config.title"]}</h1>
-      <button class="nb-button nb-button--primary" type="button" onClick={download}><Icon name="download" />{t["config.download"]}</button>
-      <ol class="steps">
-        {steps.map((s) => <li>{s}</li>)}
+      {/* three things to do, numbered like the install step: save the config, import it, come back */}
+      <ol class="todo">
+        <li class="todo__step">
+          <h2 class="todo__title">{t["config.get"]}</h2>
+          <button class="nb-button" type="button" onClick={download}><Icon name="download" />{t["config.download"]}</button>
+          <p class="card card--warn card--flat small">{t["config.warn"]}</p>
+        </li>
+        <li class="todo__step">
+          <h2 class="todo__title">{t["config.import"]}</h2>
+          <ol class="steps">
+            {steps.map((s) => <li>{s}</li>)}
+          </ol>
+          <div class="todo__links">
+            <button class="link-button" type="button" aria-expanded={showQr} onClick={() => { if (!showQr) track("device-config", { how: "qr" }); setShowQr(!showQr); }}>
+              {showQr ? t["config.qrHide"] : t["config.qrShow"]}
+            </button>
+            {showQr && (
+              <>
+                {/* generated locally from the config; nothing in it comes from outside this page */}
+                <div class="qr card" role="img" aria-label={t["config.qrLabel"]} dangerouslySetInnerHTML={{ __html: qrSvg(config.text) }} />
+                <p class="muted small">{t["config.onePerDevice"]}</p>
+              </>
+            )}
+            <button class="link-button" type="button" aria-expanded={showText} onClick={() => { if (!showText) track("device-config", { how: "text" }); setShowText(!showText); }}>
+              {showText ? t["config.textHide"] : t["config.textShow"]}
+            </button>
+            {showText && <pre class="config-text" data-testid="config-text">{config.text}</pre>}
+          </div>
+        </li>
+        <li class="todo__step">
+          <h2 class="todo__title">{t["config.back"]}</h2>
+          <a class="nb-button nb-button--ink" href={href("/devices/")} onClick={() => track("device-config", { how: "done" })}>{t["config.done"]}</a>
+          <p class="muted small">{t["config.expiry"]}</p>
+        </li>
       </ol>
-      <button class="link-button" type="button" aria-expanded={showQr} onClick={() => { if (!showQr) track("device-config", { how: "qr" }); setShowQr(!showQr); }}>
-        {showQr ? t["config.qrHide"] : t["config.qrShow"]}
-      </button>
-      {showQr && (
-        // generated locally from the config; nothing in it comes from outside this page
-        <div class="qr card" role="img" aria-label={t["config.qrLabel"]} dangerouslySetInnerHTML={{ __html: qrSvg(config.text) }} />
-      )}
-      <p class="muted small">{t["config.onePerDevice"]}</p>
-      <button class="link-button" type="button" aria-expanded={showText} onClick={() => { if (!showText) track("device-config", { how: "text" }); setShowText(!showText); }}>
-        {showText ? t["config.textHide"] : t["config.textShow"]}
-      </button>
-      {showText && <pre class="config-text" data-testid="config-text">{config.text}</pre>}
-      <p class="card card--warn card--flat small">{t["config.warn"]}</p>
-      <p class="small">{t["config.expiry"]}</p>
-      <a class="nb-button nb-button--ink" href={href("/devices/")} onClick={() => track("device-config", { how: "done" })}>{t["config.done"]}</a>
     </section>
   );
 }

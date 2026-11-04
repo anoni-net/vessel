@@ -63,6 +63,7 @@ test("create a device with keys made in the browser", async ({ page }) => {
   expect(body.preshared_key).toMatch(KEY);
   expect(body).not.toHaveProperty("private_key");
 
+  await expect(page.locator(".todo__title")).toHaveText(["存下設定檔", "在 AmneziaWG 裡匯入", "匯入之後回到這裡"]);
   await page.getByRole("button", { name: "顯示設定檔的文字內容" }).click();
   const text = await page.getByTestId("config-text").innerText();
   const priv = /PrivateKey = (\S+)/.exec(text)![1];
@@ -152,6 +153,21 @@ test("creating the third device still shows its config", async ({ page }) => {
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("button", { name: "下載設定檔" })).toBeVisible();
   await expect(page.getByTestId("device-gate")).toHaveCount(0);
+});
+
+test("the install step: two numbered things to do, the longer notes folded away", async ({ page }) => {
+  await mock(page);
+  await page.goto("/devices/new/");
+  await expect(page.locator(".todo__title")).toHaveText(["下載 AmneziaWG", "裝好之後回到這裡"]);
+  await page.getByRole("button", { name: "iPhone、Mac" }).click();
+  const missing = page.getByText("少數地區找不到的話");
+  await expect(missing).toBeHidden();
+  await page.getByText("App Store 找不到？").click();
+  await expect(missing).toBeVisible();
+  await page.getByRole("button", { name: "Windows" }).click();
+  await expect(page.getByText("學校或公司的電腦")).toBeHidden();
+  await page.getByText("無法安裝？").click();
+  await expect(page.getByText("學校或公司的電腦")).toBeVisible();
 });
 
 test("the install step explains AmneziaWG through the FAQ", async ({ page }) => {
