@@ -449,10 +449,32 @@ test("a device that never connected says so and links to help", async ({ page })
   const list = page.getByTestId("device-list");
   await expect(list.getByTestId("not-connected")).toHaveCount(1);
   const note = list.locator("li", { hasText: "tablet" }).getByTestId("not-connected");
-  await expect(note).toContainText("還沒連上過");
+  // made days ago: what to try, with the connection check
+  await expect(note).toContainText("建立超過一天還沒連上過。請先把 AmneziaWG 更新到最新版");
+  await expect(note.getByRole("link", { name: "連線檢測" })).toHaveAttribute("href", "/check/");
   await note.getByRole("link", { name: "連不上怎麼辦？" }).click();
   await expect(page).toHaveURL(/\/faq\/#q-trouble$/);
   await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
+});
+
+test("a device made today that has not connected yet: the usual few minutes", async ({ page }) => {
+  const today = new Date().toLocaleDateString("sv");
+  const fresh = { ...DEVICES[0], id: "d-ccc", name: "tablet", created_on: today, used_bytes: 0, blocked: 0, connected: false };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([fresh]) });
+  await page.goto("/devices/");
+  const note = page.getByTestId("not-connected");
+  await expect(note).toContainText("還沒連上過。在 AmneziaWG 打開這個通道之後，幾分鐘內這行提示就會消失。");
+  await expect(note.getByRole("link", { name: "連線檢測" })).toHaveCount(0);
+});
+
+test("the usage card says what is left from four fifths of the allowance, until it runs out", async ({ page }) => {
+  for (const [used, text] of [[39e9, null], [40e9, "本月剩下約 10 GB，用完之後裝置會暫停，到下個月 1 日（UTC）恢復。"], [50e9, null]] as const) {
+    await mockApi(page, { ...signedIn, "GET /api/me": json({ ...ME, used_bytes: used }) });
+    await page.goto("/devices/");
+    await expect(page.getByTestId("usage-percent")).toBeVisible();
+    if (text) await expect(page.getByTestId("quota-soon")).toHaveText(text);
+    else await expect(page.getByTestId("quota-soon")).toHaveCount(0);
+  }
 });
 
 test("the usage card adds up what the filters blocked this month", async ({ page }) => {
