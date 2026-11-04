@@ -65,16 +65,7 @@ export function Login() {
   return (
     <section class="wrap narrow">
       <h1>{t["login.title"]}</h1>
-      {canKey && (
-        <div class="stack passkey-login" data-testid="passkey-login">
-          <button class="nb-button" type="button" onClick={passkey} disabled={withKey} aria-busy={withKey}>
-            {withKey ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.login"]}</>}
-          </button>
-          {keyErr && <p class="error" role="alert">{keyErr}</p>}
-          <p class="muted small center">{t["passkey.or"]}</p>
-        </div>
-      )}
-      <form class="stack" onSubmit={submit}>
+      <form class="stack login-form" onSubmit={submit}>
         {/* a password field with a fixed user name, so password managers offer to save the number and fill it in */}
         <input class="sr-only" type="text" name="username" autoComplete="username" value={PM_USERNAME} readOnly
           tabIndex={-1} aria-hidden="true" />
@@ -94,6 +85,16 @@ export function Login() {
           {busy ? <><Spin />{t["busy.login"]}</> : t["login.submit"]}
         </button>
       </form>
+      {/* the account number first, as most people sign in with it; a passkey, for those who added one, under it */}
+      {canKey && (
+        <div class="stack passkey-login" data-testid="passkey-login">
+          <p class="muted small center">{t["passkey.or"]}</p>
+          <button class="nb-button" type="button" onClick={passkey} disabled={withKey} aria-busy={withKey}>
+            {withKey ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.login"]}</>}
+          </button>
+          {keyErr && <p class="error" role="alert">{keyErr}</p>}
+        </div>
+      )}
       <p class="small">
         {t["login.noAccount"]} <a href={href("/redeem/")}>{t["login.redeem"]}</a>
       </p>

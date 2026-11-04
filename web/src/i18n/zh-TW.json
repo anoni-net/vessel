@@ -172,7 +172,7 @@
   "passkey.rotate.doneTitle": "這是你的新帳號號碼",
   "passkey.rotate.doneLead": "舊號碼已經失效，之後用這組號碼或 passkey 登入。",
   "passkey.login": "用 passkey 登入",
-  "passkey.or": "或輸入帳號號碼",
+  "passkey.or": "或",
   "terms.title": "使用條款",
   "privacy.title": "隱私權政策",
   "legal.draft": "這是草稿，內容之後還會調整。正式版生效前，會公告在這個網站與 anoni.net 的電子報。",

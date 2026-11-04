@@ -119,7 +119,7 @@ test("sign in, see devices and usage", async ({ page }) => {
   });
   await page.goto("/login/");
   await page.getByLabel("帳號號碼").fill("4821 0937 5564 2018");
-  await page.getByRole("button", { name: "登入" }).last().click();
+  await page.getByRole("button", { name: "登入", exact: true }).click();
   const list = page.getByTestId("device-list");
   await expect(list.getByText("phone")).toBeVisible();
   await expect(list.getByText("使用中")).toBeVisible();
@@ -133,7 +133,7 @@ test("wrong account number", async ({ page }) => {
   await mockApi(page, { "POST /api/login": json({ error: "invalid_number" }, 401) });
   await page.goto("/login/");
   await page.getByLabel("帳號號碼").fill("0000 0000 0000 0000");
-  await page.getByRole("button", { name: "登入" }).last().click();
+  await page.getByRole("button", { name: "登入", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("帳號號碼不正確。");
 });
 
