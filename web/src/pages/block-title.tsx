@@ -3,7 +3,7 @@
 // search engines and screen readers; the drawing is decoration. Rows build up from the bottom once, on load
 // (styles.css, .block-title__r1–r7). Then a little pixel person carrying a cobalt packet hops across the letters,
 // presses the packet into the l, and the word fills with cobalt from the bottom row up, like a vessel filling. The
-// person stays on the l, blinking now and then; a tap on the title makes it jump. With prefers-reduced-motion the
+// person stays on the l, all of it over within five seconds; a tap on the title makes it jump. With prefers-reduced-motion the
 // word is filled from the start and the person simply stands on the l.
 import { useRef } from "preact/hooks";
 

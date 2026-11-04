@@ -1,5 +1,6 @@
 import { useCtx } from "../context.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { useInView } from "./in-view.ts";
 import { looksSignedIn, useSignedIn } from "../session.ts";
 import { HomeFaq } from "./faq.tsx";
 import { Icon, type IconName } from "../icons.tsx";
@@ -125,6 +126,7 @@ const D = 7.5;
  * phone does not fetch it. */
 function RegionMap() {
   const [map, setMap] = useState<typeof import("../region-map.ts") | null>(null);
+  const [ref, seen] = useInView<HTMLDivElement>();
   useEffect(() => {
     const wide = matchMedia(WIDE);
     let asked = false;
@@ -137,7 +139,7 @@ function RegionMap() {
     wide.addEventListener("change", load);
     return () => wide.removeEventListener("change", load);
   }, []);
-  if (!map) return <div class="region-map" aria-hidden="true" />;
+  if (!map) return <div ref={ref} class="region-map" aria-hidden="true" />;
   const rows = map.LAND.length;
   // a point of the table: column, row, height above it
   const P = (c: number, r: number, z = 0) => [c * A + (rows - r) * B, r * D - z] as const;
@@ -161,7 +163,7 @@ function RegionMap() {
   const [ox, oy] = P(oc + 0.5, or + 0.5, HOME);
   const width = map.LAND[0].length * A + rows * B;
   return (
-    <div class="region-map" aria-hidden="true">
+    <div ref={ref} class={`region-map${seen ? " region-map--live" : ""}`} aria-hidden="true">
       <svg viewBox={`-4 ${-TOWER - 20} ${width + 8} ${rows * D + TOWER + 24}`}>
         <path class="region-map__land" d={land} />
         {taiwan.map(([c, r]) => box(c, r, 1, 1, HOME, "region-map__home"))}

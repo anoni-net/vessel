@@ -32,11 +32,18 @@ test("under 使用情境, the blocklists and the disguise, each with a few words
   expect(ids.slice(0, 3)).toEqual(["when", "works", "how"]);
 });
 
-test("the lines move: the dashes to the node and FIG. 03's two beams, which sweep to and fro", async ({ page }) => {
+test("the lines move once the drawing is in view: FIG. 03's two beams sweep to and fro, twice, and stop", async ({ page }) => {
   await page.goto("/");
   const beams = page.locator("#works .hero-fig__sweep");
   await expect(beams).toHaveCount(2);
-  for (const beam of await beams.all()) expect(await beam.evaluate((e) => getComputedStyle(e).animationName)).toBe("hero-fig-sweep");
+  // still until it is seen (pages/in-view.ts)
+  for (const beam of await beams.all()) expect(await beam.evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
+  await beams.first().scrollIntoViewIfNeeded();
+  await expect(page.locator("#works .hero-fig").nth(1)).toHaveClass(/hero-fig--live/);
+  for (const beam of await beams.all()) {
+    expect(await beam.evaluate((e) => getComputedStyle(e).animationName)).toBe("hero-fig-sweep");
+    expect(await beam.evaluate((e) => getComputedStyle(e).animationIterationCount)).toBe("2");
+  }
 });
 
 test("with prefers-reduced-motion the lines hold still", async ({ page }) => {
