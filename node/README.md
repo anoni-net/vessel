@@ -21,7 +21,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 
 ## 安裝
 
-需要 Docker 與 Python 3。雲端防火牆只開 AWG 的 UDP 埠，SSH 限定來源。主機的 ufw 設定同樣的規則，雲端防火牆在主控台誤改或換主機時還有一層：預設擋下所有連入，SSH 只接受跳板主機與 Tailscale，AWG 的 UDP 埠全開，Beszel 的 45876 只開給 Tailscale。
+需要 Docker 與 Python 3。雲端防火牆只開 AWG 的 UDP 埠，SSH 限定來源。主機的 ufw 設定同樣的規則，雲端防火牆在主控台誤改或換主機時還有一層：預設擋下所有連入，SSH 只接受跳板主機與 Tailscale，AWG 的 UDP 埠全開，Beszel 的 45876 只開給 Tailscale。ufw 的紀錄要關掉（`sudo ufw logging off`）：被擋下的封包裡，大多是使用者經過節點連到網站之後、網站在連線結束後才送回的回程封包，紀錄會留下網站的 IP 與時間，等於把連線的目的地與時間寫進硬碟。
 
 核心修正 CVE-2026-98432 之前，主機另外用一個 systemd 服務在 `raw` 表丟棄帶 IPv4 選項的 TCP SYN（跟容器內的規則相同，見「容器內的防火牆」）。換上修正的核心之後，停用並刪除這個服務。
 
