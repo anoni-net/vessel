@@ -21,6 +21,7 @@ async function backend(page: Page, signedIn: boolean) {
     if (path === "/api/regions") return route.fulfill({ json: [{ id: "jp", open: true }, { id: "sg", open: true }] });
     if (path === "/api/status") return route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "ok" }], notices: [] } });
     if (path === "/api/passkeys") return route.fulfill({ json: [] });
+    if (path === "/api/invites") return route.fulfill({ json: { per_account: 2, used: 1, left: 0, reason: null, eligible_on: "2026-10-15", days: 7, open: [{ id: 1, created_at: "2026-11-04T01:00:00Z", expires_at: "2026-11-11T01:00:00Z" }] } });
     return route.fulfill({ status: 404, json: { error: "not_found" } });
   });
 }

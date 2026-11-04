@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-02",
+  updated: "2026-11-04",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -12,6 +12,7 @@ export default {
           ["A hash of the account number (Argon2id), which cannot be turned back into the number", "Checking it at sign-in", "Until the account is deleted"],
           ["The account's creation date and the last day it opened the portal (day only)", "Deciding when devices expire", "Until the account is deleted"],
           ["A hash of each invite code, the date it was redeemed and the account that redeemed it", "Making sure each code is used once", "The link to the account is removed when the account is deleted; the code's record is kept for now, and the final version will set a limit"],
+          ["Invite codes you make on the account page: a hash of each, when it was made and when it expires, and how many people have used yours (a number only)", "Listing your unused codes and counting how many more you can invite", "Once a code is used or expires, which account made it is no longer kept. The number, until the account is deleted"],
           ["Each device's name, public key, city, tunnel IP address, DNS filter option, expiry date, and whether it has ever connected (yes or no only)", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
           ["The account's monthly traffic total, and how many lookups the scam and malware list and the ads and trackers list each blocked (counts only, no names or days)", "Counting the allowance, and the monthly record on the account page", "The last 12 months, or until the account is deleted"],
           ["Each device's traffic this month, and how many lookups each of its two lists blocked (counts only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
@@ -27,6 +28,7 @@ export default {
     {
       ul: [
         "Email addresses, phone numbers or any other contact details",
+        "Who invited whom. Once a code you made is used, nothing in the database links your account to the other person's",
         "Device private keys. They are generated in your browser and never sent to our servers",
         "Which sites you visit, or when you connect",
         "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment",

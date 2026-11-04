@@ -1,11 +1,11 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { PasskeyOffer } from "./passkeys.tsx";
 import { Spin } from "./skeleton.tsx";
 import { errorText } from "../i18n/index.ts";
-import { INVITE, PM_USERNAME, groupedLength, regroup } from "../grouped.ts";
+import { INVITE, PM_USERNAME, group, groupedLength, regroup } from "../grouped.ts";
 import { passkeysSupported } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
@@ -18,6 +18,14 @@ export function Redeem() {
   const [number, setNumber] = useState("");
   const [offer, setOffer] = useState(false);
   const signedIn = useSignedIn();
+  // a link from a friend's account page: /redeem/#<code>. The code is after the #, so it never reached the server;
+  // take it into the field and off the address bar
+  useEffect(() => {
+    const fromLink = group(decodeURIComponent(location.hash.slice(1)), INVITE);
+    if (!fromLink) return;
+    setCode(fromLink);
+    history.replaceState(history.state, "", location.pathname + location.search);
+  }, []);
 
   const toDevices = () => navigate(href("/devices/"));
   // the number is saved; then a passkey, so it never has to be typed again, unless this browser cannot make one
