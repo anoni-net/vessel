@@ -383,8 +383,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .passkey-badge .icon { vertical-align: 0; }
 /* the icon before a button's words */
 .nb-button > .icon { margin-inline-end: .4em; }
-/* the passkey sign-in above the number form, set apart from the page title */
-.passkey-login { margin: 20px 0 8px; }
+/* the sign-in: the number form under the title, the passkey under the form */
+.login-form { margin-top: 20px; }
+.passkey-login { margin: 16px 0 24px; }
 /* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
 .lookup-answer { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--tint); }
 

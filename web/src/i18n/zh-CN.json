@@ -172,7 +172,7 @@
   "passkey.rotate.doneTitle": "这是你的新账号号码",
   "passkey.rotate.doneLead": "旧号码已经失效，之后用这组号码或通行密钥登录。",
   "passkey.login": "用通行密钥登录",
-  "passkey.or": "或输入账号号码",
+  "passkey.or": "或",
   "terms.title": "使用条款",
   "privacy.title": "隐私政策",
   "legal.draft": "这是草稿，内容之后还会调整。正式版生效前，会公告在这个网站与 anoni.net 的电子报。",

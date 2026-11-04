@@ -172,7 +172,7 @@
   "passkey.rotate.doneTitle": "Your new account number",
   "passkey.rotate.doneLead": "The old number no longer works. Sign in with this number or a passkey from now on.",
   "passkey.login": "Sign in with a passkey",
-  "passkey.or": "or enter your account number",
+  "passkey.or": "or",
   "terms.title": "Terms of use",
   "privacy.title": "Privacy policy",
   "legal.draft": "This is a draft and will change. Before the final version takes effect, it will be announced on this site and in the anoni.net newsletter.",

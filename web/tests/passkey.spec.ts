@@ -159,3 +159,16 @@ test("the account page lists passkeys, removes one, and stops at five", async ({
   await expect(box.locator(".passkey-list li")).toHaveCount(4);
   await expect(box.getByRole("button", { name: "加上 passkey" })).toBeVisible();
 });
+
+test("the sign-in page puts the account number first, the passkey under it", async ({ page }) => {
+  await authenticator(page);
+  await backend(page, { "GET /api/me": (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }) });
+  await page.goto("/login/");
+  const passkey = page.getByTestId("passkey-login");
+  await expect(passkey).toContainText("或");
+  const number = await page.getByLabel("帳號號碼", { exact: true }).boundingBox();
+  const submit = await page.getByRole("button", { name: "登入", exact: true }).boundingBox();
+  const key = await passkey.getByRole("button", { name: "用 passkey 登入" }).boundingBox();
+  expect(number!.y).toBeLessThan(submit!.y);
+  expect(submit!.y).toBeLessThan(key!.y);
+});
