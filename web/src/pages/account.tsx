@@ -85,7 +85,7 @@ export function Account() {
   const loading = !me || months === undefined || passkeys === undefined;
   const day = (iso: string | null | undefined) => (iso ? formatDate(locale, iso) : "-");
   return (
-    <section class="wrap narrow stack" aria-busy={loading}>
+    <section class="wrap narrow stack account-page" aria-busy={loading}>
       <AccountNav />
       <h1>{t["account.title"]}</h1>
       <dl class="facts">
@@ -94,10 +94,17 @@ export function Account() {
         <dt>{t["account.lastLogin"]}</dt>
         <dd>{me ? <span class="appear">{day(me.last_login_on)}</span> : <SkLine w="short" />}</dd>
       </dl>
-      <Months data={months} rows={monthsSince(me?.created_on)} guess={filterGuess()} />
-      <Invites />
-      <Passkeys initial={passkeys} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
-      <div class="account-section">
+      {/* on a wide screen two columns, the record and the invites beside the passkeys (styles.css, .account-cols) */}
+      <div class="account-cols">
+        <div class="account-col">
+          <Months data={months} rows={monthsSince(me?.created_on)} guess={filterGuess()} />
+          <Invites />
+        </div>
+        <div class="account-col">
+          <Passkeys initial={passkeys} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
+        </div>
+      </div>
+      <div class="account-section account-delete">
         <div class="card card--warn card--flat stack">
           <h2>{t["account.deleteTitle"]}</h2>
           <p>{t["account.deleteBody"]}</p>
