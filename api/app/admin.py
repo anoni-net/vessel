@@ -12,6 +12,13 @@
                                                                the region moves to a new host; its devices ask
                                                                for a new config, and the old host's exit counts
                                                                for /api/exit until the given day
+                                                               (a relay of the region forwards to the old host
+                                                               until its forward is changed by hand on the relay)
+
+  python -m app.admin relays [list]                            relay routes: an entry that forwards to a region's node
+  python -m app.admin relays set ID --region REGION --endpoint HOST:PORT (--open|--closed)
+                                                               add or change one; the endpoint goes into the
+                                                               configs of devices made through it
 
   python -m app.admin notices [list]                           notices on the status page, newest first
   python -m app.admin notices add (REGION|all) KIND [--start ISO] [--minutes N]
@@ -25,6 +32,7 @@ may make, 0 turns it off; toomore/anoni-net-ws#458).
 """
 
 import argparse
+import re
 import sys
 from datetime import date
 
@@ -61,6 +69,15 @@ def main(argv: list[str] | None = None) -> None:
     rm.add_argument("--node-host", required=True)
     rm.add_argument("--exit-ip", required=True)
     rm.add_argument("--until", required=True, type=date.fromisoformat)
+    rl = sub.add_parser("relays").add_subparsers(dest="action")
+    rl.add_parser("list")
+    rls = rl.add_parser("set")
+    rls.add_argument("id")
+    rls.add_argument("--region", required=True)
+    rls.add_argument("--endpoint", required=True)
+    rstate = rls.add_mutually_exclusive_group(required=True)
+    rstate.add_argument("--open", dest="is_open", action="store_true")
+    rstate.add_argument("--closed", dest="is_open", action="store_false")
     nt = sub.add_parser("notices").add_subparsers(dest="action")
     nt.add_parser("list")
     na = nt.add_parser("add")
@@ -111,10 +128,16 @@ def main(argv: list[str] | None = None) -> None:
                     ).fetchone()
                     if moved is None:
                         raise SystemExit(f"no region {args.id}")
+                    # a device made through a relay keeps the relay's address: once the relay forwards to the new
+                    # host, its config works as it is
                     n = conn.execute(
-                        "UPDATE devices SET moved = true WHERE region_id = %s AND NOT moved", (args.id,)
+                        "UPDATE devices SET moved = true WHERE region_id = %s AND NOT moved AND relay_id IS NULL",
+                        (args.id,),
                     ).rowcount
                 print(f"{args.id}: {n} devices asked for a new config, the old host until {args.until}")
+                # a relay forwards to the node's public address, set on the relay itself, outside this repo
+                for (rid,) in conn.execute("SELECT id FROM relays WHERE region_id = %s ORDER BY id", (args.id,)):
+                    print(f"relay {rid} forwards to {args.id}: point its forward at {args.exit_ip} by hand")
             for rid, host, is_open, exit_ip, prev, until in conn.execute(
                 "SELECT id, node_host, is_open, exit_ip, previous_exit_ip, previous_until FROM regions ORDER BY id"
             ):
@@ -134,6 +157,31 @@ def main(argv: list[str] | None = None) -> None:
             report(conn, args.days)
         elif args.cmd == "notices":
             notices(conn, args)
+        elif args.cmd == "relays":
+            relays(conn, args)
+
+
+ENDPOINT = re.compile(r"^(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9.-]+):([0-9]{1,5})$")
+
+
+def relays(conn: psycopg.Connection, args: argparse.Namespace) -> None:
+    if args.action == "set":
+        m = ENDPOINT.match(args.endpoint)
+        if not m or not 0 < int(m.group(2)) < 65536:
+            sys.exit(f"{args.endpoint} is not host:port")
+        if not conn.execute("SELECT 1 FROM regions WHERE id = %s", (args.region,)).fetchone():
+            sys.exit(f"no region {args.region}")
+        conn.execute(
+            "INSERT INTO relays (id, region_id, endpoint, is_open) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (id) DO UPDATE SET region_id = EXCLUDED.region_id, endpoint = EXCLUDED.endpoint, "
+            "is_open = EXCLUDED.is_open",
+            (args.id, args.region, args.endpoint, args.is_open),
+        )
+    for rid, region, endpoint, is_open in conn.execute(
+        "SELECT id, region_id, endpoint, is_open FROM relays ORDER BY id"
+    ):
+        devices = one(conn, "SELECT count(*) FROM devices WHERE relay_id = %s AND status <> 'revoking'", (rid,))
+        print(f"{rid}  -> {region}  {endpoint}  {'open' if is_open else 'closed'}  {devices} devices")
 
 
 def notices(conn: psycopg.Connection, args: argparse.Namespace) -> None:
