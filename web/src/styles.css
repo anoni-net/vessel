@@ -441,6 +441,25 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (prefers-reduced-motion: no-preference) { .meter > div { transition: width .9s cubic-bezier(.2, .7, .3, 1); } }
 .card--live { position: relative; }
 .device-list { gap: 20px; }
+/* Wider screens: the devices side by side, two and then three to a row (an account has three at most), so the whole
+   account fits on one screen; each card as tall as the row, its delete link at the bottom. A slot still free is a
+   dashed card in the grid with the add button, standing in for the button under the list on a phone. */
+.device-add { display: none; justify-content: center; align-items: center; gap: 14px; }
+.device-add > p { margin: 0; }
+@media (min-width: 680px) {
+  .devices-page { max-width: 800px; }
+  .device-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+  .device-foot { margin-top: auto; }
+  .device-add { display: flex; }
+  .device-add--n2 { grid-column: 1 / -1; }
+  .device-add-button { display: none; }
+}
+@media (min-width: 960px) {
+  .devices-page { max-width: 1120px; }
+  .device-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .device-add--n1 { grid-column: span 2; }
+  .device-add--n2 { grid-column: auto; }
+}
 /* half of a chip (22px) above the card: inside the 16px gap less the card above's 4px shadow, a little more room
    in the device list */
 .added { position: absolute; top: -11px; inset-inline-end: 20px; display: flex; gap: 6px; pointer-events: none; animation: added-in .5s ease-out, added-out 1s ease-in forwards; }
