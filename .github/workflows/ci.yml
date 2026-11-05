@@ -22,6 +22,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      # the pictures under 使用情境 are drawn by this script; the data file has to be what it draws
+      - run: python3 scripts/hero-figures.py --check
       - run: npm run typecheck
       - run: npm run build
       - run: npx playwright install --with-deps chromium

@@ -1,6 +1,7 @@
 // The pictures under 使用情境 (Vessel 的做法), in the same isometric drawing as the first
 // (hero-figure-data.ts): the shapes as SVG markup worked out once, the labels as positions the page fills with words in
 // the page's language (pages/hero-figure.tsx). The markup is ours and fixed; nothing a visitor sends goes into it.
+// Written by web/scripts/hero-figures.py: change the drawing there and run it, not here.
 //   FIG. 02  a lookup goes up from your device through three walls, the blocklists; each stops what it knows
 //   FIG. 03  two lanes past a traffic checkpoint, a pyramid with an eye above its tip scanning a line across them: a plain VPN's packet with the same header every time is
 //            stopped, Vessel's (AmneziaWG) has nothing steady on it and goes on to the internet
