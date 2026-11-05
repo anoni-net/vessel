@@ -1,0 +1,9 @@
+[Unit]
+Description=Vessel node: probe watch every minute, two numbers logged each hour
+
+[Timer]
+OnCalendar=*:*:00
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

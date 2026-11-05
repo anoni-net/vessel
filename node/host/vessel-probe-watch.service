@@ -1,0 +1,8 @@
+[Unit]
+Description=Vessel node: count packets to the AWG port from addresses that are not a peer (probes, scans)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vessel-node/host/vessel-probe-watch.sh tick
