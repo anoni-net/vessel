@@ -161,7 +161,7 @@ export function NewDevice() {
   if (step === "install") {
     // two things to do, numbered (.todo): get the app, then come back; the longer notes open on request
     return (
-      <section class="wrap narrow stack">
+      <section class="wrap narrow stack" key="install">
         {stepLabel(1)}
         <h1>{t["install.title"]}</h1>
         <p>{t["install.body"]}</p>
@@ -222,7 +222,7 @@ export function NewDevice() {
 
   if (step === "region") {
     return (
-      <section class="wrap narrow stack">
+      <section class="wrap narrow stack" key="region">
         {stepLabel(2)}
         <h1>{t["pick.title"]}</h1>
         <p class="muted">{t["pick.body"]}</p>
@@ -262,9 +262,12 @@ export function NewDevice() {
     );
   }
 
+  // Each step's section carries its own key, so a step change builds the new one instead of reusing the old one's
+  // elements. The name and filter steps are both a form: without keys, the filter step's back button, reused as
+  // the name step's submit button during the click, submitted that form and went straight back to the filter step.
   if (step === "name") {
     return (
-      <section class="wrap narrow">
+      <section class="wrap narrow" key="name">
         <form class="stack" onSubmit={(e) => { e.preventDefault(); go("filter"); }}>
           {stepLabel(3)}
           <h1>{t["name.title"]}</h1>
@@ -281,7 +284,7 @@ export function NewDevice() {
 
   if (step === "filter") {
     return (
-      <section class="wrap narrow">
+      <section class="wrap narrow" key="filter">
         <form class="stack" onSubmit={create}>
           {stepLabel(4)}
           <h1>{t["protect.title"]}</h1>
