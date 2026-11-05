@@ -133,6 +133,20 @@ test("a direct city sends no relay, and no routes show when there are none", asy
   expect(posted[0]).not.toHaveProperty("relay");
 });
 
+test("every back button goes one step back", async ({ page }) => {
+  await mock(page);
+  await throughToFilter(page);
+  await expect(page.getByRole("heading", { name: "額外的防護" })).toBeVisible();
+  await page.getByRole("button", { name: "上一步" }).click();
+  await expect(page.getByRole("heading", { name: "替裝置取個名稱" })).toBeVisible();
+  // the name is still there
+  await expect(page.getByLabel("裝置名稱")).toHaveValue("手機");
+  await page.getByRole("button", { name: "上一步" }).click();
+  await expect(page.getByRole("heading", { name: "選擇城市" })).toBeVisible();
+  await page.getByRole("button", { name: "上一步" }).click();
+  await expect(page.getByRole("heading", { name: "先安裝 AmneziaWG" })).toBeVisible();
+});
+
 test("waits for a slow node", async ({ page }) => {
   await mock(page, { pending: true });
   await throughToFilter(page);
