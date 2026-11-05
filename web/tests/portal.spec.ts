@@ -457,6 +457,16 @@ test("a device that never connected says so and links to help", async ({ page })
   await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
 });
 
+test("a device through a relay route shows its exit city and where it enters", async ({ page }) => {
+  const relayed = { ...DEVICES[0], id: "d-ccc", name: "laptop", relay: "tw-sg" };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], relayed]) });
+  await page.goto("/devices/");
+  const list = page.getByTestId("device-list");
+  await expect(list.getByTestId("via-relay")).toHaveCount(1);
+  await expect(list.locator("li", { hasText: "laptop" }).getByTestId("via-relay")).toHaveText("經台灣入口");
+  await expect(list.locator("li", { hasText: "laptop" })).toContainText("新加坡");
+});
+
 test("a device made today that has not connected yet: the usual few minutes", async ({ page }) => {
   const today = new Date().toLocaleDateString("sv");
   const fresh = { ...DEVICES[0], id: "d-ccc", name: "tablet", created_on: today, used_bytes: 0, blocked: 0, connected: false };

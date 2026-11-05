@@ -9,7 +9,7 @@ const NODE = {
 const KEY = /^[A-Za-z0-9+/]{43}=$/;
 const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object } = {}) {
+async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object; relays?: unknown[] } = {}) {
   const posted: Record<string, string>[] = [];
   let polls = 0;
   await page.route("**/api/**", async (route) => {
@@ -18,13 +18,16 @@ async function mock(page: Page, opts: { pending?: boolean; createError?: string;
     if (path === "/api/me") return route.fulfill({ json: { ...ME, ...opts.me } });
     if (path === "/api/devices" && req.method() === "GET") return route.fulfill({ json: opts.devices ?? [] });
     if (path === "/api/regions") return route.fulfill({ json: [{ id: "jp", open: false }, { id: "sg", open: true }] });
+    if (path === "/api/relays") return route.fulfill({ json: opts.relays ?? [] });
     if (path === "/api/devices" && req.method() === "POST") {
       expect(req.headers()["x-vessel-request"]).toBe("1");
       posted.push(req.postDataJSON());
       if (opts.createError) return route.fulfill({ status: 409, json: { error: opts.createError } });
       return opts.pending
         ? route.fulfill({ status: 202, json: { id: "d-abcdef123456", status: "pending" } })
-        : route.fulfill({ json: { id: "d-abcdef123456", status: "active", config: NODE } });
+        // a relay device's config comes back with the relay's address as its Endpoint (the backend rewrites it)
+        : route.fulfill({ json: { id: "d-abcdef123456", status: "active", config: req.postDataJSON().relay
+          ? { ...NODE, peer: { ...NODE.peer, Endpoint: "203.0.113.20:51820" } } : NODE } });
     }
     if (path === "/api/devices/d-abcdef123456/config") {
       polls++;
@@ -88,6 +91,46 @@ test("create a device with keys made in the browser", async ({ page }) => {
   await expect(page).toHaveURL(/\/devices\/$/);
   // the lazily loaded page, the QR code and the meter's width all work under the production CSP
   expect(violations).toEqual([]);
+});
+
+test("a device through a relay route: the cities first, the routes under them, the relay's address in the file", async ({ page }) => {
+  const posted = await mock(page, { relays: [{ id: "tw-sg", region: "sg", open: true }] });
+  await page.goto("/devices/new/");
+  await page.getByRole("button", { name: "已經安裝，下一步" }).click();
+  const routes = page.getByTestId("relay-routes");
+  await expect(routes.getByRole("heading", { name: "中繼路線" })).toBeVisible();
+  // below every city
+  const lastCity = await page.locator("button.choice--city").filter({ hasText: "洽談中" }).boundingBox();
+  expect((await routes.boundingBox())!.y).toBeGreaterThan(lastCity!.y);
+  await routes.getByRole("button", { name: /台灣入口 → 新加坡/ }).click();
+  await page.getByLabel("裝置名稱").fill("筆電");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
+  expect(posted[0]).toMatchObject({ name: "筆電", region: "sg", relay: "tw-sg" });
+  await page.getByRole("button", { name: "顯示設定檔的文字內容" }).click();
+  const text = await page.getByTestId("config-text").innerText();
+  expect(text).toContain("Endpoint = 203.0.113.20:51820");
+  expect(text).toContain(`PresharedKey = ${posted[0].preshared_key}`);
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下載設定檔" }).click();
+  const file = (await download).suggestedFilename();
+  expect(file).toBe("vessel-twsg-abc.conf");
+  expect(file.replace(/\.conf$/, "")).toMatch(/^[a-zA-Z0-9_=+.-]{1,15}$/);
+});
+
+test("a direct city sends no relay, and no routes show when there are none", async ({ page }) => {
+  const posted = await mock(page);
+  await page.goto("/devices/new/");
+  await page.getByRole("button", { name: "已經安裝，下一步" }).click();
+  await expect(page.getByRole("button", { name: /新加坡/ })).toBeVisible();
+  await expect(page.getByTestId("relay-routes")).toHaveCount(0);
+  await page.getByRole("button", { name: /新加坡/ }).click();
+  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
+  expect(posted[0]).not.toHaveProperty("relay");
 });
 
 test("waits for a slow node", async ({ page }) => {

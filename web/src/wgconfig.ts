@@ -15,8 +15,9 @@ export function buildConfig(node: NodeConfig, privateKey: string, presharedKey: 
 // limit for interface names, or the import fails with "invalid name"; iOS has no such limit.
 const TUNNEL_NAME_MAX = 15;
 
-export function configFileName(region: string, deviceId: string): string {
-  const base = `vessel-${region.replace(/[^a-zA-Z0-9_=+.-]/g, "")}-`;
+/** A relay route's device is named after the route (vessel-twsg-…), so it stands apart from a direct one. */
+export function configFileName(region: string, deviceId: string, relay?: string): string {
+  const base = `vessel-${(relay ? relay.replace(/[^a-zA-Z0-9]/g, "") : region.replace(/[^a-zA-Z0-9_=+.-]/g, ""))}-`;
   const id = deviceId.replace(/^d-/, "");
   return `${(base + id).slice(0, TUNNEL_NAME_MAX)}.conf`;
 }
