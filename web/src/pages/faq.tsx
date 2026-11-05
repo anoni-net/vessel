@@ -120,7 +120,7 @@ function FaqArt() {
         ))}
       </div>
       <div class="faq-art__key">
-        <p><span class="eyebrow">FIG. 04</span> {t["faq.art.title"]}</p>
+        <p><span class="eyebrow">FIG. 06</span> {t["faq.art.title"]}</p>
         <ul class="faq-art__legend">
           {LEGEND.map(([kind, key]) => (
             <li><span class={`faq-art__swatch faq-art__swatch--${kind}`} />{t[key]}</li>

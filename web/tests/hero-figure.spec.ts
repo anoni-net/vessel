@@ -19,11 +19,17 @@ test("the connection picture names each part and says what it shows", async ({ p
   expect(sg!.x + sg!.width).toBeLessThanOrEqual(globe!.x);
 });
 
-test("under 使用情境, the blocklists and the disguise, each with a few words and a link", async ({ page }) => {
+test("under 使用情境, the blocklists, the disguise, the relay routes and the keys, each with a few words", async ({ page }) => {
   await page.goto("/");
   const works = page.locator("#works");
   await expect(works.getByRole("heading", { level: 2 })).toHaveText("Vessel 的做法");
-  await expect(works.locator("figcaption")).toHaveText(["FIG. 02組合多份公開名單，擋下詐騙與釣魚網站", "FIG. 03以 AmneziaWG 偽裝連線，不容易被認出是 VPN"]);
+  await expect(works.locator("figcaption")).toHaveText([
+    "FIG. 02組合多份公開名單，擋下詐騙與釣魚網站", "FIG. 03以 AmneziaWG 偽裝連線，不容易被認出是 VPN",
+    "FIG. 04從台灣入口連線，出口仍是同一個節點", "FIG. 05金鑰在你的裝置上產生，私鑰不會離開",
+  ]);
+  await expect(works.getByRole("img").nth(2)).toHaveAttribute("aria-label", /台灣入口只轉送加密的封包/);
+  await expect(works.getByRole("img").nth(3)).toHaveAttribute("aria-label", /只有公鑰送到入口網站與節點/);
+  await expect(works.getByRole("link", { name: "隱私權政策" })).toHaveAttribute("href", "/privacy/");
   await expect(works.getByRole("img").nth(1)).toHaveAttribute("aria-label", /開源的 AmneziaWG/);
   await expect(works.locator(".hero-fig__label--on")).toHaveText(["詐騙網站SCAM", "釣魚網站PHISHING", "惡意程式MALWARE"]);
   await expect(works.getByRole("link", { name: "偽裝有多可靠？" })).toHaveAttribute("href", "/faq/#q-disguise");
@@ -81,16 +87,19 @@ test("the title is the word for screen readers, blocks to the eye, filled once t
   expect(await page.locator(".pixel-person__packet").evaluate((e) => getComputedStyle(e).opacity)).toBe("0");
 });
 
-test("the two pictures under 使用情境 are framed alike, side by side on a wide screen", async ({ page, isMobile }) => {
+test("the four pictures under 使用情境 are framed alike, two to a row on a wide screen", async ({ page, isMobile }) => {
   await page.goto("/");
   const drawings = page.locator("#works .hero-fig svg");
-  const [a, b] = [await drawings.nth(0).boundingBox(), await drawings.nth(1).boundingBox()];
-  // the same frame for both drawings, at any width
-  expect(Math.abs(a!.height - b!.height)).toBeLessThanOrEqual(1);
+  await expect(drawings).toHaveCount(4);
+  const boxes = await Promise.all([0, 1, 2, 3].map(async (i) => (await drawings.nth(i).boundingBox())!));
+  // the same frame for every drawing, at any width
+  for (const b of boxes) expect(Math.abs(b.height - boxes[0].height)).toBeLessThanOrEqual(1);
   if (isMobile) return;
-  // side by side, the frames and the captions under them line up
+  // two to a row: the frames and the captions in a row line up
   const figs = page.locator("#works .hero-fig");
-  const [fa, fb] = [await figs.nth(0).boundingBox(), await figs.nth(1).boundingBox()];
-  expect(Math.abs(fa!.y - fb!.y)).toBeLessThanOrEqual(1);
-  expect(Math.abs(fa!.height - fb!.height)).toBeLessThanOrEqual(1);
+  for (const [i, j] of [[0, 1], [2, 3]]) {
+    const [fa, fb] = [(await figs.nth(i).boundingBox())!, (await figs.nth(j).boundingBox())!];
+    expect(Math.abs(fa.y - fb.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(fa.height - fb.height)).toBeLessThanOrEqual(1);
+  }
 });
