@@ -126,6 +126,7 @@
   "devices.emptyBody": "添加一台设备，就能开始使用。",
   "devices.emptyExpired": "之前创建过设备的话，可能是超过 30 天没有打开 Vessel 门户网站，设备已经到期删除，手机或电脑上旧的配置文件也已经失效。添加一台、导入新的配置文件之后，再删除 App 里旧的那一条。",
   "devices.add": "添加设备",
+  "devices.slotsLeft": "还可以添加 {n} 台",
   "devices.fullHint": "已经有 {max} 台设备，删除一台不再使用的设备之后就可以添加。",
   "devices.quotaHint": "本月额度已经用完，每月 1 日（UTC）重新计算之后就可以添加设备。",
   "devices.blockedTotal": "本月替你拦下 {n} 次恶意网站的查询",

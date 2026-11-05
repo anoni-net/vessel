@@ -126,6 +126,7 @@
   "devices.emptyBody": "Add a device to start using Vessel.",
   "devices.emptyExpired": "If you had devices before, they may have expired after 30 days without opening the Vessel portal, and the old configs on your phone or computer no longer work. Add a new device, import the new config, then delete the old entry in the app.",
   "devices.add": "Add a device",
+  "devices.slotsLeft": "Room for {n} more",
   "devices.fullHint": "You have {max} devices. Delete one you no longer use to add another.",
   "devices.quotaHint": "This month's allowance is used up. You can add a device once it resets on the 1st (UTC).",
   "devices.blockedTotal": "{n} malware lookups blocked",

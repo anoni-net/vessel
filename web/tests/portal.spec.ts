@@ -605,7 +605,7 @@ test("waiting for the server shows what is happening", async ({ page }) => {
   await expect(phone.getByRole("status")).toHaveText("刪除中");
   await expect(phone).toHaveAttribute("aria-busy", "true");
   release();
-  await expect(page.getByTestId("device-list").locator("li")).toHaveCount(1);
+  await expect(page.getByTestId("device-list").getByTestId("device")).toHaveCount(1);
   await expect(page.getByTestId("device-list")).not.toContainText("刪除中");
 });
 

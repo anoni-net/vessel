@@ -158,14 +158,18 @@ export function Devices() {
   if (err) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
   if (!me || !devices) {
     return (
-      <section class="wrap narrow stack" aria-busy="true">
+      <section class="wrap narrow stack devices-page" aria-busy="true">
         <AccountNav />
         <h1>{t["devices.title"]}</h1>
         <div class="stack" aria-hidden="true">
           <SkCard tint size="usage" lines={["mid", "full", "short", "short", "long"]} />
-          <SkCard size="device" lines={["mid", "long", "long", "long", "long", "short"]} />
-          <SkCard size="device" lines={["mid", "long", "long", "long", "long", "short"]} />
-          <SkButton />
+          {/* laid out like two devices and the free slot after them (styles.css, .device-list) */}
+          <div class="stack device-list">
+            <SkCard size="device" lines={["mid", "long", "long", "long", "long", "short"]} />
+            <SkCard size="device" lines={["mid", "long", "long", "long", "long", "short"]} />
+            <div class="card card--flat card--dashed sk-card device-add device-add--n2" />
+          </div>
+          <div class="device-add-button"><SkButton /></div>
         </div>
         <Busy />
       </section>
@@ -199,7 +203,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
   const today = new Date().toLocaleDateString("sv");
 
   return (
-    <section class="wrap narrow stack">
+    <section class="wrap narrow stack devices-page">
       <AccountNav />
       <div class="row">
         <h1>{t["devices.title"]}</h1>
@@ -252,7 +256,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
       ) : (
         <ul class="stack plain device-list" data-testid="device-list">
           {devices.map((d) => (
-            <li class="card card--live" aria-busy={deleting.has(d.id)}>
+            <li class="card card--live" data-testid="device" aria-busy={deleting.has(d.id)}>
               {added?.devices.get(d.id) && (
                 <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.devices.get(d.id)!.used, d.dns_filter === "none" ? 0 : added.devices.get(d.id)!.blocked)} />
               )}
@@ -315,6 +319,13 @@ function DeviceList({ me, devices, added, deleting, remove }: {
               </div>
             </li>
           ))}
+          {/* the free slots: on a wide screen a card in the grid, on a phone the button below; CSS shows only one */}
+          {!full && !overQuota && (
+            <li class={`card card--dashed device-add device-add--n${devices.length}`}>
+              <p class="muted">{fmt(t["devices.slotsLeft"], { n: me.device_limit - devices.filter((d) => d.status !== "revoking").length })}</p>
+              <a class="nb-button nb-button--primary" href={href("/devices/new/")}>{t["devices.add"]}</a>
+            </li>
+          )}
         </ul>
       )}
 
@@ -323,7 +334,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
           {full ? fmt(t["devices.fullHint"], { max: me.device_limit }) : t["devices.quotaHint"]}
         </p>
       ) : (
-        <a class="nb-button nb-button--primary" href={href("/devices/new/")}>{t["devices.add"]}</a>
+        <a class={`nb-button nb-button--primary${devices.length > 0 ? " device-add-button" : ""}`} href={href("/devices/new/")}>{t["devices.add"]}</a>
       )}
       <p class="muted small center">
         {fmt(t["devices.limitNote"], { max: me.device_limit, quota: formatBytes(locale, me.monthly_quota_bytes) })}

@@ -126,6 +126,7 @@
   "devices.emptyBody": "新增一台裝置，就能開始使用。",
   "devices.emptyExpired": "之前建立過裝置的話，可能是超過 30 天沒有打開 Vessel 入口網站，裝置已經到期刪除，手機或電腦上舊的設定檔也已經失效。新增一台、匯入新的設定檔之後，再刪掉 App 裡舊的那一筆。",
   "devices.add": "新增裝置",
+  "devices.slotsLeft": "還可以新增 {n} 台",
   "devices.fullHint": "已經有 {max} 台裝置，刪除一台不再使用的裝置之後就可以新增。",
   "devices.quotaHint": "本月額度已經用完，每月 1 日（UTC）重新計算之後就可以新增裝置。",
   "devices.blockedTotal": "本月替你擋下 {n} 次惡意網站的查詢",
