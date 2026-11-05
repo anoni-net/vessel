@@ -16,6 +16,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
 | `host/cve-2026-98432-ipopt`、`host/cve-2026-98432-ipopt.service` | 腳本放 `/usr/local/sbin/`，服務放 `/etc/systemd/system/` | 核心修正之前丟棄帶 IPv4 選項的 TCP SYN，見「安裝」 |
+| `host/vessel-probe-watch.sh`、`host/vessel-probe-watch.service`、`host/vessel-probe-watch.timer` | 腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 統計打到 AWG 埠、不是使用者的封包，見「探測與掃描的觀察」 |
 
 主機上另外有 `server/`（伺服器私鑰與 `HeaderProtectionKey`）、`peers/`、`clients/`、`conf/awg0.conf` 與 `rpz/`，都不進 repo。
 
@@ -171,6 +172,21 @@ VPN 使用者只能上網：
 - 帶 IPv4 選項（Record Route、Timestamp）的 TCP SYN 一律丟棄。這類 SYN 能觸發核心處理 TCP 握手時的釋放後使用漏洞（CVE-2026-98432），使用者連得到解析器的 TCP 53 埠，而正常的連線不會帶這些選項。所有節點換上修正的核心之後就可以拿掉
 - P2P 只計數、不擋：每條連線最前面 4 個封包裡，符合 BitTorrent 特徵（沒有加密的握手、DHT 查詢、UDP 與 HTTP tracker 的請求）的封包數，記在 `VESSEL-P2P`，另外 `VESSEL-NEW` 記新連線的總數當作對照。都是整個節點的總數，不分裝置，容器重啟時歸零，用 `awgctl p2p` 讀。加密的握手看不出來，所以數字是下限
 - IPv6 一律拒絕：從隧道進來的 IPv6 不轉送、也不進容器，回 ICMPv6 的拒絕讓 App 立刻改用 IPv4。節點沒有 IPv6 的對外連線，但每個使用者仍然要有一個 ULA 位址。設定檔只有 IPv4 位址時，iOS 即使在 `AllowedIPs` 寫了 `::/0` 也不會把 IPv6 送進隧道，有 IPv6 的網站會繞過 VPN 直接連線（2026-11-03 在 iPhone 上用連線檢測發現）。有了 ULA，作業系統連網際網路上的位址時會優先選 IPv4（RFC 6724），IPv6 被送進隧道後拒絕，不會外洩。要拒絕而不是丟棄，轉送的封包才會經過 `FORWARD`，所以 `run.sh` 開了 `net.ipv6.conf.all.forwarding`，`FORWARD` 的預設政策仍然是 DROP
+
+## 探測與掃描的觀察
+
+偽裝的連線被認出來之前，常見的跡象是有人模仿或重送使用者的握手，打到節點的 AWG 埠，看伺服器會不會回應。AmneziaWG 對驗證不過的封包一律不回應，這些封包本身不會造成問題，但數量的變化可以提早透露節點被注意到了。
+
+`vessel-probe-watch` 每分鐘把各 peer 目前的端點放進主機上 nftables 的一個集合（`inet vessel_probe`），打到 AWG 埠、來源不在集合裡的封包就計數，來源另外記在一個一小時後過期的集合，只為了算有幾個不同的來源。每個整點把這兩個數字寫進 `/var/lib/vessel-probe/hourly.csv`，然後歸零。檔案裡只有時間、封包數與來源數，來源的 IP 只在核心的記憶體裡，不印出，也不寫入硬碟。規則只計數、不擋，掛在 Docker 轉址之前，不影響使用者的連線。
+
+```bash
+install -m 755 host/vessel-probe-watch.sh /opt/vessel-node/host/
+install -m 644 host/vessel-probe-watch.service host/vessel-probe-watch.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now vessel-probe-watch.timer
+/opt/vessel-node/host/vessel-probe-watch.sh show    # 最近 48 小時
+```
+
+判讀時要知道：使用者換了網路（例如從 Wi-Fi 換到行動網路），新位址在下一次同步之前送來的握手也會被算進去，所以平常就會有少量的數字。要注意的是突然增加、來源變多，或只出現在某一個城市的節點。兩個城市一起增加，多半是一般的網路掃描。只有一個城市增加的話，再對照那個城市使用者的分布。
 
 ## 升級
 
