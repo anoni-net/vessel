@@ -47,8 +47,8 @@ sync_peers() {
   {
     echo "flush set inet vessel_probe peers"
     echo "flush set inet vessel_probe peers6"
-    [ -n "$v4" ] && echo "add element inet vessel_probe peers { ${v4%, } }"
-    [ -n "$v6" ] && echo "add element inet vessel_probe peers6 { ${v6%, } }"
+    if [ -n "$v4" ]; then echo "add element inet vessel_probe peers { ${v4%, } }"; fi
+    if [ -n "$v6" ]; then echo "add element inet vessel_probe peers6 { ${v6%, } }"; fi
   } | nft -f -
 }
 
@@ -73,7 +73,7 @@ case "${1:-tick}" in
   tick)
     nft list table inet vessel_probe >/dev/null 2>&1 || setup
     sync_peers
-    [ "$(date -u +%M)" = "00" ] && report
+    if [ "$(date -u +%M)" = "00" ]; then report; fi
     ;;
   show)
     tail -n 49 $LOG
