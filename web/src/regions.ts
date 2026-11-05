@@ -9,7 +9,7 @@ export const COUNTRY: Record<string, keyof typeof FLAGS> = { sg: "sg", jp: "jp",
  */
 export const PLANNED = ["tw"];
 
-/** A relay route's entry, from its id ("tw-sg" enters in Taiwan): the i18n key of its name. */
+/** A relay route's entry, from its id ("tw-sg" enters in Taipei): the i18n key of its name. */
 export const relayEntry = (relay: string): "relay.entry.tw" | "relay.entry" =>
   relay.split("-")[0] === "tw" ? "relay.entry.tw" : "relay.entry";
 

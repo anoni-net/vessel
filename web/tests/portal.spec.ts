@@ -463,7 +463,7 @@ test("a device through a relay route shows its exit city and where it enters", a
   await page.goto("/devices/");
   const list = page.getByTestId("device-list");
   await expect(list.getByTestId("via-relay")).toHaveCount(1);
-  await expect(list.locator("li", { hasText: "laptop" }).getByTestId("via-relay")).toHaveText("經台灣入口");
+  await expect(list.locator("li", { hasText: "laptop" }).getByTestId("via-relay")).toHaveText("經台北入口");
   await expect(list.locator("li", { hasText: "laptop" })).toContainText("新加坡");
 });
 

@@ -102,7 +102,7 @@ test("a device through a relay route: the cities first, the routes under them, t
   // below every city
   const lastCity = await page.locator("button.choice--city").filter({ hasText: "洽談中" }).boundingBox();
   expect((await routes.boundingBox())!.y).toBeGreaterThan(lastCity!.y);
-  await routes.getByRole("button", { name: /台灣入口 → 新加坡/ }).click();
+  await routes.getByRole("button", { name: /台北入口 → 新加坡/ }).click();
   await page.getByLabel("裝置名稱").fill("筆電");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "產生設定檔" }).click();
