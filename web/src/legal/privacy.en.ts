@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-04",
+  updated: "2026-11-05",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -13,7 +13,7 @@ export default {
           ["The account's creation date and the last day it opened the portal (day only)", "Deciding when devices expire", "Until the account is deleted"],
           ["A hash of each invite code, the date it was redeemed and the account that redeemed it", "Making sure each code is used once", "The link to the account is removed when the account is deleted; the code's record is kept for now, and the final version will set a limit"],
           ["Invite codes you make on the account page: a hash of each, when it was made and when it expires, and how many people have used yours (a number only)", "Listing your unused codes and counting how many more you can invite", "Once a code is used or expires, which account made it is no longer kept. The number, until the account is deleted"],
-          ["Each device's name, public key, city, tunnel IP address, DNS filter option, expiry date, and whether it has ever connected (yes or no only)", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
+          ["Each device's name, public key, city, whether it connects through a relay route, tunnel IP address, DNS filter option, expiry date, and whether it has ever connected (yes or no only)", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
           ["The account's monthly traffic total, and how many lookups the scam and malware list and the ads and trackers list each blocked (counts only, no names or days)", "Counting the allowance, and the monthly record on the account page", "The last 12 months, or until the account is deleted"],
           ["Each device's traffic this month, and how many lookups each of its two lists blocked (counts only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
           ["Daily totals per city: how many devices connected that day, the traffic, and how many devices expired (totals only, not tied to any account or device)", "Understanding how the service is used and how much the nodes can take", "400 days"],
@@ -38,6 +38,8 @@ export default {
     { h: "What a node handles while you are connected" },
     { p: "While you are connected, the node holds your current IP address in memory, since it needs it to send data back to you. It also handles the domains and IP addresses you connect to, but not the contents of HTTPS connections. This exists only in memory while you are connected, and is never written to disk or to any log." },
     { p: "During the test the terms forbid P2P file sharing, but connections are not blocked. To decide whether blocking will be needed, each node counts how many of the first few packets of each connection look like BitTorrent (an unencrypted handshake, a DHT query, a tracker request). Only the node's total is kept: nothing per device, and no record of where connections come from or go." },
+    { h: "Relay routes" },
+    { p: "A device on a relay route connects to an entry in Taiwan first, which forwards the connection as it is to the node, and it reaches the internet in the node's city. The relay does not open the tunnel, so it cannot see where you connect to or what you send. It counts the traffic that passes through and keeps no other record. While you are connected, the relay holds your current IP address in memory, since it needs it to send data back to you; it exists only in memory and is never written to disk. For a connection through a relay, the node sees the relay's address as where it comes from." },
     { h: "DNS filtering" },
     { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), together with the scam sites Taiwan's ISPs stop resolving on the requests of the National Police Agency (the 165 list) and the Ministry of Digital Affairs, and blocking ads adds HaGeZi Multi PRO. The malicious site lists are updated every 8 hours and the ad list once a day, and all of them are published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists) and [Taiwan's open government data platform](https://data.gov.tw/dataset/176455). The two Taiwanese lists are used under Taiwan's Open Government Data License, version 1." },
     { h: "Statistics" },

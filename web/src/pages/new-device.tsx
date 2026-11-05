@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Icon } from "../icons.tsx";
-import { ApiError, type Device, type DnsFilter, type Me, type Region, api, last } from "../api.ts";
+import { ApiError, type Device, type DnsFilter, type Me, type Region, type Relay, api, last } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
 import { formatBytes } from "../format.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 import { generateKeyPair, generatePresharedKey } from "../keys.ts";
-import { PLANNED, flagOf } from "../regions.ts";
+import { PLANNED, flagOf, relayEntry } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
@@ -58,6 +58,9 @@ export function NewDevice() {
   const [platform, setPlatform] = useState<Platform>(detectPlatform());
   const [regions, setRegions] = useState<Region[] | null>(null);
   const [region, setRegion] = useState("");
+  // the open relay routes, and the one picked (undefined: a direct connection to the region's node)
+  const [relays, setRelays] = useState<Relay[]>([]);
+  const [relay, setRelay] = useState<string | undefined>(undefined);
   const [name, setName] = useState("");
   // the malware list rarely blocks a site by mistake, so new devices start protected; "connect only" stays one tap away
   const [filter, setFilter] = useState<DnsFilter>("malware");
@@ -75,6 +78,8 @@ export function NewDevice() {
 
   useEffect(() => {
     api.regions().then(setRegions).catch(fail);
+    // an older backend has no relays: the page shows the cities alone
+    api.relays().then((r) => setRelays(Array.isArray(r) ? r.filter((x) => x.open) : [])).catch(() => setRelays([]));
     Promise.all([api.me(), api.devices()]).then(([m, d]) => {
       setMe(m);
       if (!started.current) setGate(gateOf(m, d));
@@ -114,7 +119,9 @@ export function NewDevice() {
     const keys = generateKeyPair();
     const psk = generatePresharedKey();
     try {
-      const created = await api.createDevice({ name, region, dns_filter: filter, public_key: keys.publicKey, preshared_key: psk });
+      const created = await api.createDevice({
+        name, region, dns_filter: filter, public_key: keys.publicKey, preshared_key: psk, ...(relay ? { relay } : {}),
+      });
       let node = created.config;
       for (let i = 0; !node && i < POLL_TRIES; i++) {
         await new Promise((r) => setTimeout(r, POLL_MS));
@@ -126,7 +133,7 @@ export function NewDevice() {
         return;
       }
       track("device-create", { result: "ok", platform });
-      setConfig({ text: buildConfig(node, keys.privateKey, psk), file: configFileName(region, created.id) });
+      setConfig({ text: buildConfig(node, keys.privateKey, psk), file: configFileName(region, created.id, relay) });
       go("config");
     } catch (x) {
       track("device-create", { result: resultOf(x), platform });
@@ -222,7 +229,7 @@ export function NewDevice() {
         {errorLine}
         {regions && cityChoices(regions).map(({ id, state }) => (
           <button type="button" class="choice choice--city" disabled={state !== "open"} data-state={state}
-            onClick={() => { setRegion(id); go("name"); }}>
+            onClick={() => { setRegion(id); setRelay(undefined); go("name"); }}>
             {flagOf(id) && <img class="flag" src={flagOf(id)} alt="" width="32" height="24" />}
             <span class="choice__text">
               <span class="strong big">{t[`region.${id}` as MessageKey] ?? id}</span>
@@ -230,6 +237,26 @@ export function NewDevice() {
             </span>
           </button>
         ))}
+        {/* relay routes, under the cities: the connection enters elsewhere and exits in the city shown */}
+        {relays.length > 0 && (
+          <div class="stack pick-relays" data-testid="relay-routes">
+            <h2 class="pick-group">{t["pick.relays"]}</h2>
+            <p class="muted small">{t["pick.relaysBody"]}</p>
+            {relays.map((r) => {
+              const city = t[`region.${r.region}` as MessageKey] ?? r.region;
+              return (
+                <button type="button" class="choice choice--city" data-state="open"
+                  onClick={() => { setRegion(r.region); setRelay(r.id); go("name"); }}>
+                  {flagOf(r.region) && <img class="flag" src={flagOf(r.region)} alt="" width="32" height="24" />}
+                  <span class="choice__text">
+                    <span class="strong big">{fmt(t["pick.relayRoute"], { entry: t[relayEntry(r.id)], city })}</span>
+                    <span class="muted small">{fmt(t["pick.relayExit"], { city })}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <button class="link-button" type="button" onClick={() => go("install")}>{t["back"]}</button>
       </section>
     );

@@ -6,7 +6,7 @@ import { formatBytes, formatCount, formatDate, formatPercent, formatTime } from 
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
-import { flagOf } from "../regions.ts";
+import { flagOf, relayEntry } from "../regions.ts";
 import { AccountNav } from "./account.tsx";
 import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
@@ -266,6 +266,8 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                 <dd class="spec__with-icon">
                   {flagOf(d.region) && <img class="flag flag--small" src={flagOf(d.region)} alt="" width="20" height="15" />}
                   <span>{t[`region.${d.region}` as keyof typeof t] ?? d.region}</span>
+                  {/* through a relay route: the city is still the exit, the connection enters elsewhere */}
+                  {d.relay && <span class="muted" data-testid="via-relay">{fmt(t["devices.viaRelay"], { entry: t[relayEntry(d.relay)] })}</span>}
                 </dd>
                 <dt>{t["devices.spec.filter"]}</dt>
                 <dd class="spec__with-icon"><Layers filter={d.dns_filter} small /><span>{t[`filter.${d.dns_filter}`]}</span></dd>

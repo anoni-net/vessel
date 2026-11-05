@@ -82,6 +82,8 @@ export interface Device {
   moved_until: string | null;
   /** the config has the private IPv6 address (anoni-net/vessel#122); without it, iOS sends IPv6 around the tunnel */
   ipv6: boolean;
+  /** the relay route it connects through, or null for a direct connection (missing from an older backend) */
+  relay?: string | null;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */
@@ -92,6 +94,13 @@ export interface NodeConfig {
 
 export interface Region {
   id: string;
+  open: boolean;
+}
+
+/** A relay route (anoni-net/vessel#136): an entry that forwards to `region`'s node, which stays the exit. */
+export interface Relay {
+  id: string;
+  region: string;
   open: boolean;
 }
 
@@ -154,6 +163,8 @@ export interface NewDevice {
   dns_filter: DnsFilter;
   public_key: string;
   preshared_key: string;
+  /** a relay route of `region`; the backend puts the relay's address into the config */
+  relay?: string;
 }
 
 export const api = {
@@ -203,6 +214,8 @@ export const api = {
   makeInvite: () => call<{ code: string; id: number; created_at: string; expires_at: string }>("POST", "/invites").then((r) => r.data),
   withdrawInvite: (id: number) => call<Invites>("DELETE", `/invites/${id}`).then((r) => r.data),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
+  /** the open relay routes, without their addresses */
+  relays: () => call<Relay[]>("GET", "/relays").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),
   /** which DNS filters block a site; needs no session, and the domain is not kept */

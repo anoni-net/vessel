@@ -549,6 +549,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .nb-textarea { min-height: 160px; resize: vertical; font: inherit; line-height: 1.6; }
 .feedback-lead { margin: 12px 0 24px; }
 .choice--city { flex-direction: row; align-items: center; gap: 14px; }
+/* the relay routes under the cities (anoni-net/vessel#136), a group of their own */
+.pick-relays { margin-top: 12px; padding-top: 20px; border-top: 1.5px dashed var(--line); }
+.pick-group { margin: 0; font-size: 18px; }
 .choice__text { display: flex; flex-direction: column; gap: 2px; }
 /* a thin frame: the flags of Japan and Singapore are partly white */
 .flag { flex: none; width: 32px; height: 24px; border: 1px solid var(--line); border-radius: 0; object-fit: cover; }
