@@ -708,3 +708,14 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .invite-tools { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
 .account-section { margin-top: 16px; padding-top: 32px; border-top: 2px dashed var(--line); }
 .account-section > h2, .account-section > .card > h2 { margin-bottom: 0; }
+/* Wide screens: the account page in two columns, the monthly record and the invites beside the passkeys; deleting the
+   account stays across the bottom, last and on its own. Narrower, the columns are not there for the layout
+   (display: contents) and the sections stack as before. */
+.account-cols, .account-col { display: contents; }
+@media (min-width: 960px) {
+  .account-page { max-width: 1120px; }
+  .account-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; }
+  .account-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  /* as wide as a column, so its red button is not a bar across the page */
+  .account-delete > .card { max-width: calc((100% - 48px) / 2); box-sizing: border-box; }
+}
