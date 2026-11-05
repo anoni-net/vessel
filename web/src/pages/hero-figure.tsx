@@ -78,8 +78,8 @@ const WORDS: Record<string, MessageKey> = {
   malware: "hero.fig2.malware", phishing: "hero.fig2.phishing", scam: "hero.fig2.scam",
   inspection: "hero.fig3.inspection", plain: "hero.fig3.plain", vessel: "hero.fig3.vessel", fixed: "hero.fig3.fixed",
   ordinary: "hero.fig3.ordinary",
-  node: "hero.fig4.node", exit: "hero.fig4.exit", entry: "hero.fig4.entry", forward: "hero.fig4.forward",
-  direct: "hero.fig4.direct", relayed: "hero.fig4.relayed",
+  tokyo: "hero.fig4.tokyo", sg: "hero.fig4.sg", exit: "hero.fig4.exit", entry: "hero.fig4.entry",
+  forward: "hero.fig4.forward",
   private: "hero.fig5.private", public: "hero.fig5.public", portal: "hero.fig5.portal", noemail: "hero.fig5.noemail",
   nodek: "hero.fig5.node",
 };

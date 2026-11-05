@@ -134,8 +134,8 @@ WORDS = {
     "malware": "hero.fig2.malware", "phishing": "hero.fig2.phishing", "scam": "hero.fig2.scam",
     "inspection": "hero.fig3.inspection", "plain": "hero.fig3.plain", "vessel": "hero.fig3.vessel", "fixed": "hero.fig3.fixed",
     "ordinary": "hero.fig3.ordinary",
-    "node": "hero.fig4.node", "exit": "hero.fig4.exit", "entry": "hero.fig4.entry", "forward": "hero.fig4.forward",
-    "direct": "hero.fig4.direct", "relayed": "hero.fig4.relayed",
+    "tokyo": "hero.fig4.tokyo", "sg": "hero.fig4.sg", "exit": "hero.fig4.exit", "entry": "hero.fig4.entry",
+    "forward": "hero.fig4.forward",
     "private": "hero.fig5.private", "public": "hero.fig5.public", "portal": "hero.fig5.portal", "noemail": "hero.fig5.noemail",
     "nodek": "hero.fig5.node",
 }
@@ -328,37 +328,38 @@ def fig3():
     return drawing(b)
 
 
-# ---------- FIG. 04: a direct connection and one through the Taipei entry reach the same node, the same exit ----------
+# ---------- FIG. 04: through the Taipei entry, which only forwards, to the node of the city you pick ----------
 
 def fig4():
-    b = [grid(-1, 12, -2, 11)]
-    gl, gc = globe(7.0, -1.8)
+    b = [grid(-2, 12, -4, 11)]
+    gl, gc = globe(9.0, -3.8)
     b.append(gl)
-    nx, ny = 3.2, 0.4                       # the node, at the top
-    pxp, pyp = 1.6, 8.0                     # your device, at the bottom
-    rx, ry = 6.0, 5.2                       # the Taipei entry, to the right on the way up
-    dev = (pxp + .65, pyp)
-    b.append(path("hero-fig__path hero-fig__path--live", P(nx + 1.6, ny + .5, 1.6), P(7.0, -1.5, 1.0)))
-    # straight up to the node
-    b.append(path("hero-fig__path", P(dev[0], dev[1], .3), P(nx + .5, ny + 1.6, .3)))
-    # to the entry, then on to the same node
-    b.append(path("hero-fig__path hero-fig__path--live", P(dev[0] + .3, dev[1], .3), P(rx, ry + .9, .3)))
-    b.append(path("hero-fig__path hero-fig__path--live", P(rx + .4, ry, .3), P(nx + 1.4, ny + 1.4, .3)))
-    b.append(tower(nx, ny))
+    tx, ty = -0.6, 1.4                      # Tokyo, at the left
+    sx, sy = 6.4, -0.2                      # Singapore, at the right
+    rx, ry = 3.2, 4.8                       # the Taipei entry, between them and lower
+    pxp, pyp = 0.6, 8.8                     # your device, at the bottom
+    # each node out to the internet
+    for x, y in ((tx, ty), (sx, sy)):
+        b.append(path("hero-fig__path", P(x + 1.6, y + .4, 1.6), P(9.0, -3.5, 1.0)))
+    # your device to the entry, the entry on to each node
+    b.append(path("hero-fig__path hero-fig__path--live", P(pxp + .65, pyp, .3), P(rx + .5, ry + 1.2, .3)))
+    b.append(path("hero-fig__path hero-fig__path--live", P(rx + .3, ry, .3), P(tx + .9, ty + 1.6, .3)))
+    b.append(path("hero-fig__path hero-fig__path--live", P(rx + 1.4, ry, .3), P(sx + .6, sy + 1.6, .3)))
+    b.append(tower(tx, ty))
+    b.append(tower(sx, sy))
     b.append(router(rx, ry))
     b.append(phone(pxp, pyp))
-    b.append(packet(2.25, 5.2, .3))
-    b.append(packet(4.9, 3.2, .3))
-    nt = P(nx, ny + 1.6, 2.6)
-    b.append(label(nt[0] - 10, nt[1] - 2, "node", "NODE · SIN", "end"))
-    b.append(label(nt[0] - 10, nt[1] + 24, "exit", "SAME EXIT", "end", True))
+    b.append(packet(1.75, 6.9, .3))
+    t = P(tx, ty + 1.6, 2.6)
+    b.append(label(t[0] - 10, t[1] - 2, "tokyo", "NODE · TYO", "end"))
+    s_ = P(sx + 1.6, sy, 2.6)
+    b.append(label(s_[0] + 10, s_[1] + 4, "sg", "NODE · SIN", "start"))
+    # the exit is either node: the note between them, over the two
+    m = P((tx + sx) / 2 + .8, (ty + sy) / 2 + .8, 3.6)
+    b.append(label(m[0], m[1] - 14, "exit", "EXIT: YOUR CITY", "middle", True))
     rt = P(rx + 1.8, ry, .55)
     b.append(label(rt[0] + 10, rt[1] + 4, "entry", "TAIPEI ENTRY", "start"))
     b.append(label(rt[0] + 10, rt[1] + 30, "forward", "FORWARD ONLY", "start", True))
-    dm = P(dev[0], 5.0, .3)
-    b.append(label(dm[0] - 14, dm[1] + 4, "direct", "DIRECT", "end", True))
-    rm = P(4.2, 7.0, .3)
-    b.append(label(rm[0] + 6, rm[1] + 20, "relayed", "RELAYED", "start", True))
     d = P(pxp + .65, pyp + 2.2, 0)
     b.append(label(d[0] + 4, d[1] + 22, "device", "YOUR DEVICE", "middle"))
     b.append(label(gc[0] + 28, gc[1] - 6, "internet", "INTERNET", "start"))
@@ -413,7 +414,7 @@ HEADER = """// The pictures under 使用情境 (Vessel 的做法), in the same i
 //   FIG. 02  a lookup goes up from your device through three walls, the blocklists; each stops what it knows
 //   FIG. 03  two lanes past a traffic checkpoint, a pyramid with an eye above its tip scanning a line across them: a plain VPN's packet with the same header every time is
 //            stopped, Vessel's (AmneziaWG) has nothing steady on it and goes on to the internet
-//   FIG. 04  your device to a node two ways, straight and through the Taipei entry, which only forwards; the same exit
+//   FIG. 04  your device through the Taipei entry, which only forwards, to the Tokyo or the Singapore node: the exit is the city you pick
 //   FIG. 05  the key pair made on your device: the private key stays there, only the public key goes to the portal and the node
 
 export interface Label { key: string; x: number; y: number; anchor: "start" | "middle" | "end"; note: boolean; on: boolean; en: string }
