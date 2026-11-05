@@ -24,6 +24,8 @@ class NewDevice(BaseModel):
     dns_filter: Literal["none", "malware", "ads"]
     public_key: str
     preshared_key: str
+    # a relay route of `region` (anoni-net/vessel#136): the config's Endpoint is the relay, the node is unchanged
+    relay: str | None = None
 
 
 def new_device_id() -> str:
@@ -44,12 +46,25 @@ def regions(_: Account, conn: Conn) -> list[dict]:
     return [{"id": r[0], "open": r[1]} for r in conn.execute("SELECT id, is_open FROM regions ORDER BY id")]
 
 
+@router.get("/relays")
+def relays(_: Account, conn: Conn) -> list[dict]:
+    """The relay routes a device can be made through: an entry that forwards to a region's node. Only the open
+    ones, of open regions; like the regions, never the address."""
+    return [
+        {"id": r[0], "region": r[1], "open": True}
+        for r in conn.execute(
+            "SELECT l.id, l.region_id FROM relays l JOIN regions r ON r.id = l.region_id "
+            "WHERE l.is_open AND r.is_open ORDER BY l.id"
+        )
+    ]
+
+
 @router.get("/devices")
 def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
         "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
-        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6 FROM devices d JOIN regions r ON r.id = d.region_id "
+        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id FROM devices d JOIN regions r ON r.id = d.region_id "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
         "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
         (account_id,),
@@ -61,7 +76,9 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          # made before the region moved host: the config stops working after this day, or already has
          "moved_until": r[10].isoformat() if r[10] else None,
          # made before configs had a private IPv6 address; on Apple devices some connections may go around the VPN
-         "ipv6": r[11]}
+         "ipv6": r[11],
+         # the relay route it connects through, or None for a direct connection
+         "relay": r[12]}
         for r in rows
     ]
 
@@ -78,6 +95,12 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
         conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))
         if not conn.execute("SELECT 1 FROM regions WHERE id = %s AND is_open", (body.region,)).fetchone():
             raise error(400, "region_closed")
+        if body.relay is not None:
+            relay = conn.execute("SELECT region_id, is_open FROM relays WHERE id = %s", (body.relay,)).fetchone()
+            if relay is None or relay[0] != body.region:
+                raise error(400, "invalid_relay")
+            if not relay[1]:
+                raise error(400, "relay_closed")
         count = conn.execute(
             "SELECT count(*) FROM devices WHERE account_id = %s AND status <> 'revoking'", (account_id,)
         ).fetchone()[0]
@@ -88,9 +111,10 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
         if conn.execute("SELECT 1 FROM devices WHERE public_key = %s", (body.public_key,)).fetchone():
             raise error(409, "key_in_use")
         conn.execute(
-            "INSERT INTO devices (id, account_id, region_id, name, public_key, dns_filter, expires_on) "
-            "VALUES (%s, %s, %s, %s, %s, %s, current_date + %s)",
-            (device_id, account_id, body.region, name, body.public_key, body.dns_filter, policy.DEVICE_DAYS),
+            "INSERT INTO devices (id, account_id, region_id, name, public_key, dns_filter, expires_on, relay_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s, current_date + %s, %s)",
+            (device_id, account_id, body.region, name, body.public_key, body.dns_filter, policy.DEVICE_DAYS,
+             body.relay),
         )
         job_id = conn.execute(
             "INSERT INTO jobs (region_id, device_id, action, payload) VALUES (%s, %s, 'add', %s) RETURNING id",
@@ -107,17 +131,22 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
 
 
 def take_config(conn, account_id: int, device_id: str) -> dict | None:
-    """Hand out the node's answer once, then forget it."""
+    """Hand out the node's answer once, then forget it. A device made through a relay gets the relay's address
+    as its Endpoint; the rest of the answer (keys, addresses) is the node's, as for a direct device."""
     with conn.transaction():
         row = conn.execute(
-            "SELECT j.id, j.result FROM jobs j JOIN devices d ON d.id = j.device_id "
+            "SELECT j.id, j.result, l.endpoint FROM jobs j JOIN devices d ON d.id = j.device_id "
+            "LEFT JOIN relays l ON l.id = d.relay_id "
             "WHERE j.device_id = %s AND d.account_id = %s AND j.action = 'add' AND j.result IS NOT NULL FOR UPDATE OF j",
             (device_id, account_id),
         ).fetchone()
         if row is None:
             return None
         conn.execute("UPDATE jobs SET result = NULL WHERE id = %s", (row[0],))
-        return row[1]
+        config = row[1]
+        if row[2] and isinstance(config.get("peer"), dict):
+            config["peer"]["Endpoint"] = row[2]
+        return config
 
 
 @router.get("/devices/{device_id}/config")
