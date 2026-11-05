@@ -1,6 +1,6 @@
 import { useCtx } from "../context.ts";
 import { GLOBE, GRID, LABELS, NODES, PATHS, PHONE, SCREEN, VIEWBOX } from "../hero-figure-data.ts";
-import { DISGUISE, type Drawing, LISTS } from "../hero-figures-data.ts";
+import { DISGUISE, type Drawing, KEYS, LISTS, RELAY } from "../hero-figures-data.ts";
 import type { MessageKey } from "../i18n/index.ts";
 import { useInView } from "./in-view.ts";
 
@@ -72,15 +72,19 @@ function Connection() {
   );
 }
 
-// the words of FIG. 02 and 03 by label: the device and the internet are named as in FIG. 01
+// the words of FIG. 02 to 05 by label: the device and the internet are named as in FIG. 01
 const WORDS: Record<string, MessageKey> = {
   device: "hero.fig.device", internet: "hero.fig.internet", website: "hero.fig2.website", lists: "hero.fig2.lists",
   malware: "hero.fig2.malware", phishing: "hero.fig2.phishing", scam: "hero.fig2.scam",
   inspection: "hero.fig3.inspection", plain: "hero.fig3.plain", vessel: "hero.fig3.vessel", fixed: "hero.fig3.fixed",
   ordinary: "hero.fig3.ordinary",
+  node: "hero.fig4.node", exit: "hero.fig4.exit", entry: "hero.fig4.entry", forward: "hero.fig4.forward",
+  direct: "hero.fig4.direct", relayed: "hero.fig4.relayed",
+  private: "hero.fig5.private", public: "hero.fig5.public", portal: "hero.fig5.portal", noemail: "hero.fig5.noemail",
+  nodek: "hero.fig5.node",
 };
 
-/** FIG. 02 and 03: fixed shapes, and labels in the page's language. */
+/** FIG. 02 to 05: fixed shapes, and labels in the page's language. */
 function Drawn({ n, drawing, label, caption }: { n: number; drawing: Drawing; label: string; caption: string }) {
   const { t } = useCtx();
   return (
@@ -94,7 +98,8 @@ function Drawn({ n, drawing, label, caption }: { n: number; drawing: Drawing; la
 /** The hero's picture: the connection through a node. */
 export const HeroFigure = Connection;
 
-/** Under 使用情境: how Vessel does two of them, the blocklists and the disguise, a picture and a few words each. */
+/** Under 使用情境: how Vessel does it, a picture and a few words each: the blocklists, the disguise, the relay
+ * routes and the keys. Two to a row where there is room. */
 export function HowItWorks() {
   const { t, href } = useCtx();
   return (
@@ -108,6 +113,15 @@ export function HowItWorks() {
         <Drawn n={3} drawing={DISGUISE} label={t["hero.fig3.label"]} caption={t["hero.fig3.caption"]} />
         <p>{t["works.disguise"]}</p>
         <p class="small"><a href={href("/faq/#q-disguise")}>{t["faq.disguise.q"]}</a></p>
+      </div>
+      <div class="how-it-works__item">
+        <Drawn n={4} drawing={RELAY} label={t["hero.fig4.label"]} caption={t["hero.fig4.caption"]} />
+        <p>{t["works.relay"]}</p>
+      </div>
+      <div class="how-it-works__item">
+        <Drawn n={5} drawing={KEYS} label={t["hero.fig5.label"]} caption={t["hero.fig5.caption"]} />
+        <p>{t["works.keys"]}</p>
+        <p class="small"><a href={href("/privacy/")}>{t["privacy.title"]}</a></p>
       </div>
     </div>
   );
