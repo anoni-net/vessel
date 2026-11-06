@@ -36,6 +36,7 @@
   "hero.fig3.caption": "AmneziaWG disguises the connection, so it is hard to tell it is a VPN",
   "hero.fig3.label": "A plain VPN's packets carry the same header every time, so traffic inspection recognises and stops them. Vessel disguises its connection with the open-source AmneziaWG, so it has nothing steady to recognise, looks like ordinary traffic and goes on to the internet.",
   "hero.fig4.tokyo": "Tokyo node",
+  "hero.fig4.taipei": "Taipei node",
   "hero.fig4.sg": "Singapore node",
   "hero.fig4.exit": "The exit is the city you pick",
   "hero.fig4.entry": "Taipei entry",

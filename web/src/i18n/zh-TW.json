@@ -36,6 +36,7 @@
   "hero.fig3.caption": "以 AmneziaWG 偽裝連線，不容易被認出是 VPN",
   "hero.fig3.label": "一般的 VPN 封包每次都帶著相同的特徵，在流量檢查時被認出來擋下。Vessel 使用開源的 AmneziaWG 偽裝連線，沒有固定的特徵，看起來像一般流量，通過檢查連到網際網路。",
   "hero.fig4.tokyo": "東京節點",
+  "hero.fig4.taipei": "台北節點",
   "hero.fig4.sg": "新加坡節點",
   "hero.fig4.exit": "出口是你選的城市",
   "hero.fig4.entry": "台北入口",
