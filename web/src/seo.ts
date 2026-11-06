@@ -40,11 +40,11 @@ const DESCRIPTIONS: Record<string, MessageKey> = {
 };
 
 // 1200 × 630, one for every page of a language: the home page's blocks and FIG. 01 in a drawing's frame, rendered
-// from the built site so they match it; hosted on assets.anoni.net, not in the repo
+// from the built site by scripts/og-cards.mjs, so they match it; hosted on assets.anoni.net, not in the repo
 const OG_IMAGE: Record<Locale, string> = {
-  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-655d7733.png",
-  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-7ef5e5a8.png",
-  en: "https://assets.anoni.net/vessel/og-en-9fd2abd3.png",
+  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-d6c00920.png",
+  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-bdeedae3.png",
+  en: "https://assets.anoni.net/vessel/og-en-c04f9fa6.png",
 };
 
 const OG_LOCALE: Record<Locale, string> = { "zh-TW": "zh_TW", "zh-CN": "zh_CN", en: "en_US" };

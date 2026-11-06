@@ -5,7 +5,7 @@ import type { MessageKey } from "../i18n/index.ts";
 import { useInView } from "./in-view.ts";
 
 // short English names under the Chinese ones: an aid in the drawing's own vernacular, left out on the English pages
-const EN = { device: "YOUR DEVICE", tokyo: "NODE · TYO", sg: "NODE · SIN", internet: "INTERNET", encrypted: "ENCRYPTED" } as const;
+const EN = { device: "YOUR DEVICE", tokyo: "NODE · TYO", taipei: "NODE · TPE", sg: "NODE · SIN", internet: "INTERNET", encrypted: "ENCRYPTED" } as const;
 type Part = keyof typeof EN;
 
 /** A label: the name in the page's language, and under it, except on the English pages, the short English one.
@@ -65,7 +65,7 @@ function Connection() {
       {(Object.keys(EN) as Part[]).map((part) => {
         const [x, y, anchor] = LABELS[part] as [number, number, "start" | "middle" | "end"];
         // the English pages name the cities alone, "node" on the line under them, like the other languages' labels
-        const enLine = part === "tokyo" || part === "sg" ? "NODE" : undefined;
+        const enLine = part === "tokyo" || part === "taipei" || part === "sg" ? "NODE" : undefined;
         return <Label x={x} y={y} anchor={anchor} name={t[`hero.fig.${part}`]} en={EN[part]} enLine={enLine} note={part === "encrypted"} />;
       })}
     </Figure>
