@@ -19,6 +19,11 @@ from app.ratelimit import Limiter
 router = APIRouter(prefix="/api")
 
 COOKIE = "__Host-vessel"
+# The onion site (vessel.<onion>, #147) is plain http. Tor Browser counts .onion as secure, but other browsers that
+# open onion addresses (Onion Browser on iOS among them) may not, and drop a Secure or __Host- cookie, which signs
+# the person straight back out. Tor already encrypts the whole connection, so there the cookie goes without Secure,
+# under a name without the prefix. It is still host-only, HttpOnly and SameSite=Strict.
+ONION_COOKIE = "vessel"
 # per client IP, in memory only
 sign_in_limiter = Limiter(limit=10, window_seconds=60)
 
@@ -45,33 +50,51 @@ def limit(request: Request) -> None:
         raise error(429, "too_many_attempts")
 
 
-def start_session(conn: psycopg.Connection, response: Response, account_id: int) -> None:
+def on_onion(request: Request) -> bool:
+    """nginx passes the Host the browser asked for; only the onion site's server block answers for .onion."""
+    return (request.url.hostname or "").endswith(".onion")
+
+
+def session_token(request: Request) -> str | None:
+    return request.cookies.get(ONION_COOKIE if on_onion(request) else COOKIE)
+
+
+def set_session_cookie(request: Request, response: Response, token: str) -> None:
+    onion = on_onion(request)
+    response.set_cookie(
+        ONION_COOKIE if onion else COOKIE, token, max_age=policy.SESSION_DAYS * 86400, path="/", secure=not onion,
+        httponly=True, samesite="strict",
+    )
+
+
+def clear_session_cookie(request: Request, response: Response) -> None:
+    onion = on_onion(request)
+    response.delete_cookie(ONION_COOKIE if onion else COOKIE, path="/", secure=not onion, httponly=True, samesite="strict")
+
+
+def start_session(conn: psycopg.Connection, request: Request, response: Response, account_id: int) -> None:
     token = crypto.new_session_token()
     conn.execute(
         "INSERT INTO sessions (id_hmac, account_id, expires_at) VALUES (%s, %s, now() + make_interval(days => %s))",
         (crypto.keyed_hash(load().hmac_key, token), account_id, policy.SESSION_DAYS),
     )
-    response.set_cookie(
-        COOKIE, token, max_age=policy.SESSION_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict",
-    )
+    set_session_cookie(request, response, token)
 
 
 def extend_session(conn: psycopg.Connection, request: Request, response: Response) -> None:
     """Move the session's expiry, and the cookie's, SESSION_DAYS past today."""
-    token = request.cookies.get(COOKIE)
+    token = session_token(request)
     if not token:
         return
     conn.execute(
         "UPDATE sessions SET expires_at = now() + make_interval(days => %s) WHERE id_hmac = %s",
         (policy.SESSION_DAYS, crypto.keyed_hash(load().hmac_key, token)),
     )
-    response.set_cookie(
-        COOKIE, token, max_age=policy.SESSION_DAYS * 86400, path="/", secure=True, httponly=True, samesite="strict",
-    )
+    set_session_cookie(request, response, token)
 
 
 def current_account(request: Request, conn: Conn) -> int:
-    token = request.cookies.get(COOKIE)
+    token = session_token(request)
     if not token:
         raise error(401, "signed_out")
     row = conn.execute(
@@ -101,7 +124,7 @@ def setting(conn: psycopg.Connection, key: str) -> str:
 
 
 @router.post("/redeem", dependencies=[Depends(require_app_header), Depends(limit)])
-def redeem(body: RedeemBody, response: Response, conn: Conn) -> dict[str, str]:
+def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -> dict[str, str]:
     code = crypto.normalize_invite_code(body.code)
     if code is None:
         raise error(400, "invalid_invite")
@@ -141,7 +164,7 @@ def redeem(body: RedeemBody, response: Response, conn: Conn) -> dict[str, str]:
             conn.execute(
                 "UPDATE invites SET redeemed_at = now(), redeemed_account = %s WHERE id = %s", (account_id, invite[0])
             )
-        start_session(conn, response, account_id)
+        start_session(conn, request, response, account_id)
     return {"account_number": crypto.format_account_number(number)}
 
 
@@ -155,7 +178,7 @@ def keep_alive(conn: psycopg.Connection, account_id: int) -> None:
 
 
 @router.post("/login", dependencies=[Depends(require_app_header), Depends(limit)])
-def login(body: LoginBody, response: Response, conn: Conn) -> dict[str, bool]:
+def login(body: LoginBody, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
     number = crypto.normalize_account_number(body.account_number)
     if number is None:
         raise error(400, "invalid_number")
@@ -169,16 +192,16 @@ def login(body: LoginBody, response: Response, conn: Conn) -> dict[str, bool]:
         account_id = row[0]
         keep_alive(conn, account_id)
         conn.execute("DELETE FROM sessions WHERE expires_at <= now()")
-        start_session(conn, response, account_id)
+        start_session(conn, request, response, account_id)
     return {"ok": True}
 
 
 @router.post("/logout", dependencies=[Depends(require_app_header)])
 def logout(request: Request, response: Response, conn: Conn) -> dict[str, bool]:
-    token = request.cookies.get(COOKIE)
+    token = session_token(request)
     if token:
         conn.execute("DELETE FROM sessions WHERE id_hmac = %s", (crypto.keyed_hash(load().hmac_key, token),))
-    response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+    clear_session_cookie(request, response)
     return {"ok": True}
 
 
@@ -246,7 +269,7 @@ def usage_months(account_id: Account, conn: Conn) -> dict:
 
 
 @router.delete("/account", dependencies=[Depends(require_app_header)])
-def delete_account(account_id: Account, response: Response, conn: Conn) -> dict[str, bool]:
+def delete_account(account_id: Account, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
         # the nodes still hold these peers; the worker removes them after the rows are gone
         conn.execute(
@@ -255,5 +278,5 @@ def delete_account(account_id: Account, response: Response, conn: Conn) -> dict[
             (account_id,),
         )
         conn.execute("DELETE FROM accounts WHERE id = %s", (account_id,))
-    response.delete_cookie(COOKIE, path="/", secure=True, httponly=True, samesite="strict")
+    clear_session_cookie(request, response)
     return {"ok": True}

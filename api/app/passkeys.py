@@ -31,7 +31,7 @@ from webauthn.helpers.structs import (
 )
 
 from app import crypto, policy
-from app.auth import COOKIE, Account, Conn, error, keep_alive, limit, require_app_header, start_session
+from app.auth import Account, Conn, error, keep_alive, limit, require_app_header, session_token, start_session
 from app.config import load
 
 router = APIRouter(prefix="/api")
@@ -199,13 +199,13 @@ def login_options(conn: Conn) -> dict:
 
 
 @router.post("/passkeys/login", dependencies=[Depends(require_app_header), Depends(limit)])
-def login(body: Credential, response: Response, conn: Conn) -> dict[str, bool]:
+def login(body: Credential, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
     challenge = take_challenge(conn, body.credential, "login")
     with conn.transaction():
         account_id = check(conn, body.credential, challenge)
         keep_alive(conn, account_id)
         conn.execute("DELETE FROM sessions WHERE expires_at <= now()")
-        start_session(conn, response, account_id)
+        start_session(conn, request, response, account_id)
     return {"ok": True}
 
 
@@ -243,6 +243,6 @@ def rotate_number(body: Credential, request: Request, account_id: Account, conn:
         # whoever signed in elsewhere, perhaps with the old number, is signed out; this browser stays in
         conn.execute(
             "DELETE FROM sessions WHERE account_id = %s AND id_hmac <> %s",
-            (account_id, crypto.keyed_hash(settings.hmac_key, request.cookies.get(COOKIE, ""))),
+            (account_id, crypto.keyed_hash(settings.hmac_key, session_token(request) or "")),
         )
     return {"account_number": crypto.format_account_number(number)}

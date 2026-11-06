@@ -1,4 +1,7 @@
 from conftest import HEADERS, make_invite, needs_db
+from fastapi.testclient import TestClient
+
+from app.main import app
 
 pytestmark = needs_db
 
@@ -132,3 +135,22 @@ def test_delete_account_queues_node_cleanup(client, db):
     assert db.execute("SELECT count(*) FROM accounts").fetchone()[0] == 0
     assert db.execute("SELECT device_id, action FROM jobs").fetchall() == [("d-1", "remove")]
     assert client.get("/api/me").status_code == 401
+
+
+def test_onion_session_cookie_is_not_secure(db):
+    # on the onion site (#147) the session cookie leaves out Secure and the __Host- prefix, which some browsers that
+    # open onion addresses refuse over http; the clearnet one keeps both
+    with TestClient(app, base_url="http://vessel.example.onion") as onion:
+        r = onion.post("/api/redeem", json={"code": make_invite(db)}, headers=HEADERS)
+        assert r.status_code == 200
+        cookie = r.headers["set-cookie"]
+        assert cookie.startswith("vessel=") and "secure" not in cookie.lower() and "HttpOnly" in cookie
+        assert "samesite=strict" in cookie.lower()
+        assert onion.get("/api/me").status_code == 200
+        assert onion.post("/api/logout", headers=HEADERS).status_code == 200
+        assert onion.get("/api/me").status_code == 401
+
+
+def test_clearnet_session_cookie_stays_secure(client, db):
+    cookie = redeem(client, make_invite(db)).headers["set-cookie"]
+    assert cookie.startswith("__Host-vessel=") and "Secure" in cookie
