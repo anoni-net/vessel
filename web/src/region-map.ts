@@ -88,4 +88,4 @@ export const LAND = [
 // cells, as [column, row]: Taiwan's land, and the middle of it where the lines start; the nodes' cities
 export const TAIWAN: [number, number][] = [[41, 31], [40, 32], [41, 32], [40, 33], [41, 33], [39, 34], [40, 34], [41, 34], [40, 35], [40, 36]];
 export const ORIGIN: [number, number] = [40, 33];
-export const NODES: [number, number][] = [[70, 13], [13, 71]];
+export const NODES: [number, number][] = [[70, 13], [41, 31], [13, 71]];

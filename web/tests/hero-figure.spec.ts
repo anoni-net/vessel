@@ -6,15 +6,15 @@ import { expect, test } from "@playwright/test";
 test("the connection picture names each part and says what it shows", async ({ page }) => {
   await page.goto("/");
   const fig = page.locator(".hero .hero-fig");
-  await expect(fig.getByRole("img")).toHaveAttribute("aria-label", /東京或新加坡的 Vessel 節點/);
-  await expect(fig.locator(".hero-fig__label")).toHaveText(["你的裝置YOUR DEVICE", "東京節點NODE · TYO", "新加坡節點NODE · SIN", "網際網路INTERNET", "加密連線ENCRYPTED"]);
+  await expect(fig.getByRole("img")).toHaveAttribute("aria-label", /東京、台北或新加坡的 Vessel 節點/);
+  await expect(fig.locator(".hero-fig__label")).toHaveText(["你的裝置YOUR DEVICE", "東京節點NODE · TYO", "台北節點NODE · TPE", "新加坡節點NODE · SIN", "網際網路INTERNET", "加密連線ENCRYPTED"]);
   await expect(fig.locator("figcaption")).toHaveText("FIG. 01連線經過 Vessel 的節點");
   await page.goto("/en/");
-  await expect(page.locator(".hero-fig__en")).toHaveText(["NODE", "NODE"]);
+  await expect(page.locator(".hero-fig__en")).toHaveText(["NODE", "NODE", "NODE"]);
   await expect(page.locator(".hero .hero-fig__label").first()).toHaveText("Your device");
   // the cities alone, "node" under them, so "Singapore" stays clear of the globe
-  await expect(page.locator(".hero .hero-fig__label").nth(2)).toHaveText("SingaporeNODE");
-  const sg = await page.locator(".hero .hero-fig__label").nth(2).boundingBox();
+  await expect(page.locator(".hero .hero-fig__label").nth(3)).toHaveText("SingaporeNODE");
+  const sg = await page.locator(".hero .hero-fig__label").nth(3).boundingBox();
   const globe = await page.locator(".hero circle.hero-fig__top").boundingBox();
   expect(sg!.x + sg!.width).toBeLessThanOrEqual(globe!.x);
 });
