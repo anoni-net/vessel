@@ -241,6 +241,19 @@ test("invite codes and account numbers group themselves as you type", async ({ p
   expect(await number.evaluate((el: HTMLInputElement) => el.selectionStart)).toBe(6);
 });
 
+test("where the page cannot copy or download, the number page asks to write it down", async ({ page }) => {
+  // Onion Browser on iOS: no secure context, no clipboard (src/save-file.ts)
+  await page.addInitScript(() => Object.defineProperty(window, "isSecureContext", { value: false }));
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018" }) });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("abcd-efgh-jkmn-pqrs");
+  await page.getByRole("button", { name: "兌換" }).click();
+  await expect(page.getByTestId("account-number")).toHaveText("4821 0937 5564 2018");
+  await expect(page.getByTestId("number-noSave")).toContainText("請抄寫下來");
+  await expect(page.getByRole("button", { name: "下載" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "複製" })).toHaveCount(0);
+});
+
 test("the downloaded account number is marked as UTF-8", async ({ page }) => {
   await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018" }) });
   await page.goto("/redeem/");

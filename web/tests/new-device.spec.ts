@@ -80,22 +80,14 @@ test("create a device with keys made in the browser", async ({ page }) => {
   await page.getByRole("button", { name: /顯示 QR code/ }).click();
   await expect(page.getByRole("img", { name: "設定檔的 QR code" }).locator("svg")).toBeVisible();
 
-  // a browser that cannot download from a page opens the file in a new tab, so this page and its config stay
-  // (src/save-file.ts); one that can still downloads, without a tab
+  // a browser that can download stays on this page, with no tab and no notice (src/save-file.ts)
   const popups: unknown[] = [];
   page.on("popup", (p) => popups.push(p));
-  await page.evaluate(() => {
-    const click = HTMLAnchorElement.prototype.click;
-    HTMLAnchorElement.prototype.click = function () {
-      (window as unknown as { saved: string[] }).saved = [`${this.download}|${this.target}|${this.rel}`];
-      click.call(this);
-    };
-  });
+  await expect(page.getByTestId("config-leave")).toHaveCount(0);
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "下載設定檔" }).click();
   const file = (await download).suggestedFilename();
   expect(file).toBe("vessel-sg-abcde.conf");
-  expect(await page.evaluate(() => (window as unknown as { saved: string[] }).saved)).toEqual(["vessel-sg-abcde.conf|_blank|noopener"]);
   expect(popups).toEqual([]);
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
   // the Android app turns the file name into the tunnel name and rejects anything longer or other characters
@@ -267,4 +259,21 @@ test("cities come with flags, open first, then being set up, then in talks", asy
     await expect(flags.nth(i)).toHaveAttribute("src", new RegExp(`^https://assets\\.anoni\\.net/vessel/flag-${c}-[0-9a-f]{8}\\.svg$`));
     await expect(flags.nth(i)).toHaveAttribute("alt", "");
   }
+});
+
+// Onion Browser on iOS: the onion site is not a secure context there, there is no clipboard, and a download replaces
+// the page. The page says so before the button, and hands the file to window.open (src/save-file.ts).
+test("a browser that cannot download is told before the config replaces the page", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "isSecureContext", { value: false });
+    const opened: string[] = [];
+    Object.assign(window, { opened, open: (url: string) => (opened.push(url), {}) });
+  });
+  await mock(page);
+  await throughToFilter(page);
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByTestId("config-leave")).toContainText("Onion Browser");
+  await page.getByRole("button", { name: "下載設定檔" }).click();
+  expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual([expect.stringMatching(/^blob:/)]);
+  await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
 });

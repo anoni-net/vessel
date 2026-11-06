@@ -9,7 +9,7 @@ import { INVITE, PM_USERNAME, group, groupedLength, regroup } from "../grouped.t
 import { passkeysSupported } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
-import { saveFile } from "../save-file.ts";
+import { saveFile, savesInPlace } from "../save-file.ts";
 
 export function Redeem() {
   const { t, href } = useCtx();
@@ -97,6 +97,9 @@ export function AccountNumber({ number, rotated = false, onContinue }: { number:
   const { t } = useCtx();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  // a browser that can neither copy nor download without leaving the page (save-file.ts) gets neither button
+  const [inPlace, setInPlace] = useState(true);
+  useEffect(() => setInPlace(savesInPlace()), []);
 
   const copy = async () => {
     try {
@@ -121,10 +124,11 @@ export function AccountNumber({ number, rotated = false, onContinue }: { number:
         <p class="mono number" data-testid="account-number">{number}</p>
       </div>
       <div class="cards cards--3 tools">
-        <button class="nb-button" type="button" onClick={copy}>{copied ? t["number.copied"] : t["number.copy"]}</button>
-        <button class="nb-button" type="button" onClick={download}>{t["number.download"]}</button>
+        {inPlace && <button class="nb-button" type="button" onClick={copy}>{copied ? t["number.copied"] : t["number.copy"]}</button>}
+        {inPlace && <button class="nb-button" type="button" onClick={download}>{t["number.download"]}</button>}
         <button class="nb-button" type="button" onClick={() => window.print()}>{t["number.print"]}</button>
       </div>
+      {!inPlace && <p class="small" data-testid="number-noSave">{t["number.noSave"]}</p>}
       <div class="card card--warn card--flat">
         <p class="strong">{t["number.warnTitle"]}</p>
         <p>{t["number.warnBody"]}</p>

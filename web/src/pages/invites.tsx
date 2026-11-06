@@ -19,9 +19,12 @@ export function Invites() {
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
+  // no clipboard where the page is not a secure context (Onion Browser on iOS); the link is on screen to select
+  const [canCopy, setCanCopy] = useState(true);
   useEffect(() => {
     api.invites().then((s) => setState(Array.isArray(s?.open) ? s : null)).catch(() => setState(null));
     setCanShare(typeof navigator.share === "function");
+    setCanCopy(typeof navigator.clipboard?.writeText === "function");
   }, []);
 
   const run = async (what: "make" | number, task: () => Promise<void>) => {
@@ -82,7 +85,7 @@ export function Invites() {
             <p class="mono number" data-testid="invite-code">{made.code}</p>
             <p class="small invite-link">{link}</p>
             <div class="row invite-tools">
-              <button class="nb-button" type="button" onClick={copy}>{copied ? t["invite.copied"] : t["invite.copy"]}</button>
+              {canCopy && <button class="nb-button" type="button" onClick={copy}>{copied ? t["invite.copied"] : t["invite.copy"]}</button>}
               {canShare && <button class="nb-button" type="button" onClick={share}>{t["invite.share"]}</button>}
             </div>
             <p class="muted small">{fmt(t["invite.once"], { date: day(made.expires_at) })}</p>
