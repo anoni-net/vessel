@@ -5,7 +5,7 @@ import { SectionHead } from "./section-head.tsx";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "passkey", "share"],
-  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities"],
+  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities", "taipeiGeo"],
   rules: ["expire", "expired", "quota", "p2p"],
   privacy: ["see", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
 } as const;

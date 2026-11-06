@@ -393,6 +393,8 @@
   "faq.speed.a": "It depends on your network and how far you are from the node. In tests from Taiwan, the Taipei node had about 2 ms of latency, the Singapore node about 67 ms and about 200 Mbps; the Tokyo node about 180 Mbps down and 100 Mbps up.",
   "faq.cities.q": "Will there be nodes in other cities?",
   "faq.cities.a": "Singapore, Tokyo and Taipei for now. More will follow depending on how the test goes. You pick the city when you create a device; to switch cities, add another device.",
+  "faq.taipeiGeo.q": "Why do some sites place the Taipei node in the Netherlands?",
+  "faq.taipeiGeo.a": "Greenhost, which hosts the Taipei node, is a Dutch company, and some services wrongly place the node's IP address in the Netherlands for now, such as YouTube, Netflix and Google. Their region, language or catalogue may differ from Taiwan's, Facebook and Instagram may be slower, and services limited to Taiwanese IP addresses may not work. We are asking the host to get this corrected, which takes some time. Your connection and domain filtering are not affected.",
   "faq.expire.q": "Why do devices expire?",
   "faq.expire.a": "Even if you stay connected, an account's devices expire after 30 days without opening the Vessel portal. Expired devices are deleted from the nodes and the device list, so unused configs do not linger on the nodes. Signing in, or opening the Vessel portal while signed in, extends them by 30 days, and opening it while connected to Vessel counts too. The device list shows each expiry date.",
   "faq.expired.q": "What happens after a device expires?",
