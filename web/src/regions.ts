@@ -7,7 +7,7 @@ export const COUNTRY: Record<string, keyof typeof FLAGS> = { sg: "sg", jp: "jp",
  * Cities with no node yet that the service is talking to a host about. They are listed, greyed out, after the
  * real regions so people can see where Vessel is heading; once a node exists the region comes from the API.
  */
-export const PLANNED = ["tw"];
+export const PLANNED: string[] = [];
 
 /** A relay route's entry, from its id ("tw-sg" enters in Taipei): the i18n key of its name. */
 export const relayEntry = (relay: string): "relay.entry.tw" | "relay.entry" =>
