@@ -125,6 +125,21 @@ test("a device through a relay route: the cities first, the routes under them, t
   expect(file.replace(/\.conf$/, "")).toMatch(/^[a-zA-Z0-9_=+.-]{1,15}$/);
 });
 
+test("a relay route to the node in the same city as its entry", async ({ page }) => {
+  const posted = await mock(page, {
+    regions: [{ id: "sg", open: true }, { id: "tw", open: true }],
+    relays: [{ id: "tw-tw", region: "tw", open: true }],
+  });
+  await page.goto("/devices/new/");
+  await page.getByRole("button", { name: "已經安裝，下一步" }).click();
+  await page.getByTestId("relay-routes").getByRole("button", { name: /台北入口 → 台北/ }).click();
+  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
+  expect(posted[0]).toMatchObject({ region: "tw", relay: "tw-tw" });
+});
+
 test("a direct city sends no relay, and no routes show when there are none", async ({ page }) => {
   const posted = await mock(page);
   await page.goto("/devices/new/");

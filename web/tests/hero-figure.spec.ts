@@ -27,7 +27,7 @@ test("under 使用情境, the blocklists, the disguise, the relay routes and the
     "FIG. 02組合多份公開名單，擋下詐騙與釣魚網站", "FIG. 03以 AmneziaWG 偽裝連線，不容易被認出是 VPN",
     "FIG. 04從台北入口連線，出口是你選的城市", "FIG. 05金鑰在你的裝置上產生，私鑰不會離開",
   ]);
-  await expect(works.getByRole("img").nth(2)).toHaveAttribute("aria-label", /入口只轉送加密的封包、不解開通道，再轉到你選的東京或新加坡節點/);
+  await expect(works.getByRole("img").nth(2)).toHaveAttribute("aria-label", /入口只轉送加密的封包、不解開通道，再轉到你選的城市的節點/);
   await expect(works.getByRole("img").nth(3)).toHaveAttribute("aria-label", /只有公鑰送到入口網站與節點/);
   await expect(works.getByRole("link", { name: "隱私權政策" })).toHaveAttribute("href", "/privacy/");
   await expect(works.getByRole("img").nth(1)).toHaveAttribute("aria-label", /開源的 AmneziaWG/);
