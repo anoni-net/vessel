@@ -508,11 +508,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .region-map__home .region-map__south { fill: var(--ink); }
 .region-map__home .region-map__east { fill: var(--solid-side); }
 .region-map__home polygon { stroke: var(--seam); stroke-width: 1; stroke-linejoin: round; }
-.region-map__node polygon { stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
-.region-map__node .region-map__top { fill: var(--face-lit); }
-.region-map__node .region-map__south { fill: var(--face-front); }
-.region-map__node .region-map__east { fill: var(--face-side); }
-.region-map__slot { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.region-map__tower { fill: var(--face-lit); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.region-map__band { fill: var(--ink); }
+.region-map__rock { fill: var(--face-side); stroke: var(--ink); stroke-width: 2.4; }
+.region-map__lantern { fill: var(--caution); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.region-map__roof { fill: var(--ink); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.region-map__beam { fill: var(--caution); opacity: .28; }
 .region-map__line { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 3 11; }
 @media (prefers-reduced-motion: no-preference) {
   .region-map--live .region-map__line { animation: region-map-flow 1.2s linear 4; }

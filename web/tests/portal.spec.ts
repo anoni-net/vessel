@@ -797,8 +797,8 @@ test("beside 社群架設的原因, a map on a wide screen only, its grid fetche
   await page.goto("/");
   const map = page.locator("#why .region-map");
   if (page.viewportSize()!.width >= 960) {
-    // Taiwan, two lines and two cities; no words
-    await expect(map.locator(".region-map__line")).toHaveCount(3);
+    // Taiwan, a lighthouse at each of the three cities, a line to the two abroad; no words
+    await expect(map.locator(".region-map__line")).toHaveCount(2);
     await expect(map.locator(".region-map__node")).toHaveCount(3);
     await expect(map).toHaveAttribute("aria-hidden", "true");
     expect(await map.locator("svg").evaluate((e) => e.querySelectorAll("text").length)).toBe(0);
