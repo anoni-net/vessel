@@ -13,8 +13,7 @@ import { faqAnchor } from "./faq.tsx";
 import { FILTERS, Layers } from "./layers.tsx";
 import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
-import { saveFile } from "../save-file.ts";
-import { IS_ONION } from "../site.ts";
+import { saveFile, savesInPlace } from "../save-file.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
 // the steps inside AmneziaWG, after the config is saved
@@ -330,6 +329,8 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
   const { t, href } = useCtx();
   const [showQr, setShowQr] = useState(false);
   const [showText, setShowText] = useState(false);
+  const [inPlace, setInPlace] = useState(true);
+  useEffect(() => setInPlace(savesInPlace()), []);
   const download = () => {
     track("device-config", { how: "download" });
     saveFile(config.file, new Blob([config.text], { type: "application/octet-stream" }));
@@ -344,10 +345,11 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
       <ol class="todo">
         <li class="todo__step">
           <h2 class="todo__title">{t["config.get"]}</h2>
+          {/* Onion Browser on iOS cannot download: the file will replace this page (save-file.ts) */}
+          {!inPlace && <p class="small" data-testid="config-leave">{t["config.leaveNotice"]}</p>}
           <button class="nb-button" type="button" onClick={download}><Icon name="download" />{t["config.download"]}</button>
           <p class="card card--warn card--flat small">{t["config.warn"]}</p>
-          {/* Onion Browser on iOS opens the file in a new tab instead of downloading it (save-file.ts) */}
-          {IS_ONION && <p class="muted small">{t["config.onionSave"]}</p>}
+
         </li>
         <li class="todo__step">
           <h2 class="todo__title">{t["config.import"]}</h2>
