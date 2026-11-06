@@ -216,6 +216,7 @@ export function NewDevice() {
         <ul class="plain install-more small">
           <li><a href={href("/learn/")}>{t["learn.link"]}</a></li>
           <li><a href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></li>
+          <li><a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["faq.risky.q"]}</a></li>
         </ul>
       </section>
     );

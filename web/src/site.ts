@@ -1,3 +1,4 @@
+import type { Locale } from "./i18n/index.ts";
 // Two builds of the same pages: the clearnet portal at vessel.anoni.net, and the onion one at vessel.<onion>
 // (`VESSEL_TARGET=onion`, anoni-net/vessel#147). vite.config.ts tells the code which with __VESSEL_ONION__. The tests
 // import some modules in Node, where __VESSEL_ONION__ is not defined, hence the typeof.
@@ -16,3 +17,5 @@ export const ONION_SITE = `http://vessel.${ONION_HOST}`;
 /** The community's home page and docs site; the onion build links to their onion sites, so readers stay on Tor. */
 export const COMMUNITY_SITE = IS_ONION ? `http://${ONION_HOST}` : "https://anoni.net";
 export const DOCS_SITE = IS_ONION ? `http://docs.${ONION_HOST}` : "https://anoni.net/docs";
+// the language part of a path on the other anoni.net sites
+export const LOCALE_PATH: Record<Locale, string> = { "zh-TW": "", "zh-CN": "/zh-cn", en: "/en" };

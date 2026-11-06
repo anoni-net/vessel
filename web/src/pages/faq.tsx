@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "preact/hooks";
 import { useCtx } from "../context.ts";
 import type { MessageKey } from "../i18n/index.ts";
+import { DOCS_SITE, LOCALE_PATH } from "../site.ts";
 import { SectionHead } from "./section-head.tsx";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "passkey", "share"],
   setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities", "taipeiGeo"],
   rules: ["expire", "expired", "quota", "p2p"],
-  privacy: ["see", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
+  privacy: ["see", "risky", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
 } as const;
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
@@ -15,13 +16,13 @@ type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
 // the home page shows these, for someone deciding whether to use Vessel or setting up a first device; the rest are on
 // /faq/. Not here: protocols (the install step links to it, and "app" says what matters on the home page) and newPhone
 // (it comes up only after the first device)
-const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices", "noTraffic", "expire", "quota", "see"];
+const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices", "noTraffic", "expire", "quota", "see", "risky"];
 
 // /faq/#q-protocols opens that answer; the device setup links to it
 export const faqAnchor = (id: Question) => `q-${id}`;
 
 function Questions({ ids }: { ids: readonly Question[] }) {
-  const { t } = useCtx();
+  const { t, locale } = useCtx();
   const target = typeof location === "undefined" ? "" : location.hash.slice(1);
   return (
     <div class="faq">
@@ -29,6 +30,7 @@ function Questions({ ids }: { ids: readonly Question[] }) {
         <details class="faq__item" id={faqAnchor(id)} open={target === faqAnchor(id)}>
           <summary>{t[`faq.${id}.q` as MessageKey]}</summary>
           <p>{t[`faq.${id}.a` as MessageKey]}</p>
+          {id === "risky" && <p><a href={`${DOCS_SITE}${LOCALE_PATH[locale]}/scenarios/asia-travel/`} target="_blank" rel="noopener">{t["faq.risky.link"]}</a></p>}
         </details>
       ))}
     </div>

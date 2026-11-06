@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
+import { faqAnchor } from "./faq.tsx";
 import { PasskeyOffer } from "./passkeys.tsx";
 import { Spin } from "./skeleton.tsx";
 import { errorText } from "../i18n/index.ts";
@@ -70,6 +71,7 @@ export function Redeem() {
           {t["redeem.read.before"]}<a href={href("/terms/")}>{t["terms.title"]}</a>{t["redeem.read.and"]}
           <a href={href("/privacy/")}>{t["privacy.title"]}</a>{t["redeem.read.after"]}
         </p>
+        <p class="small"><a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["faq.risky.q"]}</a></p>
         <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
           {busy ? <><Spin />{t["busy.redeem"]}</> : t["redeem.submit"]}
         </button>
