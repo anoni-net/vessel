@@ -1,14 +1,18 @@
 #!/bin/bash
 # Vessel node: count what reaches the AWG port from addresses that are not a peer's current endpoint, that is
 # probes and scans (and, for a minute, a device that just changed networks). Run every minute by
-# vessel-probe-watch.timer. Only two numbers an hour go to disk, in /var/lib/vessel-probe/hourly.csv:
-# the packets and how many different addresses sent them. The addresses themselves stay in kernel memory, in an
-# nftables set whose entries expire within the hour, and are never printed or written.
+# vessel-probe-watch.timer. Only counts go to disk, once an hour, in /var/lib/vessel-probe/hourly.csv: the packets, how
+# many different addresses sent them, and how many of those addresses are registered in each broad zone, from APNIC's
+# public list. The addresses themselves stay in kernel memory, in an nftables set whose entries expire within the hour,
+# and are never printed or written. An address that is a peer's endpoint by the end of the hour is left out of the
+# zones, so a device that changed networks is not counted as a probe from there.
 #   vessel-probe-watch.sh tick    put the peers' current endpoints in the peer set; on the hour, log and reset
 #   vessel-probe-watch.sh show    print the last 48 hours
 set -euo pipefail
 D=/opt/vessel-node
-LOG=/var/lib/vessel-probe/hourly.csv
+DATA=/var/lib/vessel-probe
+LOG=$DATA/hourly.csv
+HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac
 # shellcheck source=/dev/null
 . $D/node.env
 port=${LISTEN_PORT:-443}
@@ -57,16 +61,82 @@ count() {
   nft -j list set inet vessel_probe "$1" | python3 -c 'import json,sys; print(sum(len(x["set"].get("elem", [])) for x in json.load(sys.stdin)["nftables"] if "set" in x))'
 }
 
+# how many addresses seen this hour are in each zone, as the last seven columns of $HEADER. Empty columns when APNIC's
+# list has never been downloaded. Prints nothing else: no address leaves this function.
+zones() {
+  python3 - "$DATA/delegated-apnic" <<'PY'
+import bisect, ipaddress, json, os, subprocess, sys, time, urllib.request
+
+LIST = sys.argv[1]
+ZONES = ["taiwan", "hk_macau", "china", "japan_korea", "southeast_asia", "other_apac", "outside_apac"]
+BY_COUNTRY = {"TW": "taiwan", "HK": "hk_macau", "MO": "hk_macau", "CN": "china", "JP": "japan_korea", "KR": "japan_korea"}
+BY_COUNTRY.update(dict.fromkeys("SG MY TH VN ID PH MM KH LA BN TL".split(), "southeast_asia"))
+
+def members(name):
+    out = subprocess.run(["nft", "-j", "list", "set", "inet", "vessel_probe", name], capture_output=True, text=True, check=True).stdout
+    found = set()
+    for item in json.loads(out)["nftables"]:
+        for elem in item.get("set", {}).get("elem", []):
+            found.add(elem["elem"]["val"] if isinstance(elem, dict) else elem)
+    return found
+
+try:  # a week old is recent enough, and without the network the list on disk still works
+    if not os.path.exists(LIST) or time.time() - os.path.getmtime(LIST) > 7 * 86400:
+        data = urllib.request.urlopen("https://ftp.apnic.net/stats/apnic/delegated-apnic-latest", timeout=60).read()
+        with open(LIST + ".new", "wb") as f:
+            f.write(data)
+        os.replace(LIST + ".new", LIST)
+except OSError:
+    pass
+if not os.path.exists(LIST):
+    print("," * (len(ZONES) - 1))
+    sys.exit()
+
+ranges = {4: [], 6: []}
+with open(LIST) as f:
+    for line in f:
+        field = line.split("|")
+        if len(field) < 7 or field[1] in ("", "*") or field[2] not in ("ipv4", "ipv6"):
+            continue
+        if field[2] == "ipv4":
+            first = int(ipaddress.IPv4Address(field[3]))
+            ranges[4].append((first, first + int(field[4]) - 1, field[1]))
+        else:
+            net = ipaddress.IPv6Network(f"{field[3]}/{field[4]}")
+            ranges[6].append((int(net.network_address), int(net.broadcast_address), field[1]))
+for r in ranges.values():
+    r.sort()
+starts = {v: [x[0] for x in r] for v, r in ranges.items()}
+
+def zone(address):
+    ip = ipaddress.ip_address(address)
+    i = bisect.bisect_right(starts[ip.version], int(ip)) - 1
+    if i >= 0 and int(ip) <= ranges[ip.version][i][1]:
+        return BY_COUNTRY.get(ranges[ip.version][i][2], "other_apac")
+    return "outside_apac"
+
+counts = dict.fromkeys(ZONES, 0)
+for seen, peers in (("seen", "peers"), ("seen6", "peers6")):
+    for address in members(seen) - members(peers):
+        counts[zone(address)] += 1
+print(",".join(str(counts[z]) for z in ZONES))
+PY
+}
+
 report() {
-  local packets sources hour
+  local packets sources hour by_zone
   packets=$(nft -j reset counter inet vessel_probe probes | python3 -c 'import json,sys; print(next(x["counter"]["packets"] for x in json.load(sys.stdin)["nftables"] if "counter" in x))')
   sources=$(( $(count seen) + $(count seen6) ))
+  mkdir -p $DATA
+  # a problem here must not lose the hour's two counts
+  by_zone=$(zones 2>/dev/null) || by_zone=,,,,,,
   nft flush set inet vessel_probe seen
   nft flush set inet vessel_probe seen6
   hour=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:00Z)
-  mkdir -p "$(dirname $LOG)"
-  [ -f $LOG ] || echo "hour,packets,sources" > $LOG
-  echo "$hour,$packets,$sources" >> $LOG
+  [ -f $LOG ] || echo "$HEADER" > $LOG
+  # rows from before the zone columns keep them empty
+  if [ "$(head -n 1 $LOG)" != "$HEADER" ]; then sed -i -e "1s/.*/$HEADER/" -e '2,$s/$/,,,,,,,/' $LOG; fi
+  echo "$hour,$packets,$sources,$by_zone" >> $LOG
 }
 
 case "${1:-tick}" in
@@ -76,7 +146,8 @@ case "${1:-tick}" in
     if [ "$(date -u +%M)" = "00" ]; then report; fi
     ;;
   show)
-    tail -n 49 $LOG
+    echo "$HEADER"
+    grep -v '^hour' $LOG | tail -n 48
     ;;
   *)
     echo "usage: $0 [tick|show]" >&2
