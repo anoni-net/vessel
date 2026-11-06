@@ -11,6 +11,7 @@ export const ONION_HOST = "anoninetru5tflukgfaehun7q6khowgmymcff3gtk5oyesqazhmfx
 export const IS_ONION = typeof __VESSEL_ONION__ !== "undefined" && __VESSEL_ONION__;
 
 export const CLEARNET = "https://vessel.anoni.net";
+export const ONION_SITE = `http://vessel.${ONION_HOST}`;
 
 /** The community's home page and docs site; the onion build links to their onion sites, so readers stay on Tor. */
 export const COMMUNITY_SITE = IS_ONION ? `http://${ONION_HOST}` : "https://anoni.net";

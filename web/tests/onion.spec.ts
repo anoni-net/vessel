@@ -42,6 +42,8 @@ test("the onion site sends its own policy and loads only from itself", async ({ 
   // no share image on clearnet, and the community links stay on Tor
   await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
   await expect(page.locator('footer a[href^="http://anoninet"]').first()).toBeVisible();
+  // the footer leads back to the same page on clearnet
+  await expect(page.getByTestId("footer-onion").getByRole("link")).toHaveAttribute("href", "https://vessel.anoni.net/");
   await page.goto("/faq/");
   await page.goto("/en/");
   expect(elsewhere).toEqual([]);

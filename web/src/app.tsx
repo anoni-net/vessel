@@ -21,7 +21,7 @@ import { FAVICON, LOGO, LOGO_DARK } from "./images.ts";
 import { BUILT, REV, REV_URL } from "./rev.ts";
 import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
-import { COMMUNITY_SITE } from "./site.ts";
+import { CLEARNET, COMMUNITY_SITE, IS_ONION, ONION_HOST, ONION_SITE } from "./site.ts";
 import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
 import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 import { BlockTitle } from "./pages/block-title.tsx";
@@ -119,6 +119,8 @@ export function App({ url }: { url?: string } = {}) {
   useLayoutEffect(checkSession, []);
   // like the news site: the header and footer link to the same page in the other two languages
   const others = LOCALES.filter((l) => l !== locale);
+  // the Chinese labels end in a full-width colon; the English one needs a space before the link
+  const gap = locale === "en" ? " " : "";
 
   // after the page has rendered, so the title and path are the new page's
   useEffect(() => {
@@ -232,6 +234,12 @@ export function App({ url }: { url?: string } = {}) {
           {/* the small print under the frame, like a drawing's notes */}
           <div class="title-block__notes">
             <StatsChoice />
+            {/* the same page on the other site: the onion address for Tor Browser, and back to clearnet from the onion */}
+            <p class="footer-legal footer-onion" data-testid="footer-onion">
+              {IS_ONION
+                ? <>{t["footer.clearnet"]}{gap}<a href={CLEARNET + PREFIX[locale] + path}>vessel.anoni.net</a></>
+                : <>{t["footer.onion"]}{gap}<a href={ONION_SITE + PREFIX[locale] + path}>{`vessel.${ONION_HOST}`}</a></>}
+            </p>
             <p class="footer-legal">
               {t["footer.trademarks"]} <a href="https://www.wireguard.com/" target="_blank" rel="noopener">wireguard.com</a>
             </p>

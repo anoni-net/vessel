@@ -10,7 +10,7 @@ const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = process.env.VESSEL_TARGET === "onion" ? "dist-onion" : "dist";
 const dist = join(web, out);
 const ssr = await import(join(web, `${out}-ssr`, "prerender.js"));
-const { HTML_LANG, LOCALES, PREFIX, PRIVATE_PAGES, PUBLIC_PAGES, ROUTE_PATHS, SITE, headTags, renderPage, titleOf, urlOf } = ssr;
+const { HTML_LANG, LOCALES, PREFIX, PRIVATE_PAGES, PUBLIC_PAGES, ROUTE_PATHS, SITE, headTags, messagesOf, renderPage, titleOf, urlOf } = ssr;
 
 // a page the app has but seo.ts does not list would not be prerendered, and nginx would answer it with 404
 const listed = new Set([...PUBLIC_PAGES, ...PRIVATE_PAGES]);
@@ -26,12 +26,15 @@ for (const needle of ['<html lang="zh-Hant-TW">', "<title>Vessel</title>", '<div
 }
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// data-path tells src/main.tsx which page this HTML is, so it reuses the HTML only on that page
+// data-path tells src/main.tsx which page this HTML is, so it reuses the HTML only on that page. Without scripts
+// (Tor Browser at its Safest level) the page shows but nothing works, so a <noscript> line above it says so; it
+// sits outside #app, so the app never hydrates it.
 function page(locale, title, head, body, path) {
+  const noscript = `<noscript><p class="noscript">${esc(messagesOf(locale).noscript)}</p></noscript>`;
   return template
     .replace('<html lang="zh-Hant-TW">', `<html lang="${HTML_LANG[locale]}">`)
     .replace("<title>Vessel</title>", `<title>${esc(title)}</title>\n${head}`)
-    .replace('<div id="app"></div>', `<div id="app" data-path="${path}">${body}</div>`);
+    .replace('<div id="app"></div>', `${noscript}<div id="app" data-path="${path}">${body}</div>`);
 }
 
 async function write(file, text) {
