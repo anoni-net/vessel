@@ -23,9 +23,9 @@ export const FEEDBACK_ENDPOINT = IS_ONION ? FEEDBACK_ENDPOINT_ONION : FEEDBACK_E
 export const KINDS = ["connect", "setup", "speed", "idea", "other"] as const;
 export const NETWORKS = ["home", "mobile", "work", "public", "other"] as const;
 export const PLATFORMS = ["android", "apple", "windows", "linux", "other"] as const;
-export const CITIES = ["sg", "jp", "none"] as const;
+export const CITIES = ["sg", "jp", "tw", "none"] as const;
 // the city people would most like next, to help decide where the next node goes
-export const WANTED = ["tw", "osaka", "seoul", "bangkok", "sydney", "europe", "namerica", "other"] as const;
+export const WANTED = ["osaka", "seoul", "bangkok", "sydney", "europe", "namerica", "other"] as const;
 export type Kind = (typeof KINDS)[number];
 export type Network = (typeof NETWORKS)[number];
 export type FeedbackPlatform = (typeof PLATFORMS)[number];
@@ -38,7 +38,7 @@ export const SENT = {
     kind: { connect: "連不上或常斷線", setup: "建立裝置或匯入時卡住", speed: "速度太慢", idea: "建議或想要的功能", other: "其他" },
     network: { home: "家裡的網路", mobile: "行動網路", work: "學校或公司的網路", public: "咖啡店、旅館等公共 Wi-Fi", other: "其他" },
     platform: { android: "Android", apple: "iPhone 或 Mac", windows: "Windows", linux: "Linux", other: "其他" },
-    city: { sg: "新加坡", jp: "東京", none: "還沒有裝置" },
+    city: { sg: "新加坡", jp: "東京", tw: "台北", none: "還沒有裝置" },
     wanted: { tw: "台灣", osaka: "大阪", seoul: "首爾", bangkok: "曼谷", sydney: "雪梨", europe: "歐洲", namerica: "北美", other: "其他" },
   },
   en: {
@@ -51,7 +51,7 @@ export const SENT = {
     },
     network: { home: "Home network", mobile: "Mobile data", work: "School or work network", public: "Public Wi-Fi, such as a café or hotel", other: "Other" },
     platform: { android: "Android", apple: "iPhone or Mac", windows: "Windows", linux: "Linux", other: "Other" },
-    city: { sg: "Singapore", jp: "Tokyo", none: "No device yet" },
+    city: { sg: "Singapore", jp: "Tokyo", tw: "Taipei", none: "No device yet" },
     wanted: {
       tw: "Taiwan", osaka: "Osaka", seoul: "Seoul", bangkok: "Bangkok", sydney: "Sydney", europe: "Europe",
       namerica: "North America", other: "Other",

@@ -9,7 +9,7 @@ const NODE = {
 const KEY = /^[A-Za-z0-9+/]{43}=$/;
 const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object; relays?: unknown[] } = {}) {
+async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object; relays?: unknown[]; regions?: unknown[] } = {}) {
   const posted: Record<string, string>[] = [];
   let polls = 0;
   await page.route("**/api/**", async (route) => {
@@ -17,7 +17,7 @@ async function mock(page: Page, opts: { pending?: boolean; createError?: string;
     const path = new URL(req.url()).pathname;
     if (path === "/api/me") return route.fulfill({ json: { ...ME, ...opts.me } });
     if (path === "/api/devices" && req.method() === "GET") return route.fulfill({ json: opts.devices ?? [] });
-    if (path === "/api/regions") return route.fulfill({ json: [{ id: "jp", open: false }, { id: "sg", open: true }] });
+    if (path === "/api/regions") return route.fulfill({ json: opts.regions ?? [{ id: "jp", open: false }, { id: "sg", open: true }] });
     if (path === "/api/relays") return route.fulfill({ json: opts.relays ?? [] });
     if (path === "/api/devices" && req.method() === "POST") {
       expect(req.headers()["x-vessel-request"]).toBe("1");
@@ -106,7 +106,7 @@ test("a device through a relay route: the cities first, the routes under them, t
   const routes = page.getByTestId("relay-routes");
   await expect(routes.getByRole("heading", { name: "中繼路線" })).toBeVisible();
   // below every city
-  const lastCity = await page.locator("button.choice--city").filter({ hasText: "洽談中" }).boundingBox();
+  const lastCity = await page.locator("button.choice--city").filter({ hasText: "準備中" }).boundingBox();
   expect((await routes.boundingBox())!.y).toBeGreaterThan(lastCity!.y);
   await routes.getByRole("button", { name: /台北入口 → 新加坡/ }).click();
   await page.getByLabel("裝置名稱").fill("筆電");
@@ -243,19 +243,19 @@ test("the install step explains AmneziaWG through the FAQ", async ({ page }) => 
   await expect(page.locator("#q-maker")).not.toHaveAttribute("open", "");
 });
 
-test("cities come with flags, open first, then being set up, then in talks", async ({ page }) => {
-  await mock(page);
+test("cities come with flags, open first, then being set up", async ({ page }) => {
+  await mock(page, { regions: [{ id: "jp", open: false }, { id: "sg", open: true }, { id: "tw", open: true }] });
   await page.goto("/devices/new/");
   await page.getByRole("button", { name: "已經安裝，下一步" }).click();
   const cities = page.locator("button.choice--city");
-  await expect(cities).toHaveText([/新加坡.*開放中/, /東京.*準備中/, /台北.*洽談中/]);
+  await expect(cities).toHaveText([/新加坡.*開放中/, /台北.*開放中/, /東京.*準備中/]);
   await expect(cities.nth(0)).toBeEnabled();
-  await expect(cities.nth(1)).toBeDisabled();
+  await expect(cities.nth(1)).toBeEnabled();
   await expect(cities.nth(2)).toBeDisabled();
   // images on assets.anoni.net, not emoji, decorative next to the city name
   const flags = cities.locator("img.flag");
   await expect(flags).toHaveCount(3);
-  for (const [i, c] of ["sg", "jp", "tw"].entries()) {
+  for (const [i, c] of ["sg", "tw", "jp"].entries()) {
     await expect(flags.nth(i)).toHaveAttribute("src", new RegExp(`^https://assets\\.anoni\\.net/vessel/flag-${c}-[0-9a-f]{8}\\.svg$`));
     await expect(flags.nth(i)).toHaveAttribute("alt", "");
   }
