@@ -65,7 +65,7 @@ export function Login() {
   return (
     <section class="wrap narrow">
       <h1>{t["login.title"]}</h1>
-      <form class="stack login-form" onSubmit={submit}>
+      <form class="stack login-form" method="post" onSubmit={submit}>
         {/* a password field with a fixed user name, so password managers offer to save the number and fill it in */}
         <input class="sr-only" type="text" name="username" autoComplete="username" value={PM_USERNAME} readOnly
           tabIndex={-1} aria-hidden="true" />

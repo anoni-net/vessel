@@ -1,4 +1,5 @@
 import { HTML_LANG, LOCALES, type Locale, type MessageKey, PREFIX, messagesOf } from "./i18n/index.ts";
+import { IS_ONION } from "./site.ts";
 
 // What each page tells search engines and link previews. scripts/prerender.mjs writes it into the
 // prerendered HTML of every page; the app uses the titles when it moves between pages.
@@ -81,11 +82,16 @@ export function headTags(locale: Locale, path: string | null): string {
     `<meta property="og:url" content="${urlOf(locale, path)}">`,
     `<meta property="og:locale" content="${OG_LOCALE[locale]}">`,
     ...LOCALES.filter((l) => l !== locale).map((l) => `<meta property="og:locale:alternate" content="${OG_LOCALE[l]}">`),
-    `<meta property="og:image" content="${OG_IMAGE[locale]}">`,
-    '<meta property="og:image:width" content="1200">',
-    '<meta property="og:image:height" content="630">',
-    `<meta property="og:image:alt" content="${esc(t["meta.ogAlt"])}">`,
-    '<meta name="twitter:card" content="summary_large_image">',
   );
+  // the share images are on assets.anoni.net; the onion build names nothing on clearnet that a browser would load
+  if (!IS_ONION) {
+    tags.push(
+      `<meta property="og:image" content="${OG_IMAGE[locale]}">`,
+      '<meta property="og:image:width" content="1200">',
+      '<meta property="og:image:height" content="630">',
+      `<meta property="og:image:alt" content="${esc(t["meta.ogAlt"])}">`,
+      '<meta name="twitter:card" content="summary_large_image">',
+    );
+  }
   return tags.join("\n");
 }

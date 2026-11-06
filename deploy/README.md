@@ -27,7 +27,7 @@ sudo ssh-keygen -q -t ed25519 -N '' -C vessel-portal -f /etc/vessel/ssh/key
 sudo chmod 600 /etc/vessel/*.env /etc/vessel/ssh/*
 
 cp deploy/.env.example deploy/.env           # VESSEL_API_PORT
-sudo install -d -o "$USER" /srv/vessel/web
+sudo install -d -o "$USER" /srv/vessel/web /srv/vessel/web-onion
 deploy/deploy.sh
 ```
 
@@ -44,13 +44,17 @@ nginx 的設定照 `nginx/vessel.anoni.net.conf`，`proxy_pass` 的埠要跟 `de
 
 前端在 Node 22 的容器裡建置，主機不必安裝 Node.js。
 
+onion 版（`vessel.<onion>`，#147）是同一份前端的另一個建置（`npm run build:onion`），放在 `/srv/vessel/web-onion`，nginx 的設定照 `nginx/vessel-onion.conf`。onion 版不送統計，圖片由 onion 這側的 `/vessel-assets/` 供應，意見回覆送到表單伺服器的 onion 位址，passkey 與連線檢測改成說明。
+
+Tor 用 unix socket 把連線交給 nginx，不經過 Cloudflare，也沒有訪客的 IP。nginx 把 `CF-Connecting-IP` 統一設成 `onion`，所有 onion 的訪客共用一份登入與兌換的額度，經 Tor 的寫入另外由 nginx 限制總量。clearnet 的設定送出 `Onion-Location` 標頭，Tor Browser 會提示可以改用 onion 版。
+
 ## 更新
 
 ```bash
 deploy/deploy.sh
 ```
 
-會拉最新的 main、建置前端、更新 `/srv/vessel/web`、重建映像、先執行遷移，再重啟後端與 worker。`/etc/vessel` 的檔案只有 root 能讀，所以 compose 用 sudo 執行。重啟後端與 worker 不影響已經連上的裝置，連線只經過節點。
+會拉最新的 main、建置前端、更新 `/srv/vessel/web` 與 `/srv/vessel/web-onion`、重建映像、先執行遷移，再重啟後端與 worker。`/etc/vessel` 的檔案只有 root 能讀，所以 compose 用 sudo 執行。重啟後端與 worker 不影響已經連上的裝置，連線只經過節點。
 
 ## 告警
 

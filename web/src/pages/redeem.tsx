@@ -58,7 +58,7 @@ export function Redeem() {
           {t["redeem.signedIn"]} <a class="strong" href={href("/devices/")}>{t["home.devices"]}</a>
         </p>
       )}
-      <form class="stack" onSubmit={submit}>
+      <form class="stack" method="post" onSubmit={submit}>
         <label for="code" class="strong">{t["redeem.label"]}</label>
         <input id="code" class="nb-input nb-input--code mono" autoComplete="off" autoCapitalize="characters" spellcheck={false}
           required value={code} maxLength={groupedLength(INVITE)} placeholder="XXXX-XXXX-XXXX-XXXX"

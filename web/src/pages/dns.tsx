@@ -4,6 +4,7 @@ import { useCtx } from "../context.ts";
 import { blockedReport } from "../feedback.ts";
 import { Spin } from "./skeleton.tsx";
 import { type Verdict, runCheck } from "../dnscheck.ts";
+import { CLEARNET, IS_ONION } from "../site.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 
 const OPTIONS = ["none", "malware", "ads"] as const;
@@ -67,6 +68,16 @@ function DnsCheck() {
     setState("running");
     setState(await runCheck());
   };
+  // over Tor the lookups go through Tor's exits, not Vessel's resolvers: say where to run it instead
+  if (IS_ONION) {
+    return (
+      <div class="card card--tint stack" data-testid="dns-check">
+        <h2>{t["dns.check.title"]}</h2>
+        <p>{t["dns.check.onion"]}</p>
+        <a class="nb-button" href={CLEARNET + href("/dns/")}>{t["check.onion.open"]}</a>
+      </div>
+    );
+  }
   return (
     <div class="card card--tint stack" data-testid="dns-check">
       <h2>{t["dns.check.title"]}</h2>

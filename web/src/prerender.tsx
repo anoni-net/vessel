@@ -5,7 +5,7 @@ export { ROUTE_PATHS } from "./app.tsx";
 import { preloadLegal } from "./pages/simple.tsx";
 import { LOCALES, PREFIX, type Locale } from "./i18n/index.ts";
 
-export { HTML_LANG } from "./i18n/index.ts";
+export { HTML_LANG, messagesOf } from "./i18n/index.ts";
 export { PRIVATE_PAGES, PUBLIC_PAGES, SITE, headTags, titleOf, urlOf } from "./seo.ts";
 export { LOCALES, PREFIX };
 

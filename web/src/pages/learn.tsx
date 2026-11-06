@@ -1,5 +1,6 @@
 import { useCtx } from "../context.ts";
 import type { Locale, MessageKey } from "../i18n/index.ts";
+import { COMMUNITY_SITE, DOCS_SITE } from "../site.ts";
 
 // VPN basics for people who have never used one: what it does, daily use, getting ready for a trip and what
 // to do when it will not connect. Written from the questions of first-time users; linked from the home page and
@@ -11,8 +12,8 @@ const TOR_BROWSER = "Tor Browser";
 // other anoni.net sites, in the reader's language: the docs explain Tor for people new to it, the community home
 // lists the ways to reach us that do not depend on this site
 const LOCALE_PATH: Record<Locale, string> = { "zh-TW": "", "zh-CN": "/zh-cn", en: "/en" };
-const torDocs = (l: Locale) => `https://anoni.net/docs${LOCALE_PATH[l]}/tools/what-is-tor/`;
-const contact = (l: Locale) => `https://anoni.net${LOCALE_PATH[l]}/contact/`;
+const torDocs = (l: Locale) => `${DOCS_SITE}${LOCALE_PATH[l]}/tools/what-is-tor/`;
+const contact = (l: Locale) => `${COMMUNITY_SITE}${LOCALE_PATH[l]}/contact/`;
 
 export function Learn() {
   const { t, href, locale } = useCtx();

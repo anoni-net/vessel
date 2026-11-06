@@ -182,6 +182,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 1.5px solid var(--ink); }
 .section-head > h2 { margin: 0; }
 .site-footer .footer-legal a { color: var(--footer-muted); }
+/* the onion address is one long word; let it break rather than widen the page */
+.footer-onion a { overflow-wrap: anywhere; }
+/* shown only when scripts do not run (scripts/prerender.mjs), e.g. Tor Browser at its Safest level */
+.noscript { margin: 0; padding: 12px 20px; background: var(--paper); color: var(--text); border-bottom: 3px solid var(--caution); font-weight: 700; text-align: center; }
 .footer-toggle { padding: 0; border: 0; background: none; color: var(--footer-muted); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-weight: 700; }
 .site-footer { background-color: var(--footer); background-image: linear-gradient(rgb(255 255 255 / .05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .05) 1px, transparent 1px); background-size: 24px 24px; color: var(--footer-text); padding-top: 40px; }
