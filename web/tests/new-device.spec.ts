@@ -80,10 +80,24 @@ test("create a device with keys made in the browser", async ({ page }) => {
   await page.getByRole("button", { name: /顯示 QR code/ }).click();
   await expect(page.getByRole("img", { name: "設定檔的 QR code" }).locator("svg")).toBeVisible();
 
+  // a browser that cannot download from a page opens the file in a new tab, so this page and its config stay
+  // (src/save-file.ts); one that can still downloads, without a tab
+  const popups: unknown[] = [];
+  page.on("popup", (p) => popups.push(p));
+  await page.evaluate(() => {
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+      (window as unknown as { saved: string[] }).saved = [`${this.download}|${this.target}|${this.rel}`];
+      click.call(this);
+    };
+  });
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "下載設定檔" }).click();
   const file = (await download).suggestedFilename();
   expect(file).toBe("vessel-sg-abcde.conf");
+  expect(await page.evaluate(() => (window as unknown as { saved: string[] }).saved)).toEqual(["vessel-sg-abcde.conf|_blank|noopener"]);
+  expect(popups).toEqual([]);
+  await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
   // the Android app turns the file name into the tunnel name and rejects anything longer or other characters
   expect(file.replace(/\.conf$/, "")).toMatch(/^[a-zA-Z0-9_=+.-]{1,15}$/);
 

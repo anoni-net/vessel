@@ -319,6 +319,7 @@
   "config.textShow": "显示配置文件的文本内容",
   "config.textHide": "收起文本内容",
   "config.warn": "离开这一页之后，就无法再看到这份配置文件。私钥只存在这个页面里，服务的服务器上没有。",
+  "config.onionSave": "iPhone 的 Onion Browser 会把配置文件开在新标签页：用分享菜单存到“文件”，关掉那个标签页就会回到这一页，再到 AmneziaWG 从文件导入。",
   "config.expiry": "每次打开 vessel.anoni.net 都会延长 30 天，30 天都没打开的话设备会到期，重新创建即可。",
   "config.done": "我已经导入，完成",
   "import.android.1": "打开 AmneziaWG，按右下角的 +",
