@@ -21,6 +21,7 @@ import { FAVICON, LOGO, LOGO_DARK } from "./images.ts";
 import { BUILT, REV, REV_URL } from "./rev.ts";
 import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
+import { COMMUNITY_SITE } from "./site.ts";
 import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
 import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 import { BlockTitle } from "./pages/block-title.tsx";
@@ -36,7 +37,7 @@ function NewDevice() {
 
 // Material Design Icons "translate" (Apache 2.0), the icon the news site uses for its language links
 // the community's home page in the same language, and this service's code
-const COMMUNITY: Record<Locale, string> = { "zh-TW": "https://anoni.net/", "zh-CN": "https://anoni.net/zh-cn/", en: "https://anoni.net/en/" };
+const COMMUNITY: Record<Locale, string> = { "zh-TW": `${COMMUNITY_SITE}/`, "zh-CN": `${COMMUNITY_SITE}/zh-cn/`, en: `${COMMUNITY_SITE}/en/` };
 const SOURCE = "https://github.com/anoni-net/vessel";
 
 function TranslateIcon() {

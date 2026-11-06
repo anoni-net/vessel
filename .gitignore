@@ -11,3 +11,5 @@ test-results/
 playwright-report/
 .pytest_cache/
 .ruff_cache/
+dist-onion/
+dist-onion-ssr/

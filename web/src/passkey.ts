@@ -3,11 +3,15 @@
 // Newer browsers do both with PublicKeyCredential.parse*OptionsFromJSON() and credential.toJSON(); the fallbacks
 // cover the ones that do not have them yet.
 
+import { IS_ONION } from "./site.ts";
+
 type Json = Record<string, unknown>;
 type Descriptor = { id: string; type: string; transports?: string[] };
 
-/** Whether this browser can use passkeys at all. Tor Browser and old browsers cannot; the number still works. */
-export const passkeysSupported = () => typeof window !== "undefined" && typeof window.PublicKeyCredential === "function";
+/** Whether this browser can use passkeys at all. Tor Browser and old browsers cannot; the number still works.
+ * Never on the onion site: the passkeys are bound to vessel.anoni.net, and a browser refuses them anywhere else. */
+export const passkeysSupported = () =>
+  !IS_ONION && typeof window !== "undefined" && typeof window.PublicKeyCredential === "function";
 
 function decode(s: string): ArrayBuffer {
   const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4));

@@ -9,11 +9,16 @@
 // Vessel account: no account number, device or key is sent.
 import type { Locale } from "./i18n/index.ts";
 import { REV } from "./rev.ts";
+import { IS_ONION, ONION_HOST } from "./site.ts";
 
 const SURVEYS = { "zh-TW": "cmvrpvj5f001001o1wzcld0xe", en: "cmvrpvjmc001101o17lirnihu" } as const;
 
-// the production environment of the Formbricks project; vite.config.ts and the nginx CSP allow only this path
-export const FEEDBACK_ENDPOINT = "https://form.anoni.net/api/v1/client/cmc9borto0008lj014bq33jqq/responses";
+// the production environment of the Formbricks project; vite.config.ts and the nginx CSP allow only this path.
+// The onion build sends to the form server's onion address, which nginx on the web host rate-limits as a whole.
+const PATH = "/api/v1/client/cmc9borto0008lj014bq33jqq/responses";
+export const FEEDBACK_ENDPOINT_CLEARNET = `https://form.anoni.net${PATH}`;
+export const FEEDBACK_ENDPOINT_ONION = `http://form.${ONION_HOST}${PATH}`;
+export const FEEDBACK_ENDPOINT = IS_ONION ? FEEDBACK_ENDPOINT_ONION : FEEDBACK_ENDPOINT_CLEARNET;
 
 export const KINDS = ["connect", "setup", "speed", "idea", "other"] as const;
 export const NETWORKS = ["home", "mobile", "work", "public", "other"] as const;

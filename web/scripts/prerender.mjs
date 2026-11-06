@@ -6,8 +6,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dist = join(web, "dist");
-const ssr = await import(join(web, "dist-ssr", "prerender.js"));
+// the onion build (VESSEL_TARGET=onion) has its own pair of directories, see vite.config.ts
+const out = process.env.VESSEL_TARGET === "onion" ? "dist-onion" : "dist";
+const dist = join(web, out);
+const ssr = await import(join(web, `${out}-ssr`, "prerender.js"));
 const { HTML_LANG, LOCALES, PREFIX, PRIVATE_PAGES, PUBLIC_PAGES, ROUTE_PATHS, SITE, headTags, renderPage, titleOf, urlOf } = ssr;
 
 // a page the app has but seo.ts does not list would not be prerendered, and nginx would answer it with 404

@@ -1,5 +1,6 @@
 import { ApiError } from "./api.ts";
 import { passkeyErrorCode } from "./passkey.ts";
+import { IS_ONION } from "./site.ts";
 
 // Statistics go to the community's self-hosted Umami (aa.anoni.net, website anoni-net/vessel). The
 // Umami script is not loaded; this posts straight to /api/send, and the CSP allows only that URL.
@@ -13,11 +14,12 @@ import { passkeyErrorCode } from "./passkey.ts";
 //
 // Each request carries the path without query or hash, the language and the screen rounded to
 // hundreds; the first page view also carries the referring site's host. Nothing is sent off
-// vessel.anoni.net (local preview and tests), when the browser sends Do Not Track or Global Privacy
+// vessel.anoni.net (local preview, tests and the onion site), when the browser sends Do Not Track or Global Privacy
 // Control, or after the visitor turns it off in the footer (kept in this browser's localStorage).
 // Failures are dropped.
 
-export const ANALYTICS_ENDPOINT = "https://aa.anoni.net/api/send";
+// the onion build sends nothing, and does not carry the address either
+export const ANALYTICS_ENDPOINT = IS_ONION ? "" : "https://aa.anoni.net/api/send";
 const WEBSITE = "42ebaa59-2ce5-441a-a4e9-54960b23d784";
 const HOST = "vessel.anoni.net";
 const OPT_OUT = "vessel-analytics-off";
@@ -102,7 +104,7 @@ export function setOptedOut(off: boolean) {
 let firstView = true;
 
 function enabled(): boolean {
-  return location.hostname === HOST && !browserDeclines() && !optedOut();
+  return !IS_ONION && location.hostname === HOST && !browserDeclines() && !optedOut();
 }
 
 function send(extra: { name?: string; data?: Record<string, string> }) {

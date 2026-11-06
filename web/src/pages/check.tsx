@@ -4,6 +4,7 @@ import { useCtx } from "../context.ts";
 import { Spin } from "./skeleton.tsx";
 import { type Exit, encodeCheck, exitCheck, exitText, isOld, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
+import { CLEARNET, IS_ONION } from "../site.ts";
 
 type Result = { exit: Exit; dns: Verdict };
 
@@ -21,35 +22,43 @@ export function Check() {
       <h1>{t["check.title"]}</h1>
       <p class="lead">{t["check.lead"]}</p>
 
-      <div class="card card--tint stack" data-testid="connection-check">
-        <button class="nb-button nb-button--primary" type="button" onClick={run} disabled={state === "running"} aria-busy={state === "running"}>
-          {state === "running" ? <><Spin />{t["check.running"]}</> : result ? t["check.again"] : t["check.button"]}
-        </button>
-        {result && (
-          <>
-            {/* the answer first, big enough to read at a glance; the two checks below say why */}
-            <p class={`check-verdict ${passed(result.exit, result.dns) ? "check-verdict--ok" : "check-verdict--bad"}`} role="status">
-              <Icon name={passed(result.exit, result.dns) ? "ok" : "cancel"} />
-              {passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}
-            </p>
-            <dl class="check-results">
-              <div>
-                <dt>{t["check.exit"]}</dt>
-                <dd data-testid="check-exit">{exitText(t, result.exit)}</dd>
-              </div>
-              <div>
-                <dt>{t["check.dns"]}</dt>
-                <dd data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
-              </div>
-            </dl>
-            {isOld(result.exit) && <a class="nb-button nb-button--ink" href={href("/devices/")}>{t["home.devices"]}</a>}
-            <a class="nb-button" href={href(`/feedback/?from=check&check=${encodeCheck(result.exit, result.dns)}`)}>
-              {t["check.feedback"]}
-            </a>
-          </>
-        )}
-        <p class="muted small">{t["check.privacy"]}</p>
-      </div>
+      {/* over Tor neither the address nor the lookups go through Vessel: say where to run it instead */}
+      {IS_ONION ? (
+        <div class="card card--tint stack" data-testid="connection-check">
+          <p>{t["check.onion"]}</p>
+          <a class="nb-button nb-button--primary" href={CLEARNET + href("/check/")}>{t["check.onion.open"]}</a>
+        </div>
+      ) : (
+        <div class="card card--tint stack" data-testid="connection-check">
+          <button class="nb-button nb-button--primary" type="button" onClick={run} disabled={state === "running"} aria-busy={state === "running"}>
+            {state === "running" ? <><Spin />{t["check.running"]}</> : result ? t["check.again"] : t["check.button"]}
+          </button>
+          {result && (
+            <>
+              {/* the answer first, big enough to read at a glance; the two checks below say why */}
+              <p class={`check-verdict ${passed(result.exit, result.dns) ? "check-verdict--ok" : "check-verdict--bad"}`} role="status">
+                <Icon name={passed(result.exit, result.dns) ? "ok" : "cancel"} />
+                {passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}
+              </p>
+              <dl class="check-results">
+                <div>
+                  <dt>{t["check.exit"]}</dt>
+                  <dd data-testid="check-exit">{exitText(t, result.exit)}</dd>
+                </div>
+                <div>
+                  <dt>{t["check.dns"]}</dt>
+                  <dd data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
+                </div>
+              </dl>
+              {isOld(result.exit) && <a class="nb-button nb-button--ink" href={href("/devices/")}>{t["home.devices"]}</a>}
+              <a class="nb-button" href={href(`/feedback/?from=check&check=${encodeCheck(result.exit, result.dns)}`)}>
+                {t["check.feedback"]}
+              </a>
+            </>
+          )}
+          <p class="muted small">{t["check.privacy"]}</p>
+        </div>
+      )}
 
       <h2>{t["check.next.title"]}</h2>
       <h3>{t["check.next.exit.title"]}</h3>

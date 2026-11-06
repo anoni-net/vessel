@@ -4,8 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --ssr src/prerender.tsx --outDir dist-ssr && node scripts/prerender.mjs",
+    "build": "vite build && vite build --ssr src/prerender.tsx && node scripts/prerender.mjs",
+    "build:onion": "VESSEL_TARGET=onion npm run build",
     "preview": "vite preview --host 127.0.0.1 --port 4174 --strictPort",
+    "preview:onion": "VESSEL_TARGET=onion vite preview --host 127.0.0.1 --port 4175 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "playwright test"
   },

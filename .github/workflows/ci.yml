@@ -26,6 +26,7 @@ jobs:
       - run: python3 scripts/hero-figures.py --check
       - run: npm run typecheck
       - run: npm run build
+      - run: npm run build:onion
       - run: npx playwright install --with-deps chromium
       - run: npm test
 

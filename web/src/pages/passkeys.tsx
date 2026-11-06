@@ -5,6 +5,7 @@ import { formatDate } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { createPasskey, passkeyErrorCode, passkeysSupported, usePasskey } from "../passkey.ts";
 import { Icon } from "../icons.tsx";
+import { IS_ONION } from "../site.ts";
 import { SkButton, SkField, SkLine, Spin } from "./skeleton.tsx";
 
 const LIMIT = 5;
@@ -94,7 +95,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
     <div class="stack account-section" data-testid="passkeys">
       <h2>{t["passkey.title"]}</h2>
       <p>{t["passkey.body"]}</p>
-      {!supported && <p class="card card--warn card--flat small">{t["passkey.unsupported"]}</p>}
+      {!supported && <p class="card card--warn card--flat small">{t[IS_ONION ? "passkey.onion" : "passkey.unsupported"]}</p>}
       {list === undefined && (
         // the name field and the button, until the list arrives
         <div class="stack-sm passkey-skeleton" aria-hidden="true">
