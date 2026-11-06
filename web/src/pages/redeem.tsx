@@ -9,6 +9,7 @@ import { INVITE, PM_USERNAME, group, groupedLength, regroup } from "../grouped.t
 import { passkeysSupported } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
+import { saveFile } from "../save-file.ts";
 
 export function Redeem() {
   const { t, href } = useCtx();
@@ -108,10 +109,7 @@ export function AccountNumber({ number, rotated = false, onContinue }: { number:
   const download = () => {
     // the BOM and charset let Notepad and phone text viewers read the label as UTF-8 instead of Big5 or similar
     const text = `\ufeff${t["number.file"]}\r\n${number}\r\n`;
-    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-    const a = Object.assign(document.createElement("a"), { href: url, download: "vessel-account.txt" });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveFile("vessel-account.txt", new Blob([text], { type: "text/plain;charset=utf-8" }));
   };
 
   return (

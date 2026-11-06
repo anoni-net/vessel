@@ -319,6 +319,7 @@
   "config.textShow": "Show the config as text",
   "config.textHide": "Hide the text",
   "config.warn": "Once you leave this page the config cannot be shown again. The private key exists only on this screen, not on the service's servers.",
+  "config.onionSave": "Onion Browser on iPhone opens the config in a new tab: save it to Files from the share menu, close that tab to come back here, then import the file in AmneziaWG.",
   "config.expiry": "Each visit to vessel.anoni.net extends your devices by 30 days. A device expires after 30 days without one; just create it again.",
   "config.done": "I have imported it, done",
   "import.android.1": "Open AmneziaWG and tap + at the bottom right",

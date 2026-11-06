@@ -13,6 +13,8 @@ import { faqAnchor } from "./faq.tsx";
 import { FILTERS, Layers } from "./layers.tsx";
 import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
+import { saveFile } from "../save-file.ts";
+import { IS_ONION } from "../site.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
 // the steps inside AmneziaWG, after the config is saved
@@ -330,10 +332,7 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
   const [showText, setShowText] = useState(false);
   const download = () => {
     track("device-config", { how: "download" });
-    const url = URL.createObjectURL(new Blob([config.text], { type: "application/octet-stream" }));
-    const a = Object.assign(document.createElement("a"), { href: url, download: config.file });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveFile(config.file, new Blob([config.text], { type: "application/octet-stream" }));
   };
   const steps = Array.from({ length: IMPORT_STEPS[platform] }, (_, i) => t[`import.${platform}.${i + 1}` as MessageKey]);
 
@@ -347,6 +346,8 @@ function ConfigStep({ config, platform }: { config: { text: string; file: string
           <h2 class="todo__title">{t["config.get"]}</h2>
           <button class="nb-button" type="button" onClick={download}><Icon name="download" />{t["config.download"]}</button>
           <p class="card card--warn card--flat small">{t["config.warn"]}</p>
+          {/* Onion Browser on iOS opens the file in a new tab instead of downloading it (save-file.ts) */}
+          {IS_ONION && <p class="muted small">{t["config.onionSave"]}</p>}
         </li>
         <li class="todo__step">
           <h2 class="todo__title">{t["config.import"]}</h2>
