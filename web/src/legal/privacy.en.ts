@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-06",
+  updated: "2026-11-07",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -41,7 +41,7 @@ export default {
     { h: "Relay routes" },
     { p: "A device on a relay route connects to an entry in Taipei first, which forwards the connection as it is to the node, and it reaches the internet in the node's city. The relay does not open the tunnel, so it cannot see where you connect to or what you send. It counts the traffic that passes through and keeps no other record. While you are connected, the relay holds your current IP address in memory, since it needs it to send data back to you; it exists only in memory and is never written to disk. For a connection through a relay, the node sees the relay's address as where it comes from." },
     { h: "DNS filtering" },
-    { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), together with the scam sites Taiwan's ISPs stop resolving on the requests of the National Police Agency (the 165 list) and the Ministry of Digital Affairs, and blocking ads adds HaGeZi Multi PRO. The malicious site lists are updated every 8 hours and the ad list once a day, and all of them are published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists) and [Taiwan's open government data platform](https://data.gov.tw/dataset/176455). The two Taiwanese lists are used under Taiwan's Open Government Data License, version 1." },
+    { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), together with the scam sites Taiwan's ISPs stop resolving on the requests of Taiwan's National Police Agency (the 165 list) and Taiwan's Ministry of Digital Affairs, and blocking ads adds HaGeZi Multi PRO. The malicious site lists are updated every 8 hours and the ad list once a day, and all of them are published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists) and [Taiwan's open government data platform](https://data.gov.tw/dataset/176455). The two Taiwanese lists are used under Taiwan's Open Government Data License, version 1." },
     { h: "Statistics" },
     { p: "Views of public pages, and the result of each step of redeeming, signing in and creating a device, go to the Umami instance anoni.net hosts, so problems along the way show up. Each record holds only the page path, the language, the screen size rounded to hundreds and the step's result. Account numbers, device names and settings, and keys are never sent. Umami works out the country and city from the IP address but does not keep the address." },
     { p: "Nothing is sent when your browser has Do Not Track or Global Privacy Control turned on, and you can turn it off in the footer." },

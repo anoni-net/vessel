@@ -472,7 +472,7 @@
   "dns.lookup.list.ads": "ad list",
   "dns.options.title": "The three options",
   "dns.option.none": "Domains are looked up and nothing is blocked.",
-  "dns.option.malware": "Uses HaGeZi's Threat Intelligence Feeds (mini) to block about 190,000 domains that spread malware, phishing, scams and cryptomining, plus the scam sites Taiwan's ISPs stop resolving: about 86,000 from the National Police Agency's 165 list and about 1,700 fake shops from the Ministry of Digital Affairs, with few false positives.",
+  "dns.option.malware": "Uses HaGeZi's Threat Intelligence Feeds (mini) to block about 190,000 domains that spread malware, phishing, scams and cryptomining, plus the scam sites Taiwan's ISPs stop resolving: about 86,000 from the 165 list of Taiwan's National Police Agency and about 1,700 fake shops from Taiwan's Ministry of Digital Affairs, with few false positives.",
   "dns.option.ads": "Adds HaGeZi Multi PRO, about 210,000 domains and their subdomains for ads, tracking, analytics and telemetry. Ads can also carry malware: ",
   "dns.option.adsCase": "in 2026, spyware was installed through targeted ads without the user clicking anything",
   "dns.option.adsAfter": ". With ad domains blocked, such ads never load. It sometimes breaks part of an ordinary site.",

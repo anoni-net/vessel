@@ -75,13 +75,13 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
   // the 165 list: appeals go to the hotline, not to us
   await box.getByLabel("網址或網域").fill("scam.example");
   await box.getByRole("button", { name: "查詢" }).click();
-  await expect(box.getByTestId("lookup-answer")).toContainText("scam.example 在警政署 165 停止解析的涉詐網站名單上");
+  await expect(box.getByTestId("lookup-answer")).toContainText("scam.example 在台灣警政署 165 停止解析的涉詐網站名單上");
   await expect(box.getByTestId("lookup-answer")).toContainText("請撥 165 反詐騙諮詢專線申訴");
   await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
 
   await box.getByLabel("網址或網域").fill("fakeshop.example");
   await box.getByRole("button", { name: "查詢" }).click();
-  await expect(box.getByTestId("lookup-answer")).toContainText("fakeshop.example 在數位產業署停止解析的詐騙購物網站名單上");
+  await expect(box.getByTestId("lookup-answer")).toContainText("fakeshop.example 在台灣數位產業署停止解析的詐騙購物網站名單上");
   await expect(box.getByTestId("lookup-answer")).toContainText("請向數位產業署申訴");
   await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
 

@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-06",
+  updated: "2026-11-07",
   blocks: [
     { p: "Vessel 由门户网站（vessel.anoni.net）与各地的节点组成，只保存服务运行必需的数据。" },
     { h: "保存的数据" },
@@ -41,7 +41,7 @@ export default {
     { h: "中继线路" },
     { p: "选择中继线路的设备，连接会先到台北的入口，再原封不动转发到节点，从节点所在的城市连上网络。中继不解开隧道，看不到你连往哪里，也看不到连接的内容。中继只统计经过的流量，除此之外不记录任何信息。连接期间，中继的内存里会有你当前的 IP，把回传的数据送回给你时要用到它，只存在内存，不写入硬盘。经过中继的连接，节点看到的来源是中继的 IP。" },
     { h: "域名过滤" },
-    { p: "创建设备时可以选择是否拦截恶意网站与广告。过滤在节点的解析器上进行，不记录被拦截的域名。拦截恶意网站使用 HaGeZi 的 Threat Intelligence Feeds（mini），以及警政署 165 与数位产业署停止解析的诈骗网站，屏蔽广告再加上 HaGeZi Multi PRO。恶意网站的名单每 8 小时更新一次，广告的名单每天更新一次，内容公开在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists) 与[台湾的政府资料开放平台](https://data.gov.tw/dataset/176455)。两份台湾的名单依台湾的政府资料开放授权条款第 1 版使用。" },
+    { p: "创建设备时可以选择是否拦截恶意网站与广告。过滤在节点的解析器上进行，不记录被拦截的域名。拦截恶意网站使用 HaGeZi 的 Threat Intelligence Feeds（mini），以及台湾警政署 165 与台湾数位产业署停止解析的诈骗网站，屏蔽广告再加上 HaGeZi Multi PRO。恶意网站的名单每 8 小时更新一次，广告的名单每天更新一次，内容公开在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists) 与[台湾的政府资料开放平台](https://data.gov.tw/dataset/176455)。两份台湾的名单依台湾的政府资料开放授权条款第 1 版使用。" },
     { h: "统计" },
     { p: "公开页面的浏览次数，以及兑换、登录、创建设备每一步的结果，会发送到 anoni.net 自架的 Umami，用来找出流程中出问题的步骤。每条数据只有页面的路径、语言、取到百位数的屏幕尺寸与步骤的结果，账号号码、设备的名称与设置、密钥都不发送。Umami 根据 IP 推算国家与城市，但不保存 IP。" },
     { p: "浏览器开启 Do Not Track 或 Global Privacy Control 时不发送，也可以在页脚选择不要记录。" },
