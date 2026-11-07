@@ -65,7 +65,7 @@
   "when.3.title": "Blocked sites",
   "when.3.body": "Sites your network blocks have a better chance of opening through a Vessel node.",
   "when.4.title": "Scams and phishing",
-  "when.4.body": "Choose Block malware when you create a device, and scam, phishing and malware sites will not open.",
+  "when.4.body": "Choose Block malware when you create a device, and scam, phishing and malware sites on the lists will not open. A site that has just appeared may not be listed yet.",
   "when.5.title": "Ads and trackers",
   "when.5.body": "Choose Block malware, ads and trackers, and most ads and trackers in apps and web pages do not load.",
   "when.6.title": "Home and mobile data",
@@ -798,5 +798,14 @@
   "lists.measure.bias": "The reporting sources also feed some of the lists, and a list that uses a source scores higher on it. phishunt.io is less affected, but has only about a hundred sites.",
   "lists.measure.other": "Malware and built-in tracking: measured on 2026-11-01. Malware comes from malware-filter's URLhaus domains. Built-in tracking comes from HaGeZi's lists, the same source as Vessel's list, so the share favors Vessel.",
   "lists.measure.taiwan": "Taiwan's scam sites: on 2026-11-07 we sampled 300 from each of the 165 list and the Administration for Digital Industries list, counting only sites that still resolved to an IP address (197 and 87, the second being a small sample).",
-  "lists.measure.date": "We used only public lists and public test data, not anyone's lookups. Every service's results change, and the numbers only describe the time of measurement."
+  "lists.measure.date": "We used only public lists and public test data, not anyone's lookups. Every service's results change, and the numbers only describe the time of measurement.",
+  "dns.limits.6": "Phishing sites that have just appeared: lists add them afterwards, so until then you rely on your browser's protection and your own judgment",
+  "faq.phishing.q": "Does Vessel stop phishing?",
+  "faq.phishing.a": "It blocks part of what is on its lists, so do not rely on it alone. Lists add sites afterwards, most services do not block a phishing site that has just appeared, and Vessel currently blocks fewer than the Quad9 and Cloudflare filtering services. Keep your browser's built-in phishing protection on, fill in passwords with a password manager, and use passkeys for important accounts.",
+  "faq.phishing.link": "Protection beyond the lists, and what we measured",
+  "lists.protect.title": "Protection beyond the lists",
+  "lists.protect.lead": "Lists add sites afterwards and DNS filtering only sees domains, so a new phishing site usually gets through. These three things do not wait for a list update.",
+  "lists.protect.1": "Keep your browser's built-in phishing protection on: Safe Browsing in Chrome, SmartScreen in Edge, Block dangerous and deceptive content in Firefox, and Fraudulent Website Warning in Safari are usually on by default. They check the full address, so they can also catch fake sites on shared platforms, and they contact the browser maker's service to do so.",
+  "lists.protect.2": "Fill in passwords with a password manager: it only autofills on the domains it has saved. If it does not autofill, check the address before you type anything.",
+  "lists.protect.3": "Use passkeys for important accounts: a passkey is bound to the site's domain, so it does not work on a fake site."
 }

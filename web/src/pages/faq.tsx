@@ -6,7 +6,7 @@ import { SectionHead } from "./section-head.tsx";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "passkey", "share"],
-  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities", "taipeiGeo"],
+  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "phishing", "splitTunnel", "noTraffic", "trouble", "speed", "cities", "taipeiGeo"],
   rules: ["expire", "expired", "quota", "p2p"],
   privacy: ["see", "risky", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
 } as const;
@@ -31,6 +31,7 @@ function Questions({ ids }: { ids: readonly Question[] }) {
           <summary>{t[`faq.${id}.q` as MessageKey]}</summary>
           <p>{t[`faq.${id}.a` as MessageKey]}</p>
           {id === "filter" && <p><a href={href("/dns/lists/")}>{t["lists.title"]}</a></p>}
+          {id === "phishing" && <p><a href={href("/dns/lists/#beyond-the-lists")}>{t["faq.phishing.link"]}</a></p>}
           {id === "risky" && <p><a href={`${DOCS_SITE}${LOCALE_PATH[locale]}/scenarios/asia-travel/`} target="_blank" rel="noopener">{t["faq.risky.link"]}</a></p>}
         </details>
       ))}

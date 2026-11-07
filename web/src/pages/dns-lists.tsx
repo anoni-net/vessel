@@ -259,6 +259,11 @@ export function DnsLists() {
         <li>{t["lists.coverage.taiwan"]}</li>
         <li>{t["lists.coverage.tracking"]}</li>
       </ul>
+      <h3 id="beyond-the-lists">{t["lists.protect.title"]}</h3>
+      <p class="lists-prose">{t["lists.protect.lead"]}</p>
+      <ul class="lists-prose" data-testid="lists-protect">
+        {([1, 2, 3] as const).map((n) => <li>{t[`lists.protect.${n}`]}</li>)}
+      </ul>
       <p class="lists-prose">{t["lists.coverage.2"]}</p>
       <p class="lists-prose">{t["lists.coverage.3"]}<a href={href("/dns/")}>{t["dns.title"]}</a>{t["lists.coverage.3after"]}</p>
       <p class="lists-prose">
