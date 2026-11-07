@@ -36,7 +36,8 @@ const KINDS_165 = [
 const KINDS_165_TOTAL = 93839;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 4] as const;
-const RISKS = [1, 2, 3] as const;
+const CHOICES = ["none", "malware", "ads"] as const;
+const QUESTIONS = ["blocked", "log", "speed", "sites", "ads", "change"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
   ["2026-11-07", "20261107"],
@@ -112,7 +113,45 @@ export function DnsLists() {
       <h1>{t["lists.title"]}</h1>
       <p class="lead">{t["lists.lead"]}</p>
 
+      <h2>{t["lists.choose.title"]}</h2>
+      <ul class="plain lists-choices" data-testid="lists-choices">
+        {CHOICES.map((c) => (
+          <li class={`card card--flat${c === "malware" ? " card--tint" : ""}`}>
+            <h3 class="lists-choice__name">
+              {t[`filter.${c}`]}
+              {c === "malware" && <span class="badge">{t["lists.choose.default"]}</span>}
+            </h3>
+            <p>{t[`lists.choose.${c}`]}</p>
+          </li>
+        ))}
+      </ul>
+
+      <div class="lists-cols">
+        <div class="lists-col" data-testid="lists-trouble">
+          <h2>{t["lists.trouble.title"]}</h2>
+          <ol class="lists-steps">
+            <li>{t["lists.trouble.1"]}</li>
+            <li>{t["lists.trouble.2"]}<a href={href("/dns/")}>{t["lists.trouble.2link"]}</a>{t["lists.trouble.2after"]}</li>
+            <li>{t["lists.trouble.3"]}</li>
+            <li>{t["lists.trouble.4"]}<a href={href("/feedback/")}>{t["feedback.title"]}</a>{t["lists.trouble.4after"]}</li>
+          </ol>
+          <p class="muted small">{t["lists.trouble.note"]}</p>
+        </div>
+        <div class="lists-col" data-testid="lists-questions">
+          <h2>{t["lists.faq.title"]}</h2>
+          <div class="faq">
+            {QUESTIONS.map((q) => (
+              <details class="faq__item">
+                <summary>{t[`lists.faq.${q}.q`]}</summary>
+                <p>{t[`lists.faq.${q}.a`]}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <h2>{t["lists.current"]}</h2>
+      <p>{t["lists.current.lead"]}</p>
       {failed && <p class="error" role="alert">{t["lists.failed"]}</p>}
       <div class="lists-groups" data-testid="lists-groups" aria-busy={!summary && !failed}>
         {GROUPS.map((group) => (
@@ -121,9 +160,11 @@ export function DnsLists() {
             <ul class="plain lists-cards">
               {group.lists.map((l) => (
                 <li class="card card--flat lists-card" data-testid={`list-${l.id}`}>
-                  <a class="lists-card__name" href={l.href} target="_blank" rel="noopener">{t[`lists.${l.id}.name`]}</a>
-                  <p class="lists-card__blocks">{t[`lists.${l.id}.blocks`]}</p>
+                  <p class="lists-card__name">{t[`lists.${l.id}.title`]}</p>
                   <p class="muted small">{fmt(t["lists.card.by"], { who: t[`lists.${l.id}.by`] })}</p>
+                  <p class="muted small">
+                    {t["lists.card.source"]}<a href={l.href} target="_blank" rel="noopener">{t[`lists.${l.id}.name`]}</a>
+                  </p>
                   <p class="lists-card__count">
                     <span class="lists-card__number">{count(row(l.id)?.domains)}</span>
                     <span class="muted small">{t["lists.card.domains"]}</span>
@@ -138,146 +179,148 @@ export function DnsLists() {
 
       <div class="lists-cols">
         <div class="lists-col" data-testid="lists-col-how">
-          <h2>{t["lists.share.title"]}</h2>
-          {summary ? (
-            <p data-testid="lists-share">
-              {fmt(t["lists.share.filters"], {
-                malware: formatCount(locale, summary.malware_filter),
-                ads: formatCount(locale, summary.ads_filter),
-                hagezi: String(Math.round((summary.hagezi / Math.max(summary.ads_filter, 1)) * 100)),
-              })}
-            </p>
-          ) : (
-            !failed && <p><SkLine w="long" /></p>
-          )}
-          {!failed && (
-            <figure class="lists-chart" data-testid="lists-chart-overlap">
-              <HatchDefs />
-              <figcaption class="lists-chart__title">{t["lists.chart.overlap"]}</figcaption>
-              <ul class="plain lists-chart__legend">
-                <li><span class="lists-key lists-key--first" aria-hidden="true" />{t["lists.chart.only"]}</li>
-                <li>
-                  <svg class="lists-key" width="12" height="12" aria-hidden="true"><rect width="12" height="12" fill={`url(#${HATCH})`} /></svg>
-                  {t["lists.chart.shared"]}
-                </li>
-              </ul>
+          <h2>{t["lists.gov.title"]}</h2>
+          <p>{t["lists.gov.1"]}</p>
+          <p>{t["lists.gov.2"]}</p>
+          <p>{t["lists.gov.3"]}</p>
+
+          <h2>{t["lists.coverage.title"]}</h2>
+          <p>{t["lists.coverage.1"]}</p>
+          <p>{t["lists.coverage.2"]}</p>
+          <p>{t["lists.coverage.3"]}<a href={href("/dns/")}>{t["dns.title"]}</a>{t["lists.coverage.3after"]}</p>
+        </div>
+        <div class="lists-col" data-testid="lists-col-problems">
+          <h2>{t["lists.rules.title"]}</h2>
+          <ul>
+            {RULES.map((n) => <li>{t[`lists.rules.${n}` as MessageKey]}</li>)}
+          </ul>
+          <p>{t["lists.rules.who"]}</p>
+        </div>
+      </div>
+
+      <details class="lists-more" data-testid="lists-more">
+        <summary>{t["lists.more.title"]}</summary>
+        <div class="lists-cols">
+          <div class="lists-col">
+            <h2>{t["lists.share.title"]}</h2>
+            {summary ? (
+              <p data-testid="lists-share">
+                {fmt(t["lists.share.filters"], {
+                  malware: formatCount(locale, summary.malware_filter),
+                  ads: formatCount(locale, summary.ads_filter),
+                  hagezi: String(Math.round((summary.hagezi / Math.max(summary.ads_filter, 1)) * 100)),
+                })}
+              </p>
+            ) : (
+              !failed && <p><SkLine w="long" /></p>
+            )}
+            {!failed && (
+              <figure class="lists-chart" data-testid="lists-chart-overlap">
+                <HatchDefs />
+                <figcaption class="lists-chart__title">{t["lists.chart.overlap"]}</figcaption>
+                <ul class="plain lists-chart__legend">
+                  <li><span class="lists-key lists-key--first" aria-hidden="true" />{t["lists.chart.only"]}</li>
+                  <li>
+                    <svg class="lists-key" width="12" height="12" aria-hidden="true"><rect width="12" height="12" fill={`url(#${HATCH})`} /></svg>
+                    {t["lists.chart.shared"]}
+                  </li>
+                </ul>
+                <ul class="plain lists-chart__bars">
+                  {byDomains.map((l) => {
+                    const r = row(l.id);
+                    const name = t[`lists.${l.id}.title`];
+                    const most = summary ? Math.max(...summary.lists.map((x) => x.domains)) : 1;
+                    return (
+                      <li>
+                        <div class="lists-bar__head">
+                          <span>{name}</span>
+                          <span class="lists-bar__value">
+                            {count(r?.domains)}
+                            {r && r.domains > 0 && (
+                              // rounded down: 100% only when a list really shares nothing
+                              <span class="muted"> · {fmt(t["lists.chart.uniqueShare"], { pct: String(Math.floor((r.only_here / r.domains) * 100)) })}</span>
+                            )}
+                          </span>
+                        </div>
+                        {r ? (
+                          <Bar
+                            label={fmt(t["lists.chart.aria"], { name, total: formatCount(locale, r.domains), only: formatCount(locale, r.only_here) })}
+                            first={r.only_here}
+                            rest={r.domains - r.only_here}
+                            of={most}
+                            firstName={`${t["lists.chart.only"]}: ${formatCount(locale, r.only_here)}`}
+                            restName={`${t["lists.chart.shared"]}: ${formatCount(locale, r.domains - r.only_here)}`}
+                          />
+                        ) : <SkLine />}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </figure>
+            )}
+            <p>{t["lists.share.size"]}</p>
+            <p>{t["lists.share.categories"]}</p>
+            <figure class="lists-chart" data-testid="lists-chart-kinds">
+              <figcaption class="lists-chart__title">{t["lists.chart.kinds"]}</figcaption>
               <ul class="plain lists-chart__bars">
-                {byDomains.map((l) => {
-                  const r = row(l.id);
-                  const name = t[`lists.${l.id}.name`];
-                  const most = summary ? Math.max(...summary.lists.map((x) => x.domains)) : 1;
+                {KINDS_165.map(([kind, n]) => {
+                  const name = t[`lists.chart.kind.${kind}`];
+                  const share = `${Math.round((n / KINDS_165_TOTAL) * 100)}%`;
                   return (
                     <li>
                       <div class="lists-bar__head">
                         <span>{name}</span>
-                        <span class="lists-bar__value">
-                          {count(r?.domains)}
-                          {r && r.domains > 0 && (
-                            // rounded down: 100% only when a list really shares nothing
-                            <span class="muted"> · {fmt(t["lists.chart.uniqueShare"], { pct: String(Math.floor((r.only_here / r.domains) * 100)) })}</span>
-                          )}
-                        </span>
+                        <span class="lists-bar__value">{share}</span>
                       </div>
-                      {r ? (
-                        <Bar
-                          label={fmt(t["lists.chart.aria"], { name, total: formatCount(locale, r.domains), only: formatCount(locale, r.only_here) })}
-                          first={r.only_here}
-                          rest={r.domains - r.only_here}
-                          of={most}
-                          firstName={`${t["lists.chart.only"]}: ${formatCount(locale, r.only_here)}`}
-                          restName={`${t["lists.chart.shared"]}: ${formatCount(locale, r.domains - r.only_here)}`}
-                        />
-                      ) : <SkLine />}
+                      <Bar label={`${name} ${share}`} first={n} of={KINDS_165_TOTAL} firstName={`${formatCount(locale, n)}`} />
                     </li>
                   );
                 })}
               </ul>
             </figure>
-          )}
-          <p>{t["lists.share.size"]}</p>
-          <p>{t["lists.share.categories"]}</p>
-          <figure class="lists-chart" data-testid="lists-chart-kinds">
-            <figcaption class="lists-chart__title">{t["lists.chart.kinds"]}</figcaption>
-            <ul class="plain lists-chart__bars">
-              {KINDS_165.map(([kind, n]) => {
-                const name = t[`lists.chart.kind.${kind}`];
-                const share = `${Math.round((n / KINDS_165_TOTAL) * 100)}%`;
-                return (
-                  <li>
-                    <div class="lists-bar__head">
-                      <span>{name}</span>
-                      <span class="lists-bar__value">{share}</span>
-                    </div>
-                    <Bar label={`${name} ${share}`} first={n} of={KINDS_165_TOTAL} firstName={`${formatCount(locale, n)}`} />
-                  </li>
-                );
-              })}
-            </ul>
-          </figure>
-
-          <h2>{t["lists.gov.title"]}</h2>
-          <p>{t["lists.gov.body"]}</p>
-
-          <h2>{t["lists.rules.title"]}</h2>
-          <ul>
-            {RULES.map((n) => <li>{t[`lists.rules.${n}` as MessageKey]}</li>)}
-          </ul>
-          <p class="muted small">{t["lists.rules.note"]}</p>
-        </div>
-
-        <div class="lists-col" data-testid="lists-col-problems">
-          <h2>{t["lists.known.title"]}</h2>
-          <p>{t["lists.known.lead"]}</p>
-          <ul>
-            {KNOWN.map((n) => <li>{t[`lists.known.${n}` as MessageKey]}</li>)}
-          </ul>
-
-          <h2>{t["lists.exclude.title"]}</h2>
-          <p>
-            {t["lists.exclude.body"]}<a href={EXCLUDE_FILE} target="_blank" rel="noopener">{t["lists.exclude.file"]}</a>
-            {t["lists.exclude.after"]}
-          </p>
-          <div class="table-wrap legal">
-            {/* explicit roles: on phones the CSS makes the rows blocks, and browsers then drop the table's semantics */}
-            <table role="table" data-testid="lists-excluded">
-              <thead role="rowgroup">
-                <tr role="row">
-                  <th role="columnheader" scope="col">{t["lists.exclude.col.domain"]}</th>
-                  <th role="columnheader" scope="col">{t["lists.exclude.col.reason"]}</th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {EXCLUDED.map(([domain, reason]) => (
-                  <tr role="row">
-                    <td role="cell" data-label={t["lists.exclude.col.domain"]}><code>{domain}</code></td>
-                    <td role="cell" data-label={t["lists.exclude.col.reason"]}>{t[`lists.exclude.${reason}`]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
 
-          <h2>{t["lists.wrong.title"]}</h2>
-          <p>
-            {t["lists.wrong.check"]}<a href={href("/dns/")}>{t["lists.wrong.checkLink"]}</a>{t["lists.wrong.checkAfter"]}
-          </p>
-          <p>
-            {t["lists.wrong.report"]}<a href={href("/feedback/")}>{t["feedback.title"]}</a>{t["lists.wrong.reportAfter"]}
-          </p>
+          <div class="lists-col">
+            <h2>{t["lists.known.title"]}</h2>
+            <p>{t["lists.known.lead"]}</p>
+            <ul>
+              {KNOWN.map((n) => <li>{t[`lists.known.${n}` as MessageKey]}</li>)}
+            </ul>
 
-          <h2>{t["lists.risk.title"]}</h2>
-          <ul>
-            {RISKS.map((n) => <li>{t[`lists.risk.${n}` as MessageKey]}</li>)}
-          </ul>
+            <h2>{t["lists.exclude.title"]}</h2>
+            <p>
+              {t["lists.exclude.body"]}<a href={EXCLUDE_FILE} target="_blank" rel="noopener">{t["lists.exclude.file"]}</a>
+              {t["lists.exclude.after"]}
+            </p>
+            <div class="table-wrap legal">
+              {/* explicit roles: on phones the CSS makes the rows blocks, and browsers then drop the table's semantics */}
+              <table role="table" data-testid="lists-excluded">
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th role="columnheader" scope="col">{t["lists.exclude.col.domain"]}</th>
+                    <th role="columnheader" scope="col">{t["lists.exclude.col.reason"]}</th>
+                  </tr>
+                </thead>
+                <tbody role="rowgroup">
+                  {EXCLUDED.map(([domain, reason]) => (
+                    <tr role="row">
+                      <td role="cell" data-label={t["lists.exclude.col.domain"]}><code>{domain}</code></td>
+                      <td role="cell" data-label={t["lists.exclude.col.reason"]}>{t[`lists.exclude.${reason}`]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <h2>{t["lists.log.title"]}</h2>
-          <ul class="plain stack" data-testid="lists-log">
-            {LOG.map(([date, key]) => (
-              <li><span class="muted small">{date}</span> {t[`lists.log.${key}`]}</li>
-            ))}
-          </ul>
+            <h2>{t["lists.log.title"]}</h2>
+            <ul class="plain stack" data-testid="lists-log">
+              {LOG.map(([date, key]) => (
+                <li><span class="muted small">{date}</span> {t[`lists.log.${key}`]}</li>
+              ))}
+            </ul>
+          </div>
         </div>
-      </div>
+      </details>
     </section>
   );
 }

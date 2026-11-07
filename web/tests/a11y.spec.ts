@@ -53,6 +53,24 @@ for (const scheme of ["light", "dark"] as const) {
   }
 }
 
+for (const scheme of ["light", "dark"] as const) {
+  test(`axe finds nothing in the folded parts of /dns/lists/, ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await backend(page, false);
+    await page.goto("/dns/lists/");
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+    await page.evaluate(axe.source);
+    const found = await page.evaluate(async () => {
+      const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {
+        runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
+      });
+      return res.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
+    });
+    expect(found).toEqual([]);
+  });
+}
+
 test("the focus ring shows on the footer's dark blue", async ({ page }) => {
   await backend(page, false);
   await page.goto("/faq/");

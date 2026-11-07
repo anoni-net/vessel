@@ -19,20 +19,59 @@ async function backend(page: Page, code = 200) {
   await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
 }
 
-test("the lists with who maintains them and their sizes", async ({ page }) => {
+const openMore = (page: Page) => page.getByTestId("lists-more").locator("summary").click();
+
+test("the page answers what to pick first, then what to do when a site will not open", async ({ page }) => {
   await backend(page);
   await page.goto("/dns/lists/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("網域過濾的名單");
-  await expect(page.getByTestId("list-malware")).toContainText("195,355");
+  await expect(page.locator(".lead")).toContainText("選預設的「擋惡意網站」");
+  const choices = page.getByTestId("lists-choices").locator("li");
+  await expect(choices).toHaveCount(3);
+  await expect(choices.nth(1)).toContainText("預設");
+  const headings = await page.locator(".lists-page > h2, .lists-col > h2").allInnerTexts();
+  expect(headings.slice(0, 4)).toEqual(["要選哪一個", "網站打不開時", "常見的疑問", "目前的名單"]);
+  const steps = page.getByTestId("lists-trouble").locator("ol > li");
+  await expect(steps).toHaveCount(4);
+  await expect(steps.nth(1).getByRole("link", { name: "網域過濾頁" })).toHaveAttribute("href", "/dns/");
+  await expect(steps.nth(3).getByRole("link", { name: "意見回覆" })).toBeVisible();
+});
+
+test("the common questions open, and say the filter keeps no record", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const question = page.getByTestId("lists-questions").locator("details").filter({ hasText: "Vessel 會記錄我查了哪些網站嗎？" });
+  await question.locator("summary").click();
+  await expect(question).toContainText("解析器不記錄查詢");
+});
+
+test("the lists say what they block first, and are grouped by what people pick", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const malware = page.getByTestId("list-malware");
+  await expect(malware.locator(".lists-card__name")).toHaveText("惡意程式與釣魚網站");
+  await expect(malware.getByRole("link", { name: "HaGeZi Threat Intelligence Feeds（mini）" })).toBeVisible();
+  await expect(malware).toContainText("195,355");
   await expect(page.getByTestId("list-tw165")).toContainText("內政部警政署");
-  // the lists are grouped by what people pick for a device
   const groups = page.getByTestId("lists-groups").locator("section");
   await expect(groups).toHaveCount(2);
   await expect(groups.nth(0).locator("li")).toHaveCount(3);
-  await expect(groups.nth(1)).toContainText("選「擋惡意網站、廣告與追蹤」才擋");
-  await expect(groups.nth(1).locator("li")).toContainText("Multi PRO");
-  await expect(page.getByTestId("lists-share")).toContainText("約 80% 來自 HaGeZi");
+  await expect(groups.nth(1)).toContainText("只有選「擋惡意網站、廣告與追蹤」才擋");
   await expect(page.getByTestId("lists-as-of")).toBeVisible();
+});
+
+test("the details are folded away, and the page says who runs it and what it does not know", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  await expect(page.getByTestId("lists-more")).not.toHaveAttribute("open");
+  await expect(page.getByTestId("lists-chart-overlap")).toBeHidden();
+  await expect(page.getByText("法律主體還在確認")).toBeVisible();
+  await expect(page.getByText("完整的審查與移除程序，我們並不清楚")).toBeVisible();
+  await expect(page.getByText("都包含兩份台灣政府的名單")).toBeVisible();
+  await openMore(page);
+  await expect(page.getByTestId("lists-chart-overlap")).toBeVisible();
+  await expect(page.getByTestId("lists-share")).toContainText("約 80% 來自 HaGeZi");
+  await expect(page.getByTestId("lists-more")).toContainText("2027 年 2 月的季報之前");
 });
 
 test("the rest of the page stays when the numbers cannot be read", async ({ page }) => {
@@ -40,7 +79,10 @@ test("the rest of the page stays when the numbers cannot be read", async ({ page
   await page.goto("/dns/lists/");
   await expect(page.getByRole("alert")).toContainText("暫時無法讀取");
   await expect(page.getByTestId("lists-groups").locator("li")).toHaveCount(4);
+  await openMore(page);
   await expect(page.getByTestId("lists-excluded")).toContainText("from-ia.com");
+  await expect(page.getByTestId("lists-chart-overlap")).toHaveCount(0);
+  await expect(page.getByTestId("lists-chart-kinds").getByRole("img")).toHaveCount(5);
 });
 
 test("the page lists the same names as node/exclude.txt", async ({ page }) => {
@@ -48,6 +90,7 @@ test("the page lists the same names as node/exclude.txt", async ({ page }) => {
     .split("\n").map((line) => line.split("#")[0].trim()).filter(Boolean);
   await backend(page);
   await page.goto("/dns/lists/");
+  await openMore(page);
   await expect(page.getByTestId("lists-excluded").locator("tbody code")).toHaveText(names);
 });
 
@@ -56,7 +99,7 @@ test("every language has the page, and the DNS filter page links to it", async (
   await page.goto("/en/dns/");
   await page.getByRole("link", { name: "The lists behind the DNS filter" }).click();
   await expect(page).toHaveURL(/\/en\/dns\/lists\/$/);
-  await expect(page.getByTestId("lists-log").locator("li").first()).toContainText("exclusion list");
+  await expect(page.locator(".lead")).toContainText("Block malware");
   await page.goto("/zh-cn/dns/lists/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("域名过滤的名单");
 });
@@ -71,7 +114,7 @@ test("the text is there before the numbers arrive, and nothing overflows on a ph
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("a wide screen uses its width: the table across the page, the rest in two columns", async ({ page }) => {
+test("a wide screen uses its width: the cards side by side, the rest in two columns", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await backend(page);
   await page.goto("/dns/lists/");
@@ -81,10 +124,8 @@ test("a wide screen uses its width: the table across the page, the rest in two c
   const how = await page.getByTestId("lists-col-how").boundingBox();
   const problems = await page.getByTestId("lists-col-problems").boundingBox();
   expect(groups!.width).toBeGreaterThan(1000);
-  // the four lists side by side, the same height
   expect(Math.abs(first!.y - last!.y)).toBeLessThan(2);
   expect(Math.abs(first!.height - last!.height)).toBeLessThan(2);
-  // the numbers line up along the bottom of the cards
   const numbers = await page.locator(".lists-card__number").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().bottom)));
   expect(new Set(numbers).size).toBe(1);
   expect(Math.abs(how!.y - problems!.y)).toBeLessThan(2);
@@ -95,6 +136,7 @@ test("a long list name wraps and its numbers stay inside the chart on a narrow p
   await page.setViewportSize({ width: 320, height: 800 });
   await backend(page);
   await page.goto("/dns/lists/");
+  await openMore(page);
   const plot = await page.getByTestId("lists-chart-overlap").locator(".lists-bar__plot").first().boundingBox();
   const values = page.getByTestId("lists-chart-overlap").locator(".lists-bar__value");
   await expect(values).toHaveCount(4);
@@ -103,47 +145,29 @@ test("a long list name wraps and its numbers stay inside the chart on a narrow p
   }
 });
 
-test("the sections stack in one column on a phone", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 });
-  await backend(page);
-  await page.goto("/dns/lists/");
-  const share = await page.getByRole("heading", { name: "名單的組成" }).boundingBox();
-  const known = await page.getByRole("heading", { name: "已知的問題" }).boundingBox();
-  expect(known!.y).toBeGreaterThan(share!.y);
-  expect(Math.abs(known!.x - share!.x)).toBeLessThan(2);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-});
-
 test("the charts carry the numbers, with labels for screen readers", async ({ page }) => {
   await backend(page);
   await page.goto("/dns/lists/");
+  await openMore(page);
   const overlap = page.getByTestId("lists-chart-overlap");
   await expect(overlap.locator(".lists-chart__bars li svg")).toHaveCount(4);
-  await expect(overlap.getByRole("img", { name: "HaGeZi Threat Intelligence Feeds（mini）：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
+  await expect(overlap.getByRole("img", { name: "惡意程式與釣魚網站：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
   // the same names as the cards above, so nobody has to work out which is which
   for (const id of ["malware", "tw165", "twmoda", "ads"]) {
-    const name = await page.getByTestId(`list-${id}`).locator("a").innerText();
+    const name = await page.getByTestId(`list-${id}`).locator(".lists-card__name").innerText();
     await expect(overlap.locator(".lists-bar__head").filter({ hasText: name })).toHaveCount(1);
   }
   // largest first
-  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^HaGeZi Multi PRO/, /^HaGeZi Threat/, /^165 遭停止解析/, /^詐騙網域停止解析清單/]);
+  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^廣告與追蹤/, /^惡意程式與釣魚網站/, /^假投資/, /^電商通報/]);
   // rounded down, so 99.8% does not read as nothing shared
-  await expect(overlap.locator("li").filter({ hasText: "165" })).toContainText("獨有 99%");
-  await expect(overlap.locator("li").filter({ hasText: "HaGeZi Threat" })).toContainText("獨有 46%");
+  await expect(overlap.locator(".lists-chart__bars > li").filter({ hasText: "假投資" })).toContainText("獨有 99%");
+  await expect(overlap.locator(".lists-chart__bars > li").filter({ hasText: "惡意程式與釣魚網站" })).toContainText("獨有 46%");
   // the longest list fills the width, the others in proportion
-  const ads = overlap.getByRole("img", { name: /^HaGeZi Multi PRO/ });
+  const ads = overlap.getByRole("img", { name: /^廣告與追蹤/ });
   expect(await ads.locator("rect.lists-bar__first").first().getAttribute("width")).toBe(`${(149750 / 219320) * 100}%`);
   const kinds = page.getByTestId("lists-chart-kinds");
   await expect(kinds.getByRole("img")).toHaveCount(5);
   await expect(kinds.getByRole("img", { name: "金融保險 53%" })).toBeVisible();
-});
-
-test("a failed read leaves out the chart of live numbers, the cards still have the lists", async ({ page }) => {
-  await backend(page, 503);
-  await page.goto("/dns/lists/");
-  await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.getByTestId("lists-chart-overlap")).toHaveCount(0);
-  await expect(page.getByTestId("lists-chart-kinds").getByRole("img")).toHaveCount(5);
 });
 
 const luminance = (hex: string) => {
@@ -160,7 +184,6 @@ for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
     await backend(page);
     await page.goto("/dns/lists/");
-    await expect(page.getByTestId("lists-chart-overlap").getByRole("img").first()).toBeVisible();
     const color = (name: string) => page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name);
     const surface = await color("--page");
     expect(contrast(await color("--chart-first"), surface)).toBeGreaterThanOrEqual(3);
@@ -171,6 +194,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 test("WCAG 1.4.1: the overlapping part is hatched, not only a different color, in the bars and the legend", async ({ page }) => {
   await backend(page);
   await page.goto("/dns/lists/");
+  await openMore(page);
   const overlap = page.getByTestId("lists-chart-overlap");
   await expect(overlap.getByRole("img").first().locator('rect[fill="url(#lists-hatch)"]').first()).toBeAttached();
   await expect(overlap.locator('.lists-chart__legend rect[fill="url(#lists-hatch)"]')).toHaveCount(1);
@@ -181,6 +205,7 @@ test("WCAG 1.4.10 and 1.4.12: at 320 px with wider text spacing nothing runs off
   await page.setViewportSize({ width: 320, height: 800 });
   await backend(page);
   await page.goto("/dns/lists/");
+  await openMore(page);
   await expect(page.getByTestId("lists-chart-overlap").getByRole("img").first()).toBeVisible();
   await page.evaluate(() => {
     const sheet = new CSSStyleSheet();
@@ -192,7 +217,7 @@ test("WCAG 1.4.10 and 1.4.12: at 320 px with wider text spacing nothing runs off
   expect(cut).toEqual([]);
 });
 
-test("WCAG 2.1.1 and 2.4.7: the links on the page are reached by keyboard with a visible focus ring", async ({ page }) => {
+test("WCAG 2.1.1 and 2.4.7: the folded parts and links are reached by keyboard with a visible focus ring", async ({ page }) => {
   await backend(page);
   await page.goto("/dns/lists/");
   const link = page.getByTestId("list-malware").locator("a");
@@ -202,6 +227,10 @@ test("WCAG 2.1.1 and 2.4.7: the links on the page are reached by keyboard with a
   await expect(link).toBeFocused();
   expect(await link.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe("solid");
   expect(await link.evaluate((e) => parseFloat(getComputedStyle(e).outlineWidth))).toBeGreaterThanOrEqual(2);
+  const more = page.getByTestId("lists-more").locator("summary");
+  await more.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("lists-more")).toHaveAttribute("open");
 });
 
 test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is announced as busy", async ({ page }) => {
@@ -210,6 +239,7 @@ test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is a
   await page.route("**/api/blocklist/lists", () => {});
   await page.goto("/dns/lists/");
   await expect(page.getByTestId("lists-groups")).toHaveAttribute("aria-busy", "true");
+  await openMore(page);
   await expect(page.getByRole("table")).toHaveCount(1);
   await expect(page.getByRole("columnheader")).toHaveCount(2);
 });
