@@ -54,6 +54,32 @@ for (const scheme of ["light", "dark"] as const) {
 }
 
 for (const scheme of ["light", "dark"] as const) {
+  test(`axe finds nothing in the network measurements on /check/, ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await backend(page, false);
+    await page.route("**/api/exit", (route) => route.fulfill({ json: { region: null, ipv6: false } }));
+    await page.route("**/api/network", (route) => route.fulfill({ json: { asn: 64500, name: "EXAMPLE", days: 30, tests: [
+      { id: "web_connectivity", level: "ok", measurements: 26203, anomaly_pct: 3, confirmed: 407 },
+      { id: "signal", level: "most", measurements: 100, anomaly_pct: 99, confirmed: 0 },
+      { id: "telegram", level: "some", measurements: 100, anomaly_pct: 30, confirmed: 0 },
+      { id: "whatsapp", level: "few", measurements: 3, anomaly_pct: 0, confirmed: 0 },
+      { id: "tor", level: "unknown", measurements: 0, anomaly_pct: 0, confirmed: 0 },
+    ] } }));
+    await page.goto("/check/");
+    await page.getByRole("button", { name: "開始檢測" }).click();
+    await expect(page.getByTestId("check-network").locator("li")).toHaveCount(5);
+    await page.evaluate(axe.source);
+    const found = await page.evaluate(async () => {
+      const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {
+        runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
+      });
+      return res.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
+    });
+    expect(found).toEqual([]);
+  });
+}
+
+for (const scheme of ["light", "dark"] as const) {
   test(`axe finds nothing in the folded parts of /dns/lists/, ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
     await backend(page, false);

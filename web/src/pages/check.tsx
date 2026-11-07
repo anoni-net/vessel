@@ -1,8 +1,12 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
+import { type NetworkReport, api } from "../api.ts";
 import { Icon } from "../icons.tsx";
 import { useCtx } from "../context.ts";
+import { formatCount } from "../format.ts";
+import { fmt } from "../i18n/index.ts";
+import { faqAnchor } from "./faq.tsx";
 import { Spin } from "./skeleton.tsx";
-import { type Exit, encodeCheck, exitCheck, exitText, isOld, passed } from "../connection.ts";
+import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
 
@@ -41,20 +45,24 @@ export function Check() {
                 <Icon name={passed(result.exit, result.dns) ? "ok" : "cancel"} />
                 {passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}
               </p>
-              <dl class="check-results">
+              <dl class="check-rows">
                 <div>
-                  <dt>{t["check.exit"]}</dt>
-                  <dd data-testid="check-exit">{exitText(t, result.exit)}</dd>
+                  <dt class="strong">{t["check.exit"]}</dt>
+                  <dd><StateBadge state={exitState(result.exit)} /></dd>
+                  <dd class="small check-rows__detail" data-testid="check-exit">{exitText(t, result.exit)}</dd>
                 </div>
                 <div>
-                  <dt>{t["check.dns"]}</dt>
-                  <dd data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
+                  <dt class="strong">{t["check.dns"]}</dt>
+                  <dd><StateBadge state={dnsState(result.dns)} /></dd>
+                  <dd class="small check-rows__detail" data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
                 </div>
               </dl>
               {isOld(result.exit) && <a class="nb-button nb-button--ink" href={href("/devices/")}>{t["home.devices"]}</a>}
               <a class="nb-button" href={href(`/feedback/?from=check&check=${encodeCheck(result.exit, result.dns)}`)}>
                 {t["check.feedback"]}
               </a>
+              {/* on Vessel, the network would be the node's host: of no use to the visitor */}
+              {(result.exit === "none" || result.exit === "ipv6") && <NetworkSection />}
             </>
           )}
           <p class="muted small">{t["check.privacy"]}</p>
@@ -73,6 +81,70 @@ export function Check() {
       <p>{t["check.next.sites.body"]}</p>
       </div>
       </div>
+    </section>
+  );
+}
+
+const STATE_BADGE = { pass: "ok", fail: "down", update: "down", unknown: "unknown" } as const;
+
+function StateBadge({ state }: { state: CheckState }) {
+  const { t } = useCtx();
+  return (
+    <span class={`badge badge--icon badge--state-${STATE_BADGE[state]}`}>
+      {state === "pass" && <Icon name="ok" />}
+      {state === "fail" && <Icon name="cancel" />}
+      {t[`check.state.${state}`]}
+    </span>
+  );
+}
+
+const LEVEL_BADGE = { ok: "ok", some: "down", most: "down", few: "unknown", unknown: "unknown" } as const;
+
+/** OONI's public measurements of the visitor's network. Nothing here tests the connection: see api/app/network.py. */
+function NetworkSection() {
+  const { t, href, locale } = useCtx();
+  const [report, setReport] = useState<NetworkReport | "failed" | null>(null);
+  useEffect(() => {
+    api.network().then(setReport, () => setReport("failed"));
+  }, []);
+  const known = report && report !== "failed" && report.asn !== null ? report : null;
+  const end = locale === "en" ? "." : "。";
+  return (
+    <section class="stack check-network" data-testid="check-network" aria-busy={report === null}>
+      <h2>{t["check.network.title"]}</h2>
+      {report === null && <p><Spin />{t["check.network.loading"]}</p>}
+      {report !== null && !known && <p>{t["check.network.none"]}</p>}
+      {known && (
+        <>
+          <p>{fmt(t["check.network.lead"], { name: known.name ?? "", asn: `AS${known.asn}`, days: String(known.days) })}</p>
+          <ul class="plain check-rows">
+            {known.tests.map((test) => (
+              <li>
+                <span class="strong">{t[`check.network.test.${test.id}`]}</span>
+                <span class={`badge badge--state-${LEVEL_BADGE[test.level]}`}>{t[`check.network.level.${test.level}`]}</span>
+                {test.level !== "unknown" && test.measurements > 0 && (
+                  <span class="muted small check-rows__detail">
+                    {fmt(t["check.network.count"], { n: formatCount(locale, test.measurements), pct: String(test.anomaly_pct) })}
+                    {test.confirmed > 0 && fmt(t["check.network.confirmed"], { n: formatCount(locale, test.confirmed) })}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p class="small">{t["check.network.note"]}</p>
+          {known.tests.some((test) => test.level === "some" || test.level === "most") && (
+            <p class="small">{t["lists.coverage.risky"]}<a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["lists.coverage.riskyLink"]}</a>{end}</p>
+          )}
+          {known.tests.some((test) => test.level === "few") && (
+            <p class="small">{t["check.network.few"]}<a href="https://ooni.org/install/" target="_blank" rel="noopener">OONI Probe</a>{end}</p>
+          )}
+          <p class="small"><a href={`https://explorer.ooni.org/as/AS${known.asn}`} target="_blank" rel="noopener">{t["check.network.more"]}</a></p>
+          <p class="muted small">
+            {t["check.network.privacy"]}{t["check.network.license"]}
+            <a href="https://github.com/ooni/license/tree/master/data" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>{end}
+          </p>
+        </>
+      )}
     </section>
   );
 }

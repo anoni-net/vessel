@@ -408,7 +408,6 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card > p { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
-.check-results { display: grid; gap: 12px; margin: 0; }
 /* the connection check: the tool beside what to do next on a wide screen */
 .check-cols, .check-next { display: contents; }
 .check-next > h2 { margin: 24px 0 0; }
@@ -435,8 +434,16 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card--warn::before, .check-verdict--bad::before, .lookup-answer--hit::before { content: "NOTE"; position: absolute; top: -.75em; left: 18px;
   padding: 0 6px; background: var(--paper); color: var(--caution); font: 600 10px/1.5 var(--mono); letter-spacing: .18em; }
 .card--warn .icon, .check-verdict--bad > .icon { color: var(--caution); }
-.check-results dt { font-weight: 700; }
-.check-results dd { margin: 4px 0 0; }
+.check-network { padding-top: 16px; border-top: 1px solid var(--line); }
+.check-network h2 { margin: 0; font-size: 20px; }
+.check-network p { margin: 0; }
+.check-network__tests { display: grid; gap: 10px; }
+/* the status in a column of its own at the right edge, so it does not move with the length of the name */
+.check-rows { display: grid; gap: 10px; margin: 0; }
+.check-rows > li, .check-rows > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.check-rows dd { margin: 0; }
+.check-rows .badge { justify-self: end; }
+.check-rows__detail { grid-column: 1 / -1; }
 
 /* a passkey on the account page: its name and date on the left, delete on the right */
 .passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }

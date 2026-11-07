@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from app import auth, blocklists, check, devices, health, invites, passkeys, status
+from app import auth, blocklists, check, devices, health, invites, network, passkeys, status
 from app.db import close_pool
 
 
@@ -11,6 +11,7 @@ from app.db import close_pool
 async def lifespan(_: FastAPI):
     # the DNS page's lookup needs the blocklists; fetch them now rather than on the first visitor
     blocklists.refresh_in_background()
+    network.refresh_in_background()
     yield
     close_pool()
 
@@ -22,6 +23,7 @@ app.include_router(passkeys.router)
 app.include_router(invites.router)
 app.include_router(devices.router)
 app.include_router(check.router)
+app.include_router(network.router)
 app.include_router(blocklists.router)
 app.include_router(health.router)
 app.include_router(status.router)

@@ -39,6 +39,13 @@ export function decodeCheck(s: string | null): { exit: Exit; dns: Verdict } | nu
 const city = (t: T, region: string) => t[`region.${region}` as MessageKey] ?? region;
 export const isOld = (exit: Exit) => exit.startsWith(OLD);
 
+/** What each check came to, for the status beside its name. */
+export type CheckState = "pass" | "fail" | "update" | "unknown";
+export const exitState = (exit: Exit): CheckState =>
+  exit === "error" ? "unknown" : exit === "none" || exit === "ipv6" ? "fail" : isOld(exit) ? "update" : "pass";
+export const dnsState = (dns: Verdict): CheckState =>
+  dns === "none" || dns === "malware" || dns === "ads" ? "pass" : dns === "notVessel" ? "fail" : "unknown";
+
 /** The full sentence the check page shows for the exit. */
 export function exitText(t: T, exit: Exit): string {
   if ((EXIT_PROBLEMS as readonly string[]).includes(exit)) return t[`check.exit.${exit}` as MessageKey];
