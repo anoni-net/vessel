@@ -621,6 +621,7 @@
   "feedback.statusBefore": "报告连不上之前，可以先到",
   "feedback.statusAfter": "确认节点是否正常。",
   "learn.title": "VPN 入门",
+  "learn.toc": "目录",
   "learn.lead": "第一次用 VPN 的人常问的几件事。",
   "learn.link": "第一次用 VPN？看看 VPN 入门",
   "learn.what.title": "VPN 在做的事",

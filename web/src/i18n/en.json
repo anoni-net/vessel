@@ -621,6 +621,7 @@
   "feedback.statusBefore": "Before reporting a connection problem, check the",
   "feedback.statusAfter": "page to see whether the node is working.",
   "learn.title": "VPN basics",
+  "learn.toc": "Contents",
   "learn.lead": "What people using a VPN for the first time often ask.",
   "learn.link": "New to VPNs? Read the VPN basics",
   "learn.what.title": "What a VPN does",
