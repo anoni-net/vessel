@@ -161,3 +161,13 @@ test("a site on the ad list that Quad9 also blocks counts as blocked by both fil
   await box.getByRole("button", { name: "查詢" }).click();
   await expect(box.getByTestId("lookup-answer")).toContainText("被 Quad9 判斷為有害");
 });
+
+test("the three options carry the same strength marks as when making a device", async ({ page }) => {
+  await page.goto("/dns/");
+  const options = page.locator(".dns-options > .card");
+  await expect(options.locator("h3")).toHaveText(["不過濾", "擋惡意網站", "擋惡意網站、廣告與追蹤"]);
+  for (const [i, filled] of [[0, 1], [1, 2], [2, 3]] as const) {
+    await expect(options.nth(i).locator(".layers > span")).toHaveCount(3);
+    await expect(options.nth(i).locator(".layers__on")).toHaveCount(filled);
+  }
+});

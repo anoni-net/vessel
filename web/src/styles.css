@@ -452,7 +452,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
 /* the DNS filter page: the two tools and the three options side by side where there is room */
 .dns-tools, .dns-options { display: grid; gap: 16px; }
-.dns-options .card h3 { margin: 0; }
+.dns-options .card h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
 .dns-cols, .dns-col { display: contents; }
 .dns-col > h2 { margin: 24px 0 0; }
 @media (min-width: 641px) {
