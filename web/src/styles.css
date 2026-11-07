@@ -437,6 +437,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card--warn .icon, .check-verdict--bad > .icon { color: var(--caution); }
 .check-results dt { font-weight: 700; }
 .check-results dd { margin: 4px 0 0; }
+.check-network { padding-top: 16px; border-top: 1px solid var(--line); }
+.check-network h2 { margin: 0; font-size: 20px; }
+.check-network p { margin: 0; }
+.check-network__tests { display: grid; gap: 10px; }
+.check-network__tests li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.check-network__count { flex-basis: 100%; }
 
 /* a passkey on the account page: its name and date on the left, delete on the right */
 .passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }

@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-07",
+  updated: "2026-11-08",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -54,6 +54,7 @@ export default {
         "Akamai: the Tokyo node runs on Akamai (formerly Linode) servers, which can see the same as DigitalOcean",
         "Greenhost: the Taipei node runs on Greenhost servers, which can see the same as DigitalOcean",
         "Quad9: with a DNS filter, the node's resolver sends lookups to Quad9 over an encrypted connection for a verdict on whether they are harmful. It sees the node's IP address and the domain, not the device's IP address, and [Quad9's privacy policy](https://quad9.net/privacy/policy/) applies. Lookups on the DNS filtering page are also checked with Quad9, coming from the portal's server. Devices with no filter do not go through Quad9",
+        "OONI: when the connection check finds you are not on Vessel, the portal finds your network provider's number from your IP address in a table on its own server and asks OONI for public measurements with that number only. OONI does not receive your IP address, and the lookup is not kept",
         "Amazon SES: invite codes for the test are sent with the newsletter, so the mail service handles their contents. The list of which subscriber got which code is deleted after sending, so the portal's database cannot tell which account came from which subscriber",
       ],
     },

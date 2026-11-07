@@ -51,6 +51,15 @@ export interface Me {
 export type DnsFilter = "none" | "malware" | "ads";
 export type DeviceStatus = "pending" | "active" | "suspended" | "revoking";
 
+/** What OONI's public measurements say about the visitor's network, from /api/network */
+export interface NetworkReport {
+  asn: number | null;
+  name: string | null;
+  days: number;
+  tests: { id: NetworkTest; level: "ok" | "some" | "most" | "few" | "unknown"; measurements: number; anomaly_pct: number; confirmed: number }[];
+}
+export type NetworkTest = "web_connectivity" | "signal" | "telegram" | "whatsapp" | "tor";
+
 export interface BlocklistAnswer {
   /** the host name the backend read from what was typed */
   domain: string;
@@ -230,6 +239,8 @@ export const api = {
   relays: () => call<Relay[]>("GET", "/relays").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),
+  /** the visitor's network and OONI's measurements of it; needs no session */
+  network: () => call<NetworkReport>("GET", "/network").then((r) => r.data),
   /** which DNS filters block a site; needs no session, and the domain is not kept */
   blocklist: (domain: string) =>
     call<BlocklistAnswer>("POST", "/blocklist", { domain }).then((r) => r.data),

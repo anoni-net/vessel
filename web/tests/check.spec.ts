@@ -6,6 +6,13 @@ async function network(page: Page, exit: { region: string | null; ipv6: boolean;
   await page.route("**/api/exit", (route) =>
     exit === "fail" ? route.fulfill({ status: 502, body: "bad gateway" }) : route.fulfill({ json: exit }));
   await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
+  await page.route("**/api/network", (route) => route.fulfill({ json: { asn: 64500, name: "EXAMPLE - Example Network", days: 30, tests: [
+    { id: "web_connectivity", level: "ok", measurements: 26203, anomaly_pct: 3, confirmed: 407 },
+    { id: "signal", level: "most", measurements: 100, anomaly_pct: 99, confirmed: 0 },
+    { id: "telegram", level: "some", measurements: 100, anomaly_pct: 30, confirmed: 0 },
+    { id: "whatsapp", level: "few", measurements: 3, anomaly_pct: 0, confirmed: 0 },
+    { id: "tor", level: "unknown", measurements: 0, anomaly_pct: 0, confirmed: 0 },
+  ] } }));
   await page.route(/https:\/\/vessel-dns-(\d)\.anoni\.net\/check/, (route) => {
     const n = Number(/vessel-dns-(\d)/.exec(route.request().url())![1]);
     return hidden.includes(n) ? route.abort("namenotresolved") : route.fulfill({ status: 200, body: "ok\n" });
@@ -106,4 +113,45 @@ test("a config made before the region moved host goes out through the old server
   await box.getByRole("link", { name: "附上結果寫意見回覆" }).click();
   await expect(page).toHaveURL(/check=old-jp\.malware$/);
   await expect(page.getByTestId("attach-check")).toContainText("出口 東京節點的舊主機");
+});
+
+test("off Vessel the check shows OONI's measurements of this network, and asks nothing on Vessel", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [1]);
+  let visited = 0;
+  page.on("request", (r) => { if (r.url().includes("ooni")) visited += 1; });
+  await page.goto("/check/");
+  await expect(page.getByTestId("check-network")).toHaveCount(0);
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const box = page.getByTestId("check-network");
+  await expect(box).toContainText("EXAMPLE - Example Network（AS64500）過去 30 天");
+  await expect(box).toHaveAttribute("aria-busy", "false");
+  const rows = box.locator("li");
+  await expect(rows).toHaveCount(5);
+  await expect(rows.nth(0)).toContainText("看起來正常");
+  await expect(rows.nth(0)).toContainText("26,203 筆，異常 3%，確認封鎖 407 筆");
+  await expect(rows.nth(1)).toContainText("多數量測異常");
+  await expect(rows.nth(3)).toContainText("資料不足");
+  await expect(rows.nth(4)).toContainText("暫時查不到");
+  await expect(box.getByRole("link", { name: "常見問題的這一題" })).toHaveAttribute("href", "/faq/#q-risky");
+  await expect(box.getByRole("link", { name: "OONI Probe" })).toHaveAttribute("href", "https://ooni.org/install/");
+  await expect(box.getByRole("link", { name: "到 OONI Explorer 看這個網路的細節" })).toHaveAttribute("href", "https://explorer.ooni.org/as/AS64500");
+  await expect(box.getByRole("link", { name: "CC BY-NC-SA 4.0" })).toBeVisible();
+  // the browser itself never reaches OONI or the services it reports on
+  expect(visited).toBe(0);
+});
+
+test("a network nobody can name says so", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [1]);
+  await page.route("**/api/network", (route) => route.fulfill({ json: { asn: null, name: null, days: 30, tests: [] } }));
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  await expect(page.getByTestId("check-network")).toContainText("無法判斷目前的網路業者");
+});
+
+test("through a Vessel node there is no network section", async ({ page }) => {
+  await network(page, { region: "sg", ipv6: false }, [1]);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  await expect(page.getByTestId("check-exit")).toBeVisible();
+  await expect(page.getByTestId("check-network")).toHaveCount(0);
 });
