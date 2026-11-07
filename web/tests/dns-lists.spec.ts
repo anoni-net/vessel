@@ -107,14 +107,19 @@ test("the charts carry the numbers, with labels for screen readers", async ({ pa
   await page.goto("/dns/lists/");
   const overlap = page.getByTestId("lists-chart-overlap");
   await expect(overlap.locator("li svg")).toHaveCount(4);
-  await expect(overlap.getByRole("img", { name: "TIF mini：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
+  await expect(overlap.getByRole("img", { name: "HaGeZi Threat Intelligence Feeds（mini）：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
+  // the same names as the cards above, so nobody has to work out which is which
+  for (const id of ["malware", "tw165", "twmoda", "ads"]) {
+    const name = await page.getByTestId(`list-${id}`).locator("a").innerText();
+    await expect(overlap.locator(".lists-bar__head").filter({ hasText: name })).toHaveCount(1);
+  }
   // largest first
-  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^Multi PRO/, /^TIF mini/, /^165/, /^數位產業署/]);
+  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^HaGeZi Multi PRO/, /^HaGeZi Threat/, /^165 遭停止解析/, /^詐騙網域停止解析清單/]);
   // rounded down, so 99.8% does not read as nothing shared
   await expect(overlap.locator("li").filter({ hasText: "165" })).toContainText("獨有 99%");
-  await expect(overlap.locator("li").filter({ hasText: "TIF mini" })).toContainText("獨有 46%");
+  await expect(overlap.locator("li").filter({ hasText: "HaGeZi Threat" })).toContainText("獨有 46%");
   // the longest list fills the width, the others in proportion
-  const ads = overlap.getByRole("img", { name: /^Multi PRO/ });
+  const ads = overlap.getByRole("img", { name: /^HaGeZi Multi PRO/ });
   expect(await ads.locator("rect.lists-bar__first").first().getAttribute("width")).toBe(`${(149750 / 219320) * 100}%`);
   const kinds = page.getByTestId("lists-chart-kinds");
   await expect(kinds.getByRole("img")).toHaveCount(5);

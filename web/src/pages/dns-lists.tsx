@@ -145,7 +145,7 @@ export function DnsLists() {
               <ul class="plain lists-chart__bars">
                 {byDomains.map((l) => {
                   const r = row(l.id);
-                  const name = t[`lists.chart.${l.id}`];
+                  const name = t[`lists.${l.id}.name`];
                   const most = summary ? Math.max(...summary.lists.map((x) => x.domains)) : 1;
                   return (
                     <li>
