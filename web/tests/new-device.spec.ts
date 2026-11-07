@@ -56,6 +56,10 @@ test("create a device with keys made in the browser", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "額外的防護" })).toBeVisible();
   await expect(page.getByText("新增裝置 4/5")).toBeVisible();
   await expect(page.getByLabel(/＋擋惡意網站建議/)).toBeChecked();
+  // a new tab, so the device being set up is not lost
+  const how = page.getByRole("link", { name: "不知道怎麼選？" });
+  await expect(how).toHaveAttribute("href", "/dns/lists/");
+  await expect(how).toHaveAttribute("target", "_blank");
   await page.getByLabel(/＋再擋廣告與追蹤/).check();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();

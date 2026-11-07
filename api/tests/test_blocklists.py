@@ -154,3 +154,22 @@ def test_a_download_leaves_out_the_excluded_name_but_not_the_names_under_it(monk
     finally:
         blocklists.set_lists({}, at=None)
         blocklists._loaded_at = None
+
+
+def test_the_summary_counts_what_each_list_adds(api):
+    blocklists.set_lists({"malware": frozenset({"bad.example", "only.example"}), "tw165": frozenset({"scam.example"}),
+                          "twmoda": frozenset({"sub.bad.example"}), "ads": frozenset({"bad.example", "ads.example"})})
+    body = api.get("/api/blocklist/lists").json()
+    rows = {row["id"]: row for row in body["lists"]}
+    assert rows["malware"] == {"id": "malware", "domains": 2, "only_here": 1}
+    assert rows["tw165"] == {"id": "tw165", "domains": 1, "only_here": 1}
+    # a parent on another list already blocks it
+    assert rows["twmoda"] == {"id": "twmoda", "domains": 1, "only_here": 0}
+    assert rows["ads"] == {"id": "ads", "domains": 2, "only_here": 1}
+    assert (body["malware_filter"], body["ads_filter"], body["hagezi"]) == (3, 4, 3)
+    assert "as_of" in body
+
+
+def test_the_summary_before_the_lists_arrive(api):
+    blocklists._loaded_at = None
+    assert api.get("/api/blocklist/lists").status_code == 503

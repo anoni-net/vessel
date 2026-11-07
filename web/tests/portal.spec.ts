@@ -744,8 +744,8 @@ test("the monthly record shows only the counts a filter made", async ({ page }) 
 
 test("the footer: three groups of links, in the same order in every language, nothing wider than the screen", async ({ page }) => {
   for (const [path, groups] of [
-    ["/faq/", { 使用說明: ["VPN 入門", "常見問題", "網域過濾"], 檢查與回報: ["連線檢測", "服務狀態", "意見回覆"], 關於: ["anoni.net 社群", "原始碼", "使用條款", "隱私權政策"] }],
-    ["/en/faq/", { Help: ["VPN basics", "FAQ", "DNS filtering"], "Check and report": ["Connection check", "Service status", "Feedback"], About: ["anoni.net community", "Source code", "Terms of use", "Privacy policy"] }],
+    ["/faq/", { 使用說明: ["VPN 入門", "常見問題", "網域過濾", "網域過濾的名單"], 檢查與回報: ["連線檢測", "服務狀態", "意見回覆"], 關於: ["anoni.net 社群", "原始碼", "使用條款", "隱私權政策"] }],
+    ["/en/faq/", { Help: ["VPN basics", "FAQ", "DNS filtering", "The lists behind the DNS filter"], "Check and report": ["Connection check", "Service status", "Feedback"], About: ["anoni.net community", "Source code", "Terms of use", "Privacy policy"] }],
   ] as const) {
     await page.goto(path);
     for (const [name, links] of Object.entries(groups)) {

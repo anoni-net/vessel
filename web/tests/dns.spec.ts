@@ -39,7 +39,7 @@ test("the DNS page in three languages, linked from the home page", async ({ page
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["檢查目前的過濾", "查詢網站有沒有被擋", "三種選項", "運作方式", "做不到的事", "更換與回報"]);
   await page.goto("/en/dns/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("DNS filtering");
-  await expect(page.getByRole("link", { name: "Vessel's GitHub" })).toHaveAttribute("href", "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt");
+  await expect(page.locator(".dns-page").getByRole("link", { name: "The lists behind the DNS filter" })).toHaveAttribute("href", "/en/dns/lists/");
   await expect(page.getByRole("link", { name: "HaGeZi's GitHub" })).toHaveAttribute("href", "https://github.com/hagezi/dns-blocklists");
   await page.goto("/zh-cn/dns/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("域名过滤");
@@ -78,6 +78,7 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
   await box.getByRole("button", { name: "查詢" }).click();
   await expect(box.getByTestId("lookup-answer")).toContainText("scam.example 在台灣警政署 165 停止解析的涉詐網站名單上");
   await expect(box.getByTestId("lookup-answer")).toContainText("請撥 165 反詐騙諮詢專線申訴");
+  await expect(box.getByTestId("lookup-answer").getByRole("link", { name: "為什麼會被擋、可以怎麼處理" })).toHaveAttribute("href", "/dns/lists/#trouble");
   await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
 
   await box.getByLabel("網址或網域").fill("fakeshop.example");

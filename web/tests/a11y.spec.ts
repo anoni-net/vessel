@@ -20,6 +20,7 @@ async function backend(page: Page, signedIn: boolean) {
     if (path === "/api/devices") return route.fulfill({ json: DEVICES });
     if (path === "/api/regions") return route.fulfill({ json: [{ id: "jp", open: true }, { id: "sg", open: true }] });
     if (path === "/api/status") return route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "ok" }], notices: [] } });
+    if (path === "/api/blocklist/lists") return route.fulfill({ json: { lists: [{ id: "malware", domains: 195355, only_here: 124030 }, { id: "tw165", domains: 86162, only_here: 85915 }, { id: "twmoda", domains: 1732, only_here: 1527 }, { id: "ads", domains: 219318, only_here: 149687 }], malware_filter: 283040, ads_filter: 432727, hagezi: 345044, as_of: "2026-11-07T04:00:00+00:00" } });
     if (path === "/api/passkeys") return route.fulfill({ json: [] });
     if (path === "/api/invites") return route.fulfill({ json: { per_account: 2, used: 1, left: 0, reason: null, eligible_on: "2026-10-15", days: 7, open: [{ id: 1, created_at: "2026-11-04T01:00:00Z", expires_at: "2026-11-11T01:00:00Z" }] } });
     return route.fulfill({ status: 404, json: { error: "not_found" } });
@@ -27,7 +28,7 @@ async function backend(page: Page, signedIn: boolean) {
 }
 
 const PAGES: [string, boolean][] = [
-  ["/", false], ["/en/", false], ["/faq/", false], ["/learn/", false], ["/dns/", false], ["/check/", false],
+  ["/", false], ["/en/", false], ["/faq/", false], ["/learn/", false], ["/dns/", false], ["/dns/lists/", false], ["/check/", false],
   ["/status/", false], ["/feedback/", false], ["/terms/", false], ["/privacy/", false], ["/login/", false],
   ["/redeem/", false], ["/devices/", true], ["/devices/new/", true], ["/account/", true],
 ];
@@ -50,6 +51,24 @@ for (const scheme of ["light", "dark"] as const) {
       expect(found).toEqual([]);
     });
   }
+}
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`axe finds nothing in the folded parts of /dns/lists/, ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await backend(page, false);
+    await page.goto("/dns/lists/");
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+    await page.evaluate(axe.source);
+    const found = await page.evaluate(async () => {
+      const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {
+        runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
+      });
+      return res.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
+    });
+    expect(found).toEqual([]);
+  });
 }
 
 test("the focus ring shows on the footer's dark blue", async ({ page }) => {

@@ -34,6 +34,8 @@
   --placeholder: #8796bf;
   --skeleton: #e1e8f8;
   /* FIG. 04's colours, shared with its canvas (faq-art.ts) */
+  --chart-first: #1540b8;
+  --chart-rest: #5f85ea;
   --fig-dest: #2f6bff;
   --fig-you: #0b3ca8;
   --fig-node: #a5bcf2;
@@ -81,6 +83,8 @@
     --press: #d4e2ff;
     --placeholder: #8fa5d6;
     --skeleton: #1b3064;
+    --chart-first: #6390f5;
+    --chart-rest: #2f5ec9;
     --fig-dest: #6f9bff;
     --fig-you: #c2d4ff;
     --fig-node: #4f71bd;
@@ -646,6 +650,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .legal tr { margin-bottom: 12px; padding-block: 6px; border: 1px solid var(--ink); border-radius: var(--radius); }
   .legal td { padding: 6px 14px; border: 0; }
   .legal td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
+  /* screen readers still get the column names, which display: none would take away */
+  .lists-page .legal thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 /* phones narrower than this cannot fit the wordmark, the languages and the sign-in button on one row; the footer still lists the languages */
 @media (max-width: 420px) {
@@ -711,6 +717,60 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .invite-made .number { font-size: clamp(20px, 6vw, 26px); }
 .invite-link { color: var(--muted); overflow-wrap: anywhere; }
 .invite-tools { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+/* the page on the DNS lists (pages/dns-lists.tsx): the table of lists needs room, so the page widens with the screen.
+   From 960 px the rest is two columns; below that the columns' frames vanish and the sections stack */
+.lists-cols, .lists-col { display: contents; }
+.lists-groups { display: grid; gap: 24px 16px; }
+/* a dimension line over each group, like the drawings on the home page */
+.lists-group__title { margin: 0 0 12px; padding-top: 8px; border-top: 2px solid var(--ink); font-size: 14px; font-weight: 700; color: var(--text); }
+.lists-cards { display: grid; gap: 12px; }
+.lists-card { display: flex; flex-direction: column; gap: 8px; height: 100%; box-sizing: border-box; }
+.lists-card p { margin: 0; }
+.lists-card .lists-card__name { font-size: 17px; font-weight: 700; color: var(--ink); }
+.lists-card .lists-card__count { display: flex; align-items: baseline; gap: 6px; margin-top: auto; padding-top: 8px; }
+.lists-card__number { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lists-card__number .sk { width: 5em; height: 24px; }
+.lists-choices { display: grid; gap: 12px; }
+.lists-choice__name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 17px; }
+.lists-steps { margin: 0; padding-inline-start: 1.4em; display: flex; flex-direction: column; gap: 10px; }
+.lists-col .faq { max-width: none; }
+.lists-more { margin-top: 16px; border-top: 2px solid var(--ink); }
+.lists-more > summary { width: fit-content; min-height: 24px; padding-block: 16px 8px; color: var(--ink); font-size: 20px; font-weight: 700; cursor: pointer; }
+.lists-chart { margin: 8px 0; }
+.lists-chart__title { font-weight: 700; color: var(--text); }
+.lists-page .lists-chart__legend { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 14px; color: var(--muted); }
+.lists-chart__legend li { display: flex; align-items: center; gap: 6px; }
+.lists-key { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 2px; }
+.lists-key--first { background: var(--chart-first); }
+.lists-chart__bars { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.lists-bar__head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; font-size: 14px; color: var(--text); }
+.lists-bar__head > span:first-child { min-width: 0; }
+.lists-bar__value { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4em; text-align: end; }
+.lists-bar__value .sk { margin-inline-start: auto; width: 4em; }
+.lists-bar__plot { display: block; }
+.lists-bar__first { fill: var(--chart-first); }
+.lists-hatch__base { fill: var(--chart-rest); }
+.lists-hatch__line { fill: var(--page); }
+.lists-hatch-defs { position: absolute; }
+.lists-bar__gap { fill: var(--page); }
+.lists-col > h2 { margin: 24px 0 0; }
+.lists-page .legal { margin-top: 0; }
+@media (min-width: 641px) {
+  .lists-page { max-width: 800px; }
+  .lists-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lists-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 960px) {
+  .lists-page { max-width: 1120px; }
+  .lists-page > .lead { max-width: 760px; }
+  /* the two groups share their rows, so a title on two lines does not push one group's cards lower */
+  .lists-groups { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lists-group { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
+  .lists-group--ads .lists-cards { grid-template-columns: minmax(0, 1fr); }
+  .lists-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; margin-top: 16px; }
+  .lists-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .lists-col > h2:first-child { margin-top: 0; }
+}
 .account-section { margin-top: 16px; padding-top: 32px; border-top: 2px dashed var(--line); }
 .account-section > h2, .account-section > .card > h2 { margin-bottom: 0; }
 /* Wide screens: the account page in two columns, the monthly record and the invites beside the passkeys; deleting the
