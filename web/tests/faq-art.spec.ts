@@ -26,6 +26,18 @@ test("beside the questions on wide screens, with translated layer names", async 
   await expect(page.locator(".faq-art__label").first()).toHaveText("Your device");
 });
 
+test("on wide screens the drawing is about as tall as the questions, so no empty space under them", async ({ page, isMobile }) => {
+  test.skip(isMobile, "wide screens only");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const art = (await page.locator(".faq-art").boundingBox())!;
+  const questions = (await page.locator(".faq-layout > div").first().boundingBox())!;
+  expect(art.height).toBeLessThan(questions.height * 1.35);
+  expect(Math.abs(art.width - questions.width)).toBeLessThan(2);
+  const tops = await page.locator(".faq-art__legend li").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+});
+
 test("not shown or loaded on phones", async ({ page, isMobile }) => {
   test.skip(!isMobile, "phone layout");
   const loaded: string[] = [];
