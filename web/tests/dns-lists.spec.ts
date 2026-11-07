@@ -29,6 +29,11 @@ test("the page answers what to pick first, then what to do when a site will not 
   const choices = page.getByTestId("lists-choices").locator("li");
   await expect(choices).toHaveCount(3);
   await expect(choices.nth(1)).toContainText("預設");
+  // the same strength marks as when making a device: one, two and three filled
+  for (const [i, filled] of [[0, 1], [1, 2], [2, 3]] as const) {
+    await expect(choices.nth(i).locator(".layers > span")).toHaveCount(3);
+    await expect(choices.nth(i).locator(".layers__on")).toHaveCount(filled);
+  }
   const headings = await page.locator(".lists-page > h2, .lists-col > h2").allInnerTexts();
   expect(headings.slice(0, 4)).toEqual(["要選哪一個", "網站打不開時", "常見的疑問", "目前的名單"]);
   const steps = page.getByTestId("lists-trouble").locator("ol > li");

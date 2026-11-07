@@ -4,6 +4,7 @@ import { useCtx } from "../context.ts";
 import { formatCount, formatTime } from "../format.ts";
 import { type MessageKey, fmt } from "../i18n/index.ts";
 import { faqAnchor } from "./faq.tsx";
+import { FILTERS, Layers } from "./layers.tsx";
 import { SkLine } from "./skeleton.tsx";
 
 const HAGEZI = "https://github.com/hagezi/dns-blocklists";
@@ -38,7 +39,6 @@ const KINDS_165 = [
 const KINDS_165_TOTAL = 93839;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 4] as const;
-const CHOICES = ["none", "malware", "ads"] as const;
 const QUESTIONS = ["blocked", "log", "speed", "sites", "ads", "change", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
@@ -117,9 +117,10 @@ export function DnsLists() {
 
       <h2>{t["lists.choose.title"]}</h2>
       <ul class="plain lists-choices" data-testid="lists-choices">
-        {CHOICES.map((c) => (
+        {FILTERS.map((c) => (
           <li class={`card card--flat${c === "malware" ? " card--tint" : ""}`}>
             <h3 class="lists-choice__name">
+              <Layers filter={c} />
               {t[`filter.${c}`]}
               {c === "malware" && <span class="badge">{t["lists.choose.default"]}</span>}
             </h3>
