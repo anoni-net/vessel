@@ -54,7 +54,7 @@ const PHISHING = [
 ] as const;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 4] as const;
-const QUESTIONS = ["blocked", "log", "speed", "sites", "ads", "change", "allow"] as const;
+const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
   ["2026-11-07", "20261107"],
@@ -160,8 +160,8 @@ export function DnsLists() {
         <div class="lists-col" data-testid="lists-trouble">
           <h2 id="trouble">{t["lists.trouble.title"]}</h2>
           <ol class="lists-steps">
-            <li>{t["lists.trouble.1"]}</li>
-            <li>{t["lists.trouble.2"]}<a href={href("/dns/")}>{t["lists.trouble.2link"]}</a>{t["lists.trouble.2after"]}</li>
+            <li>{t["lists.trouble.1"]}<a href={href("/dns/")}>{t["lists.trouble.1link"]}</a>{t["lists.trouble.1after"]}</li>
+            <li>{t["lists.trouble.2"]}<a href={href("/feedback/")}>{t["feedback.title"]}</a>{t["lists.trouble.2after"]}</li>
             <li>{t["lists.trouble.3"]}<a href={href("/devices/")}>{t["devices.title"]}</a>{t["lists.trouble.3after"]}</li>
             <li>{t["lists.trouble.4"]}<a href={href("/feedback/")}>{t["feedback.title"]}</a>{t["lists.trouble.4after"]}</li>
           </ol>

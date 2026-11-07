@@ -24,7 +24,7 @@ test("under 使用情境, the blocklists, the disguise, the relay routes and the
   const works = page.locator("#works");
   await expect(works.getByRole("heading", { level: 2 })).toHaveText("Vessel 的做法");
   await expect(works.locator("figcaption")).toHaveText([
-    "FIG. 02組合多份公開名單，擋下詐騙與釣魚網站", "FIG. 03以 AmneziaWG 偽裝連線，不容易被認出是 VPN",
+    "FIG. 02組合多份公開名單，擋下名單上的詐騙與釣魚網站", "FIG. 03以 AmneziaWG 偽裝連線，不容易被認出是 VPN",
     "FIG. 04從台北入口連線，出口是你選的城市", "FIG. 05金鑰在你的裝置上產生，私鑰不會離開",
   ]);
   await expect(works.getByRole("img").nth(2)).toHaveAttribute("aria-label", /入口只轉送加密的封包、不解開通道，再轉到你選的城市的節點/);

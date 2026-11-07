@@ -36,7 +36,7 @@ test("the DNS page in three languages, linked from the home page", async ({ page
   await page.locator("#how").getByRole("link", { name: "網域過濾的說明" }).click();
   await expect(page).toHaveURL(/\/dns\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("網域過濾");
-  await expect(page.getByRole("heading", { level: 2 })).toHaveText(["檢查目前的過濾", "查詢網站有沒有被擋", "三種選項", "運作方式", "做不到的事", "更換與回報"]);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(["查詢網站有沒有被擋", "檢查目前的過濾", "三種選項", "運作方式", "做不到的事", "更換與回報"]);
   await page.goto("/en/dns/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("DNS filtering");
   await expect(page.locator(".dns-page").getByRole("link", { name: "The lists behind the DNS filter" })).toHaveAttribute("href", "/en/dns/lists/");
@@ -62,7 +62,7 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
   const box = page.getByTestId("dns-lookup");
   await box.getByLabel("網址或網域").fill("good.example");
   await box.getByRole("button", { name: "查詢" }).click();
-  await expect(box.getByTestId("lookup-answer")).toHaveText("good.example 不在 Vessel 的名單上，打不開的原因可能在網站本身或目前的網路。");
+  await expect(box.getByTestId("lookup-answer")).toContainText("good.example 不在 Vessel 的名單上，應該不是名單擋的");
   await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
 
   await box.getByLabel("網址或網域").fill("bad");
@@ -129,14 +129,14 @@ test("a wide screen shows the tools and the options side by side, a phone stacks
   const check = await box("dns-check");
   const lookup = await box("dns-lookup");
   expect(Math.abs(check.y - lookup.y)).toBeLessThan(2);
-  expect(lookup.x).toBeGreaterThan(check.x + check.width);
+  expect(check.x).toBeGreaterThan(lookup.x + lookup.width);
   const how = await box("dns-col-how");
   const limits = await box("dns-col-limits");
   expect(Math.abs(how.y - limits.y)).toBeLessThan(2);
   const tops = await page.locator(".dns-options > .card").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
   await page.setViewportSize({ width: 390, height: 800 });
-  const after = await box("dns-lookup");
-  expect(after.y).toBeGreaterThan((await box("dns-check")).y);
+  const after = await box("dns-check");
+  expect(after.y).toBeGreaterThan((await box("dns-lookup")).y);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

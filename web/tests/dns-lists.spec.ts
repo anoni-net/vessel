@@ -39,7 +39,9 @@ test("the page answers what to pick first, then what to do when a site will not 
   expect(headings.slice(0, 4)).toEqual(["要選哪一個", "網站打不開時", "常見的疑問", "目前的名單"]);
   const steps = page.getByTestId("lists-trouble").locator("ol > li");
   await expect(steps).toHaveCount(4);
-  await expect(steps.nth(1).getByRole("link", { name: "網域過濾頁" })).toHaveAttribute("href", "/dns/");
+  // look it up first: being able to open it with the VPN off does not mean a list blocked it
+  await expect(steps.nth(0).getByRole("link", { name: "網域過濾頁" })).toHaveAttribute("href", "/dns/");
+  await expect(steps.nth(1).getByRole("link", { name: "意見回覆" })).toHaveAttribute("href", "/feedback/");
   await expect(steps.nth(2).getByRole("link", { name: "我的裝置" })).toHaveAttribute("href", "/devices/");
   await expect(steps.nth(3).getByRole("link", { name: "意見回覆" })).toBeVisible();
   // changing the option means making the device again: said where people choose, not only in the questions
@@ -51,7 +53,7 @@ test("the common questions open, and say the filter keeps no record", async ({ p
   await page.goto("/dns/lists/");
   const question = page.getByTestId("lists-questions").locator("details").filter({ hasText: "Vessel 會記錄我查了哪些網站嗎？" });
   await question.locator("summary").click();
-  await expect(question).toContainText("不會留下紀錄");
+  await expect(question).toContainText("不留下紀錄");
   await expect(question.getByRole("link", { name: "VPN 入門" })).toBeVisible();
 });
 
@@ -76,7 +78,7 @@ test("the details are folded away, and the page says who runs it and what it doe
   await expect(page.getByTestId("lists-more")).not.toHaveAttribute("open");
   await expect(page.getByTestId("lists-chart-overlap")).toBeHidden();
   await expect(page.getByText("法律主體還在確認")).toBeVisible();
-  await expect(page.getByText("完整的審查與移除程序，我們並不清楚")).toBeVisible();
+  await expect(page.getByText("審查與移除程序我們並不清楚")).toBeVisible();
   await expect(page.getByText("都包含兩份台灣政府的名單")).toBeVisible();
   await expect(page.getByText("沒有政府單位要求 Vessel 加入或移除網域")).toBeVisible();
   await expect(page.getByRole("link", { name: "whisper@anoni.net" })).toHaveAttribute("href", "mailto:whisper@anoni.net");
@@ -284,7 +286,7 @@ test("the page compares with other services in the open, weak points included", 
   await expect(page.getByText("Vessel 目前最弱的是釣魚網站")).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Vessel 擋惡意網站", exact: true })).toBeAttached();
   await expect(page.getByRole("columnheader", { name: "Quad9" })).toBeAttached();
-  await expect(page.getByText("沒有開啟過濾時，Vessel 不會擋任何網站")).toBeVisible();
+  await expect(page.getByText("沒有開啟過濾時不會擋任何網站")).toBeVisible();
   await openMore(page);
   const panels = page.getByTestId("lists-phishing").locator("figure");
   await expect(panels).toHaveCount(3);
