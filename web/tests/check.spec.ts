@@ -170,3 +170,17 @@ test("the statuses line up at the right edge, whatever the length of the name", 
   const badge = await row.locator(".badge").boundingBox();
   expect(Math.abs(name!.y + name!.height / 2 - (badge!.y + badge!.height / 2))).toBeLessThan(2);
 });
+
+// a sentence that runs into a link has no space of its own, so the space has to be in the sentence
+const NO_SPACE = /[\u4e00-\u9fff][A-Za-z0-9]|[A-Za-z0-9][\u4e00-\u9fff]/;
+
+test("Chinese and Latin text keep a space between them where a sentence runs into a link", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [1]);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  await expect(page.getByTestId("check-network").locator("li")).toHaveCount(5);
+  expect(NO_SPACE.exec(await page.getByTestId("check-network").innerText())).toBeNull();
+  await page.goto("/dns/lists/");
+  await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+  expect(NO_SPACE.exec(await page.locator(".lists-page").innerText())).toBeNull();
+});

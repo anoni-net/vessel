@@ -718,7 +718,7 @@
   "lists.rules.2": "不做内容管制。博彩、成人、社交网站、绕过封锁的工具与动态 DNS（替家用网络取固定网址的服务）都不是收录的理由，名单夹带时列在已知的问题",
   "lists.rules.3": "不自己制作封锁名单。只选用公开的名单与可以查询判断来源的过滤服务，发现缺漏时回报给维护者",
   "lists.rules.4": "新的名单要补上现有名单没有的部分，先检查会不会拦错，名单来源的条款也要允许这样使用",
-  "lists.rules.who": "Vessel 由 anoni.net 社区的志愿者维护，法律主体还在确认，有问题可以写信到",
+  "lists.rules.who": "Vessel 由 anoni.net 社区的志愿者维护，法律主体还在确认，有问题可以写信到 ",
   "lists.coverage.title": "过滤的效果与限制",
   "lists.coverage.2": "过滤是多一层保护，无法取代自己的判断，输入账号密码或付款之前仍需确认网址。",
   "lists.coverage.3": "过滤也不能取代杀毒软件，其他限制写在",
@@ -754,7 +754,7 @@
   "lists.chart.uniqueShare": "独有 {pct}%",
   "lists.choose.note": "有过滤的两个选项都会把查询转给 Quad9 判断，它看得到查询的域名与节点的 IP，看不到你的 IP。选项在建立设备时决定。之后想换，要删掉设备再重新建立，并把新的配置文件导入 App，账号不受影响。",
   "lists.trouble.3after": "删掉这台设备再重新创建，改选拦截得比较少的选项，并把新的配置文件导入 App。",
-  "lists.faq.log.more": "VPN 本身看得到什么，写在",
+  "lists.faq.log.more": "VPN 本身看得到什么，写在 ",
   "lists.faq.allow.q": "可以只放行某个被拦的网站吗？",
   "lists.faq.allow.a": "目前不行，同一台设备的所有网站都套用同一个选项。",
   "lists.gov.none": "到目前为止，没有政府单位要求 Vessel 加入或移除域名。",
@@ -805,7 +805,7 @@
   "lists.quad9.name": "Quad9 的查询页",
   "lists.known.5": "Quad9 也可能拦到正常的网站，测试清单 3,418 个网站里有 5 个。误拦时，Vessel 可以在自己的服务上放行",
   "lists.log.20261107b": "有过滤的选项开始把查询转给 Quad9，补上名单覆盖不到的钓鱼网站",
-  "lists.quad9.before": "除了名单，两个过滤选项也会把查询转给 Quad9（瑞士的非营利基金会）判断。它汇整约 20 个威胁情报来源，清单不在 Vessel 的节点上，可以到",
+  "lists.quad9.before": "除了名单，两个过滤选项也会把查询转给 Quad9（瑞士的非营利基金会）判断。它汇整约 20 个威胁情报来源，清单不在 Vessel 的节点上，可以到 ",
   "lists.quad9.after": "查单一域名。",
   "check.network.title": "这个网络的公开测量",
   "check.network.loading": "查询中",
@@ -824,8 +824,8 @@
   "check.network.count": "{n} 笔，异常 {pct}%",
   "check.network.confirmed": "，确认封锁 {n} 笔",
   "check.network.note": "异常不等于封锁，也可能是测量或网站本身的问题。",
-  "check.network.few": "想补上测量很少的项目，可以安装",
+  "check.network.few": "想补上测量很少的项目，可以安装 ",
   "check.network.more": "到 OONI Explorer 看这个网络的细节",
   "check.network.privacy": "OONI 只收到运营商编号，收不到你的 IP，查询也不会保存。",
-  "check.network.license": "数据授权是"
+  "check.network.license": "数据授权是 "
 }
