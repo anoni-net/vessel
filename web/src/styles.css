@@ -34,8 +34,8 @@
   --placeholder: #8796bf;
   --skeleton: #e1e8f8;
   /* FIG. 04's colours, shared with its canvas (faq-art.ts) */
-  --chart-first: #1a4fd6;
-  --chart-rest: #6f93ee;
+  --chart-first: #1540b8;
+  --chart-rest: #5f85ea;
   --fig-dest: #2f6bff;
   --fig-you: #0b3ca8;
   --fig-node: #a5bcf2;
@@ -650,6 +650,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .legal tr { margin-bottom: 12px; padding-block: 6px; border: 1px solid var(--ink); border-radius: var(--radius); }
   .legal td { padding: 6px 14px; border: 0; }
   .legal td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
+  /* screen readers still get the column names, which display: none would take away */
+  .lists-page .legal thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 /* phones narrower than this cannot fit the wordmark, the languages and the sign-in button on one row; the footer still lists the languages */
 @media (max-width: 420px) {
@@ -732,9 +734,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-chart__title { font-weight: 700; color: var(--text); }
 .lists-page .lists-chart__legend { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 14px; color: var(--muted); }
 .lists-chart__legend li { display: flex; align-items: center; gap: 6px; }
-.lists-key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+.lists-key { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 2px; }
 .lists-key--first { background: var(--chart-first); }
-.lists-key--rest { background: var(--chart-rest); }
 .lists-chart__bars { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 .lists-bar__head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; font-size: 14px; color: var(--text); }
 .lists-bar__head > span:first-child { min-width: 0; }
@@ -742,7 +743,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-bar__value .sk { margin-inline-start: auto; width: 4em; }
 .lists-bar__plot { display: block; }
 .lists-bar__first { fill: var(--chart-first); }
-.lists-bar__rest { fill: var(--chart-rest); }
+.lists-hatch__base { fill: var(--chart-rest); }
+.lists-hatch__line { fill: var(--page); }
+.lists-hatch-defs { position: absolute; }
 .lists-bar__gap { fill: var(--page); }
 .lists-col > h2 { margin: 24px 0 0; }
 .lists-page .legal { margin-top: 0; }

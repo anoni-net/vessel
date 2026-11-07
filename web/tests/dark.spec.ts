@@ -15,6 +15,7 @@ async function signedIn(page: Page) {
     if (path === "/api/passkeys") return route.fulfill({ json: [] });
     if (path === "/api/invites") return route.fulfill({ json: { per_account: 2, used: 1, left: 0, reason: null, eligible_on: "2026-10-15", days: 7, open: [{ id: 1, created_at: "2026-11-04T01:00:00Z", expires_at: "2026-11-11T01:00:00Z" }] } });
     if (path === "/api/usage/months") return route.fulfill({ json: { filter: "ads", months: [{ month: "2026-11-01", used_bytes: 4.2e9, blocked: 3, blocked_ads: 40 }] } });
+    if (path === "/api/blocklist/lists") return route.fulfill({ json: { lists: [{ id: "malware", domains: 195355, only_here: 124030 }, { id: "tw165", domains: 86162, only_here: 85915 }, { id: "twmoda", domains: 1732, only_here: 1527 }, { id: "ads", domains: 219318, only_here: 149687 }], malware_filter: 283040, ads_filter: 432727, hagezi: 345044, as_of: "2026-11-07T04:00:00+00:00" } });
     if (path === "/api/status") return route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "down" }], notices: [] } });
     return route.fulfill({ status: 404, json: { error: "not_found" } });
   });

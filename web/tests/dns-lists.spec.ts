@@ -118,7 +118,7 @@ test("the charts carry the numbers, with labels for screen readers", async ({ pa
   await backend(page);
   await page.goto("/dns/lists/");
   const overlap = page.getByTestId("lists-chart-overlap");
-  await expect(overlap.locator("li svg")).toHaveCount(4);
+  await expect(overlap.locator(".lists-chart__bars li svg")).toHaveCount(4);
   await expect(overlap.getByRole("img", { name: "HaGeZi Threat Intelligence Feeds（mini）：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
   // the same names as the cards above, so nobody has to work out which is which
   for (const id of ["malware", "tw165", "twmoda", "ads"]) {
@@ -144,4 +144,72 @@ test("a failed read leaves out the chart of live numbers, the cards still have t
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page.getByTestId("lists-chart-overlap")).toHaveCount(0);
   await expect(page.getByTestId("lists-chart-kinds").getByRole("img")).toHaveCount(5);
+});
+
+const luminance = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`WCAG 1.4.11: both parts of a bar reach 3:1 against the page, ${colorScheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme });
+    await backend(page);
+    await page.goto("/dns/lists/");
+    await expect(page.getByTestId("lists-chart-overlap").getByRole("img").first()).toBeVisible();
+    const color = (name: string) => page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name);
+    const surface = await color("--page");
+    expect(contrast(await color("--chart-first"), surface)).toBeGreaterThanOrEqual(3);
+    expect(contrast(await color("--chart-rest"), surface)).toBeGreaterThanOrEqual(3);
+  });
+}
+
+test("WCAG 1.4.1: the overlapping part is hatched, not only a different color, in the bars and the legend", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const overlap = page.getByTestId("lists-chart-overlap");
+  await expect(overlap.getByRole("img").first().locator('rect[fill="url(#lists-hatch)"]').first()).toBeAttached();
+  await expect(overlap.locator('.lists-chart__legend rect[fill="url(#lists-hatch)"]')).toHaveCount(1);
+  await expect(overlap.locator("pattern#lists-hatch")).toHaveCount(1);
+});
+
+test("WCAG 1.4.10 and 1.4.12: at 320 px with wider text spacing nothing runs off the page", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await backend(page);
+  await page.goto("/dns/lists/");
+  await expect(page.getByTestId("lists-chart-overlap").getByRole("img").first()).toBeVisible();
+  await page.evaluate(() => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync("* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }");
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+  });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const cut = await page.locator(".lists-page *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && e.tagName !== "rect" && e.tagName !== "pattern").map((e) => e.tagName + "." + e.getAttribute("class")).slice(0, 5));
+  expect(cut).toEqual([]);
+});
+
+test("WCAG 2.1.1 and 2.4.7: the links on the page are reached by keyboard with a visible focus ring", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const link = page.getByTestId("list-malware").locator("a");
+  await link.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(link).toBeFocused();
+  expect(await link.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe("solid");
+  expect(await link.evaluate((e) => parseFloat(getComputedStyle(e).outlineWidth))).toBeGreaterThanOrEqual(2);
+});
+
+test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is announced as busy", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
+  await page.route("**/api/blocklist/lists", () => {});
+  await page.goto("/dns/lists/");
+  await expect(page.getByTestId("lists-groups")).toHaveAttribute("aria-busy", "true");
+  await expect(page.getByRole("table")).toHaveCount(1);
+  await expect(page.getByRole("columnheader")).toHaveCount(2);
 });

@@ -47,6 +47,21 @@ const LOG = [
 ] as const;
 
 const pct = (n: number, of: number) => `${(n / Math.max(of, 1)) * 100}%`;
+const HATCH = "lists-hatch";
+
+/** Diagonal lines on the overlapping part, so the two parts of a bar differ by more than their color. */
+function HatchDefs() {
+  return (
+    <svg class="lists-hatch-defs" width="0" height="0" aria-hidden="true">
+      <defs>
+        <pattern id={HATCH} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect class="lists-hatch__base" width="6" height="6" />
+          <rect class="lists-hatch__line" width="1.5" height="6" />
+        </pattern>
+      </defs>
+    </svg>
+  );
+}
 
 /** One horizontal bar: `first` from the baseline, then `rest` after a gap in the page's color. Widths are SVG
  *  attributes because the CSP blocks style attributes in the prerendered page; the end away from the baseline is
@@ -62,8 +77,8 @@ function Bar({ label, first, rest = 0, of, firstName, restName }: {
       {showRest ? (
         <>
           <rect class="lists-bar__first" width={pct(first, of)} height="14"><title>{firstName}</title></rect>
-          <rect class="lists-bar__rest" x={`${start}%`} width={pct(rest, of)} height="14" rx="4"><title>{restName}</title></rect>
-          <rect class="lists-bar__rest" x={`${start}%`} width="4" height="14" />
+          <rect fill={`url(#${HATCH})`} x={`${start}%`} width={pct(rest, of)} height="14" rx="4"><title>{restName}</title></rect>
+          <rect fill={`url(#${HATCH})`} x={`${start}%`} width="4" height="14" />
           <rect class="lists-bar__gap" x={`${start}%`} width="2" height="14" />
         </>
       ) : (
@@ -99,10 +114,10 @@ export function DnsLists() {
 
       <h2>{t["lists.current"]}</h2>
       {failed && <p class="error" role="alert">{t["lists.failed"]}</p>}
-      <div class="lists-groups" data-testid="lists-groups">
+      <div class="lists-groups" data-testid="lists-groups" aria-busy={!summary && !failed}>
         {GROUPS.map((group) => (
-          <section class={`lists-group lists-group--${group.key}`}>
-            <h3 class="lists-group__title">{t[`lists.group.${group.key}`]}</h3>
+          <section class={`lists-group lists-group--${group.key}`} aria-labelledby={`lists-group-${group.key}`}>
+            <h3 class="lists-group__title" id={`lists-group-${group.key}`}>{t[`lists.group.${group.key}`]}</h3>
             <ul class="plain lists-cards">
               {group.lists.map((l) => (
                 <li class="card card--flat lists-card" data-testid={`list-${l.id}`}>
@@ -137,10 +152,14 @@ export function DnsLists() {
           )}
           {!failed && (
             <figure class="lists-chart" data-testid="lists-chart-overlap">
+              <HatchDefs />
               <figcaption class="lists-chart__title">{t["lists.chart.overlap"]}</figcaption>
               <ul class="plain lists-chart__legend">
-                <li><span class="lists-key lists-key--first" />{t["lists.chart.only"]}</li>
-                <li><span class="lists-key lists-key--rest" />{t["lists.chart.shared"]}</li>
+                <li><span class="lists-key lists-key--first" aria-hidden="true" />{t["lists.chart.only"]}</li>
+                <li>
+                  <svg class="lists-key" width="12" height="12" aria-hidden="true"><rect width="12" height="12" fill={`url(#${HATCH})`} /></svg>
+                  {t["lists.chart.shared"]}
+                </li>
               </ul>
               <ul class="plain lists-chart__bars">
                 {byDomains.map((l) => {
@@ -219,18 +238,19 @@ export function DnsLists() {
             {t["lists.exclude.after"]}
           </p>
           <div class="table-wrap legal">
-            <table data-testid="lists-excluded">
-              <thead>
-                <tr>
-                  <th scope="col">{t["lists.exclude.col.domain"]}</th>
-                  <th scope="col">{t["lists.exclude.col.reason"]}</th>
+            {/* explicit roles: on phones the CSS makes the rows blocks, and browsers then drop the table's semantics */}
+            <table role="table" data-testid="lists-excluded">
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th role="columnheader" scope="col">{t["lists.exclude.col.domain"]}</th>
+                  <th role="columnheader" scope="col">{t["lists.exclude.col.reason"]}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {EXCLUDED.map(([domain, reason]) => (
-                  <tr>
-                    <td data-label={t["lists.exclude.col.domain"]}><code>{domain}</code></td>
-                    <td data-label={t["lists.exclude.col.reason"]}>{t[`lists.exclude.${reason}`]}</td>
+                  <tr role="row">
+                    <td role="cell" data-label={t["lists.exclude.col.domain"]}><code>{domain}</code></td>
+                    <td role="cell" data-label={t["lists.exclude.col.reason"]}>{t[`lists.exclude.${reason}`]}</td>
                   </tr>
                 ))}
               </tbody>
