@@ -120,7 +120,7 @@ function Lookup() {
   };
   // the Taiwanese lists first: what they say (Taiwan's ISPs block the site too) matters most, and their appeals go
   // to the agencies that keep them, not to us
-  const list = answer && (answer.tw165 ? "tw165" : answer.twmoda ? "twmoda" : answer.malware ? "malware" : answer.ads ? "ads" : null);
+  const list = answer && (answer.tw165 ? "tw165" : answer.twmoda ? "twmoda" : answer.malware ? "malware" : answer.quad9 ? "quad9" : answer.ads ? "ads" : null);
   const agency = list === "tw165" || list === "twmoda";
   return (
     <form class="card stack" onSubmit={look} data-testid="dns-lookup">
@@ -138,6 +138,7 @@ function Lookup() {
         <div class={`lookup-answer${list ? " lookup-answer--hit" : ""}`} role="status" data-testid="lookup-answer">
           <p class="strong">{fmt(t[`dns.lookup.${list ?? "none"}`], { domain: answer.domain })}</p>
           {list && <p class="small"><a href={href("/dns/lists/#trouble")}>{t["dns.lookup.why"]}</a></p>}
+          {list === "quad9" && <p class="small"><a href="https://quad9.net/result/" target="_blank" rel="noopener">{t["dns.lookup.quad9Check"]}</a></p>}
           {list === "tw165" && <p class="small">{t["dns.lookup.report165"]}</p>}
           {list === "twmoda" && <p class="small">{t["dns.lookup.reportModa"]}</p>}
           {list && !agency && (

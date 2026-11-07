@@ -54,6 +54,8 @@ export type DeviceStatus = "pending" | "active" | "suspended" | "revoking";
 export interface BlocklistAnswer {
   /** the host name the backend read from what was typed */
   domain: string;
+  /** Quad9 blocks it, which both filters forward to; null when Quad9 did not answer */
+  quad9: boolean | null;
   /** on the malware list: blocked by both filters */
   malware: boolean;
   /** on the 165 list of scam sites Taiwan's ISPs stop resolving: blocked by both filters */

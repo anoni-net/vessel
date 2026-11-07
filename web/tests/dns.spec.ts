@@ -140,3 +140,24 @@ test("a wide screen shows the tools and the options side by side, a phone stacks
   expect(after.y).toBeGreaterThan((await box("dns-lookup")).y);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("a site Quad9 blocks says so, and can be looked up there and reported", async ({ page }) => {
+  await page.route("**/api/blocklist", (route) => route.fulfill({ json: { domain: "phish.example", malware: false, tw165: false, twmoda: false, ads: false, quad9: true } }));
+  await page.goto("/dns/");
+  const box = page.getByTestId("dns-lookup");
+  await box.getByLabel("網址或網域").fill("phish.example");
+  await box.getByRole("button", { name: "查詢" }).click();
+  const answer = box.getByTestId("lookup-answer");
+  await expect(answer).toContainText("被 Quad9 判斷為有害");
+  await expect(answer.getByRole("link", { name: "到 Quad9 查詢判斷的來源" })).toHaveAttribute("href", "https://quad9.net/result/");
+  await expect(answer.getByRole("link", { name: /回報給我們/ })).toHaveAttribute("href", /list=quad9/);
+});
+
+test("a site on the ad list that Quad9 also blocks counts as blocked by both filters", async ({ page }) => {
+  await page.route("**/api/blocklist", (route) => route.fulfill({ json: { domain: "x.example", malware: false, tw165: false, twmoda: false, ads: true, quad9: true } }));
+  await page.goto("/dns/");
+  const box = page.getByTestId("dns-lookup");
+  await box.getByLabel("網址或網域").fill("x.example");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByTestId("lookup-answer")).toContainText("被 Quad9 判斷為有害");
+});

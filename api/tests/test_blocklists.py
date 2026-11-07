@@ -1,5 +1,7 @@
 import json
+import socket
 import ssl
+import threading
 import time
 from pathlib import Path
 
@@ -8,6 +10,9 @@ from fastapi.testclient import TestClient
 
 from app import blocklists
 from app.main import app
+
+# the tests' fixture replaces this so that nothing reaches Quad9
+REAL_RCODE = blocklists._rcode
 
 HEADERS = {"X-Vessel-Request": "1"}
 
@@ -173,3 +178,28 @@ def test_the_summary_counts_what_each_list_adds(api):
 def test_the_summary_before_the_lists_arrive(api):
     blocklists._loaded_at = None
     assert api.get("/api/blocklist/lists").status_code == 503
+
+
+def test_lookup_says_when_quad9_blocks(client, monkeypatch):
+    # 9.9.9.10 is the same service without the filter
+    answers = {"9.9.9.9": 3, "9.9.9.10": 0}
+    monkeypatch.setattr(blocklists, "_rcode", lambda host, server, port=53: answers[server])
+    assert ask(client, "phish.example").json()["quad9"] is True
+    answers["9.9.9.10"] = 3  # it just does not exist
+    assert ask(client, "gone.example").json()["quad9"] is False
+    answers["9.9.9.9"] = None  # no answer
+    assert ask(client, "phish.example").json()["quad9"] is None
+
+
+def test_rcode_ignores_a_reply_with_another_id():
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server.bind(("127.0.0.1", 0))
+
+    def answer():
+        query, client_addr = server.recvfrom(512)
+        server.sendto(bytes([query[0] ^ 0xFF, query[1], 0x81, 0x80]) + bytes(8), client_addr)
+        server.sendto(query[:2] + bytes([0x81, 0x83]) + bytes(8), client_addr)
+
+    threading.Thread(target=answer, daemon=True).start()
+    assert REAL_RCODE("bad.example", "127.0.0.1", server.getsockname()[1]) == 3
+    server.close()

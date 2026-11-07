@@ -252,7 +252,7 @@ test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is a
   await expect(page.getByTestId("lists-groups")).toHaveAttribute("aria-busy", "true");
   await openMore(page);
   await expect(page.getByRole("table")).toHaveCount(2);
-  await expect(page.getByTestId("lists-compare").getByRole("columnheader")).toHaveCount(5);
+  await expect(page.getByTestId("lists-compare").getByRole("columnheader")).toHaveCount(4);
   await expect(page.getByTestId("lists-excluded").getByRole("columnheader")).toHaveCount(2);
 });
 
@@ -281,14 +281,15 @@ test("the page compares with other services in the open, weak points included", 
   await expect(rows.nth(3)).toContainText("100%");
   await expect(page.getByText("Vessel 目前最弱的是釣魚網站")).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Vessel 擋惡意網站", exact: true })).toBeAttached();
-  await expect(page.getByRole("columnheader", { name: "Quad9" })).toBeAttached();
+  await expect(page.getByRole("columnheader", { name: "Cloudflare 1.1.1.2" })).toBeAttached();
+  await expect(page.getByTestId("list-quad9").getByRole("link", { name: "Quad9 的查詢頁" })).toHaveAttribute("href", "https://quad9.net/result/");
   await expect(page.getByText("沒有開啟過濾時不會擋任何網站")).toBeVisible();
   await openMore(page);
   const panels = page.getByTestId("lists-phishing").locator("figure");
   await expect(panels).toHaveCount(3);
-  await expect(panels.nth(0).getByRole("img")).toHaveCount(4);
-  await expect(panels.nth(0).getByRole("img", { name: "Quad9 100%" })).toBeVisible();
-  await expect(panels.nth(2).getByRole("img", { name: "Vessel 擋惡意網站 4%" })).toBeVisible();
+  await expect(panels.nth(0).getByRole("img")).toHaveCount(3);
+  await expect(panels.nth(0).getByRole("img", { name: "Cloudflare 1.1.1.2 86%" })).toBeVisible();
+  await expect(panels.nth(2).getByRole("img", { name: "Vessel 擋惡意網站 31%" })).toBeVisible();
   await expect(page.getByText("在那個來源的比例會偏高")).toBeVisible();
 });
 

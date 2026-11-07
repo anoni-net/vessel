@@ -53,6 +53,7 @@ export default {
         "DigitalOcean：新加坡的节点架设在 DigitalOcean 的主机上。它是网络的提供者，可以看到进出节点的流量，但无法解开加密的连接",
         "Akamai：东京的节点架设在 Akamai（原 Linode）的主机上，能看到的范围与 DigitalOcean 相同",
         "Greenhost：台北的节点架设在 Greenhost 的主机上，能看到的范围与 DigitalOcean 相同",
+        "Quad9：选了域名过滤时，节点的解析器会把查询经加密连接转给 Quad9 判断是否有害。它看得到节点的 IP 与查询的域名，看不到设备的 IP，适用 [Quad9 的隐私政策](https://quad9.net/privacy/policy/)。域名过滤页的查询也会送到 Quad9 比对，来源是门户网站的主机。不过滤的设备不经过 Quad9",
         "Amazon SES：测试期的邀请码通过电子报发送，发信服务会处理邮件的内容。订阅者与邀请码的对照在发送后删除，门户网站的数据库无法对应哪个账号来自哪位订阅者",
       ],
     },
