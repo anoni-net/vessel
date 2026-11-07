@@ -357,9 +357,26 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* links that depend on the session, before the page knows it (session.ts): keep the space, show nothing */
 .is-pending { visibility: hidden; }
 /* VPN basics: a heading sits with what follows it, apart from what came before */
-.learn > h2 { margin: 24px 0 0; }
-.learn > h3 { margin-top: 8px; }
-.learn > h3 + * { margin-top: -8px; }
+.learn > h2, .learn-body > h2 { margin: 24px 0 0; scroll-margin-top: 16px; }
+.learn > h3, .learn-body > h3 { margin-top: 8px; }
+.learn > h3 + *, .learn-body > h3 + * { margin-top: -8px; }
+/* VPN basics: a table of contents beside the text on a wide screen; below that the wrappers vanish */
+.learn-layout, .learn-body { display: contents; }
+.learn-toc { display: none; }
+@media (min-width: 641px) {
+  .learn { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .learn { max-width: 1120px; }
+  .learn > .lead { max-width: 760px; }
+  .learn-layout { display: grid; grid-template-columns: 240px minmax(0, 720px); gap: 48px; align-items: start; }
+  .learn-body { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .learn-body > h2:first-child { margin-top: 0; }
+  .learn-toc { display: block; position: sticky; top: 24px; padding-inline-end: 16px; border-inline-end: 1px solid var(--line); }
+  .learn-toc__title { margin: 0 0 8px; font-weight: 700; color: var(--text); }
+  .learn-toc li + li { margin-top: 8px; }
+  .learn-toc a { font-size: 14px; }
+}
 .learn ol { padding-inline-start: 1.4em; }
 .learn li + li { margin-top: 6px; }
 .lang-hint { background: var(--tint); border-bottom: 1px solid var(--ink); font-size: 15px; }
@@ -392,6 +409,21 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
 .check-results { display: grid; gap: 12px; margin: 0; }
+/* the connection check: the tool beside what to do next on a wide screen */
+.check-cols, .check-next { display: contents; }
+.check-next > h2 { margin: 24px 0 0; }
+.check-next > h3 { margin-top: 8px; }
+.check-next > h3 + * { margin-top: -8px; }
+@media (min-width: 641px) {
+  .check-page { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .check-page { max-width: 1120px; }
+  .check-page > .lead { max-width: 760px; }
+  .check-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; }
+  .check-next { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .check-next > h2:first-child { margin-top: 0; }
+}
 .check-verdict { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 14px 16px; border: var(--border); border-radius: var(--radius); color: var(--ink); font-size: 18px; font-weight: 700; }
 /* centred on the first line of words: half of what the line is taller than the icon (icons are 1.25em, see icons.tsx) */
 .check-verdict > .icon { font-size: 18px; margin-top: calc((1lh - 1.25em) / 2); }
@@ -678,6 +710,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .faq-art__swatch--node { background: var(--fig-node); }
 .faq-art__swatch--account { background: var(--fig-account); }
 .faq-page { max-width: 760px; padding-block: 32px 56px; }
+/* room for the cross-section beside the questions, as on the home page */
+@media (min-width: 1100px) { .faq-page { max-width: 1120px; } }
 .faq-page h2 { margin: 40px 0 16px; font-size: 24px; }
 
 /* on phones the header keeps only the wordmark and the button; the anchors repeat what the home page shows */

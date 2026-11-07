@@ -66,13 +66,18 @@ export function Faq() {
   return (
     <section class="wrap faq-page">
       <h1>{t["faq.title"]}</h1>
-      {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => (
-        <section>
-          <h2>{t[`faq.group.${g}`]}</h2>
-          <Questions ids={GROUPS[g]} />
-        </section>
-      ))}
-      <p class="faq__more"><a class="strong" href={href("/feedback/?from=faq")}>{t["feedback.notAnswered"]}</a></p>
+      <div class="faq-layout">
+        <div>
+          {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => (
+            <section>
+              <h2>{t[`faq.group.${g}`]}</h2>
+              <Questions ids={GROUPS[g]} />
+            </section>
+          ))}
+          <p class="faq__more"><a class="strong" href={href("/feedback/?from=faq")}>{t["feedback.notAnswered"]}</a></p>
+        </div>
+        <FaqArt />
+      </div>
     </section>
   );
 }

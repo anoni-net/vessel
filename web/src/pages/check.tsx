@@ -18,10 +18,11 @@ export function Check() {
   };
   const result = typeof state === "object" ? state : null;
   return (
-    <section class="wrap narrow stack">
+    <section class="wrap narrow stack check-page">
       <h1>{t["check.title"]}</h1>
       <p class="lead">{t["check.lead"]}</p>
 
+      <div class="check-cols">
       {/* over Tor neither the address nor the lookups go through Vessel: say where to run it instead */}
       {IS_ONION ? (
         <div class="card card--tint stack" data-testid="connection-check">
@@ -60,6 +61,7 @@ export function Check() {
         </div>
       )}
 
+      <div class="check-next" data-testid="check-next">
       <h2>{t["check.next.title"]}</h2>
       <h3>{t["check.next.exit.title"]}</h3>
       <p>{t["check.next.exit.body"]}</p>
@@ -69,6 +71,8 @@ export function Check() {
       <p class="small"><a href={href("/dns/")}>{t["dns.link"]}</a></p>
       <h3>{t["check.next.sites.title"]}</h3>
       <p>{t["check.next.sites.body"]}</p>
+      </div>
+      </div>
     </section>
   );
 }
