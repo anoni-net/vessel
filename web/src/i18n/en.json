@@ -748,5 +748,6 @@
   "lists.chart.kind.shopping": "E-commerce",
   "lists.chart.kind.it": "Information services",
   "lists.chart.kind.transport": "Transport and storage",
-  "lists.chart.kind.other": "Other"
+  "lists.chart.kind.other": "Other",
+  "lists.chart.uniqueShare": "{pct}% unique"
 }

@@ -748,5 +748,6 @@
   "lists.chart.kind.shopping": "电子商务",
   "lists.chart.kind.it": "信息服务",
   "lists.chart.kind.transport": "运输仓储",
-  "lists.chart.kind.other": "其他"
+  "lists.chart.kind.other": "其他",
+  "lists.chart.uniqueShare": "独有 {pct}%"
 }

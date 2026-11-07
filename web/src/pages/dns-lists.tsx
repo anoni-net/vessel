@@ -147,7 +147,13 @@ export function DnsLists() {
                     <li>
                       <div class="lists-bar__head">
                         <span>{name}</span>
-                        <span class="lists-bar__value">{count(r?.domains)}</span>
+                        <span class="lists-bar__value">
+                          {count(r?.domains)}
+                          {r && r.domains > 0 && (
+                            // rounded down: 100% only when a list really shares nothing
+                            <span class="muted"> · {fmt(t["lists.chart.uniqueShare"], { pct: String(Math.floor((r.only_here / r.domains) * 100)) })}</span>
+                          )}
+                        </span>
                       </div>
                       {r ? (
                         <Bar

@@ -748,5 +748,6 @@
   "lists.chart.kind.shopping": "電子商務",
   "lists.chart.kind.it": "資訊服務",
   "lists.chart.kind.transport": "運輸倉儲",
-  "lists.chart.kind.other": "其他"
+  "lists.chart.kind.other": "其他",
+  "lists.chart.uniqueShare": "獨有 {pct}%"
 }
