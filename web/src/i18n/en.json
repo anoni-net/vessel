@@ -727,7 +727,7 @@
   "lists.rules.2": "No content control. Gambling, adult and social sites are no reason to list a domain, and tools for getting around blocking and dynamic DNS (services that give a home network a fixed address) stay unblocked",
   "lists.rules.3": "No blocklist of our own. We use public lists and report gaps to the people who maintain them",
   "lists.rules.4": "A new list has to add what the current ones lack, be checked for wrong blocks first, and come with terms that allow this use",
-  "lists.rules.who": "Vessel is run by volunteers of the anoni.net community, and its legal entity is still being settled. You can reach us through the feedback page. Maintainers decide which lists are added or removed, and every change goes in the change log. These rules are not final yet, but Vessel already follows them.",
+  "lists.rules.who": "Vessel is run by volunteers of the anoni.net community, and its legal entity is still being settled. You can reach us at ",
   "lists.coverage.title": "What it can and cannot block",
   "lists.coverage.1": "Lists are always behind. In our November 2026 measurement, the malware and phishing list blocked only 1 to 2% of phishing sites when they first appeared. A day later it was about 4% to 82%, depending on who reported them.",
   "lists.coverage.2": "The filter is one more layer and does not replace your own judgment. Check the address before you enter a password or pay.",
@@ -741,8 +741,8 @@
   "lists.known.title": "Known problems",
   "lists.known.lead": "Checked on 2026-11-07 against Citizen Lab's public test lists of websites and the official sites of common tools.",
   "lists.known.1": "No site on the test lists was blocked in the five categories of human rights, news, politics, LGBT and tools for getting around blocking, nor the official sites of Tor, Psiphon, Proton, Mullvad and Lantern. Only the websites were checked. If a tool's own connection is affected, please tell us",
-  "lists.known.2": "The ads and tracking list carries a few gambling and adult sites, 6 of the 67 gambling sites in the test lists. HaGeZi compiles it, and it only applies with \"Block malware, ads and trackers\". We will finish checking before the quarterly report of February 2027 and exclude what breaks the rules",
-  "lists.known.3": "The ads and tracking list also has some VPN services' sites, which we will also finish checking before the February 2027 report",
+  "lists.known.2": "The ads and tracking list carries a few gambling and adult sites, 6 of the 67 gambling sites in the test lists. HaGeZi compiles it, and it only applies with \"Block malware, ads and trackers\". We will finish checking by the end of 2026 and exclude what breaks the rules",
+  "lists.known.3": "The ads and tracking list also has some VPN services' sites, which we will also finish checking by the end of 2026",
   "lists.known.4": "The ads and tracking list blocks dweb.link, a public entry to IPFS, a kind of distributed storage. We have asked HaGeZi about it",
   "lists.exclude.title": "Domains left out",
   "lists.exclude.body": "Domains that should not be blocked are in the public ",
@@ -773,5 +773,9 @@
   "lists.trouble.3after": ", delete the device and make it again with an option that blocks less, then import the new configuration into the app. If you chose \"Block malware, ads and trackers\", try \"Block malware\" first.",
   "lists.faq.log.more": "What the VPN itself can see is explained in ",
   "lists.faq.allow.q": "Can I unblock just one site?",
-  "lists.faq.allow.a": "Not at the moment. One option applies to every site on a device. To use a blocked site, turn off the VPN for now or pick an option that blocks less."
+  "lists.faq.allow.a": "Not at the moment. One option applies to every site on a device. To use a blocked site, turn off the VPN for now or pick an option that blocks less.",
+  "lists.gov.none": "So far, no government body has asked Vessel to add or remove a domain.",
+  "lists.rules.who.after": " or through the feedback page. Maintainers decide which lists are added or removed, and every change goes in the change log. These rules are not final yet, but Vessel already follows them.",
+  "lists.coverage.risky": "Where VPNs are restricted, or if your situation is sensitive, read ",
+  "lists.coverage.riskyLink": "this question in the FAQ first"
 }

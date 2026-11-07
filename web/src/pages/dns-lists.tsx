@@ -3,9 +3,11 @@ import { type BlocklistSummary, api } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatCount, formatTime } from "../format.ts";
 import { type MessageKey, fmt } from "../i18n/index.ts";
+import { faqAnchor } from "./faq.tsx";
 import { SkLine } from "./skeleton.tsx";
 
 const HAGEZI = "https://github.com/hagezi/dns-blocklists";
+const CONTACT = "whisper@anoni.net";
 const LISTS = [
   { id: "malware", href: HAGEZI },
   { id: "tw165", href: "https://data.gov.tw/dataset/176455" },
@@ -185,18 +187,24 @@ export function DnsLists() {
           <p>{t["lists.gov.1"]}</p>
           <p>{t["lists.gov.2"]}</p>
           <p>{t["lists.gov.3"]}</p>
+          <p>{t["lists.gov.none"]}</p>
 
           <h2>{t["lists.coverage.title"]}</h2>
           <p>{t["lists.coverage.1"]}</p>
           <p>{t["lists.coverage.2"]}</p>
           <p>{t["lists.coverage.3"]}<a href={href("/dns/")}>{t["dns.title"]}</a>{t["lists.coverage.3after"]}</p>
+          <p>
+            {t["lists.coverage.risky"]}<a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["lists.coverage.riskyLink"]}</a>{locale === "en" ? "." : "。"}
+          </p>
         </div>
         <div class="lists-col" data-testid="lists-col-problems">
           <h2>{t["lists.rules.title"]}</h2>
           <ul>
             {RULES.map((n) => <li>{t[`lists.rules.${n}` as MessageKey]}</li>)}
           </ul>
-          <p>{t["lists.rules.who"]}</p>
+          <p>
+            {t["lists.rules.who"]}<a href={`mailto:${CONTACT}`}>{CONTACT}</a>{t["lists.rules.who.after"]}
+          </p>
         </div>
       </div>
 

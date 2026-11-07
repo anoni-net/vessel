@@ -72,10 +72,13 @@ test("the details are folded away, and the page says who runs it and what it doe
   await expect(page.getByText("法律主體還在確認")).toBeVisible();
   await expect(page.getByText("完整的審查與移除程序，我們並不清楚")).toBeVisible();
   await expect(page.getByText("都包含兩份台灣政府的名單")).toBeVisible();
+  await expect(page.getByText("沒有政府單位要求 Vessel 加入或移除網域")).toBeVisible();
+  await expect(page.getByRole("link", { name: "whisper@anoni.net" })).toHaveAttribute("href", "mailto:whisper@anoni.net");
+  await expect(page.getByRole("link", { name: "常見問題的這一題" })).toHaveAttribute("href", "/faq/#q-risky");
   await openMore(page);
   await expect(page.getByTestId("lists-chart-overlap")).toBeVisible();
   await expect(page.getByTestId("lists-share")).toContainText("約 80% 來自 HaGeZi");
-  await expect(page.getByTestId("lists-more")).toContainText("2027 年 2 月的季報之前");
+  await expect(page.getByTestId("lists-more")).toContainText("2026 年底前");
 });
 
 test("the rest of the page stays when the numbers cannot be read", async ({ page }) => {
