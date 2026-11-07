@@ -38,6 +38,10 @@ function Questions({ ids }: { ids: readonly Question[] }) {
   );
 }
 
+// FIG. 06 is off for now: with the few questions on the home page it towers over them. Its code and tests stay, and
+// tests/faq-art.spec.ts skips while this is false.
+const SHOW_ART = false as boolean;
+
 export function HomeFaq() {
   const { t, href } = useCtx();
   return (
@@ -49,7 +53,7 @@ export function HomeFaq() {
             <Questions ids={ON_HOME} />
             <p class="faq__more"><a class="strong" href={href("/faq/")}>{t["faq.all"]}</a></p>
           </div>
-          <FaqArt />
+          {SHOW_ART && <FaqArt />}
         </div>
       </div>
     </section>

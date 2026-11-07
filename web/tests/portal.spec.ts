@@ -814,3 +814,14 @@ test("beside 社群架設的原因, a map on a wide screen only, its grid fetche
     expect(fetched).toHaveLength(0);
   }
 });
+
+test("on wide screens the home page's questions stay in their column, with nothing beside them", async ({ page, isMobile }) => {
+  test.skip(isMobile, "wide screens only");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.locator(".faq-art")).toHaveCount(0);
+  const questions = (await page.locator(".faq-layout > div").first().boundingBox())!;
+  expect(questions.width).toBeLessThanOrEqual(760);
+  const section = (await page.locator("#faq").boundingBox())!;
+  expect(section.height).toBeLessThan(questions.height + 260);
+});

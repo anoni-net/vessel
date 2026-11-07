@@ -142,7 +142,8 @@ test("what moves on its own stops: no animation runs forever but the busy and lo
   }
 });
 
-test("the FAQ's cross-section moves for five seconds, then holds still", async ({ page, isMobile }) => {
+// FIG. 06 is off for now (SHOW_ART in src/pages/faq.tsx)
+test.skip("the FAQ's cross-section moves for five seconds, then holds still", async ({ page, isMobile }) => {
   test.skip(isMobile, "the drawing is shown on wide screens only");
   await page.setViewportSize({ width: 1280, height: 900 });
   await backend(page, false);
