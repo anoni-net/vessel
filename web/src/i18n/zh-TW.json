@@ -718,7 +718,7 @@
   "lists.wrong.report": "其他情況請用",
   "lists.wrong.reportAfter": "告訴我們。急著要開網站時，可以關掉 VPN，或建立不過濾的裝置。",
   "lists.risk.title": "風險與限制",
-  "lists.risk.1": "名單是事後收錄的。2026 年 11 月的量測裡，釣魚網站剛出現時 HaGeZi Threat Intelligence Feeds（mini） 只擋得到 1～2%",
+  "lists.risk.1": "名單是事後收錄的。2026 年 11 月的量測裡，釣魚網站剛出現時 HaGeZi Threat Intelligence Feeds（mini）只擋得到 1～2%",
   "lists.risk.2": "兩份核心名單都由 HaGeZi 一個專案維護。它的資料彙整自許多來源，但專案停止維護時影響很大，所以持續評估其他來源",
   "lists.risk.3": "數字只來自名單本身，沒有使用任何人的查詢",
   "lists.log.title": "變動紀錄",
@@ -726,7 +726,7 @@
   "lists.log.20261101b": "加入數位產業署的詐騙網域停止解析清單",
   "lists.log.20261101a": "加入 165 遭停止解析涉詐網站",
   "lists.log.20261031": "擋廣告的名單從 Multi Normal 換成 HaGeZi 建議的 Multi PRO",
-  "lists.log.20261027": "網域過濾上線，使用 HaGeZi Threat Intelligence Feeds（mini） 與 Multi Normal",
+  "lists.log.20261027": "網域過濾上線，使用 HaGeZi Threat Intelligence Feeds（mini）與 Multi Normal",
   "lists.chart.overlap": "各名單的網域數",
   "lists.chart.only": "獨有",
   "lists.chart.shared": "重疊",
@@ -739,7 +739,7 @@
   "lists.chart.kind.other": "其他",
   "lists.chart.uniqueShare": "獨有 {pct}%",
   "lists.group.both": "選了任何一種過濾都會擋",
-  "lists.group.ads": "只有選了「擋惡意網站、廣告與追蹤」才擋",
+  "lists.group.ads": "選「擋惡意網站、廣告與追蹤」才擋",
   "lists.card.by": "維護者：{who}",
   "lists.card.domains": "個網域"
 }

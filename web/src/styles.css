@@ -720,7 +720,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-cols, .lists-col { display: contents; }
 .lists-groups { display: grid; gap: 24px 16px; }
 /* a dimension line over each group, like the drawings on the home page */
-.lists-group__title { margin: 0 0 12px; padding-top: 8px; border-top: 2px solid var(--ink); font-size: 15px; font-weight: 700; color: var(--text); }
+.lists-group__title { margin: 0 0 12px; padding-top: 8px; border-top: 2px solid var(--ink); font-size: 14px; font-weight: 700; color: var(--text); }
 .lists-cards { display: grid; gap: 12px; }
 .lists-card { display: flex; flex-direction: column; gap: 8px; height: 100%; box-sizing: border-box; }
 .lists-card p { margin: 0; }
@@ -737,7 +737,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-key--rest { background: var(--chart-rest); }
 .lists-chart__bars { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 .lists-bar__head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; font-size: 14px; color: var(--text); }
-.lists-bar__value { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4em; text-align: end; }
+.lists-bar__head > span:first-child { min-width: 0; }
+.lists-bar__value { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4em; text-align: end; }
 .lists-bar__value .sk { margin-inline-start: auto; width: 4em; }
 .lists-bar__plot { display: block; }
 .lists-bar__first { fill: var(--chart-first); }

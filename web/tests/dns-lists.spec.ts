@@ -29,7 +29,7 @@ test("the lists with who maintains them and their sizes", async ({ page }) => {
   const groups = page.getByTestId("lists-groups").locator("section");
   await expect(groups).toHaveCount(2);
   await expect(groups.nth(0).locator("li")).toHaveCount(3);
-  await expect(groups.nth(1)).toContainText("只有選了「擋惡意網站、廣告與追蹤」才擋");
+  await expect(groups.nth(1)).toContainText("選「擋惡意網站、廣告與追蹤」才擋");
   await expect(groups.nth(1).locator("li")).toContainText("Multi PRO");
   await expect(page.getByTestId("lists-share")).toContainText("約 80% 來自 HaGeZi");
   await expect(page.getByTestId("lists-as-of")).toBeVisible();
@@ -89,6 +89,18 @@ test("a wide screen uses its width: the table across the page, the rest in two c
   expect(new Set(numbers).size).toBe(1);
   expect(Math.abs(how!.y - problems!.y)).toBeLessThan(2);
   expect(problems!.x).toBeGreaterThan(how!.x + how!.width);
+});
+
+test("a long list name wraps and its numbers stay inside the chart on a narrow phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const plot = await page.getByTestId("lists-chart-overlap").locator(".lists-bar__plot").first().boundingBox();
+  const values = page.getByTestId("lists-chart-overlap").locator(".lists-bar__value");
+  await expect(values).toHaveCount(4);
+  for (const box of await values.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().right))) {
+    expect(box).toBeLessThanOrEqual(plot!.x + plot!.width + 1);
+  }
 });
 
 test("the sections stack in one column on a phone", async ({ page }) => {
