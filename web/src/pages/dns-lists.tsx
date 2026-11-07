@@ -204,11 +204,6 @@ export function DnsLists() {
             {RULES.map((n) => <li>{t[`lists.rules.${n}` as MessageKey]}</li>)}
           </ul>
           <p class="muted small">{t["lists.rules.note"]}</p>
-
-          <h2>{t["lists.risk.title"]}</h2>
-          <ul>
-            {RISKS.map((n) => <li>{t[`lists.risk.${n}` as MessageKey]}</li>)}
-          </ul>
         </div>
 
         <div class="lists-col" data-testid="lists-col-problems">
@@ -249,6 +244,11 @@ export function DnsLists() {
           <p>
             {t["lists.wrong.report"]}<a href={href("/feedback/")}>{t["feedback.title"]}</a>{t["lists.wrong.reportAfter"]}
           </p>
+
+          <h2>{t["lists.risk.title"]}</h2>
+          <ul>
+            {RISKS.map((n) => <li>{t[`lists.risk.${n}` as MessageKey]}</li>)}
+          </ul>
 
           <h2>{t["lists.log.title"]}</h2>
           <ul class="plain stack" data-testid="lists-log">

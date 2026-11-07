@@ -738,7 +738,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (min-width: 641px) {
   .lists-page { max-width: 800px; }
   .legal th.lists-num, .legal td.lists-num { text-align: end; font-variant-numeric: tabular-nums; }
-  .legal td.lists-num { white-space: nowrap; }
+  .legal th.lists-num, .legal td.lists-num { white-space: nowrap; }
 }
 @media (min-width: 960px) {
   .lists-page { max-width: 1120px; }
