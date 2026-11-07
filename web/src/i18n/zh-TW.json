@@ -810,7 +810,7 @@
   "check.network.title": "這個網路的公開量測",
   "check.network.loading": "查詢中",
   "check.network.none": "無法判斷目前的網路業者，或量測資料暫時查不到。",
-  "check.network.lead": "{name}（{asn}）過去 {days} 天在 OONI 的量測，OONI 是志工量測網路審查的計畫。結果來自同一家業者的志工，這次檢測沒有連到這些服務。",
+  "check.network.lead": "{name}（{asn}）過去 {days} 天在 OONI 的量測，OONI 是志工量測網路審查的計畫。結果來自同一家業者的志工，檢測本身沒有連到下列服務。",
   "check.network.test.web_connectivity": "一般網站",
   "check.network.test.signal": "Signal",
   "check.network.test.telegram": "Telegram",

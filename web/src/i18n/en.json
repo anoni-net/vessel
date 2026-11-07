@@ -810,7 +810,7 @@
   "check.network.title": "Public measurements of this network",
   "check.network.loading": "Looking up",
   "check.network.none": "We could not tell your network provider, or the measurements are not available right now.",
-  "check.network.lead": "OONI's measurements of {name} ({asn}) over the past {days} days. OONI is a project in which volunteers measure internet censorship. These come from volunteers on the same provider, and this check did not connect to these services.",
+  "check.network.lead": "OONI's measurements of {name} ({asn}) over the past {days} days. OONI is a project in which volunteers measure internet censorship. These come from volunteers on the same provider, and this check itself did not connect to the services below.",
   "check.network.test.web_connectivity": "Websites in general",
   "check.network.test.signal": "Signal",
   "check.network.test.telegram": "Telegram",

@@ -441,8 +441,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .check-network h2 { margin: 0; font-size: 20px; }
 .check-network p { margin: 0; }
 .check-network__tests { display: grid; gap: 10px; }
-.check-network__tests li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.check-network__count { flex-basis: 100%; }
+/* the status in a column of its own at the right edge, so it does not move with the length of the name */
+.check-network__tests li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.check-network__tests .badge { justify-self: end; }
+.check-network__count { grid-column: 1 / -1; }
 
 /* a passkey on the account page: its name and date on the left, delete on the right */
 .passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }

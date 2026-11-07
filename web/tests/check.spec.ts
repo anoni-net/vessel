@@ -155,3 +155,18 @@ test("through a Vessel node there is no network section", async ({ page }) => {
   await expect(page.getByTestId("check-exit")).toBeVisible();
   await expect(page.getByTestId("check-network")).toHaveCount(0);
 });
+
+test("the statuses line up at the right edge, whatever the length of the name", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [1]);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const badges = page.getByTestId("check-network").locator("li .badge");
+  await expect(badges).toHaveCount(5);
+  const rights = await badges.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().right)));
+  expect(new Set(rights).size).toBe(1);
+  // each on the same line as its name
+  const row = page.getByTestId("check-network").locator("li").first();
+  const name = await row.locator(".strong").boundingBox();
+  const badge = await row.locator(".badge").boundingBox();
+  expect(Math.abs(name!.y + name!.height / 2 - (badge!.y + badge!.height / 2))).toBeLessThan(2);
+});

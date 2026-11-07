@@ -810,7 +810,7 @@
   "check.network.title": "这个网络的公开测量",
   "check.network.loading": "查询中",
   "check.network.none": "无法判断当前的网络运营商，或测量数据暂时查不到。",
-  "check.network.lead": "{name}（{asn}）过去 {days} 天在 OONI 的测量，OONI 是志愿者测量网络审查的项目。结果来自同一家运营商的志愿者，这次检测没有连到这些服务。",
+  "check.network.lead": "{name}（{asn}）过去 {days} 天在 OONI 的测量，OONI 是志愿者测量网络审查的项目。结果来自同一家运营商的志愿者，检测本身没有连到下列服务。",
   "check.network.test.web_connectivity": "一般网站",
   "check.network.test.signal": "Signal",
   "check.network.test.telegram": "Telegram",
