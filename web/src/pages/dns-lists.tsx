@@ -7,10 +7,15 @@ import { SkLine } from "./skeleton.tsx";
 
 const HAGEZI = "https://github.com/hagezi/dns-blocklists";
 const LISTS = [
-  { id: "malware", href: HAGEZI, used: "both" },
-  { id: "tw165", href: "https://data.gov.tw/dataset/176455", used: "both" },
-  { id: "twmoda", href: "https://data.gov.tw/dataset/165027", used: "both" },
-  { id: "ads", href: HAGEZI, used: "ads" },
+  { id: "malware", href: HAGEZI },
+  { id: "tw165", href: "https://data.gov.tw/dataset/176455" },
+  { id: "twmoda", href: "https://data.gov.tw/dataset/165027" },
+  { id: "ads", href: HAGEZI },
+] as const;
+// what people pick when they make a device decides which lists apply
+const GROUPS = [
+  { key: "both", lists: LISTS.slice(0, 3) },
+  { key: "ads", lists: LISTS.slice(3) },
 ] as const;
 const CHART_ORDER: readonly string[] = ["ads", "malware", "tw165", "twmoda"];
 const EXCLUDE_FILE = "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt";
@@ -94,30 +99,25 @@ export function DnsLists() {
 
       <h2>{t["lists.current"]}</h2>
       {failed && <p class="error" role="alert">{t["lists.failed"]}</p>}
-      <div class="table-wrap legal">
-        <table data-testid="lists-table">
-          <thead>
-            <tr>
-              {(["name", "maintainer", "blocks", "used", "domains", "only"] as const).map((c) => (
-                <th scope="col" class={c === "domains" || c === "only" ? "lists-num" : undefined}>{t[`lists.col.${c}`]}</th>
+      <div class="lists-groups" data-testid="lists-groups">
+        {GROUPS.map((group) => (
+          <section class={`lists-group lists-group--${group.key}`}>
+            <h3 class="lists-group__title">{t[`lists.group.${group.key}`]}</h3>
+            <ul class="plain lists-cards">
+              {group.lists.map((l) => (
+                <li class="card card--flat lists-card" data-testid={`list-${l.id}`}>
+                  <a class="lists-card__name" href={l.href} target="_blank" rel="noopener">{t[`lists.${l.id}.name`]}</a>
+                  <p class="lists-card__blocks">{t[`lists.${l.id}.blocks`]}</p>
+                  <p class="muted small">{fmt(t["lists.card.by"], { who: t[`lists.${l.id}.by`] })}</p>
+                  <p class="lists-card__count">
+                    <span class="lists-card__number">{count(row(l.id)?.domains)}</span>
+                    <span class="muted small">{t["lists.card.domains"]}</span>
+                  </p>
+                </li>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {LISTS.map((l) => (
-              <tr>
-                <td data-label={t["lists.col.name"]}>
-                  <a href={l.href} target="_blank" rel="noopener">{t[`lists.${l.id}.name`]}</a>
-                </td>
-                <td data-label={t["lists.col.maintainer"]}>{t[`lists.${l.id}.by`]}</td>
-                <td data-label={t["lists.col.blocks"]}>{t[`lists.${l.id}.blocks`]}</td>
-                <td data-label={t["lists.col.used"]}>{t[`lists.used.${l.used}`]}</td>
-                <td class="lists-num" data-label={t["lists.col.domains"]}>{count(row(l.id)?.domains)}</td>
-                <td class="lists-num" data-label={t["lists.col.only"]}>{count(row(l.id)?.only_here)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </ul>
+          </section>
+        ))}
       </div>
       {summary && <p class="muted small" data-testid="lists-as-of">{fmt(t["lists.asOf"], { time: formatTime(locale, summary.as_of) })}</p>}
 

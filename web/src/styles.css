@@ -718,6 +718,16 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the page on the DNS lists (pages/dns-lists.tsx): the table of lists needs room, so the page widens with the screen.
    From 960 px the rest is two columns; below that the columns' frames vanish and the sections stack */
 .lists-cols, .lists-col { display: contents; }
+.lists-groups { display: grid; gap: 24px 16px; }
+/* a dimension line over each group, like the drawings on the home page */
+.lists-group__title { margin: 0 0 12px; padding-top: 8px; border-top: 2px solid var(--ink); font-size: 15px; font-weight: 700; color: var(--text); }
+.lists-cards { display: grid; gap: 12px; }
+.lists-card { display: flex; flex-direction: column; gap: 8px; height: 100%; box-sizing: border-box; }
+.lists-card p { margin: 0; }
+.lists-card__name { font-weight: 700; }
+.lists-card .lists-card__count { display: flex; align-items: baseline; gap: 6px; margin-top: auto; padding-top: 8px; }
+.lists-card__number { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lists-card__number .sk { width: 5em; height: 24px; }
 .lists-chart { margin: 8px 0; }
 .lists-chart__title { font-weight: 700; color: var(--text); }
 .lists-page .lists-chart__legend { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 14px; color: var(--muted); }
@@ -737,12 +747,15 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-page .legal { margin-top: 0; }
 @media (min-width: 641px) {
   .lists-page { max-width: 800px; }
-  .legal th.lists-num, .legal td.lists-num { text-align: end; font-variant-numeric: tabular-nums; }
-  .legal th.lists-num, .legal td.lists-num { white-space: nowrap; }
+  .lists-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 960px) {
   .lists-page { max-width: 1120px; }
   .lists-page > .lead { max-width: 760px; }
+  /* the two groups share their rows, so a title on two lines does not push one group's cards lower */
+  .lists-groups { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lists-group { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
+  .lists-group--ads .lists-cards { grid-template-columns: minmax(0, 1fr); }
   .lists-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; margin-top: 16px; }
   .lists-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .lists-col > h2:first-child { margin-top: 0; }

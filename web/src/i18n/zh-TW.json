@@ -671,12 +671,6 @@
   "lists.title": "網域過濾的名單",
   "lists.lead": "開了網域過濾，哪些網站打不開是由名單決定的。Vessel 用的名單、維護者、收錄的原則與擋錯時的處理都公開在這一頁。",
   "lists.current": "目前的名單",
-  "lists.col.name": "名單",
-  "lists.col.maintainer": "維護者",
-  "lists.col.blocks": "擋什麼",
-  "lists.col.used": "什麼時候會擋",
-  "lists.col.domains": "網域數",
-  "lists.col.only": "獨有網域",
   "lists.malware.name": "HaGeZi Threat Intelligence Feeds（mini）",
   "lists.malware.by": "HaGeZi（社群專案）",
   "lists.malware.blocks": "惡意程式、釣魚",
@@ -689,8 +683,6 @@
   "lists.ads.name": "HaGeZi Multi PRO",
   "lists.ads.by": "HaGeZi（社群專案）",
   "lists.ads.blocks": "廣告與追蹤，也包含部分惡意網域",
-  "lists.used.both": "選了任何一種過濾",
-  "lists.used.ads": "選了「擋惡意網站、廣告與追蹤」",
   "lists.failed": "名單的數字暫時無法讀取，請稍後再試。",
   "lists.asOf": "數字來自入口網站 {time} 讀取的名單，每 8 小時更新。節點上的名單更新時間不同，數字可能有些微差距。",
   "lists.gov.title": "政府提供的名單",
@@ -749,5 +741,9 @@
   "lists.chart.kind.it": "資訊服務",
   "lists.chart.kind.transport": "運輸倉儲",
   "lists.chart.kind.other": "其他",
-  "lists.chart.uniqueShare": "獨有 {pct}%"
+  "lists.chart.uniqueShare": "獨有 {pct}%",
+  "lists.group.both": "選了任何一種過濾都會擋",
+  "lists.group.ads": "只有選了「擋惡意網站、廣告與追蹤」才擋",
+  "lists.card.by": "維護者：{who}",
+  "lists.card.domains": "個網域"
 }

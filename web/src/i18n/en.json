@@ -671,12 +671,6 @@
   "lists.title": "The lists behind the DNS filter",
   "lists.lead": "With the DNS filter on, lists decide which sites will not open. Vessel's lists, who maintains them, the rules for choosing them and what happens after a mistake are all on this page.",
   "lists.current": "The lists in use",
-  "lists.col.name": "List",
-  "lists.col.maintainer": "Maintained by",
-  "lists.col.blocks": "Blocks",
-  "lists.col.used": "When it blocks",
-  "lists.col.domains": "Domains",
-  "lists.col.only": "Unique domains",
   "lists.malware.name": "HaGeZi Threat Intelligence Feeds (mini)",
   "lists.malware.by": "HaGeZi (community project)",
   "lists.malware.blocks": "Malware, phishing",
@@ -689,8 +683,6 @@
   "lists.ads.name": "HaGeZi Multi PRO",
   "lists.ads.by": "HaGeZi (community project)",
   "lists.ads.blocks": "Ads and tracking, and some malicious domains",
-  "lists.used.both": "With either filter on",
-  "lists.used.ads": "With \"Block malware, ads and trackers\" on",
   "lists.failed": "The numbers cannot be loaded right now. Try again later.",
   "lists.asOf": "Numbers from the lists the portal read {time}, refreshed every 8 hours. The nodes update at other times, so theirs may differ slightly.",
   "lists.gov.title": "Lists from the government",
@@ -749,5 +741,9 @@
   "lists.chart.kind.it": "Information services",
   "lists.chart.kind.transport": "Transport and storage",
   "lists.chart.kind.other": "Other",
-  "lists.chart.uniqueShare": "{pct}% unique"
+  "lists.chart.uniqueShare": "{pct}% unique",
+  "lists.group.both": "Blocked with either filter on",
+  "lists.group.ads": "Blocked only with \"Block malware, ads and trackers\" on",
+  "lists.card.by": "Maintained by {who}",
+  "lists.card.domains": "domains"
 }

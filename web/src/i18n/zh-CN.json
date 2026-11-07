@@ -671,12 +671,6 @@
   "lists.title": "域名过滤的名单",
   "lists.lead": "开了域名过滤，哪些网站打不开是由名单决定的。Vessel 用的名单、维护者、收录的原则与误拦时的处理都公开在这一页。",
   "lists.current": "目前的名单",
-  "lists.col.name": "名单",
-  "lists.col.maintainer": "维护者",
-  "lists.col.blocks": "拦截什么",
-  "lists.col.used": "什么时候会拦截",
-  "lists.col.domains": "域名数",
-  "lists.col.only": "独有域名",
   "lists.malware.name": "HaGeZi Threat Intelligence Feeds（mini）",
   "lists.malware.by": "HaGeZi（社区项目）",
   "lists.malware.blocks": "恶意程序、钓鱼",
@@ -689,8 +683,6 @@
   "lists.ads.name": "HaGeZi Multi PRO",
   "lists.ads.by": "HaGeZi（社区项目）",
   "lists.ads.blocks": "广告与追踪，也包含部分恶意域名",
-  "lists.used.both": "选了任何一种过滤",
-  "lists.used.ads": "选了「拦截恶意网站、广告与追踪」",
   "lists.failed": "名单的数字暂时无法读取，请稍后再试。",
   "lists.asOf": "数字来自入口网站 {time} 读取的名单，每 8 小时更新。节点上的名单更新时间不同，数字可能略有差距。",
   "lists.gov.title": "政府提供的名单",
@@ -749,5 +741,9 @@
   "lists.chart.kind.it": "信息服务",
   "lists.chart.kind.transport": "运输仓储",
   "lists.chart.kind.other": "其他",
-  "lists.chart.uniqueShare": "独有 {pct}%"
+  "lists.chart.uniqueShare": "独有 {pct}%",
+  "lists.group.both": "选了任何一种过滤都会拦截",
+  "lists.group.ads": "只有选了「拦截恶意网站、广告与追踪」才拦截",
+  "lists.card.by": "维护者：{who}",
+  "lists.card.domains": "个域名"
 }
