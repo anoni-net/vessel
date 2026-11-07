@@ -299,7 +299,7 @@ export function NewDevice() {
                 <span class="choice__text">
                   <span class="choice__head">
                     <Layers filter={f} />
-                    <span class="strong">{t[`protect.${f}`]}</span>
+                    <span class="strong">{t[`filter.${f}`]}</span>
                     {f === "malware" && <span class="badge badge--active">{t["protect.recommended"]}</span>}
                   </span>
                   <span class="muted small">{t[`filter.${f}.desc`]}</span>

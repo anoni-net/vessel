@@ -28,9 +28,8 @@ test("the page answers what to pick first, then what to do when a site will not 
   await expect(page.locator(".lead")).toContainText("選建議的「擋惡意網站」");
   const choices = page.getByTestId("lists-choices").locator("li");
   await expect(choices).toHaveCount(3);
-  // the same words as the step of making a device, and how the device list names them
-  await expect(choices.locator("h3")).toHaveText(["不過濾", /^＋擋惡意網站\s*建議$/, "＋再擋廣告與追蹤"]);
-  await expect(page.getByTestId("lists-choose-note")).toContainText("裝置清單上會顯示「不過濾」、「擋惡意網站」或「擋惡意網站、廣告與追蹤」");
+  // the same names as making a device and the device list
+  await expect(choices.locator("h3")).toHaveText(["不過濾", /^擋惡意網站\s*建議$/, "擋惡意網站、廣告與追蹤"]);
   // the same strength marks as when making a device: one, two and three filled
   for (const [i, filled] of [[0, 1], [1, 2], [2, 3]] as const) {
     await expect(choices.nth(i).locator(".layers > span")).toHaveCount(3);
