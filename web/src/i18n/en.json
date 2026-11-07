@@ -484,6 +484,8 @@
   "dns.how.lists": "HaGeZi's GitHub",
   "dns.how.and": " and ",
   "dns.how.tw165": "Taiwan's open government data platform",
+  "dns.how.exclude": "A few domains that should not be blocked are left out of the lists. The domains and the reasons are on ",
+  "dns.how.excludeLink": "Vessel's GitHub",
   "dns.how.private": "The resolvers keep no record of queries or of what they block. The blocked count in your device list is a per-device tally on the node, a number with no names. The resolvers also validate DNSSEC and reject answers with bad signatures.",
   "dns.limits.title": "What it cannot do",
   "dns.limits.1": "Ads served from the same domain as the content, such as ads in YouTube videos",

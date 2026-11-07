@@ -484,6 +484,8 @@
   "dns.how.lists": "HaGeZi 的 GitHub",
   "dns.how.and": " 与",
   "dns.how.tw165": "台湾的政府资料开放平台",
+  "dns.how.exclude": "少数不该拦截的域名会从名单中排除，域名与理由公开在 ",
+  "dns.how.excludeLink": "Vessel 的 GitHub",
   "dns.how.private": "解析器不记录查询，也不记录拦截了哪些域名。设备列表上的拦截次数是节点为每台设备做的计数，只有次数，看不出是哪些域名。解析器会做 DNSSEC 验证，签名不符的回应会被拒绝。",
   "dns.limits.title": "做不到的事",
   "dns.limits.1": "跟正常内容同一个域名的广告，例如 YouTube 视频里的广告",

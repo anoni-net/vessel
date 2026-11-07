@@ -1,6 +1,7 @@
 import json
 import ssl
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -116,3 +117,40 @@ def test_only_the_165_download_relaxes_the_strict_certificate_check():
     assert not relaxed.verify_flags & ssl.VERIFY_X509_STRICT
     assert relaxed.verify_mode == ssl.CERT_REQUIRED and relaxed.check_hostname
     assert default.verify_flags == ssl.create_default_context().verify_flags
+
+
+def test_the_exclude_file_is_the_same_as_the_nodes():
+    node = Path(__file__).parents[2] / "node" / "exclude.txt"
+    api_copy = Path(blocklists.__file__).with_name("blocklist_exclude.txt")
+    assert node.read_text(encoding="utf-8") == api_copy.read_text(encoding="utf-8")
+
+
+def test_excluded_names_leave_out_the_reasons():
+    text = "# a comment\nfrom-ia.com  # why\n\nGomLab.com\n"
+    assert blocklists.excluded_names(text) == frozenset({"from-ia.com", "gomlab.com"})
+
+
+def test_a_download_leaves_out_the_excluded_name_but_not_the_names_under_it(monkeypatch):
+    names = [f"bad{i}.example" for i in range(blocklists.MIN_ENTRIES)] + ["keep.excluded.example", "excluded.example"]
+    zone = "".join(f"{n} CNAME .\n*.{n} CNAME .\n" for n in names).encode()
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return zone
+
+    monkeypatch.setattr(blocklists, "SOURCES", {"malware": "https://lists.example/malware"})
+    monkeypatch.setattr(blocklists, "EXCLUDED", frozenset({"excluded.example"}))
+    monkeypatch.setattr(blocklists.urllib.request, "urlopen", lambda *_, **__: Response())
+    blocklists._download()
+    try:
+        assert blocklists.blocked_by("excluded.example") == {"malware": False}
+        assert blocklists.blocked_by("keep.excluded.example") == {"malware": True}
+    finally:
+        blocklists.set_lists({}, at=None)
+        blocklists._loaded_at = None
