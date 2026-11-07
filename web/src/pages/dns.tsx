@@ -2,12 +2,12 @@ import { useState } from "preact/hooks";
 import { ApiError, type BlocklistAnswer, api } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { blockedReport } from "../feedback.ts";
+import { FILTERS, Layers } from "./layers.tsx";
 import { Spin } from "./skeleton.tsx";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 
-const OPTIONS = ["none", "malware", "ads"] as const;
 const LIMITS = [1, 2, 3, 4, 5, 6] as const;
 const LISTS = "https://github.com/hagezi/dns-blocklists";
 const TW165 = "https://data.gov.tw/dataset/176455";
@@ -26,9 +26,9 @@ export function Dns() {
 
       <h2>{t["dns.options.title"]}</h2>
       <div class="dns-options">
-        {OPTIONS.map((o) => (
+        {FILTERS.map((o) => (
           <div class="card card--flat">
-            <h3>{t[`filter.${o}`]}</h3>
+            <h3><Layers filter={o} />{t[`filter.${o}`]}</h3>
             <p>{t[`dns.option.${o}`]}</p>
           </div>
         ))}
