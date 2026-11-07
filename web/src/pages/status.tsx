@@ -40,14 +40,14 @@ export function StatusPage() {
   const when = (iso: string) => formatTime(locale, iso);
 
   return (
-    <section class="wrap narrow stack">
+    <section class="wrap narrow stack status-page">
       <h1>{t["status.title"]}</h1>
       <p class="lead">{t["status.lead"]}</p>
       {failed && <p class="error" role="alert">{t["status.failed"]}</p>}
 
       <h2>{t["status.regions"]}</h2>
       {status ? (
-        <ul class="stack plain" data-testid="status-regions">
+        <ul class="plain status-regions" data-testid="status-regions">
           {status.regions.map((r) => (
             <li class="card">
               <div class="row">
@@ -63,7 +63,13 @@ export function StatusPage() {
           ))}
         </ul>
       ) : (
-        !failed && <SkCard lines={["long", "mid"]} />
+        !failed && (
+          <div class="status-regions">
+            <SkCard lines={["long", "mid"]} />
+            <SkCard lines={["long", "mid"]} />
+            <SkCard lines={["long", "mid"]} />
+          </div>
+        )
       )}
       <p class="muted small">{t["status.how"]}</p>
 
@@ -71,7 +77,7 @@ export function StatusPage() {
       {status && (status.notices.length === 0 ? (
         <p class="card card--dashed" data-testid="status-none">{t["status.none"]}</p>
       ) : (
-        <ul class="stack plain" data-testid="status-notices">
+        <ul class="plain status-notices" data-testid="status-notices">
           {status.notices.map((n) => (
             <li class={`card card--flat${n.ends_at ? "" : " card--tint"}`}>
               <div class="row">

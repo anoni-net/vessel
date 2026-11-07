@@ -55,3 +55,19 @@ test("linked from the footer and the feedback page, in three languages", async (
   await page.goto("/zh-cn/status/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("服务状态");
 });
+
+test("a wide screen shows the cities side by side and the notices in columns, a phone stacks them", async ({ page }) => {
+  await status(page, {
+    regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "ok" }, { id: "tw", state: "ok" }],
+    notices: [1, 2, 3].map((d) => ({ region: "jp", kind: "restart", starts_at: `2026-10-2${d}T03:00:00Z`, ends_at: `2026-10-2${d}T04:00:00Z` })),
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/status/");
+  const top = async (id: string) => page.getByTestId(id).locator("li").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  await expect(page.getByTestId("status-notices").locator("li")).toHaveCount(3);
+  expect(new Set(await top("status-regions")).size).toBe(1);
+  expect(new Set(await top("status-notices")).size).toBe(1);
+  await page.setViewportSize({ width: 390, height: 800 });
+  expect(new Set(await top("status-regions")).size).toBe(3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

@@ -400,6 +400,23 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .login-form { margin-top: 20px; }
 .passkey-login { margin: 16px 0 24px; }
 /* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
+/* the DNS filter page: the two tools and the three options side by side where there is room */
+.dns-tools, .dns-options { display: grid; gap: 16px; }
+.dns-options .card h3 { margin: 0; }
+.dns-cols, .dns-col { display: contents; }
+.dns-col > h2 { margin: 24px 0 0; }
+@media (min-width: 641px) {
+  .dns-page { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .dns-page { max-width: 1120px; }
+  .dns-page > .lead { max-width: 760px; }
+  .dns-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dns-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dns-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; }
+  .dns-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .dns-col > h2:first-child { margin-top: 0; }
+}
 .lookup-answer { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--tint); }
 
 .card--dashed { border-style: dashed; box-shadow: none; text-align: center; }
@@ -500,6 +517,19 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge--state-down { background: var(--paper); border-color: var(--caution); color: var(--warn-ink); }
 .badge--state-unknown { border-style: dashed; }
 .status-city { display: flex; align-items: center; gap: 12px; }
+/* the cities side by side and the notices in columns where there is room; one column on phones */
+.status-regions, .status-notices { display: grid; gap: 12px; }
+.status-regions .row { flex-wrap: wrap; gap: 8px; }
+@media (min-width: 641px) {
+  .status-page { max-width: 800px; }
+  .status-regions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .status-notices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 960px) {
+  .status-page { max-width: 1120px; }
+  .status-page > .lead { max-width: 760px; }
+  .status-notices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 /* home page, 社群架設的原因: the region as a tabletop seen from above at a slant, beside the text on a wide screen */
 .region-map { display: none; }
 @media (min-width: 960px) {
