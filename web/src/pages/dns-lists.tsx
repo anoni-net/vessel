@@ -29,25 +29,26 @@ export const EXCLUDED = [
   ["playinfo.gomlab.com", "delisted"],
 ] as const;
 // Measured, not live: update these with the text around them when a measurement is repeated. Each row is the share
-// blocked by Vessel's malware filter, its ads filter, Quad9 (9.9.9.9) and Cloudflare (1.1.1.2).
+// blocked by Vessel's malware filter and its ads filter, Quad9 included, and by Cloudflare (1.1.1.2).
 const COMPARE = [
-  ["phishNew", "1–2%", "1–4%", "2–12%", "4–59%"],
-  ["phishDay", "4–82%", "14–84%", "27–100%", "72–85%"],
-  ["malware", "71%", "93%", "66%", "55%"],
-  ["twScam", "100%", "100%", "0%", "1–2%"],
-  ["tracking", "0%", "93%", "0%", "0%"],
+  ["phishNew", "2–12%", "3–13%", "4–61%"],
+  ["phishDay", "31–100%", "32–100%", "71–86%"],
+  ["malware", "90%", "96%", "57%"],
+  ["twScam", "100%", "100%", "1–2%"],
+  ["tracking", "0%", "93%", "0%"],
 ] as const;
 // phishing sites a day after they first appeared, by who reported them
 const PHISHING = [
-  ["certpl", 2028, 82, 84, 100, 85],
-  ["openphish", 1531, 9, 16, 40, 74],
-  ["phishunt", 109, 4, 14, 27, 72],
+  ["certpl", 2151, 100, 100, 86],
+  ["openphish", 1734, 40, 44, 74],
+  ["phishunt", 111, 31, 32, 71],
 ] as const;
 const RULES = [1, 2, 3, 4] as const;
-const KNOWN = [1, 2, 3, 4] as const;
+const KNOWN = [1, 2, 3, 4, 5] as const;
 const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
+  ["2026-11-07", "20261107b"],
   ["2026-11-07", "20261107"],
   ["2026-11-01", "20261101b"],
   ["2026-11-01", "20261101a"],
@@ -197,6 +198,9 @@ export function DnsLists() {
           </section>
         ))}
       </div>
+      <p data-testid="list-quad9">
+        {t["lists.quad9.before"]}<a href="https://quad9.net/result/" target="_blank" rel="noopener">{t["lists.quad9.name"]}</a>{t["lists.quad9.after"]}
+      </p>
       {summary && <p class="muted small" data-testid="lists-as-of">{fmt(t["lists.asOf"], { time: formatTime(locale, summary.as_of) })}</p>}
 
       <div class="lists-cols">
@@ -228,17 +232,15 @@ export function DnsLists() {
               <th role="columnheader" scope="col">{t["lists.compare.kind"]}</th>
               <th role="columnheader" scope="col">Vessel {t["filter.malware"]}</th>
               <th role="columnheader" scope="col">Vessel {t["filter.ads"]}</th>
-              <th role="columnheader" scope="col">Quad9</th>
               <th role="columnheader" scope="col">Cloudflare <code>1.1.1.2</code></th>
             </tr>
           </thead>
           <tbody role="rowgroup">
-            {COMPARE.map(([row, malware, ads, quad9, cloudflare]) => (
+            {COMPARE.map(([row, malware, ads, cloudflare]) => (
               <tr role="row">
                 <th role="rowheader" scope="row">{t[`lists.compare.${row}`]}</th>
                 <td role="cell" class="lists-compare__vessel" data-label={`Vessel ${t["filter.malware"]}`}>{malware}</td>
                 <td role="cell" class="lists-compare__vessel" data-label={`Vessel ${t["filter.ads"]}`}>{ads}</td>
-                <td role="cell" data-label="Quad9">{quad9}</td>
                 <td role="cell" data-label="Cloudflare 1.1.1.2">{cloudflare}</td>
               </tr>
             ))}
@@ -274,14 +276,14 @@ export function DnsLists() {
           </li>
         </ul>
         <div class="lists-panels" data-testid="lists-phishing">
-          {PHISHING.map(([source, sites, malware, ads, quad9, cloudflare]) => (
+          {PHISHING.map(([source, sites, malware, ads, cloudflare]) => (
             <figure class="lists-chart">
               <figcaption class="lists-chart__title">
                 {t[`lists.measure.${source}`]}
                 <span class="muted small"> · {fmt(t["lists.measure.sites"], { n: formatCount(locale, sites) })}</span>
               </figcaption>
               <ul class="plain lists-chart__bars">
-                {([[`Vessel ${t["filter.malware"]}`, malware, true], [`Vessel ${t["filter.ads"]}`, ads, true], ["Quad9", quad9, false], ["Cloudflare 1.1.1.2", cloudflare, false]] as const).map(([name, value, vessel]) => (
+                {([[`Vessel ${t["filter.malware"]}`, malware, true], [`Vessel ${t["filter.ads"]}`, ads, true], ["Cloudflare 1.1.1.2", cloudflare, false]] as const).map(([name, value, vessel]) => (
                   <li>
                     <div class="lists-bar__head"><span>{name}</span><span class="lists-bar__value">{value}%</span></div>
                     <ShareBar label={name} value={value} vessel={vessel} />

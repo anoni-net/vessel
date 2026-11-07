@@ -1,13 +1,16 @@
 """Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists and the 165 list of scam sites
 Taiwan's ISPs stop resolving (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
 can tell a visitor whether a site that will not open was blocked, and which filters block it. The domain asked
-about is only compared in memory: it is not logged or stored."""
+about is only compared in memory and asked of Quad9, which the nodes' filter also forwards to: it is not logged or stored."""
 
 import csv
 import io
 import json
 import re
+import secrets
+import socket
 import ssl
+import struct
 import threading
 import time
 import urllib.request
@@ -21,6 +24,9 @@ from pydantic import BaseModel, Field
 
 from app.auth import client_key, error, require_app_header
 from app.ratelimit import Limiter
+
+QUAD9_TIMEOUT = 1.5
+NXDOMAIN = 3
 
 router = APIRouter(prefix="/api")
 
@@ -201,6 +207,33 @@ def normalize(raw: str) -> str | None:
     return host
 
 
+def _rcode(host: str, server: str, port: int = 53) -> int | None:
+    """The response code for an A lookup, or None without an answer. A reply must carry the query's ID: a network can
+    deliver a reply twice, or an old one late."""
+    query_id = secrets.randbits(16)
+    question = b"".join(bytes([len(label)]) + label.encode() for label in host.split(".")) + b"\0\0\1\0\1"
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(QUAD9_TIMEOUT)
+        try:
+            sock.connect((server, port))
+            sock.send(struct.pack(">HHHHHH", query_id, 0x0100, 1, 0, 0, 0) + question)
+            while True:
+                reply = sock.recv(1500)
+                if len(reply) >= 12 and struct.unpack(">H", reply[:2])[0] == query_id:
+                    return reply[3] & 0x0F
+        except OSError:
+            return None
+
+
+def quad9_blocks(host: str) -> bool | None:
+    """Does Quad9's filter block it? None when Quad9 did not answer. 9.9.9.10 is the same service without the filter."""
+    with_filter = _rcode(host, "9.9.9.9")
+    if with_filter != NXDOMAIN:
+        return None if with_filter is None else False
+    without = _rcode(host, "9.9.9.10")
+    return None if without is None else without != NXDOMAIN
+
+
 def blocked_by(host: str) -> dict[str, bool]:
     # the name itself and every parent: `*.example.com` in a list blocks `ads.example.com`
     labels = host.split(".")
@@ -234,4 +267,4 @@ def lookup(body: Lookup, request: Request, response: Response) -> dict:
     refresh_in_background()
     if _loaded_at is None or not _lists:
         raise error(503, "lists_loading")
-    return {"domain": host, **blocked_by(host), "as_of": datetime.fromtimestamp(_loaded_at, UTC).isoformat()}
+    return {"domain": host, **blocked_by(host), "quad9": quad9_blocks(host), "as_of": datetime.fromtimestamp(_loaded_at, UTC).isoformat()}

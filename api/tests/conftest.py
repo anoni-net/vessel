@@ -24,6 +24,7 @@ HEADERS = {"X-Vessel-Request": "1"}
 @pytest.fixture(autouse=True)
 def no_blocklist_downloads(monkeypatch):
     # the app fetches the DNS blocklists from HaGeZi when it starts; tests never reach the network
+    monkeypatch.setattr(blocklists, "_rcode", lambda host, server, port=53: 0)
     monkeypatch.setattr(blocklists, "refresh_in_background", lambda force=False: None)
 
 

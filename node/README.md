@@ -106,10 +106,10 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | 位址 | 選項 | 名單 |
 |---|---|---|
 | `10.8.1.1` | 不過濾 | 無 |
-| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 與數位產業署停止解析的詐騙網站 |
-| `10.8.1.254` | 再擋廣告 | 上面三份，加上 HaGeZi Multi PRO |
+| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 與數位產業署停止解析的詐騙網站，其他查詢轉給 Quad9 |
+| `10.8.1.254` | 再擋廣告 | 上面三份，加上 HaGeZi Multi PRO，其他查詢轉給 Quad9 |
 
-兩個 unbound 都不記錄查詢，開 DNSSEC 驗證與 QNAME 最小化，只接受隧道內的查詢。三份名單載入後約佔 600 MB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
+兩個 unbound 都不記錄查詢，開 DNSSEC 驗證，只接受隧道內的查詢。不過濾的 unbound 自行遞迴查詢，開 QNAME 最小化。三份名單載入後約佔 600 MB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
 
 ### 一個 unbound 服務兩種過濾
 
@@ -121,6 +121,18 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 - 不過濾的 `.1` 維持獨立的 unbound，只佔約 10 MB。名單更新時有過濾的 unbound 會暫停，獨立出來就不影響選了不過濾的使用者
 
 擋廣告的名單原本用 Multi（Normal），2026-10-31 改成 HaGeZi 建議的 PRO。比對一個家用網路 Pi-hole 近 7 天擋下最多的 300 個網域，Normal 涵蓋其中 16.5% 的擋下次數，PRO 涵蓋 30.3%。Pi-hole 擋下而 PRO 沒有擋的，多半是定位、iCloud、憑證、視訊通話的 STUN 這類擋了會壞掉功能的服務，不適合放在大家共用的服務上。
+
+### 轉發給 Quad9
+
+有過濾的 unbound 比對完名單之後，把其他查詢經 DNS over TLS 轉給 Quad9（`9.9.9.9`）。Quad9 判斷有害的網域回 NXDOMAIN，補上名單涵蓋不到的釣魚網站。不過濾的 unbound 不轉發。
+
+- Quad9 看得到節點的 IP 與查詢的網域，看不到裝置的 IP。TLS 讓節點的主機商與上游業者看不到查詢的內容
+- 這個 unbound 仍做 DNSSEC 驗證。Quad9 擋下未簽章的網域時回 NXDOMAIN，擋下有簽章的網域時驗證失敗，回 SERVFAIL，兩者都打不開。拿掉驗證的話，`forward-first` 會把 Quad9 對驗證失敗的網域回的 SERVFAIL 當成故障，改由自己查詢，反而放行偽造的回應
+- Quad9 無法連線時（`forward-first`），前面 1 到 2 分鐘的新查詢會逾時，之後改由 unbound 自行遞迴查詢，名單與 DNSSEC 驗證仍然有效
+- `tls-cert-bundle` 只在 unbound 啟動時讀取，第一次加上轉發時要重啟有過濾的 unbound，`pkill -HUP` 不會生效，查詢會退回自行遞迴：`docker exec vessel-node sh -c 'kill "$(cat /run/unbound-filter.pid)"; sleep 2; unbound -c /etc/unbound/conf.d/filter.conf'`
+- 裝置清單的擋下次數只算名單擋下的，Quad9 的 NXDOMAIN 看起來跟一般的網域不存在相同，無法分開計數
+- Quad9 誤擋時，在 `filter.conf` 替該名稱加一個 `forward-zone`，轉給不過濾的 `9.9.9.10@853#dns10.quad9.net`，並列進名單頁的排除的網域
+- 入口網站的查詢（`api/app/blocklists.py`）同時問 `9.9.9.9` 與 `9.9.9.10`，只有前者回 NXDOMAIN 時，判定為 Quad9 擋下
 
 ### 165 停止解析的涉詐網站
 

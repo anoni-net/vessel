@@ -53,6 +53,7 @@ export default {
         "DigitalOcean：新加坡的節點架在 DigitalOcean 的主機上。它是網路的提供者，可以看到進出節點的流量，但無法解開加密的連線",
         "Akamai：東京的節點架在 Akamai（原 Linode）的主機上，能看到的範圍跟 DigitalOcean 相同",
         "Greenhost：台北的節點架在 Greenhost 的主機上，能看到的範圍跟 DigitalOcean 相同",
+        "Quad9：選了網域過濾時，節點的解析器會把查詢經加密連線轉給 Quad9 判斷是否有害。它看得到節點的 IP 與查詢的網域，看不到裝置的 IP，適用 [Quad9 的隱私政策](https://quad9.net/privacy/policy/)。網域過濾頁的查詢也會送到 Quad9 比對，來源是入口網站的主機。不過濾的裝置不經過 Quad9",
         "Amazon SES：測試期的邀請碼透過電子報寄送，寄信服務會處理信件的內容。訂閱者與邀請碼的對照在寄送後刪除，入口網站的資料庫無法對應哪個帳號來自哪位訂閱者",
       ],
     },

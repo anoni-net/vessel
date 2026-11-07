@@ -53,6 +53,7 @@ export default {
         "DigitalOcean: the Singapore node runs on DigitalOcean servers. As the network provider it can see traffic in and out of the node, but cannot decrypt the connections",
         "Akamai: the Tokyo node runs on Akamai (formerly Linode) servers, which can see the same as DigitalOcean",
         "Greenhost: the Taipei node runs on Greenhost servers, which can see the same as DigitalOcean",
+        "Quad9: with a DNS filter, the node's resolver sends lookups to Quad9 over an encrypted connection for a verdict on whether they are harmful. It sees the node's IP address and the domain, not the device's IP address, and [Quad9's privacy policy](https://quad9.net/privacy/policy/) applies. Lookups on the DNS filtering page are also checked with Quad9, coming from the portal's server. Devices with no filter do not go through Quad9",
         "Amazon SES: invite codes for the test are sent with the newsletter, so the mail service handles their contents. The list of which subscriber got which code is deleted after sending, so the portal's database cannot tell which account came from which subscriber",
       ],
     },
