@@ -27,7 +27,7 @@ async function backend(page: Page, signedIn: boolean) {
 }
 
 const PAGES: [string, boolean][] = [
-  ["/", false], ["/en/", false], ["/faq/", false], ["/learn/", false], ["/dns/", false], ["/check/", false],
+  ["/", false], ["/en/", false], ["/faq/", false], ["/learn/", false], ["/dns/", false], ["/dns/lists/", false], ["/check/", false],
   ["/status/", false], ["/feedback/", false], ["/terms/", false], ["/privacy/", false], ["/login/", false],
   ["/redeem/", false], ["/devices/", true], ["/devices/new/", true], ["/account/", true],
 ];

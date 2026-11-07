@@ -56,6 +56,7 @@ EXCLUDED = excluded_names(Path(__file__).with_name("blocklist_exclude.txt").read
 
 _lists: dict[str, frozenset[str]] = {}
 _loaded_at: float | None = None
+_summary: dict = {}
 _loading = threading.Lock()
 
 lookup_limiter = Limiter(limit=20, window_seconds=60)
@@ -112,10 +113,42 @@ def tls_context(name: str) -> ssl.SSLContext:
     return context
 
 
+def _on_any(name: str, lists: list[frozenset[str]]) -> bool:
+    """A list also blocks what is under its names, so a name counts as listed when it or a parent is on a list."""
+    labels = name.split(".")
+    return any(".".join(labels[i:]) in names for names in lists for i in range(len(labels) - 1))
+
+
+def _count_all(lists: list[frozenset[str]]) -> int:
+    """How many names the lists have together, a name that a list before it already blocks counting once."""
+    return sum(1 for i, names in enumerate(lists) for name in names if not _on_any(name, lists[:i]))
+
+
+def summarize(lists: dict[str, frozenset[str]]) -> dict:
+    """What the page on the lists shows: their sizes and how much of each no other list has. Only the lists are
+    counted, nobody's queries."""
+    def get(*names: str) -> list[frozenset[str]]:
+        return [lists.get(name, frozenset()) for name in names]
+
+    rows = [
+        {"id": name,
+         "domains": len(lists.get(name, frozenset())),
+         "only_here": sum(1 for n in lists.get(name, frozenset()) if not _on_any(n, get(*(set(SOURCES) - {name}))))}
+        for name in SOURCES
+    ]
+    return {
+        "lists": rows,
+        "malware_filter": _count_all(get("malware", "tw165", "twmoda")),
+        "ads_filter": _count_all(get(*SOURCES)),
+        "hagezi": _count_all(get("malware", "ads")),
+    }
+
+
 def set_lists(lists: dict[str, frozenset[str]], at: float | None = None) -> None:
     """Replace the lists; the background refresh calls this, and tests use it instead of the network."""
-    global _lists, _loaded_at
+    global _lists, _loaded_at, _summary
     _lists, _loaded_at = dict(lists), time.time() if at is None else at
+    _summary = summarize(_lists)
 
 
 def _download() -> None:
@@ -173,6 +206,16 @@ def blocked_by(host: str) -> dict[str, bool]:
     labels = host.split(".")
     names = {".".join(labels[i:]) for i in range(len(labels))}
     return {name: not names.isdisjoint(_lists.get(name, frozenset())) for name in SOURCES}
+
+
+@router.get("/blocklist/lists")
+def lists_summary(response: Response) -> dict:
+    """The sizes of the lists. Public and the same for everyone; nothing about the visitor is involved."""
+    response.headers["Cache-Control"] = "no-store"
+    refresh_in_background()
+    if _loaded_at is None or not _lists:
+        raise error(503, "lists_loading")
+    return {**_summary, "as_of": datetime.fromtimestamp(_loaded_at, UTC).isoformat()}
 
 
 class Lookup(BaseModel):

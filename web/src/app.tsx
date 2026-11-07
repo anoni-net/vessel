@@ -6,6 +6,7 @@ import { Account } from "./pages/account.tsx";
 import { Check } from "./pages/check.tsx";
 import { Devices } from "./pages/devices.tsx";
 import { Dns } from "./pages/dns.tsx";
+import { DnsLists } from "./pages/dns-lists.tsx";
 import { Faq } from "./pages/faq.tsx";
 import { Feedback } from "./pages/feedback.tsx";
 import { Home } from "./pages/home.tsx";
@@ -96,6 +97,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/account/": ["account.title", () => <Account />],
   "/faq/": ["faq.title", () => <Faq />],
   "/dns/": ["dns.title", () => <Dns />],
+  "/dns/lists/": ["lists.title", () => <DnsLists />],
   "/check/": ["check.title", () => <Check />],
   "/learn/": ["learn.title", () => <Learn />],
   "/feedback/": ["feedback.title", () => <Feedback />],

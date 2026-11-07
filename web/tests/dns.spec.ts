@@ -39,7 +39,7 @@ test("the DNS page in three languages, linked from the home page", async ({ page
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["檢查目前的過濾", "查詢網站有沒有被擋", "三種選項", "運作方式", "做不到的事", "更換與回報"]);
   await page.goto("/en/dns/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("DNS filtering");
-  await expect(page.getByRole("link", { name: "Vessel's GitHub" })).toHaveAttribute("href", "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt");
+  await expect(page.getByRole("link", { name: "The lists behind the DNS filter" })).toHaveAttribute("href", "/en/dns/lists/");
   await expect(page.getByRole("link", { name: "HaGeZi's GitHub" })).toHaveAttribute("href", "https://github.com/hagezi/dns-blocklists");
   await page.goto("/zh-cn/dns/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("域名过滤");

@@ -11,12 +11,11 @@ const OPTIONS = ["none", "malware", "ads"] as const;
 const LIMITS = [1, 2, 3, 4, 5] as const;
 const LISTS = "https://github.com/hagezi/dns-blocklists";
 const TW165 = "https://data.gov.tw/dataset/176455";
-const EXCLUDE = "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt";
 // Citizen Lab, "Exposing AdFection" (2026-10-15): zero-click spyware delivered through targeted ads
 const AD_SPYWARE = "https://citizenlab.ca/research/how-discover-tech-turned-targeted-ads-into-a-pipeline-for-spyware/";
 
 export function Dns() {
-  const { t, locale } = useCtx();
+  const { t, locale, href } = useCtx();
   return (
     <section class="wrap narrow stack dns-page">
       <h1>{t["dns.title"]}</h1>
@@ -50,7 +49,7 @@ export function Dns() {
         {locale === "en" ? "." : "。"}
       </p>
       <p>
-        {t["dns.how.exclude"]}<a href={EXCLUDE} target="_blank" rel="noopener">{t["dns.how.excludeLink"]}</a>
+        {t["dns.how.listsPage"]}<a href={href("/dns/lists/")}>{t["lists.title"]}</a>
         {locale === "en" ? "." : "。"}
       </p>
       <p>{t["dns.how.private"]}</p>

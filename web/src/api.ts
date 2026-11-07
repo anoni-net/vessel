@@ -64,6 +64,16 @@ export interface BlocklistAnswer {
   ads: boolean;
 }
 
+export interface BlocklistSummary {
+  lists: { id: "malware" | "tw165" | "twmoda" | "ads"; domains: number; only_here: number }[];
+  /** the names the malware filter blocks, all its lists together */
+  malware_filter: number;
+  ads_filter: number;
+  /** the names on the two HaGeZi lists together */
+  hagezi: number;
+  as_of: string;
+}
+
 export interface Device {
   id: string;
   name: string;
@@ -223,6 +233,7 @@ export const api = {
     call<BlocklistAnswer>("POST", "/blocklist", { domain }).then((r) => r.data),
   /** public, no session */
   status: () => call<Status>("GET", "/status").then((r) => r.data),
+  blocklistSummary: () => call<BlocklistSummary>("GET", "/blocklist/lists").then((r) => r.data),
   createDevice: (body: NewDevice) =>
     call<{ id: string; status: "active" | "pending"; config?: NodeConfig }>("POST", "/devices", body).then((r) => r.data),
   /** 200 with the config, or 202 while the node is still adding the device */
