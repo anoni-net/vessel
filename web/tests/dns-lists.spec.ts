@@ -55,6 +55,7 @@ test("the common questions open, and say the filter keeps no record", async ({ p
   await question.locator("summary").click();
   await expect(question).toContainText("不留下紀錄");
   await expect(question.getByRole("link", { name: "VPN 入門" })).toBeVisible();
+  await expect(question).toContainText("看得到查詢的網域與節點的 IP");
 });
 
 test("the lists say what they block first, and are grouped by what people pick", async ({ page }) => {
