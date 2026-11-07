@@ -27,7 +27,7 @@ test("the lists with who maintains them and their sizes", async ({ page }) => {
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(0)).toContainText("195,355");
   await expect(rows.nth(1)).toContainText("內政部警政署");
-  await expect(rows.nth(3)).toContainText("只有擋廣告");
+  await expect(rows.nth(3)).toContainText("選了「擋惡意網站、廣告與追蹤」");
   await expect(page.getByTestId("lists-share")).toContainText("約 80% 來自 HaGeZi");
   await expect(page.getByTestId("lists-as-of")).toBeVisible();
 });
