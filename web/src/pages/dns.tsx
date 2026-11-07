@@ -8,7 +8,7 @@ import { CLEARNET, IS_ONION } from "../site.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
 
 const OPTIONS = ["none", "malware", "ads"] as const;
-const LIMITS = [1, 2, 3, 4, 5] as const;
+const LIMITS = [1, 2, 3, 4, 5, 6] as const;
 const LISTS = "https://github.com/hagezi/dns-blocklists";
 const TW165 = "https://data.gov.tw/dataset/176455";
 // Citizen Lab, "Exposing AdFection" (2026-10-15): zero-click spyware delivered through targeted ads

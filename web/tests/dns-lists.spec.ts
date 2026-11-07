@@ -302,3 +302,17 @@ test("the comparison fits a narrow phone with its column names beside the values
   expect(await cell.evaluate((e) => getComputedStyle(e, "::before").content)).toContain("Vessel 擋惡意網站");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("phishing that the lists miss: the page, the FAQ and the DNS page say so and say what helps", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  await expect(page.getByTestId("lists-protect").locator("li")).toHaveCount(3);
+  await expect(page.getByTestId("lists-protect")).toContainText("passkey");
+  await page.goto("/faq/#q-phishing");
+  const question = page.locator("details#q-phishing");
+  await expect(question).toHaveAttribute("open");
+  await expect(question).toContainText("不能當成唯一的防護");
+  await expect(question.getByRole("link", { name: "名單以外的防護與量測結果" })).toHaveAttribute("href", "/dns/lists/#beyond-the-lists");
+  await page.goto("/dns/");
+  await expect(page.locator(".dns-page")).toContainText("剛出現的釣魚網站");
+});
