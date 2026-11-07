@@ -34,6 +34,8 @@
   --placeholder: #8796bf;
   --skeleton: #e1e8f8;
   /* FIG. 04's colours, shared with its canvas (faq-art.ts) */
+  --chart-first: #1a4fd6;
+  --chart-rest: #6f93ee;
   --fig-dest: #2f6bff;
   --fig-you: #0b3ca8;
   --fig-node: #a5bcf2;
@@ -81,6 +83,8 @@
     --press: #d4e2ff;
     --placeholder: #8fa5d6;
     --skeleton: #1b3064;
+    --chart-first: #6390f5;
+    --chart-rest: #2f5ec9;
     --fig-dest: #6f9bff;
     --fig-you: #c2d4ff;
     --fig-node: #4f71bd;
@@ -714,6 +718,21 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the page on the DNS lists (pages/dns-lists.tsx): the table of lists needs room, so the page widens with the screen.
    From 960 px the rest is two columns; below that the columns' frames vanish and the sections stack */
 .lists-cols, .lists-col { display: contents; }
+.lists-chart { margin: 8px 0; }
+.lists-chart__title { font-weight: 700; color: var(--text); }
+.lists-page .lists-chart__legend { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 14px; color: var(--muted); }
+.lists-chart__legend li { display: flex; align-items: center; gap: 6px; }
+.lists-key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+.lists-key--first { background: var(--chart-first); }
+.lists-key--rest { background: var(--chart-rest); }
+.lists-chart__bars { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.lists-bar__head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; font-size: 14px; color: var(--text); }
+.lists-bar__value { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4em; text-align: end; }
+.lists-bar__value .sk { margin-inline-start: auto; width: 4em; }
+.lists-bar__plot { display: block; }
+.lists-bar__first { fill: var(--chart-first); }
+.lists-bar__rest { fill: var(--chart-rest); }
+.lists-bar__gap { fill: var(--page); }
 .lists-col > h2 { margin: 24px 0 0; }
 .lists-page .legal { margin-top: 0; }
 @media (min-width: 641px) {

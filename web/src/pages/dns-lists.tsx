@@ -19,6 +19,15 @@ export const EXCLUDED = [
   ["gomlab.com", "delisted"],
   ["playinfo.gomlab.com", "delisted"],
 ] as const;
+// the 165 dataset by its 網站性質 field, December 2025 to September 2026; update with the text around the chart
+const KINDS_165 = [
+  ["finance", 50043],
+  ["shopping", 26059],
+  ["it", 11701],
+  ["transport", 4697],
+  ["other", 1339],
+] as const;
+const KINDS_165_TOTAL = 93839;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 4] as const;
 const RISKS = [1, 2, 3] as const;
@@ -30,6 +39,36 @@ const LOG = [
   ["2026-10-31", "20261031"],
   ["2026-10-27", "20261027"],
 ] as const;
+
+const pct = (n: number, of: number) => `${(n / Math.max(of, 1)) * 100}%`;
+
+/** One horizontal bar: `first` from the baseline, then `rest` after a gap in the page's color. Widths are SVG
+ *  attributes because the CSP blocks style attributes in the prerendered page; the end away from the baseline is
+ *  rounded, a square rect covering the rounding at the other end of that segment. */
+function Bar({ label, first, rest = 0, of, firstName, restName }: {
+  label: string; first: number; rest?: number; of: number; firstName: string; restName?: string;
+}) {
+  // too thin to see, and the gap would hide it anyway
+  const showRest = rest / Math.max(of, 1) >= 0.003;
+  const start = (first / Math.max(of, 1)) * 100;
+  return (
+    <svg class="lists-bar__plot" width="100%" height="14" role="img" aria-label={label}>
+      {showRest ? (
+        <>
+          <rect class="lists-bar__first" width={pct(first, of)} height="14"><title>{firstName}</title></rect>
+          <rect class="lists-bar__rest" x={`${start}%`} width={pct(rest, of)} height="14" rx="4"><title>{restName}</title></rect>
+          <rect class="lists-bar__rest" x={`${start}%`} width="4" height="14" />
+          <rect class="lists-bar__gap" x={`${start}%`} width="2" height="14" />
+        </>
+      ) : (
+        <>
+          <rect class="lists-bar__first" width={pct(first, of)} height="14" rx="4"><title>{firstName}</title></rect>
+          <rect class="lists-bar__first" width="4" height="14" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 export function DnsLists() {
   const { t, locale, href } = useCtx();
@@ -92,8 +131,60 @@ export function DnsLists() {
           ) : (
             !failed && <p><SkLine w="long" /></p>
           )}
+          {!failed && (
+            <figure class="lists-chart" data-testid="lists-chart-overlap">
+              <figcaption class="lists-chart__title">{t["lists.chart.overlap"]}</figcaption>
+              <ul class="plain lists-chart__legend">
+                <li><span class="lists-key lists-key--first" />{t["lists.chart.only"]}</li>
+                <li><span class="lists-key lists-key--rest" />{t["lists.chart.shared"]}</li>
+              </ul>
+              <ul class="plain lists-chart__bars">
+                {LISTS.map((l) => {
+                  const r = row(l.id);
+                  const name = t[`lists.chart.${l.id}`];
+                  const most = summary ? Math.max(...summary.lists.map((x) => x.domains)) : 1;
+                  return (
+                    <li>
+                      <div class="lists-bar__head">
+                        <span>{name}</span>
+                        <span class="lists-bar__value">{count(r?.domains)}</span>
+                      </div>
+                      {r ? (
+                        <Bar
+                          label={fmt(t["lists.chart.aria"], { name, total: formatCount(locale, r.domains), only: formatCount(locale, r.only_here) })}
+                          first={r.only_here}
+                          rest={r.domains - r.only_here}
+                          of={most}
+                          firstName={`${t["lists.chart.only"]}: ${formatCount(locale, r.only_here)}`}
+                          restName={`${t["lists.chart.shared"]}: ${formatCount(locale, r.domains - r.only_here)}`}
+                        />
+                      ) : <SkLine />}
+                    </li>
+                  );
+                })}
+              </ul>
+            </figure>
+          )}
           <p>{t["lists.share.size"]}</p>
           <p>{t["lists.share.categories"]}</p>
+          <figure class="lists-chart" data-testid="lists-chart-kinds">
+            <figcaption class="lists-chart__title">{t["lists.chart.kinds"]}</figcaption>
+            <ul class="plain lists-chart__bars">
+              {KINDS_165.map(([kind, n]) => {
+                const name = t[`lists.chart.kind.${kind}`];
+                const share = `${Math.round((n / KINDS_165_TOTAL) * 100)}%`;
+                return (
+                  <li>
+                    <div class="lists-bar__head">
+                      <span>{name}</span>
+                      <span class="lists-bar__value">{share}</span>
+                    </div>
+                    <Bar label={`${name} ${share}`} first={n} of={KINDS_165_TOTAL} firstName={`${formatCount(locale, n)}`} />
+                  </li>
+                );
+              })}
+            </ul>
+          </figure>
 
           <h2>{t["lists.gov.title"]}</h2>
           <p>{t["lists.gov.body"]}</p>

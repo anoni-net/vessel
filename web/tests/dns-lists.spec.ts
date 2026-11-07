@@ -90,3 +90,25 @@ test("the sections stack in one column on a phone", async ({ page }) => {
   expect(Math.abs(known!.x - share!.x)).toBeLessThan(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("the charts carry the numbers, with labels for screen readers", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const overlap = page.getByTestId("lists-chart-overlap");
+  await expect(overlap.locator("li svg")).toHaveCount(4);
+  await expect(overlap.getByRole("img", { name: "TIF mini：共 195,355 個網域，其中 90,000 個只有這份有" })).toBeVisible();
+  // the longest list fills the width, the others in proportion
+  const ads = overlap.getByRole("img", { name: /^Multi PRO/ });
+  expect(await ads.locator("rect.lists-bar__first").first().getAttribute("width")).toBe(`${(149750 / 219320) * 100}%`);
+  const kinds = page.getByTestId("lists-chart-kinds");
+  await expect(kinds.getByRole("img")).toHaveCount(5);
+  await expect(kinds.getByRole("img", { name: "金融保險 53%" })).toBeVisible();
+});
+
+test("a failed read leaves out the chart of live numbers, the table still has the lists", async ({ page }) => {
+  await backend(page, 503);
+  await page.goto("/dns/lists/");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByTestId("lists-chart-overlap")).toHaveCount(0);
+  await expect(page.getByTestId("lists-chart-kinds").getByRole("img")).toHaveCount(5);
+});
