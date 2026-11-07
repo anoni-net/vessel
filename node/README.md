@@ -11,6 +11,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
 | `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 與數位產業署的 JSON 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時更新惡意網站與兩份台灣的名單（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致。廣告的名單一天一次，在 UTC 20:37（台灣清晨 04:37），重新載入時有過濾的解析器會暫停約 20 秒，避開晚上的使用高峰 |
+| `exclude.txt` | 根目錄 | 不該擋的網域與理由，見「排除清單」 |
 | `unbound/*.conf` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
@@ -127,6 +128,14 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 - 「網域名稱」欄有打錯字的情況，例如詐騙網址是 `laobeibi.shop`，網域欄寫 `aobeibi.shop`。網域欄跟「偽冒網址」的主機一致，或是那個主機的上層網域時才用網域欄，兩者都合法卻不一致時只用網址的主機，避免擋到打錯字的無關網域（2026-11-01 有 3 筆）
 - 伺服器擋下 Python 預設的 User-Agent，入口網站下載時要帶自己的 User-Agent，`curl` 不受影響
 - 開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站，記憶體約 2 MB
+
+### 排除清單
+
+少數不該擋的網域列在 `exclude.txt`，每一行寫明理由，`update-lists.sh` 產生每份名單時都會拿掉。公開的清單讓任何人都可以檢查這些決定（toomore/anoni-net-ws#451）。
+
+- 只排除那個名稱本身。底下的名稱仍然留在名單上，上層網域在名單上時仍然會擋到它
+- 改了之後複製到節點的 `/opt/vessel-node/exclude.txt`，下一次更新就會生效。網域有變才重新載入，不必重建映像或重啟容器
+- 入口網站的查詢讀 `api/app/blocklist_exclude.txt`，內容要相同，後端的測試會比對
 
 ### 擋下次數
 

@@ -11,6 +11,7 @@ const OPTIONS = ["none", "malware", "ads"] as const;
 const LIMITS = [1, 2, 3, 4, 5] as const;
 const LISTS = "https://github.com/hagezi/dns-blocklists";
 const TW165 = "https://data.gov.tw/dataset/176455";
+const EXCLUDE = "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt";
 // Citizen Lab, "Exposing AdFection" (2026-10-15): zero-click spyware delivered through targeted ads
 const AD_SPYWARE = "https://citizenlab.ca/research/how-discover-tech-turned-targeted-ads-into-a-pipeline-for-spyware/";
 
@@ -46,6 +47,10 @@ export function Dns() {
       <p>
         {t["dns.how.body"]} <a href={LISTS} target="_blank" rel="noopener">{t["dns.how.lists"]}</a>
         {t["dns.how.and"]}<a href={TW165} target="_blank" rel="noopener">{t["dns.how.tw165"]}</a>
+        {locale === "en" ? "." : "。"}
+      </p>
+      <p>
+        {t["dns.how.exclude"]}<a href={EXCLUDE} target="_blank" rel="noopener">{t["dns.how.excludeLink"]}</a>
         {locale === "en" ? "." : "。"}
       </p>
       <p>{t["dns.how.private"]}</p>

@@ -12,6 +12,7 @@ import threading
 import time
 import urllib.request
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -42,6 +43,16 @@ USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
 MIN_ENTRIES = 1000
 
 LABEL = re.compile(r"^(?!-)[a-z0-9_-]{1,63}(?<!-)$")
+
+
+def excluded_names(text: str) -> frozenset[str]:
+    """The names in the exclude file: one a line, anything after a # is the reason."""
+    names = (line.split("#")[0].strip().lower() for line in text.splitlines())
+    return frozenset(name for name in names if name)
+
+
+# a copy of node/exclude.txt, which the nodes leave out of every list; only the name itself, a name under it stays listed
+EXCLUDED = excluded_names(Path(__file__).with_name("blocklist_exclude.txt").read_text(encoding="utf-8"))
 
 _lists: dict[str, frozenset[str]] = {}
 _loaded_at: float | None = None
@@ -114,7 +125,7 @@ def _download() -> None:
             request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(request, timeout=120, context=tls_context(name)) as r:
                 text = r.read().decode("utf-8", "replace")
-            names = PARSERS.get(name, parse)(text)
+            names = PARSERS.get(name, parse)(text) - EXCLUDED
         except (OSError, ValueError):
             names = frozenset()
         # one failed list keeps its previous copy instead of emptying it

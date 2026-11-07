@@ -1,6 +1,6 @@
 #!/bin/bash
-# One-time setup of a Vessel node. Expects build/ (Dockerfile, start.sh), unbound/, awgctl, run.sh, update-lists.sh
-# and node.env (copy node.env.example) beside it in /opt/vessel-node.
+# One-time setup of a Vessel node. Expects build/ (Dockerfile, start.sh), unbound/, awgctl, run.sh, update-lists.sh,
+# exclude.txt and node.env (copy node.env.example) beside it in /opt/vessel-node.
 # Server params mirror AmneziaVPN 5.0.4.2's AWG 3.1 defaults (awgInstaller.cpp).
 set -euo pipefail
 D=/opt/vessel-node

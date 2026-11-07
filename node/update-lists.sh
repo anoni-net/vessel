@@ -10,8 +10,10 @@
 #   twmoda.rpz   the fake shops MODA has ISPs stop resolving on e-commerce companies' reports (data.gov.tw
 #                dataset 165027), JSON
 #   ads.rpz      HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
+# The names in exclude.txt are left out of all of them.
 set -uo pipefail
 D=/opt/vessel-node/rpz
+EXCLUDE=/opt/vessel-node/exclude.txt
 mkdir -p "$D"
 declare -A SRC=(
   [malware]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt
@@ -21,6 +23,13 @@ declare -A SRC=(
 )
 # the domains in a list, without the header comments and the SOA serial, which change on every build
 entries() { grep -v -e '^;' -e ' SOA ' "$1" | sha256sum | cut -d' ' -f1; }
+# drop the names in exclude.txt, and their wildcards, from a zone
+drop_excluded() {
+  [ -s "$EXCLUDE" ] || return 0
+  awk 'NR == FNR { sub(/#.*/, ""); if (NF) skip[tolower($1)] = 1; next }
+       { name = tolower($1); sub(/^\*\./, "", name); sub(/\.$/, "", name); if (!(name in skip)) print }' \
+    "$EXCLUDE" "$1" > "$1.x" && mv "$1.x" "$1"
+}
 # every list is loaded by the filter resolver (node/unbound/filter.conf), once, tagged with the addresses it serves
 
 # The two Taiwanese lists as RPZ zones: each domain and its subdomains answer NXDOMAIN.
@@ -33,9 +42,9 @@ entries() { grep -v -e '^;' -e ' SOA ' "$1" | sha256sum | cut -d' ' -f1; }
 # names under them, so blocking subdomains does not reach other sites. A name whose parent is listed too is left
 # out: the parent's wildcard already blocks it (a quarter of the 165 list, and of the memory it takes).
 zone_from() { # tw165|twmoda file
-  python3 -I - "$1" "$2" <<'PY'
-import csv, json, re, sys
-kind, path = sys.argv[1], sys.argv[2]
+  python3 -I - "$1" "$2" "$EXCLUDE" <<'PY'
+import csv, json, os, re, sys
+kind, path, exclude = sys.argv[1], sys.argv[2], sys.argv[3]
 host = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+")
 def clean(raw):
     name = re.sub(r"^[^a-z0-9]+", "", re.sub(r"^[a-z]+://", "", (raw or "").strip().lower()))
@@ -56,6 +65,9 @@ else:
         domain, url = clean(row.get("網域名稱")), clean(row.get("偽冒網址"))
         names.add(url if url and domain and url != domain and not url.endswith("." + domain) else domain or url)
 names.discard(None)
+# before the parents are compared: a name under an excluded one stays listed
+if os.path.exists(exclude):
+    names -= {line.split("#")[0].strip().lower() for line in open(exclude, encoding="utf-8")}
 def covered(name):
     labels = name.split(".")
     return any(".".join(labels[i:]) in names for i in range(1, len(labels) - 1))
@@ -81,7 +93,7 @@ for z in "${zones[@]}"; do
     curl -fsSL -m 120 -o "$src" "${SRC[$z]}" && zone_from "$z" "$src" > "$tmp" && ok=1
     rm -f "$src"
   else
-    curl -fsSL -m 120 -o "$tmp" "${SRC[$z]}" && ok=1
+    curl -fsSL -m 120 -o "$tmp" "${SRC[$z]}" && drop_excluded "$tmp" && ok=1
   fi
   if [ "$ok" = 1 ] && grep -q ' SOA ' "$tmp" && [ "$(wc -l < "$tmp")" -gt 1000 ]; then
     if [ -s "$D/$z.rpz" ] && [ "$(entries "$tmp")" = "$(entries "$D/$z.rpz")" ]; then

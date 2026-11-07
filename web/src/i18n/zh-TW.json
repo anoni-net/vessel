@@ -484,6 +484,8 @@
   "dns.how.lists": "HaGeZi 的 GitHub",
   "dns.how.and": " 與",
   "dns.how.tw165": "台灣的政府資料開放平臺",
+  "dns.how.exclude": "少數不該擋的網域會從名單排除，網域與理由公開在 ",
+  "dns.how.excludeLink": "Vessel 的 GitHub",
   "dns.how.private": "解析器不記錄查詢，也不記錄擋下了哪些網域。裝置清單上的擋下次數是節點替每台裝置的計數，只有次數，看不出是哪些網域。解析器會做 DNSSEC 驗證，簽章不符的回應會被拒絕。",
   "dns.limits.title": "做不到的事",
   "dns.limits.1": "跟正常內容同一個網域的廣告，例如 YouTube 影片裡的廣告",
