@@ -6,7 +6,7 @@ import { formatCount } from "../format.ts";
 import { fmt } from "../i18n/index.ts";
 import { faqAnchor } from "./faq.tsx";
 import { Spin } from "./skeleton.tsx";
-import { type Exit, encodeCheck, exitCheck, exitText, isOld, passed } from "../connection.ts";
+import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
 
@@ -45,14 +45,16 @@ export function Check() {
                 <Icon name={passed(result.exit, result.dns) ? "ok" : "cancel"} />
                 {passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}
               </p>
-              <dl class="check-results">
+              <dl class="check-rows">
                 <div>
-                  <dt>{t["check.exit"]}</dt>
-                  <dd data-testid="check-exit">{exitText(t, result.exit)}</dd>
+                  <dt class="strong">{t["check.exit"]}</dt>
+                  <dd><StateBadge state={exitState(result.exit)} /></dd>
+                  <dd class="small check-rows__detail" data-testid="check-exit">{exitText(t, result.exit)}</dd>
                 </div>
                 <div>
-                  <dt>{t["check.dns"]}</dt>
-                  <dd data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
+                  <dt class="strong">{t["check.dns"]}</dt>
+                  <dd><StateBadge state={dnsState(result.dns)} /></dd>
+                  <dd class="small check-rows__detail" data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
                 </div>
               </dl>
               {isOld(result.exit) && <a class="nb-button nb-button--ink" href={href("/devices/")}>{t["home.devices"]}</a>}
@@ -83,6 +85,19 @@ export function Check() {
   );
 }
 
+const STATE_BADGE = { pass: "ok", fail: "down", update: "down", unknown: "unknown" } as const;
+
+function StateBadge({ state }: { state: CheckState }) {
+  const { t } = useCtx();
+  return (
+    <span class={`badge badge--icon badge--state-${STATE_BADGE[state]}`}>
+      {state === "pass" && <Icon name="ok" />}
+      {state === "fail" && <Icon name="cancel" />}
+      {t[`check.state.${state}`]}
+    </span>
+  );
+}
+
 const LEVEL_BADGE = { ok: "ok", some: "down", most: "down", few: "unknown", unknown: "unknown" } as const;
 
 /** OONI's public measurements of the visitor's network. Nothing here tests the connection: see api/app/network.py. */
@@ -102,13 +117,13 @@ function NetworkSection() {
       {known && (
         <>
           <p>{fmt(t["check.network.lead"], { name: known.name ?? "", asn: `AS${known.asn}`, days: String(known.days) })}</p>
-          <ul class="plain check-network__tests">
+          <ul class="plain check-rows">
             {known.tests.map((test) => (
               <li>
                 <span class="strong">{t[`check.network.test.${test.id}`]}</span>
                 <span class={`badge badge--state-${LEVEL_BADGE[test.level]}`}>{t[`check.network.level.${test.level}`]}</span>
                 {test.level !== "unknown" && test.measurements > 0 && (
-                  <span class="muted small check-network__count">
+                  <span class="muted small check-rows__detail">
                     {fmt(t["check.network.count"], { n: formatCount(locale, test.measurements), pct: String(test.anomaly_pct) })}
                     {test.confirmed > 0 && fmt(t["check.network.confirmed"], { n: formatCount(locale, test.confirmed) })}
                   </span>

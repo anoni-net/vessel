@@ -41,7 +41,7 @@ test("a passing check, carried into feedback", async ({ page }) => {
   const box = page.getByTestId("connection-check");
   await expect(box.getByTestId("check-exit")).toHaveText("經過 Vessel 的新加坡節點。");
   await expect(box.getByTestId("check-dns")).toHaveText("正在使用 Vessel 的 DNS，會擋下惡意網站。");
-  await expect(box.getByRole("status")).toContainText("兩項都通過，連線經過 Vessel，DNS 也由 Vessel 處理。");
+  await expect(box.getByRole("status")).toContainText("兩項都通過");
   await expect(box.getByRole("button", { name: "再檢測一次" })).toBeVisible();
   expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
 
@@ -59,7 +59,7 @@ test("a passing check, carried into feedback", async ({ page }) => {
 });
 
 for (const [exit, hidden, exitText] of [
-  [{ region: null, ipv6: false }, [], "沒有經過 Vessel。"],
+  [{ region: null, ipv6: false }, [], "可能是 VPN 沒有開"],
   [{ region: null, ipv6: true }, [1], "這次連線走 IPv6，沒有經過 Vessel。"],
   ["fail", [1, 2, 3], "無法完成出口的檢測，請稍後再試。"],
 ] as const) {
@@ -69,7 +69,7 @@ for (const [exit, hidden, exitText] of [
     await page.getByRole("button", { name: "開始檢測" }).click();
     const box = page.getByTestId("connection-check");
     await expect(box.getByTestId("check-exit")).toContainText(exitText);
-    await expect(box.getByRole("status")).toContainText("有項目沒有通過，可以參考下方的處理方式，或把結果附在意見回覆裡。");
+    await expect(box.getByRole("status")).toContainText("有項目沒有通過");
     expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
   });
 }
@@ -108,7 +108,7 @@ test("a config made before the region moved host goes out through the old server
   await page.getByRole("button", { name: "開始檢測" }).click();
   const box = page.getByTestId("connection-check");
   await expect(box.getByTestId("check-exit")).toHaveText(
-    "經過 Vessel 東京節點的舊主機。這個設定檔很快就不能連線，請到「我的裝置」新增一台裝置、匯入新的設定檔。");
+    "經過 Vessel 東京節點的舊主機。裝置的設定檔很快就不能連線，請到「我的裝置」新增一台裝置、匯入新的設定檔。");
   await expect(box.getByRole("link", { name: "前往我的裝置" })).toHaveAttribute("href", "/devices/");
   await box.getByRole("link", { name: "附上結果寫意見回覆" }).click();
   await expect(page).toHaveURL(/check=old-jp\.malware$/);
@@ -184,4 +184,29 @@ test("Chinese and Latin text keep a space between them where a sentence runs int
   await page.goto("/dns/lists/");
   await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
   expect(NO_SPACE.exec(await page.locator(".lists-page").innerText())).toBeNull();
+});
+
+test("each check has its status at the right, and the words below it", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [0, 1, 2, 3]);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const rows = page.getByTestId("connection-check").locator("dl.check-rows > div");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0).locator("dt")).toHaveText("連線經過 Vessel 節點");
+  await expect(rows.nth(0).locator(".badge")).toHaveText("沒有通過");
+  await expect(rows.nth(1).locator("dt")).toHaveText("DNS 由 Vessel 處理");
+  const name = await rows.nth(0).locator("dt").boundingBox();
+  const badge = await rows.nth(0).locator(".badge").boundingBox();
+  const detail = await rows.nth(0).getByTestId("check-exit").boundingBox();
+  expect(Math.abs(name!.y + name!.height / 2 - (badge!.y + badge!.height / 2))).toBeLessThan(2);
+  expect(detail!.y).toBeGreaterThan(badge!.y + badge!.height - 1);
+});
+
+test("a pass reads as a pass", async ({ page }) => {
+  await network(page, { region: "sg", ipv6: false }, [1, 2]);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const rows = page.getByTestId("connection-check").locator("dl.check-rows > div");
+  await expect(rows.nth(0).locator(".badge")).toHaveText("通過");
+  await expect(rows.nth(1).locator(".badge")).toHaveText("通過");
 });
