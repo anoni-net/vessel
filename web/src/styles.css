@@ -200,8 +200,26 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-footer__langs { font-weight: 400; }
 .site-footer__langs .icon { margin-inline-end: 4px; }
 
-.legal > * + * { margin-top: 16px; }
-.legal > h2 { margin: 36px 0 0; font-size: 22px; }
+.legal > * + *, .legal-body > * + * { margin-top: 16px; }
+.legal > h2, .legal-body > h2 { margin: 36px 0 0; font-size: 22px; scroll-margin-top: 16px; }
+/* the policies: a table of contents beside the text where there is room. The tables take the full width, the
+   text keeps a line length that is easy to read */
+.legal-toc { display: none; }
+.legal-body > :first-child { margin-top: 0; }
+@media (min-width: 641px) {
+  .legal-page { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .legal-page { max-width: 1120px; }
+  .legal-page > h1 ~ .card { max-width: 760px; }
+  .legal-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 48px; align-items: start; }
+  .legal-toc { display: block; position: sticky; top: 24px; padding-inline-end: 16px; border-inline-end: 1px solid var(--line); }
+  .legal-toc__title { margin: 0 0 8px; font-weight: 700; color: var(--text); }
+  .legal-toc ul { margin: 0; padding: 0; }
+  .legal-toc li + li { margin-top: 8px; }
+  .legal-toc a { font-size: 14px; }
+  .legal-body > p, .legal-body > ul { max-width: 720px; }
+}
 .legal > h1 + * { margin-top: 20px; }
 .legal p, .legal ul { margin-bottom: 0; }
 .legal ul { padding-inline-start: 1.4em; }
@@ -645,7 +663,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 }
 /* on phones each row of a legal table becomes a card, with the column name above each value */
 @media (max-width: 640px) {
-  .legal thead { display: none; }
+  /* screen readers still get the column names, which display: none would take away */
+  .legal thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .legal table, .legal tbody, .legal tr, .legal td { display: block; }
   .legal tr { margin-bottom: 12px; padding-block: 6px; border: 1px solid var(--ink); border-radius: var(--radius); }
   .legal td { padding: 6px 14px; border: 0; }

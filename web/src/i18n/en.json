@@ -778,5 +778,6 @@
   "lists.coverage.risky": "Where VPNs are restricted, or if your situation is sensitive, read ",
   "lists.coverage.riskyLink": "this question in the FAQ first",
   "protect.how": "Not sure which to pick?",
-  "dns.lookup.why": "Why it is blocked and what you can do"
+  "dns.lookup.why": "Why it is blocked and what you can do",
+  "legal.toc": "Contents"
 }

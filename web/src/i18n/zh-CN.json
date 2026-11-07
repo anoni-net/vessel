@@ -778,5 +778,6 @@
   "lists.coverage.risky": "所在地限制 VPN，或处境比较敏感时，请先看",
   "lists.coverage.riskyLink": "常见问题的这一题",
   "protect.how": "不知道怎么选？",
-  "dns.lookup.why": "为什么会被拦、可以怎么处理"
+  "dns.lookup.why": "为什么会被拦、可以怎么处理",
+  "legal.toc": "目录"
 }
