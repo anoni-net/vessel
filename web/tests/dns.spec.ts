@@ -109,7 +109,8 @@ test("a report link with anything but a host name attaches nothing", async ({ pa
 
 test("a section heading sits closer to its own text than to the section before", async ({ page }) => {
   await page.goto("/dns/");
-  const heading = page.getByRole("heading", { level: 2, name: "做不到的事" });
+  // the second heading of its column, so there is a section before it at every width
+  const heading = page.getByTestId("dns-col-limits").locator("h2").nth(1);
   const gaps = await heading.evaluate((h) => {
     const box = h.getBoundingClientRect();
     return {
@@ -118,4 +119,24 @@ test("a section heading sits closer to its own text than to the section before",
     };
   });
   expect(gaps.above).toBeGreaterThan(gaps.below * 2);
+});
+
+test("a wide screen shows the tools and the options side by side, a phone stacks them", async ({ page }) => {
+  await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dns/");
+  const box = async (id: string) => (await page.getByTestId(id).boundingBox())!;
+  const check = await box("dns-check");
+  const lookup = await box("dns-lookup");
+  expect(Math.abs(check.y - lookup.y)).toBeLessThan(2);
+  expect(lookup.x).toBeGreaterThan(check.x + check.width);
+  const how = await box("dns-col-how");
+  const limits = await box("dns-col-limits");
+  expect(Math.abs(how.y - limits.y)).toBeLessThan(2);
+  const tops = await page.locator(".dns-options > .card").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  await page.setViewportSize({ width: 390, height: 800 });
+  const after = await box("dns-lookup");
+  expect(after.y).toBeGreaterThan((await box("dns-check")).y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

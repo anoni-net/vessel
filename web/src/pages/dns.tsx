@@ -21,11 +21,13 @@ export function Dns() {
       <h1>{t["dns.title"]}</h1>
       <p class="lead">{t["dns.lead"]}</p>
 
-      <DnsCheck />
-      <Lookup />
+      <div class="dns-tools">
+        <DnsCheck />
+        <Lookup />
+      </div>
 
       <h2>{t["dns.options.title"]}</h2>
-      <div class="stack">
+      <div class="dns-options">
         {OPTIONS.map((o) => (
           <div class="card card--flat">
             <h3>{t[`filter.${o}`]}</h3>
@@ -47,21 +49,26 @@ export function Dns() {
         {locale === "en" ? "." : "。"}
       </p>
 
-      <h2>{t["dns.how.title"]}</h2>
-      <p>
-        {t["dns.how.body"]} <a href={LISTS} target="_blank" rel="noopener">{t["dns.how.lists"]}</a>
-        {t["dns.how.and"]}<a href={TW165} target="_blank" rel="noopener">{t["dns.how.tw165"]}</a>
-        {locale === "en" ? "." : "。"}
-      </p>
-      <p>{t["dns.how.private"]}</p>
+      <div class="dns-cols">
+        <div class="dns-col" data-testid="dns-col-how">
+          <h2>{t["dns.how.title"]}</h2>
+          <p>
+            {t["dns.how.body"]} <a href={LISTS} target="_blank" rel="noopener">{t["dns.how.lists"]}</a>
+            {t["dns.how.and"]}<a href={TW165} target="_blank" rel="noopener">{t["dns.how.tw165"]}</a>
+            {locale === "en" ? "." : "。"}
+          </p>
+          <p>{t["dns.how.private"]}</p>
+        </div>
+        <div class="dns-col" data-testid="dns-col-limits">
+          <h2>{t["dns.limits.title"]}</h2>
+          <ul>
+            {LIMITS.map((n) => <li>{t[`dns.limits.${n}` as MessageKey]}</li>)}
+          </ul>
 
-      <h2>{t["dns.limits.title"]}</h2>
-      <ul>
-        {LIMITS.map((n) => <li>{t[`dns.limits.${n}` as MessageKey]}</li>)}
-      </ul>
-
-      <h2>{t["dns.change.title"]}</h2>
-      <p>{t["dns.change.body"]}</p>
+          <h2>{t["dns.change.title"]}</h2>
+          <p>{t["dns.change.body"]}</p>
+        </div>
+      </div>
     </section>
   );
 }
