@@ -211,7 +211,7 @@ test("WCAG 1.4.1: the overlapping part is hatched, not only a different color, i
   const overlap = page.getByTestId("lists-chart-overlap");
   await expect(overlap.getByRole("img").first().locator('rect[fill="url(#lists-hatch)"]').first()).toBeAttached();
   await expect(overlap.locator('.lists-chart__legend rect[fill="url(#lists-hatch)"]')).toHaveCount(1);
-  await expect(overlap.locator("pattern#lists-hatch")).toHaveCount(1);
+  await expect(page.locator("pattern#lists-hatch")).toHaveCount(1);
 });
 
 test("WCAG 1.4.10 and 1.4.12: at 320 px with wider text spacing nothing runs off the page", async ({ page }) => {
@@ -226,7 +226,7 @@ test("WCAG 1.4.10 and 1.4.12: at 320 px with wider text spacing nothing runs off
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
   });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  const cut = await page.locator(".lists-page *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && e.tagName !== "rect" && e.tagName !== "pattern").map((e) => e.tagName + "." + e.getAttribute("class")).slice(0, 5));
+  const cut = await page.locator(".lists-page *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && e.tagName !== "rect" && e.tagName !== "pattern" && !e.closest(".lists-compare thead")).map((e) => e.tagName + "." + e.getAttribute("class")).slice(0, 5));
   expect(cut).toEqual([]);
 });
 
@@ -253,8 +253,9 @@ test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is a
   await page.goto("/dns/lists/");
   await expect(page.getByTestId("lists-groups")).toHaveAttribute("aria-busy", "true");
   await openMore(page);
-  await expect(page.getByRole("table")).toHaveCount(1);
-  await expect(page.getByRole("columnheader")).toHaveCount(2);
+  await expect(page.getByRole("table")).toHaveCount(2);
+  await expect(page.getByTestId("lists-compare").getByRole("columnheader")).toHaveCount(5);
+  await expect(page.getByTestId("lists-excluded").getByRole("columnheader")).toHaveCount(2);
 });
 
 test("the page can be reached from the footer, the FAQ and the DNS filter page, and step by anchor", async ({ page }) => {
@@ -271,4 +272,33 @@ test("the page can be reached from the footer, the FAQ and the DNS filter page, 
   expect((await link.boundingBox())!.y).toBeLessThan((await how.boundingBox())!.y);
   await page.goto("/dns/lists/#trouble");
   await expect(page.getByRole("heading", { name: "網站打不開時" })).toBeInViewport();
+});
+
+test("the page compares with other services in the open, weak points included", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const rows = page.getByTestId("lists-compare").locator("tbody tr");
+  await expect(rows).toHaveCount(5);
+  await expect(rows.nth(1)).toContainText("釣魚網站，一天後");
+  await expect(rows.nth(3)).toContainText("100%");
+  await expect(page.getByText("Vessel 目前最弱的是釣魚網站")).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Vessel 擋惡意網站", exact: true })).toBeAttached();
+  await expect(page.getByRole("columnheader", { name: "Quad9" })).toBeAttached();
+  await expect(page.getByText("沒有開啟過濾時，Vessel 不會擋任何網站")).toBeVisible();
+  await openMore(page);
+  const panels = page.getByTestId("lists-phishing").locator("figure");
+  await expect(panels).toHaveCount(3);
+  await expect(panels.nth(0).getByRole("img")).toHaveCount(4);
+  await expect(panels.nth(0).getByRole("img", { name: "Quad9 100%" })).toBeVisible();
+  await expect(panels.nth(2).getByRole("img", { name: "Vessel 擋惡意網站 4%" })).toBeVisible();
+  await expect(page.getByText("在那個來源的比例會偏高")).toBeVisible();
+});
+
+test("the comparison fits a narrow phone with its column names beside the values", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const cell = page.getByTestId("lists-compare").locator("tbody tr").first().locator("td").first();
+  expect(await cell.evaluate((e) => getComputedStyle(e, "::before").content)).toContain("Vessel 擋惡意網站");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
