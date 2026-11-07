@@ -37,8 +37,8 @@ test("home page in three languages", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vessel");
   await expect(page.getByRole("link", { name: "我有邀請碼" })).toBeVisible();
   // the closed-test tag opens the line under the buttons, next to who can join; nothing above the name
-  await expect(page.locator(".hero__status")).toHaveText("封閉測試中目前只透過社群成員邀請。");
-  await expect(page.locator(".hero__status .pill")).toHaveText("封閉測試中");
+  await expect(page.locator(".hero__status")).toHaveText("邀請制目前以邀請碼分批開放。");
+  await expect(page.locator(".hero__status .pill")).toHaveText("邀請制");
   expect(await page.locator(".hero__text > :first-child").evaluate((e) => e.tagName)).toBe("H1");
   // six cards under 使用情境 on a wide screen, the first three on a phone; each with a symbol beside its
   // title, hidden from screen readers
