@@ -711,6 +711,23 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .invite-made .number { font-size: clamp(20px, 6vw, 26px); }
 .invite-link { color: var(--muted); overflow-wrap: anywhere; }
 .invite-tools { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+/* the page on the DNS lists (pages/dns-lists.tsx): the table of lists needs room, so the page widens with the screen.
+   From 960 px the rest is two columns; below that the columns' frames vanish and the sections stack */
+.lists-cols, .lists-col { display: contents; }
+.lists-col > h2 { margin: 24px 0 0; }
+.lists-page .legal { margin-top: 0; }
+@media (min-width: 641px) {
+  .lists-page { max-width: 800px; }
+  .legal th.lists-num, .legal td.lists-num { text-align: end; font-variant-numeric: tabular-nums; }
+  .legal td.lists-num { white-space: nowrap; }
+}
+@media (min-width: 960px) {
+  .lists-page { max-width: 1120px; }
+  .lists-page > .lead { max-width: 760px; }
+  .lists-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; margin-top: 16px; }
+  .lists-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .lists-col > h2:first-child { margin-top: 0; }
+}
 .account-section { margin-top: 16px; padding-top: 32px; border-top: 2px dashed var(--line); }
 .account-section > h2, .account-section > .card > h2 { margin-bottom: 0; }
 /* Wide screens: the account page in two columns, the monthly record and the invites beside the passkeys; deleting the

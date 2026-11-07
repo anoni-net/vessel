@@ -67,3 +67,26 @@ test("the text is there before the numbers arrive, and nothing overflows on a ph
   await expect(page.getByRole("heading", { name: "收錄的原則" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("a wide screen uses its width: the table across the page, the rest in two columns", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const table = await page.getByTestId("lists-table").boundingBox();
+  const how = await page.getByTestId("lists-col-how").boundingBox();
+  const problems = await page.getByTestId("lists-col-problems").boundingBox();
+  expect(table!.width).toBeGreaterThan(1000);
+  expect(Math.abs(how!.y - problems!.y)).toBeLessThan(2);
+  expect(problems!.x).toBeGreaterThan(how!.x + how!.width);
+});
+
+test("the sections stack in one column on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await backend(page);
+  await page.goto("/dns/lists/");
+  const share = await page.getByRole("heading", { name: "名單的組成" }).boundingBox();
+  const known = await page.getByRole("heading", { name: "已知的問題" }).boundingBox();
+  expect(known!.y).toBeGreaterThan(share!.y);
+  expect(Math.abs(known!.x - share!.x)).toBeLessThan(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
