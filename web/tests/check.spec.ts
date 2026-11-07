@@ -123,6 +123,7 @@ test("off Vessel the check shows OONI's measurements of this network, and asks n
   await expect(page.getByTestId("check-network")).toHaveCount(0);
   await page.getByRole("button", { name: "開始檢測" }).click();
   const box = page.getByTestId("check-network");
+  await expect(box.getByRole("heading")).toHaveText("網路業者的公開量測");
   await expect(box).toContainText("EXAMPLE - Example Network（AS64500）過去 30 天");
   await expect(box).toHaveAttribute("aria-busy", "false");
   const rows = box.locator("li");
@@ -134,7 +135,7 @@ test("off Vessel the check shows OONI's measurements of this network, and asks n
   await expect(rows.nth(4)).toContainText("暫時查不到");
   await expect(box.getByRole("link", { name: "常見問題的這一題" })).toHaveAttribute("href", "/faq/#q-risky");
   await expect(box.getByRole("link", { name: "OONI Probe" })).toHaveAttribute("href", "https://ooni.org/install/");
-  await expect(box.getByRole("link", { name: "到 OONI Explorer 看這個網路的細節" })).toHaveAttribute("href", "https://explorer.ooni.org/as/AS64500");
+  await expect(box.getByRole("link", { name: "到 OONI Explorer 查看完整資料" })).toHaveAttribute("href", "https://explorer.ooni.org/as/AS64500");
   await expect(box.getByRole("link", { name: "CC BY-NC-SA 4.0" })).toBeVisible();
   // the browser itself never reaches OONI or the services it reports on
   expect(visited).toBe(0);

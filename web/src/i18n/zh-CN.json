@@ -553,7 +553,7 @@
   "feedback.closed": "反馈暂时没有开放，请稍后再试。",
   "feedback.failed": "没有提交成功，请检查网络之后再试一次。",
   "check.title": "连接检测",
-  "check.lead": "在连上 Vessel 的设备上运行，确认连接经过 Vessel 的节点，DNS 查询也由 Vessel 的解析器处理。还没连上时，也会显示当前这个网络的公开测量。",
+  "check.lead": "在连上 Vessel 的设备上运行，确认连接经过 Vessel 的节点，DNS 查询也由 Vessel 的解析器处理。还没连上时，也会显示当前网络运营商的公开测量。",
   "check.button": "开始检测",
   "check.running": "检测中",
   "check.again": "再检测一次",
@@ -807,7 +807,7 @@
   "lists.log.20261107b": "有过滤的选项开始把查询转给 Quad9，补上名单覆盖不到的钓鱼网站",
   "lists.quad9.before": "除了名单，两个过滤选项也会把查询转给 Quad9（瑞士的非营利基金会）判断。它汇整约 20 个威胁情报来源，清单不在 Vessel 的节点上，可以到 ",
   "lists.quad9.after": "查单一域名。",
-  "check.network.title": "这个网络的公开测量",
+  "check.network.title": "网络运营商的公开测量",
   "check.network.loading": "查询中",
   "check.network.none": "无法判断当前的网络运营商，或测量数据暂时查不到。",
   "check.network.lead": "{name}（{asn}）过去 {days} 天在 OONI 的测量，OONI 是志愿者测量网络审查的项目。结果来自同一家运营商的志愿者，检测本身没有连到下列服务。",
@@ -825,7 +825,7 @@
   "check.network.confirmed": "，确认封锁 {n} 笔",
   "check.network.note": "异常不等于封锁，也可能是测量或网站本身的问题。",
   "check.network.few": "想补上测量很少的项目，可以安装 ",
-  "check.network.more": "到 OONI Explorer 看这个网络的细节",
+  "check.network.more": "到 OONI Explorer 查看完整数据",
   "check.network.privacy": "OONI 只收到运营商编号，收不到你的 IP，查询也不会保存。",
   "check.network.license": "数据授权是 "
 }
