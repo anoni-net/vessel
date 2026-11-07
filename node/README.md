@@ -50,6 +50,8 @@ bash /opt/vessel-node/setup.sh
 - 開啟網卡的 `rx-udp-gro-forwarding`：VPN 的 UDP 封包經 Docker 轉送，合併之後每個封包的 CPU 負擔比較低
 - `vm.swappiness` 調到 10：解析器的名單佔約 1 GB 記憶體，換到 swap 的話，查詢會突然變慢
 
+容器設了記憶體 1,600 MB 與 256 個行程的上限（`run.sh`），解析器載入名單時的高峰約 1.25 GB。裡面失控時不會連累容器外的 SSH、Tailscale 與 Beszel。現有的容器不必重建，用 `docker update --memory 1600m --memory-swap 1600m --pids-limit 256 vessel-node` 直接套用，不會斷線。
+
 UDP 的 socket 緩衝不用調，`amneziawg-go` 有 `NET_ADMIN`，會自己強制取得它要的大小。
 
 ```bash
@@ -218,6 +220,8 @@ install -m 644 host/vessel-probe-watch.service host/vessel-probe-watch.timer /et
 systemctl daemon-reload && systemctl enable --now vessel-probe-watch.timer
 /opt/vessel-node/host/vessel-probe-watch.sh show    # 最近 48 小時
 ```
+
+同一份裝置清單也保護這個埠。Docker 用 DNAT 轉送，每個來源都佔一筆連線追蹤，偽造來源的封包可能塞滿追蹤表，讓所有人的新連線失敗。追蹤開始之前，現有裝置的端點直接放行，其他來源共用每秒 2,000 個封包的額度，超過就丟棄並計數，寫進 `hourly.csv` 的 `dropped`。依 UDP 沒有回應時 30 秒的逾時計算，放行的量最多約佔 6 萬筆，低於調高後 26 萬筆的上限（`nf_conntrack_max`，每筆約 320 位元組，用到才佔記憶體）。清單每分鐘更新，換了網路的裝置在下一次更新之前跟其他來源共用額度，通常感覺不到，遇到攻擊時最多等一分鐘。讀不到容器時保留上一份清單，這張表不存在時埠完全開放，這裡出錯不會把人擋在外面。大流量的攻擊在塞滿主機的網路之前就要靠主機商處理，這些規則擋不了。
 
 判讀時要知道：使用者換了網路（例如從 Wi-Fi 換到行動網路），新位址在下一次同步之前送來的握手也會被算進去，所以平常就會有少量的數字。要注意的是突然增加、來源變多，或只出現在某一個城市的節點。兩個城市一起增加，多半是一般的網路掃描。只有一個城市增加的話，再對照那個城市使用者的分布。大區看的是登記地，掃描器與代理可能在任何地方，要看的是某一區持續增加，尤其是有人從同一區連線之後才出現的情況。
 
