@@ -97,6 +97,9 @@ test("the charts carry the numbers, with labels for screen readers", async ({ pa
   const overlap = page.getByTestId("lists-chart-overlap");
   await expect(overlap.locator("li svg")).toHaveCount(4);
   await expect(overlap.getByRole("img", { name: "TIF mini：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
+  // largest first, while the table keeps its order by filter
+  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^Multi PRO/, /^TIF mini/, /^165/, /^數位產業署/]);
+  await expect(page.getByTestId("lists-table").locator("tbody tr").first()).toContainText("HaGeZi Threat");
   // rounded down, so 99.8% does not read as nothing shared
   await expect(overlap.locator("li").filter({ hasText: "165" })).toContainText("獨有 99%");
   await expect(overlap.locator("li").filter({ hasText: "TIF mini" })).toContainText("獨有 46%");

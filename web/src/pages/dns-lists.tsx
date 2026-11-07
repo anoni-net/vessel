@@ -12,6 +12,7 @@ const LISTS = [
   { id: "twmoda", href: "https://data.gov.tw/dataset/165027", used: "both" },
   { id: "ads", href: HAGEZI, used: "ads" },
 ] as const;
+const CHART_ORDER: readonly string[] = ["ads", "malware", "tw165", "twmoda"];
 const EXCLUDE_FILE = "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt";
 // the names in node/exclude.txt; tests/dns-lists.spec.ts checks that the two match
 export const EXCLUDED = [
@@ -80,6 +81,9 @@ export function DnsLists() {
   }, []);
 
   const row = (id: string) => summary?.lists.find((l) => l.id === id);
+  // the chart compares sizes, so largest first. Before the numbers arrive the usual order, so the rows do not move
+  const byDomains = [...LISTS].sort((a, b) =>
+    summary ? (row(b.id)?.domains ?? 0) - (row(a.id)?.domains ?? 0) : CHART_ORDER.indexOf(a.id) - CHART_ORDER.indexOf(b.id));
   const count = (n: number | undefined) =>
     n !== undefined ? formatCount(locale, n) : failed ? "–" : <SkLine w="short" />;
 
@@ -139,7 +143,7 @@ export function DnsLists() {
                 <li><span class="lists-key lists-key--rest" />{t["lists.chart.shared"]}</li>
               </ul>
               <ul class="plain lists-chart__bars">
-                {LISTS.map((l) => {
+                {byDomains.map((l) => {
                   const r = row(l.id);
                   const name = t[`lists.chart.${l.id}`];
                   const most = summary ? Math.max(...summary.lists.map((x) => x.domains)) : 1;
