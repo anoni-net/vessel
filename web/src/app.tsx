@@ -189,6 +189,7 @@ export function App({ url }: { url?: string } = {}) {
                 <li><a href={href("/learn/")}>{t["learn.title"]}</a></li>
                 <li><a href={href("/faq/")}>{t["nav.faq"]}</a></li>
                 <li><a href={href("/dns/")}>{t["dns.title"]}</a></li>
+                <li><a href={href("/dns/lists/")}>{t["lists.title"]}</a></li>
               </ul>
             </nav>
             <nav aria-labelledby="footer-checks" class="title-block__cell footer-group">

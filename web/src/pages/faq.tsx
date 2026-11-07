@@ -22,7 +22,7 @@ const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices
 export const faqAnchor = (id: Question) => `q-${id}`;
 
 function Questions({ ids }: { ids: readonly Question[] }) {
-  const { t, locale } = useCtx();
+  const { href, t, locale } = useCtx();
   const target = typeof location === "undefined" ? "" : location.hash.slice(1);
   return (
     <div class="faq">
@@ -30,6 +30,7 @@ function Questions({ ids }: { ids: readonly Question[] }) {
         <details class="faq__item" id={faqAnchor(id)} open={target === faqAnchor(id)}>
           <summary>{t[`faq.${id}.q` as MessageKey]}</summary>
           <p>{t[`faq.${id}.a` as MessageKey]}</p>
+          {id === "filter" && <p><a href={href("/dns/lists/")}>{t["lists.title"]}</a></p>}
           {id === "risky" && <p><a href={`${DOCS_SITE}${LOCALE_PATH[locale]}/scenarios/asia-travel/`} target="_blank" rel="noopener">{t["faq.risky.link"]}</a></p>}
         </details>
       ))}

@@ -121,8 +121,8 @@ export function DnsLists() {
           <li class={`card card--flat${c === "malware" ? " card--tint" : ""}`}>
             <h3 class="lists-choice__name">
               <Layers filter={c} />
-              {t[`filter.${c}`]}
-              {c === "malware" && <span class="badge">{t["lists.choose.default"]}</span>}
+              {t[`protect.${c}`]}
+              {c === "malware" && <span class="badge badge--active">{t["protect.recommended"]}</span>}
             </h3>
             <p>{t[`lists.choose.${c}`]}</p>
           </li>
@@ -132,7 +132,7 @@ export function DnsLists() {
 
       <div class="lists-cols">
         <div class="lists-col" data-testid="lists-trouble">
-          <h2>{t["lists.trouble.title"]}</h2>
+          <h2 id="trouble">{t["lists.trouble.title"]}</h2>
           <ol class="lists-steps">
             <li>{t["lists.trouble.1"]}</li>
             <li>{t["lists.trouble.2"]}<a href={href("/dns/")}>{t["lists.trouble.2link"]}</a>{t["lists.trouble.2after"]}</li>

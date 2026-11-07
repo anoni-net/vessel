@@ -42,14 +42,15 @@ export function Dns() {
         ))}
       </div>
 
+      <p>
+        {t["dns.how.listsPage"]}<a href={href("/dns/lists/")}>{t["lists.title"]}</a>
+        {locale === "en" ? "." : "。"}
+      </p>
+
       <h2>{t["dns.how.title"]}</h2>
       <p>
         {t["dns.how.body"]} <a href={LISTS} target="_blank" rel="noopener">{t["dns.how.lists"]}</a>
         {t["dns.how.and"]}<a href={TW165} target="_blank" rel="noopener">{t["dns.how.tw165"]}</a>
-        {locale === "en" ? "." : "。"}
-      </p>
-      <p>
-        {t["dns.how.listsPage"]}<a href={href("/dns/lists/")}>{t["lists.title"]}</a>
         {locale === "en" ? "." : "。"}
       </p>
       <p>{t["dns.how.private"]}</p>
@@ -139,6 +140,7 @@ function Lookup() {
       {answer && (
         <div class={`lookup-answer${list ? " lookup-answer--hit" : ""}`} role="status" data-testid="lookup-answer">
           <p class="strong">{fmt(t[`dns.lookup.${list ?? "none"}`], { domain: answer.domain })}</p>
+          {list && <p class="small"><a href={href("/dns/lists/#trouble")}>{t["dns.lookup.why"]}</a></p>}
           {list === "tw165" && <p class="small">{t["dns.lookup.report165"]}</p>}
           {list === "twmoda" && <p class="small">{t["dns.lookup.reportModa"]}</p>}
           {list && !agency && (

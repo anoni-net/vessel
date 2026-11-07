@@ -307,6 +307,8 @@ export function NewDevice() {
               </label>
             ))}
           </fieldset>
+          {/* a new tab, so the device being set up is not lost */}
+          <p class="small"><a href={href("/dns/lists/")} target="_blank" rel="noopener">{t["protect.how"]}</a></p>
           <p class="muted small">
             {t["filter.doh"]}{" "}
             {/* a new tab, so the device being set up is not lost */}

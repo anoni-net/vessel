@@ -25,10 +25,12 @@ test("the page answers what to pick first, then what to do when a site will not 
   await backend(page);
   await page.goto("/dns/lists/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("網域過濾的名單");
-  await expect(page.locator(".lead")).toContainText("選預設的「擋惡意網站」");
+  await expect(page.locator(".lead")).toContainText("選建議的「擋惡意網站」");
   const choices = page.getByTestId("lists-choices").locator("li");
   await expect(choices).toHaveCount(3);
-  await expect(choices.nth(1)).toContainText("預設");
+  // the same words as the step of making a device, and how the device list names them
+  await expect(choices.locator("h3")).toHaveText(["不過濾", /^＋擋惡意網站\s*建議$/, "＋再擋廣告與追蹤"]);
+  await expect(page.getByTestId("lists-choose-note")).toContainText("裝置清單上會顯示「不過濾」、「擋惡意網站」或「擋惡意網站、廣告與追蹤」");
   // the same strength marks as when making a device: one, two and three filled
   for (const [i, filled] of [[0, 1], [1, 2], [2, 3]] as const) {
     await expect(choices.nth(i).locator(".layers > span")).toHaveCount(3);
@@ -109,7 +111,7 @@ test("the page lists the same names as node/exclude.txt", async ({ page }) => {
 test("every language has the page, and the DNS filter page links to it", async ({ page }) => {
   await backend(page);
   await page.goto("/en/dns/");
-  await page.getByRole("link", { name: "The lists behind the DNS filter" }).click();
+  await page.locator(".dns-page").getByRole("link", { name: "The lists behind the DNS filter" }).click();
   await expect(page).toHaveURL(/\/en\/dns\/lists\/$/);
   await expect(page.locator(".lead")).toContainText("Block malware");
   await page.goto("/zh-cn/dns/lists/");
@@ -254,4 +256,20 @@ test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is a
   await openMore(page);
   await expect(page.getByRole("table")).toHaveCount(1);
   await expect(page.getByRole("columnheader")).toHaveCount(2);
+});
+
+test("the page can be reached from the footer, the FAQ and the DNS filter page, and step by anchor", async ({ page }) => {
+  await backend(page);
+  await page.goto("/faq/");
+  await expect(page.locator("footer").getByRole("link", { name: "網域過濾的名單" })).toHaveAttribute("href", "/dns/lists/");
+  const filter = page.locator("details#q-filter");
+  await filter.locator("summary").click();
+  await expect(filter.getByRole("link", { name: "網域過濾的名單" })).toHaveAttribute("href", "/dns/lists/");
+  await page.goto("/dns/");
+  // near the options, above how it works
+  const link = page.locator(".dns-page").getByRole("link", { name: "網域過濾的名單" });
+  const how = page.getByRole("heading", { name: "運作方式" });
+  expect((await link.boundingBox())!.y).toBeLessThan((await how.boundingBox())!.y);
+  await page.goto("/dns/lists/#trouble");
+  await expect(page.getByRole("heading", { name: "網站打不開時" })).toBeInViewport();
 });
