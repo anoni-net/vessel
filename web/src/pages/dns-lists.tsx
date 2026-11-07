@@ -37,6 +37,21 @@ const KINDS_165 = [
   ["other", 1339],
 ] as const;
 const KINDS_165_TOTAL = 93839;
+// Measured, not live: update these with the text around them when a measurement is repeated. Each row is the share
+// blocked by Vessel's malware filter, its ads filter, Quad9 (9.9.9.9) and Cloudflare (1.1.1.2).
+const COMPARE = [
+  ["phishNew", "1–2%", "1–4%", "2–12%", "4–59%"],
+  ["phishDay", "4–82%", "14–84%", "27–100%", "72–85%"],
+  ["malware", "71%", "93%", "66%", "55%"],
+  ["twScam", "100%", "100%", "0%", "1–2%"],
+  ["tracking", "0%", "93%", "0%", "0%"],
+] as const;
+// phishing sites a day after they first appeared, by who reported them
+const PHISHING = [
+  ["certpl", 2028, 82, 84, 100, 85],
+  ["openphish", 1531, 9, 16, 40, 74],
+  ["phishunt", 109, 4, 14, 27, 72],
+] as const;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 4] as const;
 const QUESTIONS = ["blocked", "log", "speed", "sites", "ads", "change", "allow"] as const;
@@ -90,6 +105,17 @@ function Bar({ label, first, rest = 0, of, firstName, restName }: {
           <rect class="lists-bar__first" width="4" height="14" />
         </>
       )}
+    </svg>
+  );
+}
+
+/** One bar out of 100%: Vessel's in the solid color, the other services' hatched, labelled beside it in the text. */
+function ShareBar({ label, value, vessel }: { label: string; value: number; vessel: boolean }) {
+  return (
+    <svg class="lists-bar__plot" width="100%" height="14" role="img" aria-label={`${label} ${value}%`}>
+      {vessel
+        ? <rect class="lists-bar__first" width={`${value}%`} height="14" rx="4" />
+        : <rect fill={`url(#${HATCH})`} width={`${value}%`} height="14" rx="4" />}
     </svg>
   );
 }
@@ -189,14 +215,6 @@ export function DnsLists() {
           <p>{t["lists.gov.2"]}</p>
           <p>{t["lists.gov.3"]}</p>
           <p>{t["lists.gov.none"]}</p>
-
-          <h2>{t["lists.coverage.title"]}</h2>
-          <p>{t["lists.coverage.1"]}</p>
-          <p>{t["lists.coverage.2"]}</p>
-          <p>{t["lists.coverage.3"]}<a href={href("/dns/")}>{t["dns.title"]}</a>{t["lists.coverage.3after"]}</p>
-          <p>
-            {t["lists.coverage.risky"]}<a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["lists.coverage.riskyLink"]}</a>{locale === "en" ? "." : "。"}
-          </p>
         </div>
         <div class="lists-col" data-testid="lists-col-problems">
           <h2>{t["lists.rules.title"]}</h2>
@@ -209,8 +227,81 @@ export function DnsLists() {
         </div>
       </div>
 
+      <h2>{t["lists.coverage.title"]}</h2>
+      <p class="lists-prose">{t["lists.coverage.lead"]}</p>
+      <div class="lists-compare-wrap">
+        {/* explicit roles: on phones the CSS makes the rows blocks, and browsers then drop the table's semantics */}
+        <table role="table" class="lists-compare" data-testid="lists-compare">
+          <thead role="rowgroup">
+            <tr role="row">
+              <th role="columnheader" scope="col">{t["lists.compare.kind"]}</th>
+              <th role="columnheader" scope="col">Vessel {t["filter.malware"]}</th>
+              <th role="columnheader" scope="col">Vessel {t["filter.ads"]}</th>
+              <th role="columnheader" scope="col">Quad9</th>
+              <th role="columnheader" scope="col">Cloudflare <code>1.1.1.2</code></th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {COMPARE.map(([row, malware, ads, quad9, cloudflare]) => (
+              <tr role="row">
+                <th role="rowheader" scope="row">{t[`lists.compare.${row}`]}</th>
+                <td role="cell" class="lists-compare__vessel" data-label={`Vessel ${t["filter.malware"]}`}>{malware}</td>
+                <td role="cell" class="lists-compare__vessel" data-label={`Vessel ${t["filter.ads"]}`}>{ads}</td>
+                <td role="cell" data-label="Quad9">{quad9}</td>
+                <td role="cell" data-label="Cloudflare 1.1.1.2">{cloudflare}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul class="lists-prose">
+        <li>{t["lists.coverage.phishing"]}</li>
+        <li>{t["lists.coverage.taiwan"]}</li>
+        <li>{t["lists.coverage.tracking"]}</li>
+      </ul>
+      <p class="lists-prose">{t["lists.coverage.2"]}</p>
+      <p class="lists-prose">{t["lists.coverage.3"]}<a href={href("/dns/")}>{t["dns.title"]}</a>{t["lists.coverage.3after"]}</p>
+      <p class="lists-prose">
+        {t["lists.coverage.risky"]}<a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["lists.coverage.riskyLink"]}</a>{locale === "en" ? "." : "。"}
+      </p>
+
       <details class="lists-more" data-testid="lists-more">
         <summary>{t["lists.more.title"]}</summary>
+        <h2>{t["lists.measure.title"]}</h2>
+        <p class="lists-prose">{t["lists.measure.lead"]}</p>
+        <HatchDefs />
+        <ul class="plain lists-chart__legend">
+          <li><span class="lists-key lists-key--first" aria-hidden="true" />Vessel</li>
+          <li>
+            <svg class="lists-key" width="12" height="12" aria-hidden="true"><rect width="12" height="12" fill={`url(#${HATCH})`} /></svg>
+            {t["lists.measure.others"]}
+          </li>
+        </ul>
+        <div class="lists-panels" data-testid="lists-phishing">
+          {PHISHING.map(([source, sites, malware, ads, quad9, cloudflare]) => (
+            <figure class="lists-chart">
+              <figcaption class="lists-chart__title">
+                {t[`lists.measure.${source}`]}
+                <span class="muted small"> · {fmt(t["lists.measure.sites"], { n: formatCount(locale, sites) })}</span>
+              </figcaption>
+              <ul class="plain lists-chart__bars">
+                {([[`Vessel ${t["filter.malware"]}`, malware, true], [`Vessel ${t["filter.ads"]}`, ads, true], ["Quad9", quad9, false], ["Cloudflare 1.1.1.2", cloudflare, false]] as const).map(([name, value, vessel]) => (
+                  <li>
+                    <div class="lists-bar__head"><span>{name}</span><span class="lists-bar__value">{value}%</span></div>
+                    <ShareBar label={name} value={value} vessel={vessel} />
+                  </li>
+                ))}
+              </ul>
+            </figure>
+          ))}
+        </div>
+        <ul class="lists-prose">
+          <li>{t["lists.measure.how"]}</li>
+          <li>{t["lists.measure.bias"]}</li>
+          <li>{t["lists.measure.other"]}</li>
+          <li>{t["lists.measure.taiwan"]}</li>
+          <li>{t["lists.measure.date"]}</li>
+        </ul>
         <div class="lists-cols">
           <div class="lists-col">
             <h2>{t["lists.share.title"]}</h2>
@@ -227,7 +318,6 @@ export function DnsLists() {
             )}
             {!failed && (
               <figure class="lists-chart" data-testid="lists-chart-overlap">
-                <HatchDefs />
                 <figcaption class="lists-chart__title">{t["lists.chart.overlap"]}</figcaption>
                 <ul class="plain lists-chart__legend">
                   <li><span class="lists-key lists-key--first" aria-hidden="true" />{t["lists.chart.only"]}</li>

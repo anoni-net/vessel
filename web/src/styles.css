@@ -819,6 +819,30 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-col .faq { max-width: none; }
 .lists-more { margin-top: 16px; border-top: 2px solid var(--ink); }
 .lists-more > summary { width: fit-content; min-height: 24px; padding-block: 16px 8px; color: var(--ink); font-size: 20px; font-weight: 700; cursor: pointer; }
+.lists-compare-wrap { margin-top: 4px; }
+.lists-compare { width: 100%; border-collapse: collapse; font-size: 15px; }
+.lists-compare th, .lists-compare td { padding: 12px; text-align: end; vertical-align: top; border-bottom: 1px solid var(--line); }
+.lists-compare thead th { font-size: 14px; color: var(--text); border-bottom: 2px solid var(--ink); }
+.lists-compare th:first-child { text-align: start; }
+.lists-compare tbody th { font-weight: 700; color: var(--text); }
+.lists-compare td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lists-compare__vessel { background: var(--tint); font-weight: 700; }
+@media (max-width: 640px) {
+  /* on phones each row becomes a block, with the column name beside each value; the column names stay for screen readers */
+  .lists-compare thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .lists-compare, .lists-compare tbody, .lists-compare tr { display: block; }
+  .lists-compare tr { margin-bottom: 12px; border: 1px solid var(--ink); border-radius: var(--radius); }
+  .lists-compare tbody th { display: block; padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: start; }
+  .lists-compare td { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border: 0; white-space: normal; }
+  .lists-compare td::before { content: attr(data-label); font-weight: 400; color: var(--text); text-align: start; }
+}
+.lists-panels { display: grid; gap: 24px; }
+@media (min-width: 960px) {
+  .lists-prose { max-width: 760px; }
+  .lists-panels { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+}
+.lists-more > h2 { margin: 16px 0 8px; }
+.lists-more > .lists-prose, .lists-more > .lists-chart__legend { margin-block: 12px; }
 .lists-chart { margin: 8px 0; }
 .lists-chart__title { font-weight: 700; color: var(--text); }
 .lists-page .lists-chart__legend { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 14px; color: var(--muted); }
