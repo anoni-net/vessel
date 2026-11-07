@@ -97,7 +97,6 @@ test("the rest of the page stays when the numbers cannot be read", async ({ page
   await openMore(page);
   await expect(page.getByTestId("lists-excluded")).toContainText("from-ia.com");
   await expect(page.getByTestId("lists-chart-overlap")).toHaveCount(0);
-  await expect(page.getByTestId("lists-chart-kinds").getByRole("img")).toHaveCount(5);
 });
 
 test("the page lists the same names as node/exclude.txt", async ({ page }) => {
@@ -180,9 +179,6 @@ test("the charts carry the numbers, with labels for screen readers", async ({ pa
   // the longest list fills the width, the others in proportion
   const ads = overlap.getByRole("img", { name: /^廣告與追蹤/ });
   expect(await ads.locator("rect.lists-bar__first").first().getAttribute("width")).toBe(`${(149750 / 219320) * 100}%`);
-  const kinds = page.getByTestId("lists-chart-kinds");
-  await expect(kinds.getByRole("img")).toHaveCount(5);
-  await expect(kinds.getByRole("img", { name: "金融保險 53%" })).toBeVisible();
 });
 
 const luminance = (hex: string) => {

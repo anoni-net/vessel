@@ -28,15 +28,6 @@ export const EXCLUDED = [
   ["gomlab.com", "delisted"],
   ["playinfo.gomlab.com", "delisted"],
 ] as const;
-// the 165 dataset by its 網站性質 field, December 2025 to September 2026; update with the text around the chart
-const KINDS_165 = [
-  ["finance", 50043],
-  ["shopping", 26059],
-  ["it", 11701],
-  ["transport", 4697],
-  ["other", 1339],
-] as const;
-const KINDS_165_TOTAL = 93839;
 // Measured, not live: update these with the text around them when a measurement is repeated. Each row is the share
 // blocked by Vessel's malware filter, its ads filter, Quad9 (9.9.9.9) and Cloudflare (1.1.1.2).
 const COMPARE = [
@@ -365,25 +356,6 @@ export function DnsLists() {
               </figure>
             )}
             <p>{t["lists.share.size"]}</p>
-            <p>{t["lists.share.categories"]}</p>
-            <figure class="lists-chart" data-testid="lists-chart-kinds">
-              <figcaption class="lists-chart__title">{t["lists.chart.kinds"]}</figcaption>
-              <ul class="plain lists-chart__bars">
-                {KINDS_165.map(([kind, n]) => {
-                  const name = t[`lists.chart.kind.${kind}`];
-                  const share = `${Math.round((n / KINDS_165_TOTAL) * 100)}%`;
-                  return (
-                    <li>
-                      <div class="lists-bar__head">
-                        <span>{name}</span>
-                        <span class="lists-bar__value">{share}</span>
-                      </div>
-                      <Bar label={`${name} ${share}`} first={n} of={KINDS_165_TOTAL} firstName={`${formatCount(locale, n)}`} />
-                    </li>
-                  );
-                })}
-              </ul>
-            </figure>
           </div>
 
           <div class="lists-col">
