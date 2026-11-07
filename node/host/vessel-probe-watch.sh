@@ -6,13 +6,20 @@
 # public list. The addresses themselves stay in kernel memory, in an nftables set whose entries expire within the hour,
 # and are never printed or written. An address that is a peer's endpoint by the end of the hour is left out of the
 # zones, so a device that changed networks is not counted as a probe from there.
+#
+# The peer set also guards the port. Docker forwards the port with DNAT, so every source takes an entry in the connection
+# tracking table; forged sources could fill it and stop everyone's new connections. Before tracking starts, peers pass
+# and the rest share GUARD_RATE, so what gets through stays well under TRACK_MAX even at conntrack's 30 s for an unanswered
+# UDP flow. Without this table (nothing has run yet) the port is open, so a failure here cannot lock anyone out.
 #   vessel-probe-watch.sh tick    put the peers' current endpoints in the peer set; on the hour, log and reset
 #   vessel-probe-watch.sh show    print the last 48 hours
 set -euo pipefail
 D=/opt/vessel-node
 DATA=/var/lib/vessel-probe
 LOG=$DATA/hourly.csv
-HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac
+HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac,dropped
+GUARD_RATE=2000
+TRACK_MAX=262144
 # shellcheck source=/dev/null
 . $D/node.env
 port=${LISTEN_PORT:-443}
@@ -22,6 +29,8 @@ setup() {
   dev=$(ip -o route show default | awk '{print $5; exit}')
   [ -n "$dev" ] || { echo "no default route" >&2; exit 1; }
   nft delete table inet vessel_probe 2>/dev/null || true
+  # the module loads with Docker, after sysctl.d runs at boot, so it is set here
+  sysctl -qw net.netfilter.nf_conntrack_max=$TRACK_MAX || true
   # before Docker's DNAT (priority -100), so the port is still the one the packet was sent to
   nft -f - <<EOF
 table inet vessel_probe {
@@ -30,6 +39,14 @@ table inet vessel_probe {
   set seen { type ipv4_addr; flags dynamic, timeout; timeout 1h; size 65536; }
   set seen6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
   counter probes {}
+  counter dropped {}
+  chain guard {
+    type filter hook prerouting priority raw; policy accept;
+    iifname "$dev" udp dport $port ip saddr @peers accept
+    iifname "$dev" udp dport $port ip6 saddr @peers6 accept
+    iifname "$dev" udp dport $port limit rate $GUARD_RATE/second burst $(( GUARD_RATE * 2 )) packets accept
+    iifname "$dev" udp dport $port counter name dropped drop
+  }
   chain prerouting {
     type filter hook prerouting priority -160; policy accept;
     iifname "$dev" udp dport $port ip saddr != @peers counter name probes update @seen { ip saddr }
@@ -40,14 +57,16 @@ EOF
 }
 
 sync_peers() {
-  local v4="" v6="" ep host
+  local v4="" v6="" ep host endpoints
+  # no answer from the container: keep the last set, an empty one would hold every device to GUARD_RATE
+  endpoints=$(docker exec vessel-node awg show awg0 endpoints) || return 0
   while read -r _ ep; do
     [ "$ep" = "(none)" ] && continue
     host=${ep%:*}
     host=${host#[}
     host=${host%]}
     if [[ $host == *:* ]]; then v6+="$host, "; else v4+="$host, "; fi
-  done < <(docker exec vessel-node awg show awg0 endpoints)
+  done <<<"$endpoints"
   {
     echo "flush set inet vessel_probe peers"
     echo "flush set inet vessel_probe peers6"
@@ -124,8 +143,9 @@ PY
 }
 
 report() {
-  local packets sources hour by_zone
+  local packets sources hour by_zone dropped
   packets=$(nft -j reset counter inet vessel_probe probes | python3 -c 'import json,sys; print(next(x["counter"]["packets"] for x in json.load(sys.stdin)["nftables"] if "counter" in x))')
+  dropped=$(nft -j reset counter inet vessel_probe dropped | python3 -c 'import json,sys; print(next(x["counter"]["packets"] for x in json.load(sys.stdin)["nftables"] if "counter" in x))')
   sources=$(( $(count seen) + $(count seen6) ))
   mkdir -p $DATA
   # a problem here must not lose the hour's two counts
@@ -135,13 +155,16 @@ report() {
   hour=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:00Z)
   [ -f $LOG ] || echo "$HEADER" > $LOG
   # rows from before the zone columns keep them empty
-  if [ "$(head -n 1 $LOG)" != "$HEADER" ]; then sed -i -e "1s/.*/$HEADER/" -e '2,$s/$/,,,,,,,/' $LOG; fi
-  echo "$hour,$packets,$sources,$by_zone" >> $LOG
+  if [ "$(head -n 1 $LOG)" != "$HEADER" ]; then
+    # short rows, from before these columns, get empty ones
+    awk -F, -v OFS=, -v h="$HEADER" -v n="$(awk -F, '{print NF; exit}' <<<"$HEADER")" 'NR==1{print h; next} {for(i=NF+1;i<=n;i++) $i=""; print}' $LOG > $LOG.new && mv $LOG.new $LOG
+  fi
+  echo "$hour,$packets,$sources,$by_zone,$dropped" >> $LOG
 }
 
 case "${1:-tick}" in
   tick)
-    nft list table inet vessel_probe >/dev/null 2>&1 || setup
+    nft list chain inet vessel_probe guard >/dev/null 2>&1 || setup
     sync_peers
     if [ "$(date -u +%M)" = "00" ]; then report; fi
     ;;
