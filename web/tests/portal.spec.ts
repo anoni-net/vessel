@@ -64,15 +64,15 @@ test("home page in three languages", async ({ page }) => {
 test("frequently asked questions", async ({ page }) => {
   await page.goto("/");
   const faq = page.locator("#faq");
-  await expect(faq.locator("details")).toHaveCount(11);
-  const answer = faq.getByText("服務沒有你的 email，也只保存號碼的雜湊值");
+  await expect(faq.locator("details")).toHaveCount(4);
+  const answer = faq.getByText("節點無法取得 HTTPS 連線的內容");
   await expect(answer).toBeHidden();
-  await faq.getByText("帳號號碼弄丟了怎麼辦？").click();
+  await faq.getByText("服務看得到我在做什麼嗎？").click();
   await expect(answer).toBeVisible();
   await faq.getByRole("link", { name: "所有常見問題" }).click();
   await expect(page).toHaveURL(/\/faq\/$/);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
-  await expect(page.locator("details")).toHaveCount(35);
+  await expect(page.locator("details")).toHaveCount(36);
   // opened straight from a link elsewhere, the page loads fresh with the question open
   await page.goto("/dns/");
   await page.goto("/faq/#q-noTraffic");

@@ -6,17 +6,15 @@ import { SectionHead } from "./section-head.tsx";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "passkey", "share"],
-  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "phishing", "splitTunnel", "noTraffic", "trouble", "speed", "cities", "taipeiGeo"],
+  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "phishing", "splitTunnel", "noTraffic", "trouble", "blockedSite", "speed", "cities", "taipeiGeo"],
   rules: ["expire", "expired", "quota", "p2p"],
   privacy: ["see", "risky", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
 } as const;
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
 
-// the home page shows these, for someone deciding whether to use Vessel or setting up a first device; the rest are on
-// /faq/. Not here: protocols (the install step links to it, and "app" says what matters on the home page) and newPhone
-// (it comes up only after the first device)
-const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices", "noTraffic", "expire", "quota", "see", "risky"];
+// the home page shows what someone deciding whether to use Vessel asks first; everything else is on /faq/, one link away
+const ON_HOME: Question[] = ["invite", "cost", "see", "risky"];
 
 // /faq/#q-protocols opens that answer; the device setup links to it
 export const faqAnchor = (id: Question) => `q-${id}`;
@@ -31,6 +29,7 @@ function Questions({ ids }: { ids: readonly Question[] }) {
           <summary>{t[`faq.${id}.q` as MessageKey]}</summary>
           <p>{t[`faq.${id}.a` as MessageKey]}</p>
           {id === "filter" && <p><a href={href("/dns/lists/")}>{t["lists.title"]}</a></p>}
+          {id === "blockedSite" && <p><a href={href("/dns/lists/#trouble")}>{t["lists.trouble.title"]}</a></p>}
           {id === "phishing" && <p><a href={href("/dns/lists/#beyond-the-lists")}>{t["faq.phishing.link"]}</a></p>}
           {id === "risky" && <p><a href={`${DOCS_SITE}${LOCALE_PATH[locale]}/scenarios/asia-travel/`} target="_blank" rel="noopener">{t["faq.risky.link"]}</a></p>}
         </details>
