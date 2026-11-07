@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-test("beside the questions on wide screens, with translated layer names", async ({ page, isMobile }) => {
+// FIG. 06 is off for now (SHOW_ART in src/pages/faq.tsx)
+test.skip("beside the questions on wide screens, with translated layer names", async ({ page, isMobile }) => {
   test.skip(isMobile, "wide screens only");
   await page.goto("/");
   const art = page.locator(".faq-art");
