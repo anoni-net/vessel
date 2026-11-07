@@ -96,7 +96,7 @@ test("the charts carry the numbers, with labels for screen readers", async ({ pa
   await page.goto("/dns/lists/");
   const overlap = page.getByTestId("lists-chart-overlap");
   await expect(overlap.locator("li svg")).toHaveCount(4);
-  await expect(overlap.getByRole("img", { name: "TIF mini：共 195,355 個網域，其中 90,000 個只有這份有" })).toBeVisible();
+  await expect(overlap.getByRole("img", { name: "TIF mini：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
   // the longest list fills the width, the others in proportion
   const ads = overlap.getByRole("img", { name: /^Multi PRO/ });
   expect(await ads.locator("rect.lists-bar__first").first().getAttribute("width")).toBe(`${(149750 / 219320) * 100}%`);
