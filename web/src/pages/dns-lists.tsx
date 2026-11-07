@@ -37,7 +37,7 @@ const KINDS_165_TOTAL = 93839;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 4] as const;
 const CHOICES = ["none", "malware", "ads"] as const;
-const QUESTIONS = ["blocked", "log", "speed", "sites", "ads", "change"] as const;
+const QUESTIONS = ["blocked", "log", "speed", "sites", "ads", "change", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
   ["2026-11-07", "20261107"],
@@ -125,6 +125,7 @@ export function DnsLists() {
           </li>
         ))}
       </ul>
+      <p class="muted small" data-testid="lists-choose-note">{t["lists.choose.note"]}</p>
 
       <div class="lists-cols">
         <div class="lists-col" data-testid="lists-trouble">
@@ -132,10 +133,10 @@ export function DnsLists() {
           <ol class="lists-steps">
             <li>{t["lists.trouble.1"]}</li>
             <li>{t["lists.trouble.2"]}<a href={href("/dns/")}>{t["lists.trouble.2link"]}</a>{t["lists.trouble.2after"]}</li>
-            <li>{t["lists.trouble.3"]}</li>
+            <li>{t["lists.trouble.3"]}<a href={href("/devices/")}>{t["devices.title"]}</a>{t["lists.trouble.3after"]}</li>
             <li>{t["lists.trouble.4"]}<a href={href("/feedback/")}>{t["feedback.title"]}</a>{t["lists.trouble.4after"]}</li>
           </ol>
-          <p class="muted small">{t["lists.trouble.note"]}</p>
+          <p>{t["lists.trouble.note"]}</p>
         </div>
         <div class="lists-col" data-testid="lists-questions">
           <h2>{t["lists.faq.title"]}</h2>
@@ -144,6 +145,7 @@ export function DnsLists() {
               <details class="faq__item">
                 <summary>{t[`lists.faq.${q}.q`]}</summary>
                 <p>{t[`lists.faq.${q}.a`]}</p>
+                {q === "log" && <p>{t["lists.faq.log.more"]}<a href={href("/learn/")}>{t["learn.title"]}</a>{locale === "en" ? "." : "。"}</p>}
               </details>
             ))}
           </div>

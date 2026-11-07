@@ -34,7 +34,10 @@ test("the page answers what to pick first, then what to do when a site will not 
   const steps = page.getByTestId("lists-trouble").locator("ol > li");
   await expect(steps).toHaveCount(4);
   await expect(steps.nth(1).getByRole("link", { name: "網域過濾頁" })).toHaveAttribute("href", "/dns/");
+  await expect(steps.nth(2).getByRole("link", { name: "我的裝置" })).toHaveAttribute("href", "/devices/");
   await expect(steps.nth(3).getByRole("link", { name: "意見回覆" })).toBeVisible();
+  // changing the option means making the device again: said where people choose, not only in the questions
+  await expect(page.getByTestId("lists-choose-note")).toContainText("刪掉裝置再重新建立");
 });
 
 test("the common questions open, and say the filter keeps no record", async ({ page }) => {
@@ -42,7 +45,8 @@ test("the common questions open, and say the filter keeps no record", async ({ p
   await page.goto("/dns/lists/");
   const question = page.getByTestId("lists-questions").locator("details").filter({ hasText: "Vessel 會記錄我查了哪些網站嗎？" });
   await question.locator("summary").click();
-  await expect(question).toContainText("解析器不記錄查詢");
+  await expect(question).toContainText("不會留下紀錄");
+  await expect(question.getByRole("link", { name: "VPN 入門" })).toBeVisible();
 });
 
 test("the lists say what they block first, and are grouped by what people pick", async ({ page }) => {
