@@ -22,6 +22,7 @@ Vessel 是[匿名網路社群 anoni.net](https://anoni.net/) 架設的 VPN。連
 | `api/` | 入口網站的後端（FastAPI、PostgreSQL），開發中 |
 | `web/` | 入口網站的前端（Vite、Preact），開發中 |
 | `deploy/` | 後端的 compose 與 nginx 設定範例 |
+| `relay/` | 其他團體營運的入口：轉送 UDP 到節點的腳本與營運規範 |
 
 開發的方式與規則見 [AGENTS.md](AGENTS.md)。
 
@@ -55,6 +56,7 @@ Vessel is under development and will start as an invite-only test at <https://ve
 | `api/` | Portal backend (FastAPI, PostgreSQL), in progress |
 | `web/` | Portal frontend (Vite, Preact), in progress |
 | `deploy/` | Compose file and nginx example for the backend |
+| `relay/` | Entries run by other groups: a script that forwards UDP to a node, and the rules for running one (in Chinese) |
 
 See [AGENTS.md](AGENTS.md) (in Chinese) for how to develop.
 

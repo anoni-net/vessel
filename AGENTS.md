@@ -23,6 +23,7 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 | `api/` | 入口網站的後端，FastAPI 與 PostgreSQL 18 | `uv sync`、`uv run pytest -q`、`uv run ruff check .`、`uv run python -m app.migrate` |
 | `web/` | 入口網站的前端，Vite、Preact、TypeScript | `npm ci`、`npm run dev`、`npm run typecheck`、`npm run build`、`npm test` |
 | `deploy/` | 後端的 compose、部署腳本、nginx 設定範例，部署步驟見 `deploy/README.md` | `deploy/deploy.sh` |
+| `relay/` | 其他團體營運的入口：`vessel-relay` 用 nftables 把 UDP 轉送到節點，營運規範在 `relay/NORMS.md` | `sudo bash relay/test/netns-test.sh` |
 | `tools/dpi-check/` | 在本機檢查 AmneziaWG 的偽裝在 DPI 工具眼中的樣子，改了混淆參數或升級 AmneziaWG 之後執行，說明見 `tools/dpi-check/README.md` | `tools/dpi-check/run.sh` |
 
 首頁「Vessel 的做法」的四張圖（FIG. 02 到 05）由 `web/scripts/hero-figures.py` 產生，寫進 `web/src/hero-figures-data.ts`，要改圖時改腳本再執行 `python3 web/scripts/hero-figures.py`，不要手改資料檔。標籤的寬度取自三個語系的文字，改了圖上標籤的文字也要重新執行，CI 會用 `--check` 確認資料檔與腳本畫出的一致。
