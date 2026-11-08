@@ -49,7 +49,7 @@ export default {
     { h: "處理資料的第三方" },
     {
       ul: [
-        "Cloudflare：入口網站經過 Cloudflare，它可以取得造訪者的 IP 與瀏覽的頁面，適用 [Cloudflare 的隱私權政策](https://www.cloudflare.com/privacypolicy/)。入口網站已經關閉 Cloudflare 的分析腳本。Cloudflare 的 Page Shield 會抽樣在部分頁面加上回報用的設定，讓瀏覽器把頁面載入的腳本與連線的網址回報給 Cloudflare，用來偵測被植入的惡意腳本，回報的內容是網址，不含你輸入的資料。VPN 的連線不經過 Cloudflare",
+        "Cloudflare：入口網站經過 Cloudflare，它可以取得造訪者的 IP 與瀏覽的頁面，適用 [Cloudflare 的隱私權政策](https://www.cloudflare.com/privacypolicy/)。入口網站已經關閉 Cloudflare 的分析腳本。Cloudflare 的 Page Shield 會抽樣在部分頁面加上回報用的設定，讓瀏覽器把頁面載入的腳本與連線的網址回報給 Cloudflare，用來偵測被植入的惡意腳本，回報的內容是網址，不含你輸入的資料。連線檢測發現沒有經過 Vessel 時，瀏覽器另外向 Cloudflare 的公開 STUN 伺服器送出 UDP 封包，測試目前的網路能否送出 UDP，Cloudflare 會收到你的 IP。VPN 的連線不經過 Cloudflare",
         "DigitalOcean：新加坡的節點架在 DigitalOcean 的主機上。它是網路的提供者，可以看到進出節點的流量，但無法解開加密的連線",
         "Akamai：東京的節點架在 Akamai（原 Linode）的主機上，能看到的範圍跟 DigitalOcean 相同",
         "Greenhost：台北的節點架在 Greenhost 的主機上，能看到的範圍跟 DigitalOcean 相同",

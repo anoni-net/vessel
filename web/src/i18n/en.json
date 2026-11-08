@@ -839,5 +839,13 @@
   "check.state.pass": "Passed",
   "check.state.fail": "Not passed",
   "check.state.update": "Needs update",
-  "check.state.unknown": "Cannot tell"
+  "check.state.unknown": "Cannot tell",
+  "check.udp.title": "UDP",
+  "check.udp.lead": "Vessel connects over UDP. Your browser sends UDP packets to Cloudflare's public test server to see whether the network you are on lets UDP out.",
+  "check.udp.row": "UDP round trip",
+  "check.udp.running": "Testing",
+  "check.udp.pass": "The network you are on lets UDP out. That does not guarantee Vessel connects: a node's address can be blocked on its own.",
+  "check.udp.fail": "No answer within 5 seconds. The network you are on may block UDP. The test uses a different port from Vessel, so Vessel may still connect; if it does not, try another network, such as your phone's mobile data.",
+  "check.udp.unknown": "Your browser does not allow WebRTC, so this cannot be tested: Tor Browser, for example, or a setting or extension that turns WebRTC off.",
+  "check.udp.privacy": "The test server is run by Cloudflare and receives your IP address. The result stays on this page."
 }

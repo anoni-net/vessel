@@ -210,3 +210,103 @@ test("a pass reads as a pass", async ({ page }) => {
   await expect(rows.nth(0).locator(".badge")).toHaveText("通過");
   await expect(rows.nth(1).locator(".badge")).toHaveText("通過");
 });
+
+/** Replaces RTCPeerConnection: "pass" answers with a server-reflexive candidate (carrying a public address the page must
+ * never show), "fail" gathers only a host candidate, "silent" never finishes, "none" is a browser without WebRTC. */
+async function webrtc(page: Page, mode: "pass" | "fail" | "silent" | "none") {
+  await page.addInitScript((mode) => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__stun = { urls: [] as string[], closed: 0 };
+    if (mode === "none") {
+      delete w.RTCPeerConnection;
+      return;
+    }
+    const line = (typ: string, ip: string) => `candidate:1 1 udp 1 ${ip} 50000 typ ${typ}`;
+    class FakePeer extends EventTarget {
+      onicecandidate: ((e: { candidate: unknown }) => void) | null = null;
+      constructor(config: RTCConfiguration) {
+        super();
+        (w.__stun as { urls: string[] }).urls.push(String(config.iceServers?.[0]?.urls));
+      }
+      createDataChannel() { return {}; }
+      async createOffer() { return { type: "offer", sdp: "" }; }
+      async setLocalDescription() {
+        if (mode === "silent") return;
+        const emit = (candidate: unknown) => setTimeout(() => this.onicecandidate?.({ candidate }), 50);
+        emit({ type: "host", candidate: line("host", "abc.local") });
+        if (mode === "pass") emit({ type: "srflx", candidate: line("srflx", "203.0.113.9") });
+        else emit(null);
+      }
+      close() { (w.__stun as { closed: number }).closed += 1; }
+    }
+    w.RTCPeerConnection = FakePeer;
+  }, mode);
+}
+
+async function withStun(page: Page) {
+  await page.route("**/api/network", (route) => route.fulfill({ json: { asn: 64500, name: "EXAMPLE - Example Network", days: 30, tests: [], stun: "stun.example:443" } }));
+}
+
+test("off Vessel the check sends UDP to the STUN server, and never shows the address it learns", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [1]);
+  await withStun(page);
+  await webrtc(page, "pass");
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const box = page.getByTestId("check-udp");
+  await expect(box.getByRole("heading")).toHaveText("UDP 連線");
+  await expect(box.locator(".badge")).toHaveText("通過");
+  await expect(box).toHaveAttribute("aria-busy", "false");
+  await expect(box).toContainText("目前的網路可以送出 UDP");
+  expect(await page.evaluate(() => (window as unknown as { __stun: unknown }).__stun)).toEqual({ urls: ["stun:stun.example:443"], closed: 1 });
+  expect(await page.content()).not.toContain("203.0.113.9");
+  // it comes before OONI's measurements, which still show
+  const [udp, ooni] = await Promise.all([box.boundingBox(), page.getByTestId("check-network").boundingBox()]);
+  expect(udp!.y).toBeLessThan(ooni!.y);
+});
+
+for (const [mode, badge, words] of [
+  ["fail", "沒有通過", "測試用的埠跟 Vessel 不同"],
+  ["none", "無法判斷", "瀏覽器沒有開放 WebRTC"],
+] as const) {
+  test(`a UDP check that ends ${mode} says so`, async ({ page }) => {
+    await network(page, { region: null, ipv6: false }, [1]);
+    await withStun(page);
+    await webrtc(page, mode);
+    await page.goto("/check/");
+    await page.getByRole("button", { name: "開始檢測" }).click();
+    const box = page.getByTestId("check-udp");
+    await expect(box.locator(".badge")).toHaveText(badge);
+    await expect(box).toContainText(words);
+  });
+}
+
+test("no answer from the STUN server within 5 seconds is a fail", async ({ page }) => {
+  await page.clock.install();
+  await network(page, { region: null, ipv6: false }, [1]);
+  await withStun(page);
+  await webrtc(page, "silent");
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const box = page.getByTestId("check-udp");
+  await expect(box).toContainText("測試中");
+  await expect(box).toHaveAttribute("aria-busy", "true");
+  await page.clock.runFor(5100);
+  await expect(box.locator(".badge")).toHaveText("沒有通過");
+  expect(await page.evaluate(() => (window as unknown as { __stun: { closed: number } }).__stun.closed)).toBe(1);
+});
+
+test("without a STUN server, or through a Vessel node, there is no UDP check", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [1]);
+  await webrtc(page, "pass");
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  await expect(page.getByTestId("check-network").locator("li")).toHaveCount(5);
+  await expect(page.getByTestId("check-udp")).toHaveCount(0);
+  await withStun(page);
+  await page.route("**/api/exit", (route) => route.fulfill({ json: { region: "sg", ipv6: false } }));
+  await page.getByRole("button", { name: "再檢測一次" }).click();
+  await expect(page.getByTestId("check-exit")).toContainText("新加坡");
+  await expect(page.getByTestId("check-udp")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __stun: { urls: string[] } }).__stun.urls)).toEqual([]);
+});

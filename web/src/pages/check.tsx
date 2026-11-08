@@ -9,6 +9,7 @@ import { Spin } from "./skeleton.tsx";
 import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
+import { type UdpResult, udpCheck } from "../udpcheck.ts";
 
 type Result = { exit: Exit; dns: Verdict };
 
@@ -62,7 +63,7 @@ export function Check() {
                 {t["check.feedback"]}
               </a>
               {/* on Vessel, the network would be the node's host: of no use to the visitor */}
-              {(result.exit === "none" || result.exit === "ipv6") && <NetworkSection />}
+              {(result.exit === "none" || result.exit === "ipv6") && <NetworkChecks />}
             </>
           )}
           <p class="muted small">{t["check.privacy"]}</p>
@@ -98,15 +99,48 @@ function StateBadge({ state }: { state: CheckState }) {
   );
 }
 
-const LEVEL_BADGE = { ok: "ok", some: "down", most: "down", few: "unknown", unknown: "unknown" } as const;
-
-/** OONI's public measurements of the visitor's network. Nothing here tests the connection: see api/app/network.py. */
-function NetworkSection() {
-  const { t, href, locale } = useCtx();
+/** Off Vessel: whether the network lets UDP out, then what OONI has measured on it. One request gives both. */
+function NetworkChecks() {
   const [report, setReport] = useState<NetworkReport | "failed" | null>(null);
   useEffect(() => {
     api.network().then(setReport, () => setReport("failed"));
   }, []);
+  return (
+    <>
+      {report && report !== "failed" && report.stun && <UdpSection server={report.stun} />}
+      <NetworkSection report={report} />
+    </>
+  );
+}
+
+/** Sends UDP to a public STUN server, see udpcheck.ts. The result stays on the page. */
+function UdpSection({ server }: { server: string }) {
+  const { t } = useCtx();
+  const [result, setResult] = useState<UdpResult | null>(null);
+  useEffect(() => {
+    udpCheck(server).then(setResult, () => setResult("unknown"));
+  }, [server]);
+  return (
+    <section class="stack check-network" data-testid="check-udp" aria-busy={result === null}>
+      <h2>{t["check.udp.title"]}</h2>
+      <p>{t["check.udp.lead"]}</p>
+      <dl class="check-rows">
+        <div>
+          <dt class="strong">{t["check.udp.row"]}</dt>
+          <dd>{result === null ? <span class="small"><Spin />{t["check.udp.running"]}</span> : <StateBadge state={result} />}</dd>
+          {result !== null && <dd class="small check-rows__detail">{t[`check.udp.${result}`]}</dd>}
+        </div>
+      </dl>
+      <p class="muted small">{t["check.udp.privacy"]}</p>
+    </section>
+  );
+}
+
+const LEVEL_BADGE = { ok: "ok", some: "down", most: "down", few: "unknown", unknown: "unknown" } as const;
+
+/** OONI's public measurements of the visitor's network. Nothing here tests the connection: see api/app/network.py. */
+function NetworkSection({ report }: { report: NetworkReport | "failed" | null }) {
+  const { t, href, locale } = useCtx();
   const known = report && report !== "failed" && report.asn !== null ? report : null;
   const end = locale === "en" ? "." : "。";
   return (

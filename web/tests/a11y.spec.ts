@@ -54,8 +54,19 @@ for (const scheme of ["light", "dark"] as const) {
 }
 
 for (const scheme of ["light", "dark"] as const) {
-  test(`axe finds nothing in the network measurements on /check/, ${scheme}`, async ({ page }) => {
+  test(`axe finds nothing in the network measurements and the UDP check on /check/, ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
+    // a browser whose UDP gets through, see check.spec.ts
+    await page.addInitScript(() => {
+      (window as unknown as { RTCPeerConnection: unknown }).RTCPeerConnection = class {
+        onicecandidate: ((e: { candidate: unknown }) => void) | null = null;
+        addEventListener() {}
+        createDataChannel() { return {}; }
+        async createOffer() { return {}; }
+        async setLocalDescription() { setTimeout(() => this.onicecandidate?.({ candidate: { type: "srflx", candidate: "" } }), 50); }
+        close() {}
+      };
+    });
     await backend(page, false);
     await page.route("**/api/exit", (route) => route.fulfill({ json: { region: null, ipv6: false } }));
     await page.route("**/api/network", (route) => route.fulfill({ json: { asn: 64500, name: "EXAMPLE", days: 30, tests: [
@@ -64,10 +75,11 @@ for (const scheme of ["light", "dark"] as const) {
       { id: "telegram", level: "some", measurements: 100, anomaly_pct: 30, confirmed: 0 },
       { id: "whatsapp", level: "few", measurements: 3, anomaly_pct: 0, confirmed: 0 },
       { id: "tor", level: "unknown", measurements: 0, anomaly_pct: 0, confirmed: 0 },
-    ] } }));
+    ], stun: "stun.example:443" } }));
     await page.goto("/check/");
     await page.getByRole("button", { name: "開始檢測" }).click();
     await expect(page.getByTestId("check-network").locator("li")).toHaveCount(5);
+    await expect(page.getByTestId("check-udp").locator(".badge")).toHaveText("通過");
     await page.evaluate(axe.source);
     const found = await page.evaluate(async () => {
       const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {

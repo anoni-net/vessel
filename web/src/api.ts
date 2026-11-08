@@ -57,6 +57,8 @@ export interface NetworkReport {
   name: string | null;
   days: number;
   tests: { id: NetworkTest; level: "ok" | "some" | "most" | "few" | "unknown"; measurements: number; anomaly_pct: number; confirmed: number }[];
+  /** "host:port" of the STUN server for the UDP check, Cloudflare's public one unless the backend names another; null when it is turned off */
+  stun: string | null;
 }
 export type NetworkTest = "web_connectivity" | "signal" | "telegram" | "whatsapp" | "tor";
 
