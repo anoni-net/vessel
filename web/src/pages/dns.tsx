@@ -67,6 +67,7 @@ function DnsCheck() {
   const { t, href, locale } = useCtx();
   const [state, setState] = useState<"idle" | "running" | Verdict>("idle");
   const check = async () => {
+    if (state === "running") return;
     setState("running");
     setState(await runCheck());
   };
@@ -84,7 +85,7 @@ function DnsCheck() {
     <div class="card card--tint stack" data-testid="dns-check">
       <h2>{t["dns.check.title"]}</h2>
       <p>{t["dns.check.body"]}</p>
-      <button class="nb-button nb-button--primary" type="button" onClick={check} disabled={state === "running"} aria-busy={state === "running"}>
+      <button class="nb-button nb-button--primary" type="button" onClick={check} aria-disabled={state === "running"} aria-busy={state === "running"}>
         {state === "running" ? <><Spin />{t["dns.check.running"]}</> : t["dns.check.button"]}
       </button>
       <p role="status" class="strong">
@@ -107,6 +108,7 @@ function Lookup() {
   const [err, setErr] = useState("");
   const look = async (e: Event) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setErr("");
     setAnswer(null);
@@ -130,7 +132,7 @@ function Lookup() {
       <input id="lookup-domain" class="nb-input" required maxLength={2048} autoComplete="off" autoCapitalize="none"
         spellcheck={false} inputMode="url" placeholder={t["dns.lookup.placeholder"]} value={domain}
         onInput={(e) => setDomain(e.currentTarget.value)} />
-      <button class="nb-button nb-button--ink" type="submit" disabled={busy} aria-busy={busy}>
+      <button class="nb-button nb-button--ink" type="submit" aria-disabled={busy} aria-busy={busy}>
         {busy ? <><Spin />{t["dns.lookup.running"]}</> : t["dns.lookup.button"]}
       </button>
       {err && <p class="error" role="alert">{err}</p>}

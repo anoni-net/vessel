@@ -17,6 +17,7 @@ import {
   sendFeedback,
 } from "../feedback.ts";
 import { type MessageKey, fmt } from "../i18n/index.ts";
+import { focusHeading } from "../focus.ts";
 
 /** Optional single choice: a row of buttons, pressing the chosen one again clears it. */
 function Pick<T extends string>({ name, options, value, onChange }: {
@@ -67,6 +68,7 @@ export function Feedback() {
 
   const submit = async (e: Event) => {
     e.preventDefault();
+    if (busy) return;
     setTried(true);
     if (!feedbackReady(f)) return;
     setBusy(true);
@@ -75,7 +77,10 @@ export function Feedback() {
     const r = await sendFeedback(feedbackPayload({ ...f, message }, locale, from));
     setBusy(false);
     setResult(r);
-    if (r === "sent") window.scrollTo(0, 0);
+    if (r === "sent") {
+      window.scrollTo(0, 0);
+      focusHeading();
+    }
   };
 
   if (result === "sent") {
@@ -140,7 +145,7 @@ export function Feedback() {
         {result && (
           <p class="error" role="alert">{t[result === "closed" ? "feedback.closed" : "feedback.failed"]}</p>
         )}
-        <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+        <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
           {busy ? <><Spin />{t["feedback.sending"]}</> : t["feedback.submit"]}
         </button>
       </form>

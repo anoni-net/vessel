@@ -18,6 +18,7 @@ export function Check() {
   const { t, href } = useCtx();
   const [state, setState] = useState<"idle" | "running" | Result>("idle");
   const run = async () => {
+    if (state === "running") return;
     setState("running");
     const [exit, dns] = await Promise.all([exitCheck(), runCheck()]);
     setState({ exit, dns });
@@ -38,7 +39,7 @@ export function Check() {
         </div>
       ) : (
         <div class="card card--tint stack" data-testid="connection-check">
-          <button class="nb-button nb-button--primary" type="button" onClick={run} disabled={state === "running"} aria-busy={state === "running"}>
+          <button class="nb-button nb-button--primary" type="button" onClick={run} aria-disabled={state === "running"} aria-busy={state === "running"}>
             {state === "running" ? <><Spin />{t["check.running"]}</> : result ? t["check.again"] : t["check.button"]}
           </button>
           {result && (

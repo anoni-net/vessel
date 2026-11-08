@@ -106,6 +106,8 @@ a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3p
    keeps this as weak as a plain a:hover, so the footer's white links stay white */
 @media (hover: hover) { a:where(:not(.brand, .nb-button)):hover { color: var(--muted); } }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+/* headings and sections focused after a page or a step changes (focus.ts): a place to start from, not a control */
+main:focus, main [tabindex="-1"]:focus { outline: none; }
 h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); line-height: 1.2; font-weight: 700; color: var(--ink); }
 h2 { margin: 0 0 24px; font-size: clamp(24px, 4.6vw, 32px); font-weight: 700; color: var(--ink); }
 h3 { margin: 0; font-size: 19px; font-weight: 700; color: var(--ink); }
@@ -831,11 +833,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* a still ring reads as the letter C; the words alone say it is working */
 @media (prefers-reduced-motion: reduce) { .spin { display: none; } }
 [aria-busy="true"] { cursor: progress; }
-.nb-button[aria-busy="true"]:disabled { border-style: solid; border-color: var(--ink); background: var(--paper); color: var(--ink); }
-.nb-button--primary[aria-busy="true"]:disabled { background: var(--ink); color: var(--paper); }
-.nb-button--ink[aria-busy="true"]:disabled { background: var(--ink); color: var(--paper); }
-.nb-button--danger[aria-busy="true"]:disabled { background: var(--danger); color: var(--paper); }
-.link-button[aria-busy="true"]:disabled { color: var(--muted); }
+.nb-button[aria-busy="true"] { border-style: solid; border-color: var(--ink); background: var(--paper); color: var(--ink); }
+.nb-button--primary[aria-busy="true"] { background: var(--ink); color: var(--paper); }
+.nb-button--ink[aria-busy="true"] { background: var(--ink); color: var(--paper); }
+.nb-button--danger[aria-busy="true"] { background: var(--danger); color: var(--paper); }
+.link-button[aria-busy="true"] { color: var(--muted); }
+.nb-button[aria-busy="true"]:active { transform: none; }
 @media print {
   body * { visibility: hidden; }
   .printable, .printable * { visibility: visible; }

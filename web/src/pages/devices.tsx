@@ -12,6 +12,7 @@ import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
 import { Added, NextRead, useTween } from "./live.tsx";
 import { Busy, SkButton, SkCard, Spin } from "./skeleton.tsx";
+import { focusLater } from "../focus.ts";
 
 // The worker reads the nodes' counters every 5 minutes, so refreshing more often shows nothing new. The page asks
 // a little after each read is due, so the new numbers have landed; when a read is late, it asks again after 1, 2
@@ -153,6 +154,8 @@ export function Devices() {
       next.delete(d.id);
       return next;
     });
+    // the device's button went with it
+    focusLater(() => document.querySelector("main h1"), true);
   };
 
   if (err) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;

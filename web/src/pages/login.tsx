@@ -25,6 +25,7 @@ export function Login() {
 
   const submit = async (e: Event) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setErr("");
     try {
@@ -46,6 +47,7 @@ export function Login() {
   const [canKey, setCanKey] = useState(false);
   useEffect(() => setCanKey(passkeysSupported()), []);
   const passkey = async () => {
+    if (withKey) return;
     setWithKey(true);
     setKeyErr("");
     try {
@@ -81,7 +83,7 @@ export function Login() {
           onInput={(e) => setNumber(regroup(e.currentTarget, ACCOUNT))} aria-describedby="number-hint" />
         <p id="number-hint" class="muted small">{t["login.hint"]}</p>
         {err && <p class="error" role="alert">{err}</p>}
-        <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+        <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
           {busy ? <><Spin />{t["busy.login"]}</> : t["login.submit"]}
         </button>
       </form>
@@ -89,7 +91,7 @@ export function Login() {
       {canKey && (
         <div class="stack passkey-login" data-testid="passkey-login">
           <p class="muted small center">{t["passkey.or"]}</p>
-          <button class="nb-button" type="button" onClick={passkey} disabled={withKey} aria-busy={withKey}>
+          <button class="nb-button" type="button" onClick={passkey} aria-disabled={withKey} aria-busy={withKey}>
             {withKey ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.login"]}</>}
           </button>
           {keyErr && <p class="error" role="alert">{keyErr}</p>}
