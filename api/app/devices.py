@@ -88,7 +88,8 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
     name = body.name.strip()
     if not name:
         raise error(400, "invalid_name")
-    if not KEY.match(body.public_key) or not KEY.match(body.preshared_key) or body.public_key == body.preshared_key:
+    # fullmatch: a pattern ending in $ also takes a trailing newline
+    if not KEY.fullmatch(body.public_key) or not KEY.fullmatch(body.preshared_key) or body.public_key == body.preshared_key:
         raise error(400, "invalid_key")
     device_id = new_device_id()
     with conn.transaction():
