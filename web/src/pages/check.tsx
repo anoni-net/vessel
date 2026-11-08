@@ -1,12 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
-import { type NetworkReport, api } from "../api.ts";
+import { type NetworkReport, type Status, api } from "../api.ts";
 import { Icon } from "../icons.tsx";
 import { useCtx } from "../context.ts";
-import { formatCount } from "../format.ts";
-import { fmt } from "../i18n/index.ts";
+import { formatCount, formatTime } from "../format.ts";
+import { type MessageKey, fmt } from "../i18n/index.ts";
 import { faqAnchor } from "./faq.tsx";
 import { Spin } from "./skeleton.tsx";
-import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, passed } from "../connection.ts";
+import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, notConnected, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
 import { type UdpResult, udpCheck } from "../udpcheck.ts";
@@ -22,6 +22,7 @@ export function Check() {
     setState({ exit, dns });
   };
   const result = typeof state === "object" ? state : null;
+  const summary = !result ? null : passed(result.exit, result.dns) ? "ok" : notConnected(result.exit, result.dns) ? "off" : "problem";
   return (
     <section class="wrap narrow stack check-page">
       <h1>{t["check.title"]}</h1>
@@ -42,9 +43,11 @@ export function Check() {
           {result && (
             <>
               {/* the answer first, big enough to read at a glance; the two checks below say why */}
-              <p class={`check-verdict ${passed(result.exit, result.dns) ? "check-verdict--ok" : "check-verdict--bad"}`} role="status">
-                <Icon name={passed(result.exit, result.dns) ? "ok" : "cancel"} />
-                {passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}
+              <p class={`check-verdict check-verdict--${summary === "problem" ? "bad" : summary}`} role="status">
+                <Icon name={summary === "ok" ? "ok" : summary === "off" ? "wifi" : "cancel"} />
+                {summary === "off" ? (
+                  <span>{t["check.off"]}<span class="check-verdict__more">{t["check.off.more"]}</span></span>
+                ) : t[`check.${summary ?? "problem"}`]}
               </p>
               <dl class="check-rows">
                 <div>
@@ -58,12 +61,17 @@ export function Check() {
                   <dd class="small check-rows__detail" data-testid="check-dns">{t[`dns.check.${result.dns}`]}</dd>
                 </div>
               </dl>
+              {/* through a node: how that node is doing, from the status page */}
+              {!["none", "ipv6", "error"].includes(result.exit) && !isOld(result.exit) && <NodeStatus region={result.exit} />}
               {isOld(result.exit) && <a class="nb-button nb-button--ink" href={href("/devices/")}>{t["home.devices"]}</a>}
               <a class="nb-button" href={href(`/feedback/?from=check&check=${encodeCheck(result.exit, result.dns)}`)}>
                 {t["check.feedback"]}
               </a>
               {/* on Vessel, the network would be the node's host: of no use to the visitor */}
               {(result.exit === "none" || result.exit === "ipv6") && <NetworkChecks />}
+              {result.exit !== "none" && result.exit !== "ipv6" && result.exit !== "error" && (
+                <p class="small" data-testid="check-network-hint">{t["check.networkHint"]}</p>
+              )}
             </>
           )}
           <p class="muted small">{t["check.privacy"]}</p>
@@ -83,6 +91,33 @@ export function Check() {
       </div>
       </div>
     </section>
+  );
+}
+
+/** The node the visitor is on: its state and the latest notice about it, as /status/ shows them. Nothing when the status
+ *  cannot be read: the checks above already answer whether the connection works. */
+function NodeStatus({ region }: { region: string }) {
+  const { t, href, locale } = useCtx();
+  const [status, setStatus] = useState<Status | null>(null);
+  useEffect(() => {
+    api.status().then(setStatus, () => setStatus(null));
+  }, [region]);
+  const node = status?.regions.find((r) => r.id === region);
+  if (!status || !node) return null;
+  // newest first, as the API sends them; a notice for every region counts too
+  const notice = status.notices.find((n) => n.region === region || n.region === null);
+  const ongoing = notice && (notice.ends_at === null || new Date(notice.ends_at) > new Date());
+  const kind = notice ? t[`status.kind.${notice.kind}`] : "";
+  // sentences run on in Chinese; English needs the space
+  const gap = locale === "en" ? " " : "";
+  return (
+    <p class="small" data-testid="check-node">
+      {fmt(t["check.node"], { city: t[`region.${region}` as MessageKey] ?? region, state: t[`status.state.${node.state}`] })}
+      {gap}
+      {!notice ? t["status.none"] : ongoing ? fmt(t["check.node.ongoing"], { kind }) : fmt(t["check.node.last"], { kind, time: formatTime(locale, notice.starts_at) })}
+      {gap}
+      <a href={href("/status/")}>{t["status.title"]}</a>
+    </p>
   );
 }
 

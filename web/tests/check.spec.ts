@@ -42,6 +42,9 @@ test("a passing check, carried into feedback", async ({ page }) => {
   await expect(box.getByTestId("check-exit")).toHaveText("經過 Vessel 的新加坡節點。");
   await expect(box.getByTestId("check-dns")).toHaveText("正在使用 Vessel 的 DNS，會擋下惡意網站。");
   await expect(box.getByRole("status")).toContainText("兩項都通過");
+  // on Vessel the network checks would test the node, so the page says how to see the visitor's own network
+  await expect(box.getByTestId("check-network-hint")).toHaveText("想看目前網路的狀況，先關掉 VPN 再檢測一次。");
+  await expect(box.getByTestId("check-network")).toHaveCount(0);
   await expect(box.getByRole("button", { name: "再檢測一次" })).toBeVisible();
   expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
 
@@ -58,8 +61,22 @@ test("a passing check, carried into feedback", async ({ page }) => {
   expect(sent[0].data.from).toBe("check");
 });
 
+test("not connected at all: a plain summary, not a warning, and on to the network", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, []);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const box = page.getByTestId("connection-check");
+  await expect(box.getByRole("status")).toHaveText("目前沒有連上 Vessel。下方是目前網路的狀況。要檢查 Vessel 的連線，先在 App 打開通道再檢測一次。");
+  await expect(box.locator(".check-verdict--bad")).toHaveCount(0);
+  await expect(box.getByTestId("check-exit")).toContainText("可能是 VPN 沒有開");
+  await expect(box.getByTestId("check-network")).toBeVisible();
+  await expect(box.getByTestId("check-network-hint")).toHaveCount(0);
+  expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
+});
+
 for (const [exit, hidden, exitText] of [
-  [{ region: null, ipv6: false }, [], "可能是 VPN 沒有開"],
+  // Vessel's DNS without its exit: half set up, which is a problem
+  [{ region: null, ipv6: false }, [1], "可能是 VPN 沒有開"],
   [{ region: null, ipv6: true }, [1], "這次連線走 IPv6，沒有經過 Vessel。"],
   ["fail", [1, 2, 3], "無法完成出口的檢測，請稍後再試。"],
 ] as const) {
@@ -73,6 +90,38 @@ for (const [exit, hidden, exitText] of [
     expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
   });
 }
+
+for (const [notices, words] of [
+  [[{ region: "sg", kind: "restart", starts_at: "2026-11-08T01:56:33Z", ends_at: "2026-11-08T01:57:33Z" }], /^新加坡節點：正常。最近一次紀錄是 .+ 的節點重新啟動。服務狀態$/],
+  [[{ region: null, kind: "maintenance", starts_at: "2026-11-08T01:56:33Z", ends_at: null }], /^新加坡節點：正常。維護進行中。服務狀態$/],
+  [[{ region: "jp", kind: "outage", starts_at: "2026-11-08T01:56:33Z", ends_at: "2026-11-08T02:56:33Z" }], /^新加坡節點：正常。最近 30 天沒有維護或中斷的紀錄。服務狀態$/],
+] as const) {
+  test(`through a node, the check says how that node is doing: ${words}`, async ({ page }) => {
+    await network(page, { region: "sg", ipv6: false }, [1, 2]);
+    await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "ok" }], notices } }));
+    await page.goto("/check/");
+    await page.getByRole("button", { name: "開始檢測" }).click();
+    const node = page.getByTestId("check-node");
+    await expect(node).toHaveText(words);
+    await expect(node.getByRole("link", { name: "服務狀態" })).toHaveAttribute("href", "/status/");
+  });
+}
+
+test("off Vessel, or when the status cannot be read, there is no line about a node", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, []);
+  await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "sg", state: "ok" }], notices: [] } }));
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  await expect(page.getByTestId("check-network")).toBeVisible();
+  await expect(page.getByTestId("check-node")).toHaveCount(0);
+  await page.unroute("**/api/exit");
+  await page.route("**/api/exit", (route) => route.fulfill({ json: { region: "sg", ipv6: false } }));
+  await page.unroute("**/api/status");
+  await page.route("**/api/status", (route) => route.fulfill({ status: 500, json: { error: "x" } }));
+  await page.getByRole("button", { name: "再檢測一次" }).click();
+  await expect(page.getByTestId("check-exit")).toContainText("新加坡節點");
+  await expect(page.getByTestId("check-node")).toHaveCount(0);
+});
 
 test("the result can be left out, and a made-up one is ignored", async ({ page }) => {
   await network(page, { region: "jp", ipv6: false }, []);
