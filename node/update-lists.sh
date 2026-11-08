@@ -15,7 +15,7 @@
 #   cti.rpz      the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only).
 #                Every 6 hours, the longest its README recommends, at times that keep out of Taiwan's evening: it
 #                changes about a thousand names an hour, so each run reloads it, and the filter resolver stops
-#                answering while it does (1.8 times as long as the ad list on the same CPU, measured 2026-11-08)
+#                answering while it does (about 12 seconds on a 1 vCPU node, measured 2026-11-08)
 #   ads.rpz      HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
 # The names in exclude.txt are left out of all of them. Every list ends up as block entries only (block_only, zone_from).
 # node/test/update-lists-test.sh sources this file for its functions; run, it updates the lists.
