@@ -127,6 +127,8 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 ### 轉發給 Quad9
 
+台北節點連到的 Quad9 在新加坡，所以台北節點的 `filter.conf` 把 `forward-addr` 改成 Cloudflare 的 `1.1.1.2@853#security.cloudflare-dns.com` 與 `1.0.0.2@853#security.cloudflare-dns.com`，更新 `filter.conf` 時要保留這兩行。
+
 有過濾的 unbound 比對完名單之後，把其他查詢經 DNS over TLS 轉給 Quad9（`9.9.9.9`）。Quad9 判斷有害的網域回 NXDOMAIN，補上名單涵蓋不到的釣魚網站。不過濾的 unbound 不轉發。
 
 - Quad9 看得到節點的 IP 與查詢的網域，看不到裝置的 IP。TLS 讓節點的主機商與上游業者看不到查詢的內容
