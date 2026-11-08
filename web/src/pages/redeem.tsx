@@ -12,6 +12,7 @@ import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
 import { saveFile, savesInPlace } from "../save-file.ts";
 import { focusHeading } from "../focus.ts";
+import { announce } from "../announce.ts";
 
 export function Redeem() {
   const { t, href } = useCtx();
@@ -66,9 +67,10 @@ export function Redeem() {
         <label for="code" class="strong">{t["redeem.label"]}</label>
         <input id="code" class="nb-input nb-input--code mono" autoComplete="off" autoCapitalize="characters" spellcheck={false}
           required value={code} maxLength={groupedLength(INVITE)} placeholder="XXXX-XXXX-XXXX-XXXX"
-          onInput={(e) => setCode(regroup(e.currentTarget, INVITE))} aria-describedby="code-hint" />
+          onInput={(e) => setCode(regroup(e.currentTarget, INVITE))} aria-invalid={err ? true : undefined}
+          aria-describedby={err ? "code-error code-hint" : "code-hint"} />
         <p id="code-hint" class="muted small">{t["redeem.hint"]}</p>
-        {err && <p class="error" role="alert">{err}</p>}
+        {err && <p class="error" role="alert" id="code-error">{err}</p>}
         <p class="small">
           {t["redeem.read.before"]}<a href={href("/terms/")}>{t["terms.title"]}</a>{t["redeem.read.and"]}
           <a href={href("/privacy/")}>{t["privacy.title"]}</a>{t["redeem.read.after"]}
@@ -111,6 +113,7 @@ export function AccountNumber({ number, rotated = false, onContinue }: { number:
     try {
       await navigator.clipboard.writeText(number);
       setCopied(true);
+      announce(t["number.copied"]);
     } catch {
       /* clipboard can be blocked; the number is still on screen */
     }

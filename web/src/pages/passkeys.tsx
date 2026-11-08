@@ -8,6 +8,7 @@ import { Icon } from "../icons.tsx";
 import { IS_ONION } from "../site.ts";
 import { SkButton, SkField, SkLine, Spin } from "./skeleton.tsx";
 import { focusHeading, focusLater } from "../focus.ts";
+import { announce } from "../announce.ts";
 
 const LIMIT = 5;
 
@@ -88,10 +89,15 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
   const add = () => run("add", async () => {
     setList(await api.addPasskey(await createPasskey(await api.passkeyOptions()), label.trim()));
     setLabel("");
+    announce(t["passkey.addedNote"]);
   });
   const remove = (p: Passkey) => {
-    if (!window.confirm(fmt(t["passkey.confirmDelete"], { name: p.label || t["passkey.unnamed"] }))) return;
-    void run(p.id, async () => setList(await api.deletePasskey(p.id))).then(() => focusLater(() => heading.current, true));
+    const name = p.label || t["passkey.unnamed"];
+    if (!window.confirm(fmt(t["passkey.confirmDelete"], { name }))) return;
+    void run(p.id, async () => {
+      setList(await api.deletePasskey(p.id));
+      announce(fmt(t["devices.deleted"], { name }));
+    }).then(() => focusLater(() => heading.current, true));
   };
   const rotate = () => {
     if (!window.confirm(t["passkey.rotate.confirm"])) return;
@@ -123,8 +129,13 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
                 </span>
               </span>
               {busy === p.id
-                ? <span class="muted strong" role="status"><Spin />{t["busy.delete"]}</span>
-                : <button class="link-button" type="button" onClick={() => remove(p)} disabled={busy !== null}>{t["devices.delete"]}</button>}
+                ? <span class="muted strong"><Spin />{t["busy.delete"]}</span>
+                : (
+                  <button class="link-button" type="button" onClick={() => remove(p)} disabled={busy !== null}
+                    aria-label={fmt(t["devices.deleteNamed"], { name: p.label || t["passkey.unnamed"] })}>
+                    {t["devices.delete"]}
+                  </button>
+                )}
             </li>
           ))}
         </ul>

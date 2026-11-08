@@ -41,12 +41,14 @@ test("a passing check, carried into feedback", async ({ page }) => {
   const box = page.getByTestId("connection-check");
   await expect(box.getByTestId("check-exit")).toHaveText("經過 Vessel 的新加坡節點。");
   await expect(box.getByTestId("check-dns")).toHaveText("正在使用 Vessel 的 DNS，會擋下惡意網站。");
-  await expect(box.getByRole("status")).toContainText("兩項都通過");
+  await expect(box.locator(".check-verdict")).toContainText("兩項都通過");
+  // and said to screen readers through the site's live region, there before the answer (WCAG 4.1.3)
+  await expect(page.locator("#announce")).toContainText("兩項都通過");
   // on Vessel the network checks would test the node, so the page says how to see the visitor's own network
   await expect(box.getByTestId("check-network-hint")).toHaveText("想看目前網路的狀況，先關掉 VPN 再檢測一次。");
   await expect(box.getByTestId("check-network")).toHaveCount(0);
   await expect(box.getByRole("button", { name: "再檢測一次" })).toBeVisible();
-  expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
+  expect(Math.abs(await iconOffset(box.locator(".check-verdict")))).toBeLessThan(1);
 
   await box.getByRole("link", { name: "附上結果寫意見回覆" }).click();
   await expect(page).toHaveURL(/\/feedback\/\?from=check&check=sg\.malware$/);
@@ -66,12 +68,12 @@ test("not connected at all: a plain summary, not a warning, and on to the networ
   await page.goto("/check/");
   await page.getByRole("button", { name: "開始檢測" }).click();
   const box = page.getByTestId("connection-check");
-  await expect(box.getByRole("status")).toHaveText("目前沒有連上 Vessel。下方是目前網路的狀況。要檢查 Vessel 的連線，先在 App 打開通道再檢測一次。");
+  await expect(box.locator(".check-verdict")).toHaveText("目前沒有連上 Vessel。下方是目前網路的狀況。要檢查 Vessel 的連線，先在 App 打開通道再檢測一次。");
   await expect(box.locator(".check-verdict--bad")).toHaveCount(0);
   await expect(box.getByTestId("check-exit")).toContainText("可能是 VPN 沒有開");
   await expect(box.getByTestId("check-network")).toBeVisible();
   await expect(box.getByTestId("check-network-hint")).toHaveCount(0);
-  expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
+  expect(Math.abs(await iconOffset(box.locator(".check-verdict")))).toBeLessThan(1);
 });
 
 for (const [exit, hidden, exitText] of [
@@ -86,8 +88,8 @@ for (const [exit, hidden, exitText] of [
     await page.getByRole("button", { name: "開始檢測" }).click();
     const box = page.getByTestId("connection-check");
     await expect(box.getByTestId("check-exit")).toContainText(exitText);
-    await expect(box.getByRole("status")).toContainText("有項目沒有通過");
-    expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
+    await expect(box.locator(".check-verdict")).toContainText("有項目沒有通過");
+    expect(Math.abs(await iconOffset(box.locator(".check-verdict")))).toBeLessThan(1);
   });
 }
 

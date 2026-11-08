@@ -107,7 +107,7 @@ function ReachSection({ status, names, city }: { status: Status; names: (s: stri
                 <h3 class="status-reach__group">{t[`reach.group.${group}`]}</h3>
                 {sites.map((site) => (
                   <div class="reach-site" data-testid={`reach-site-${site}`}>
-                    <p class="strong">{names([site])}</p>
+                    <h4 class="reach-site__name">{names([site])}</h4>
                     <ul class="plain reach-rows">
                       {order.filter((r) => history.sites[site][r]).map((r) => {
                         const slots = history.sites[site][r];

@@ -5,6 +5,7 @@ import { formatDate, formatDay } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { Spin } from "./skeleton.tsx";
 import { focusLater } from "../focus.ts";
+import { announce } from "../announce.ts";
 
 /**
  * The account page's invites (toomore/anoni-net-ws#458): how many more people the account can invite, making a code,
@@ -48,12 +49,16 @@ export function Invites() {
     setMade({ code: r.code, expires_at: r.expires_at });
     setCopied(false);
     setState(await api.invites());
+    announce(t["invite.madeNote"]);
     // the new code is what comes next, and the button is gone after the last one
     focusLater(() => card.current);
   });
   const withdraw = (id: number) => {
     if (!window.confirm(t["invite.withdrawConfirm"])) return;
-    void run(id, async () => setState(await api.withdrawInvite(id))).then(() => focusLater(() => heading.current, true));
+    void run(id, async () => {
+      setState(await api.withdrawInvite(id));
+      announce(t["invite.withdrawn"]);
+    }).then(() => focusLater(() => heading.current, true));
   };
 
   // Not a part of the page anyone needs: while it loads, if it fails, and when invites are off for every account,
@@ -68,6 +73,7 @@ export function Invites() {
     try {
       await navigator.clipboard.writeText(message);
       setCopied(true);
+      announce(t["invite.copied"]);
     } catch {
       /* clipboard can be blocked; the code and the link are still on screen */
     }
@@ -112,7 +118,7 @@ export function Invites() {
                   <span class="muted small block">{fmt(t["invite.dates"], { made: day(i.created_at), until: day(i.expires_at) })}</span>
                 </span>
                 {busy === i.id
-                  ? <span class="muted strong" role="status"><Spin />{t["busy.delete"]}</span>
+                  ? <span class="muted strong"><Spin />{t["busy.delete"]}</span>
                   : <button class="link-button" type="button" onClick={() => withdraw(i.id)} disabled={busy !== null}>{t["invite.withdraw"]}</button>}
               </li>
             ))}

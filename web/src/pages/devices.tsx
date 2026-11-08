@@ -13,6 +13,7 @@ import { loadNewDevice, whenIdle } from "./lazy.ts";
 import { Added, NextRead, useTween } from "./live.tsx";
 import { Busy, SkButton, SkCard, Spin } from "./skeleton.tsx";
 import { focusLater } from "../focus.ts";
+import { announce } from "../announce.ts";
 
 // The worker reads the nodes' counters every 5 minutes, so refreshing more often shows nothing new. The page asks
 // a little after each read is due, so the new numbers have landed; when a read is late, it asks again after 1, 2
@@ -140,13 +141,18 @@ export function Devices() {
 
   // devices being deleted: the node removes the peer before the answer comes back, which takes a few seconds
   const [deleting, setDeleting] = useState<ReadonlySet<string>>(new Set());
+  // a failed delete, shown above the list: the page's own error would replace the list, and the reload clears it
+  const [deleteErr, setDeleteErr] = useState("");
   const remove = async (d: Device) => {
     if (!window.confirm(fmt(t["devices.confirmDelete"], { name: d.name }))) return;
     setDeleting((s) => new Set(s).add(d.id));
+    setDeleteErr("");
+    announce(t["busy.delete"]);
     try {
       await api.deleteDevice(d.id);
+      announce(fmt(t["devices.deleted"], { name: d.name }));
     } catch (x) {
-      setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+      setDeleteErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     }
     await load();
     setDeleting((s) => {
@@ -179,11 +185,11 @@ export function Devices() {
     );
   }
 
-  return <DeviceList me={me} devices={devices} added={added} deleting={deleting} remove={remove} />;
+  return <DeviceList me={me} devices={devices} added={added} deleting={deleting} remove={remove} deleteErr={deleteErr} />;
 }
 
-function DeviceList({ me, devices, added, deleting, remove }: {
-  me: Me; devices: Device[]; added: Read | null; deleting: ReadonlySet<string>; remove: (d: Device) => void;
+function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
+  me: Me; devices: Device[]; added: Read | null; deleting: ReadonlySet<string>; remove: (d: Device) => void; deleteErr: string;
 }) {
   const { t, href, locale } = useCtx();
   // the numbers count up to a new read; the bar and the ARIA values take the read as it is
@@ -250,6 +256,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
         )}
       </div>
 
+      {deleteErr && <p class="error" role="alert" data-testid="delete-error">{deleteErr}</p>}
       {devices.length === 0 ? (
         <div class="card card--dashed">
           <p class="strong">{t["devices.empty"]}</p>
@@ -264,7 +271,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                 <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.devices.get(d.id)!.used, d.dns_filter === "none" ? 0 : added.devices.get(d.id)!.blocked)} />
               )}
               <div class="row device-head">
-                <p class="strong big device-head__name"><LiveDot d={d} />{d.name}</p>
+                <h2 class="big device-head__name"><LiveDot d={d} />{d.name}</h2>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
               {/* the device as a spec sheet: one line per fact, the name of each on the left */}
@@ -315,9 +322,12 @@ function DeviceList({ me, devices, added, deleting, remove }: {
               )}
               <div class="row small device-foot">
                 {deleting.has(d.id) ? (
-                  <span class="muted strong" role="status"><Spin />{t["busy.delete"]}</span>
+                  <span class="muted strong"><Spin />{t["busy.delete"]}</span>
                 ) : d.status !== "revoking" && (
-                  <button class="link-button" type="button" onClick={() => remove(d)}>{t["devices.delete"]}</button>
+                  // which one, for a list of buttons all named "Delete"; starting with the shown word (WCAG 2.5.3)
+                  <button class="link-button" type="button" onClick={() => remove(d)} aria-label={fmt(t["devices.deleteNamed"], { name: d.name })}>
+                    {t["devices.delete"]}
+                  </button>
                 )}
               </div>
             </li>

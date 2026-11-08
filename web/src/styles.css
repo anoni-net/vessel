@@ -129,6 +129,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* a small English label beside a Chinese heading or above a figure: an aid, never the only name of a thing */
 .eyebrow { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .center { text-align: center; }
+.skip-link { position: absolute; z-index: 10; top: 8px; left: 8px; padding: 10px 16px; border: var(--border); border-radius: var(--radius);
+  background: var(--paper); color: var(--ink); font-weight: 700; transform: translateY(-200%); }
+.skip-link:focus { transform: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .mono { font-family: var(--mono); }
 .error { color: var(--danger); font-weight: 700; }
@@ -441,7 +444,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
    (the strip and the label are drawn here, so every warning gets them without its own markup) */
 .card--warn, .check-verdict--bad, .lookup-answer--hit { position: relative; border-color: var(--caution); color: var(--text);
   background: var(--hatch) left top / 10px 100% no-repeat, var(--paper); padding-left: 28px; }
-.card--warn::before, .check-verdict--bad::before, .lookup-answer--hit::before { content: "NOTE"; position: absolute; top: -.75em; left: 18px;
+.card--warn::before, .check-verdict--bad::before, .lookup-answer--hit::before { content: "NOTE" / ""; position: absolute; top: -.75em; left: 18px;
   padding: 0 6px; background: var(--paper); color: var(--caution); font: 600 10px/1.5 var(--mono); letter-spacing: .18em; }
 .card--warn .icon, .check-verdict--bad > .icon { color: var(--caution); }
 .check-network { padding-top: 16px; border-top: 1px solid var(--line); }
@@ -568,6 +571,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .next-read circle { fill: none; stroke-width: 3; }
 .next-read__track { stroke: var(--accent); }
 .next-read__fill { stroke: var(--accent-strong); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation-name: next-read; animation-timing-function: linear; animation-fill-mode: forwards; }
+/* a ring filling for minutes moves on its own: with less motion asked for, the track alone, the time stays in its title */
+@media (prefers-reduced-motion: reduce) { .next-read__fill { animation: none; } }
 @keyframes next-read { to { stroke-dashoffset: 0; } }
 /* the dot before a device's name, on the name's first line */
 .live-dot { display: inline-block; width: 10px; height: 10px; margin-inline-end: 10px; vertical-align: .12em; border: 2px solid var(--line); border-radius: 50%; }
@@ -593,6 +598,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .status-reach p { margin: 0; }
 .status-reach__group { margin: 0; font-size: 16px; }
 .status-reach-how p { margin: 8px 0 0; }
+.status-reach-how summary { width: fit-content; min-height: 24px; cursor: pointer; }
 .reach-defs { position: absolute; }
 .reach-cell--ok { fill: var(--reach-ok); }
 .reach-cell--blocked { fill: var(--reach-blocked); }
@@ -606,7 +612,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .reach-legend p { margin: 0; }
 .reach-site { display: grid; gap: 4px; }
 .reach-site + .reach-site { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
-.reach-site > p { margin: 0; }
+.reach-site__name { margin: 0; font-size: inherit; font-weight: 700; color: var(--text); }
 .reach-rows { display: grid; gap: 6px; }
 /* a phone: the node and its state on a line, the strip under them across the card */
 .reach-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "node now" "strip strip"; gap: 2px 8px; align-items: center; }
@@ -667,7 +673,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .todo__title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 18px; line-height: 1.4; }
 .todo__title::before { content: counter(todo, decimal-leading-zero); flex: none; display: grid; place-items: center; width: 30px; height: 30px;
   border: var(--border); border-radius: var(--radius); background: var(--paper); color: var(--ink); font: 600 13px/1 var(--mono); }
-.todo__more summary { width: fit-content; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.todo__more summary { width: fit-content; min-height: 24px; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
 .todo__more p { margin: 6px 0 0; }
 /* the other ways inside a step (the QR code, the text) read as links under it, not as buttons */
 .todo__links { display: flex; flex-direction: column; align-items: flex-start; }
@@ -692,7 +698,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .layers--small > span { width: 7px; height: 12px; border-width: 1px; }
 /* the status badge stays on the right of the device's name, however long the name */
 .device-head { flex-wrap: nowrap; align-items: flex-start; }
-.device-head__name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.device-head__name { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 20px; color: inherit; overflow-wrap: anywhere; }
 .device-head > .badge { flex: none; }
 /* a device as a spec sheet: the name of each fact on the left, a hairline between the lines */
 .spec { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; border-top: 1px solid var(--line); }

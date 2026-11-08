@@ -70,7 +70,11 @@ export function Feedback() {
     e.preventDefault();
     if (busy) return;
     setTried(true);
-    if (!feedbackReady(f)) return;
+    if (!feedbackReady(f)) {
+      // start at the first thing to fix, its message next to it; the button is at the bottom, the kinds at the top
+      (f.kind ? document.getElementById("fb-message") : document.querySelector<HTMLInputElement>('input[name="kind"]'))?.focus();
+      return;
+    }
     setBusy(true);
     const from = typeof location === "undefined" ? "" : new URLSearchParams(location.search).get("from") ?? "";
     const message = line && attach ? `${f.message.trim()}\n\n${line}`.slice(0, LIMITS.message) : f.message;
@@ -102,7 +106,7 @@ export function Feedback() {
         {t["feedback.statusBefore"]} <a href={href("/status/")}>{t["status.title"]}</a> {t["feedback.statusAfter"]}
       </p>
       <form class="stack" onSubmit={submit} noValidate>
-        <fieldset class="stack-sm">
+        <fieldset class="stack-sm" aria-describedby={tried && !f.kind ? "fb-kind-error" : undefined}>
           <legend class="strong">{t["feedback.kind"]}</legend>
           {KINDS.map((k) => (
             <label class={`choice choice--radio${k === f.kind ? " choice--on" : ""}`}>
@@ -110,15 +114,16 @@ export function Feedback() {
               <span class="strong">{t[`feedback.kind.${k}`]}</span>
             </label>
           ))}
-          {tried && !f.kind && <p class="error" role="alert">{t["feedback.needKind"]}</p>}
+          {tried && !f.kind && <p class="error" role="alert" id="fb-kind-error">{t["feedback.needKind"]}</p>}
         </fieldset>
 
         <label for="fb-message" class="strong">{t["feedback.message"]}</label>
         <textarea id="fb-message" class="nb-input nb-textarea" rows={6} maxLength={LIMITS.message} required
-          placeholder={t["feedback.messagePh"]} value={f.message} aria-describedby="fb-message-hint"
+          placeholder={t["feedback.messagePh"]} value={f.message} aria-invalid={tried && short ? true : undefined}
+          aria-describedby={tried && short ? "fb-message-error fb-message-hint" : "fb-message-hint"}
           onInput={(e) => set({ message: e.currentTarget.value })} />
         <p id="fb-message-hint" class="muted small">{t["feedback.messageHint"]}</p>
-        {tried && short && <p class="error" role="alert">{fmt(t["feedback.tooShort"], { n: LIMITS.messageMin })}</p>}
+        {tried && short && <p class="error" role="alert" id="fb-message-error">{fmt(t["feedback.tooShort"], { n: LIMITS.messageMin })}</p>}
         {line && (
           <label class={`choice choice--radio${attach ? " choice--on" : ""}`} data-testid="attach-check">
             <input type="checkbox" checked={attach} onChange={() => setAttach(!attach)} />

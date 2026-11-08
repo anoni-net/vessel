@@ -11,6 +11,7 @@ import { Passkeys } from "./passkeys.tsx";
 import { AccountNumber } from "./redeem.tsx";
 import { Busy, SkLine, Spin } from "./skeleton.tsx";
 import { focusHeading } from "../focus.ts";
+import { announce } from "../announce.ts";
 
 /** Links shown on the signed-in pages. */
 export function AccountNav() {
@@ -74,6 +75,9 @@ export function Account() {
     setDeleting(true);
     try {
       await api.deleteAccount();
+      // the header and the home page no longer offer "My devices", and the home page says it is done
+      setSignedIn(false);
+      announce(t["account.deleted"]);
       navigate(href("/"));
     } catch (x) {
       setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));

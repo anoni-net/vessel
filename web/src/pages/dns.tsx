@@ -4,6 +4,7 @@ import { useCtx } from "../context.ts";
 import { blockedReport } from "../feedback.ts";
 import { FILTERS, Layers } from "./layers.tsx";
 import { Spin } from "./skeleton.tsx";
+import { announce } from "../announce.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
 import { type MessageKey, errorText, fmt } from "../i18n/index.ts";
@@ -99,6 +100,11 @@ function DnsCheck() {
   );
 }
 
+// the Taiwanese lists first: what they say (Taiwan's ISPs block the site too) matters most, and their appeals go
+// to the agencies that keep them, not to us
+const listOf = (a: BlocklistAnswer) =>
+  a.tw165 ? "tw165" : a.twmoda ? "twmoda" : a.stalkerware ? "stalkerware" : a.malware ? "malware" : a.quad9 ? "quad9" : a.ads ? "ads" : null;
+
 /** Is a site on the lists? For a site that will not open with a filter on; the answer names the filters that block it. */
 function Lookup() {
   const { t, href } = useCtx();
@@ -113,16 +119,16 @@ function Lookup() {
     setErr("");
     setAnswer(null);
     try {
-      setAnswer(await api.blocklist(domain));
+      const a = await api.blocklist(domain);
+      setAnswer(a);
+      announce(fmt(t[`dns.lookup.${listOf(a) ?? "none"}`], { domain: a.domain }));
     } catch (x) {
       setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     } finally {
       setBusy(false);
     }
   };
-  // the Taiwanese lists first: what they say (Taiwan's ISPs block the site too) matters most, and their appeals go
-  // to the agencies that keep them, not to us
-  const list = answer && (answer.tw165 ? "tw165" : answer.twmoda ? "twmoda" : answer.stalkerware ? "stalkerware" : answer.malware ? "malware" : answer.quad9 ? "quad9" : answer.ads ? "ads" : null);
+  const list = answer && listOf(answer);
   const agency = list === "tw165" || list === "twmoda";
   return (
     <form class="card stack" onSubmit={look} data-testid="dns-lookup">
@@ -131,13 +137,14 @@ function Lookup() {
       <label for="lookup-domain" class="strong">{t["dns.lookup.label"]}</label>
       <input id="lookup-domain" class="nb-input" required maxLength={2048} autoComplete="off" autoCapitalize="none"
         spellcheck={false} inputMode="url" placeholder={t["dns.lookup.placeholder"]} value={domain}
-        onInput={(e) => setDomain(e.currentTarget.value)} />
+        onInput={(e) => setDomain(e.currentTarget.value)} aria-invalid={err ? true : undefined}
+        aria-describedby={err ? "lookup-error" : undefined} />
       <button class="nb-button nb-button--ink" type="submit" aria-disabled={busy} aria-busy={busy}>
         {busy ? <><Spin />{t["dns.lookup.running"]}</> : t["dns.lookup.button"]}
       </button>
-      {err && <p class="error" role="alert">{err}</p>}
+      {err && <p class="error" role="alert" id="lookup-error">{err}</p>}
       {answer && (
-        <div class={`lookup-answer${list ? " lookup-answer--hit" : ""}`} role="status" data-testid="lookup-answer">
+        <div class={`lookup-answer${list ? " lookup-answer--hit" : ""}`} data-testid="lookup-answer">
           <p class="strong">{fmt(t[`dns.lookup.${list ?? "none"}`], { domain: answer.domain })}</p>
           {list && <p class="small"><a href={href("/dns/lists/#trouble")}>{t["dns.lookup.why"]}</a></p>}
           {list === "quad9" && <p class="small"><a href="https://quad9.net/result/" target="_blank" rel="noopener">{t["dns.lookup.quad9Check"]}</a></p>}

@@ -139,7 +139,7 @@ test("each step of adding a device starts at its heading", async ({ page }) => {
   await expect(h1).toHaveText("替裝置取個名稱");
   await expect(h1).toBeFocused();
   await noViolations(page);
-  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByLabel("替裝置取個名稱").fill("手機");
   await page.keyboard.press("Enter");
   await expect(h1).toHaveText("額外的防護");
   await expect(h1).toBeFocused();

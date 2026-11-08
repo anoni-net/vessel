@@ -198,7 +198,9 @@ test("the header links to the same page in the other languages", async ({ page, 
     await page.goto("/devices/");
   }
   await expect(langs.getByRole("link")).toHaveText(["简体", "EN"]);
-  await langs.getByRole("link", { name: "English" }).click();
+  // named by what it shows (WCAG 2.5.3), the full name in its title
+  await expect(langs.getByRole("link", { name: "EN", exact: true })).toHaveAttribute("title", "English");
+  await langs.getByRole("link", { name: "EN", exact: true }).click();
   await expect(page).toHaveURL(isMobile ? /\/en\/devices\/$/ : /\/en\/faq\/$/);
   await expect(page.getByRole("group", { name: "Other languages" }).getByRole("link")).toHaveText(["正體", "简体"]);
   await expect(page.locator("footer nav", { hasText: "Also in" }).getByRole("link")).toHaveText(["正體中文", "简体中文"]);
@@ -347,7 +349,7 @@ test("signed-in pages keep their shape while loading and reuse what they saw", a
   const main = page.locator("main");
   await expect(main.locator(".sk").first()).toBeVisible();
   await expect(main.locator("section")).toHaveAttribute("aria-busy", "true");
-  await expect(main.getByRole("status")).toHaveText("載入中");
+  await expect(page.locator("#announce")).toHaveText("載入中");
   releaseDevices();
   await expect(page.getByTestId("device-list").getByText("phone")).toBeVisible();
   await expect(main.locator(".sk")).toHaveCount(0);
@@ -640,7 +642,8 @@ test("waiting for the server shows what is happening", async ({ page }) => {
   await page.goto("/devices/");
   const phone = page.getByTestId("device-list").locator("li", { hasText: "phone" });
   await phone.getByRole("button", { name: "刪除" }).click();
-  await expect(phone.getByRole("status")).toHaveText("刪除中");
+  await expect(phone.getByText("刪除中")).toBeVisible();
+  await expect(page.locator("#announce")).toHaveText("刪除中");
   await expect(phone).toHaveAttribute("aria-busy", "true");
   release();
   await expect(page.getByTestId("device-list").getByTestId("device")).toHaveCount(1);
