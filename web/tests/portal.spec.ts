@@ -583,6 +583,25 @@ test("a browser that was signed in shows its links at once", async ({ page }) =>
   await expect(page.locator(".hero").getByRole("link", { name: "我的裝置" })).toBeVisible();
 });
 
+// a Pixel with a larger display size or font is about 360 px wide; the header button once wrapped to two lines there
+for (const [width, path, name] of [[360, "/", "我的裝置"], [320, "/", "我的裝置"], [320, "/en/", "My devices"]] as const) {
+  test(`the header keeps one row and a one-line button at ${width} px: ${name}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await hinted(page);
+    await mockApi(page, { ...signedIn, "GET /api/me": slow(ME) });
+    await page.goto(path);
+    const header = page.locator(".site-header");
+    const button = header.getByRole("link", { name });
+    await expect(button).toBeVisible({ timeout: 500 });
+    const [box, brand] = await Promise.all([button.boundingBox(), header.locator(".brand").boundingBox()]);
+    const line = await button.evaluate((e) => parseFloat(getComputedStyle(e).lineHeight));
+    // one line of text inside the button, beside the wordmark, nothing past the screen's edge
+    expect(box!.height).toBeLessThan(line * 2);
+    expect(Math.abs(box!.y + box!.height / 2 - (brand!.y + brand!.height / 2))).toBeLessThan(4);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
 test("an unknown session shows no sign-in link until /api/me answers", async ({ page }) => {
   await mockApi(page, { "GET /api/me": slow({ error: "signed_out" }, 401) });
   await page.goto("/");
