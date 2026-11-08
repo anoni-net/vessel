@@ -25,6 +25,7 @@ def tick(conn: psycopg.Connection, usage: bool = True) -> None:
         jobs.reconcile_peers(conn)
     jobs.run_due_jobs(conn)
     jobs.clear_stale_results(conn)
+    jobs.forget_finished_jobs(conn)
     jobs.forget_expired_invites(conn)
     jobs.beat(conn, "worker")
 

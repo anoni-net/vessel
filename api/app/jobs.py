@@ -19,6 +19,8 @@ UNTIL_DONE = frozenset({"remove", "suspend"})
 # how often the worker compares each node's peers with the devices table (reconcile_peers)
 RECONCILE_MINUTES = 60
 RECONCILE_MAX = 5
+# how long a finished job stays (forget_finished_jobs)
+JOBS_KEEP_HOURS = 24
 DEVICE_ID = re.compile(r"^d-[a-z0-9]{12}$")
 
 
@@ -172,6 +174,22 @@ def forget_expired_invites(conn: psycopg.Connection) -> None:
 
 def clear_stale_results(conn: psycopg.Connection) -> None:
     conn.execute("UPDATE jobs SET result = NULL WHERE result IS NOT NULL AND done_at < now() - interval '1 hour'")
+
+
+def forget_finished_jobs(conn: psycopg.Connection) -> None:
+    """A finished job says to the second when a device was added, removed, suspended or resumed, which the rest of the
+    database keeps to the day, and its error may name a node's tailnet address. Finished jobs go after JOBS_KEEP_HOURS.
+    A failed add stays while its device does: the device page reads it to say the node could not add the device
+    (app/devices.py, device_config)."""
+    conn.execute(
+        "DELETE FROM jobs WHERE status = 'done' AND coalesce(done_at, updated_at) < now() - make_interval(hours => %s)",
+        (JOBS_KEEP_HOURS,),
+    )
+    conn.execute(
+        "DELETE FROM jobs j WHERE status = 'failed' AND updated_at < now() - make_interval(hours => %s) "
+        "AND (action <> 'add' OR NOT EXISTS (SELECT 1 FROM devices d WHERE d.id = j.device_id))",
+        (JOBS_KEEP_HOURS,),
+    )
 
 
 def poll_usage(conn: psycopg.Connection) -> None:
