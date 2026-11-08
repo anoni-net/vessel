@@ -106,8 +106,15 @@ test("the last day of the sites a node had trouble with, by the region they serv
   const mvdis = page.getByTestId("reach-site-mvdis");
   await expect(mvdis.locator(".reach-row__node")).toHaveText(["東京節點", "台北節點"]);
   await expect(mvdis.locator(".reach-row__now")).toHaveText(["目前打不開", "目前打得開"]);
-  // the strip says in words what its colours say
-  await expect(mvdis.getByRole("img").first()).toHaveAttribute("aria-label", "東京節點，近 24 小時：打不開 19 次、要通過驗證 0 次、打得開 3 次");
+  // the strip says in words what it shows, the hours included
+  await expect(mvdis.getByRole("img").first()).toHaveAttribute("aria-label",
+    "東京節點，近 24 小時：打不開 19 次、要通過驗證 0 次、打得開 3 次。打不開的時段：19 小時前到 14 小時前、12 小時前到這一小時");
+  await expect(page.getByTestId("reach-site-bot").getByRole("img").first()).toHaveAttribute("aria-label",
+    "東京節點，近 24 小時：打不開 0 次、要通過驗證 24 次、打得開 0 次。要通過驗證的時段：23 小時前到這一小時");
+  // and by more than colour (WCAG 1.4.1): an hour that did not open stands full height, one that opened is a low bar
+  const height = (n: number) => mvdis.locator(".reach-strip").first().locator("rect").nth(n).getAttribute("height");
+  expect([await height(0), await height(2), await height(4)]).toEqual(["4", "4", "12"]);
+  await expect(mvdis.locator(".reach-strip").first().locator("rect").nth(2)).toHaveClass(/reach-cell--none/);
   await expect(mvdis.locator(".reach-strip").first().locator("rect")).toHaveCount(24);
   await expect(mvdis.locator(".reach-strip").first().locator("rect title").last()).toHaveText("這一小時：打不開");
   await expect(mvdis.locator(".reach-strip").first().locator("rect title").first()).toHaveText("23 小時前：打得開");

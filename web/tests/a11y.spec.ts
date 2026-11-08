@@ -132,6 +132,38 @@ test("the focus ring shows on the footer's dark blue", async ({ page }) => {
   expect((hi! + 0.05) / (lo! + 0.05)).toBeGreaterThanOrEqual(3);
 });
 
+for (const scheme of ["light", "dark"] as const) {
+  test(`a text field's focus ring stands out from the page at 3:1 or more, ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await backend(page, false);
+    for (const path of ["/login/", "/redeem/", "/dns/", "/feedback/"]) {
+      await page.goto(path);
+      const fields = page.locator("main .nb-input");
+      expect(await fields.count(), path).toBeGreaterThan(0);
+      for (const field of await fields.all()) {
+        await field.focus();
+        const [style, ring, behind] = await field.evaluate((e) => {
+          let p: Element | null = e.parentElement;
+          let bg = "rgb(255, 255, 255)";
+          for (; p; p = p.parentElement) {
+            const c = getComputedStyle(p).backgroundColor;
+            if (!/rgba\(0, 0, 0, 0\)|transparent/.test(c)) { bg = c; break; }
+          }
+          const s = getComputedStyle(e);
+          return [`${s.outlineStyle} ${s.outlineWidth}`, s.outlineColor, bg];
+        });
+        expect(style, path).toBe("solid 2px");
+        const lum = (c: string) => {
+          const [r, g, b] = (c.match(/[\d.]+/g) ?? []).map(Number).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+        };
+        const [hi, lo] = [lum(ring), lum(behind)].sort((x, y) => y - x);
+        expect((hi! + 0.05) / (lo! + 0.05), path).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+}
+
 test("nothing scrolls sideways on a 320px screen", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   for (const [path, signedIn] of PAGES) {

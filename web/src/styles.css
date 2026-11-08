@@ -505,10 +505,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .nb-input {
   box-sizing: border-box; width: 100%; min-height: 56px; padding: 0 16px; border: var(--border); border-radius: var(--radius);
   font: inherit; font-size: 18px; font-weight: 600; color: var(--ink); background: var(--paper);
-  transition: background .08s ease, box-shadow .08s ease;
+  transition: background .08s ease;
 }
 .nb-input::placeholder { color: var(--placeholder); font-weight: 400; }
-.nb-input:focus { outline: none; background: var(--tint); box-shadow: 0 0 0 3px var(--accent); }
+/* the same ring as every other control (:focus-visible above), at 3:1 or more against the page; a faint halo was not */
+.nb-input:focus { background: var(--tint); }
 /* invite codes and account numbers: big, monospaced, the groups of four easy to read back */
 .nb-input--code { min-height: 68px; font-family: var(--mono); font-size: clamp(19px, 5.4vw, 26px); font-weight: 600; letter-spacing: 0.06em; text-align: center; }
 .nb-input--code::placeholder { font-weight: 500; letter-spacing: 0.06em; }
@@ -596,7 +597,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .reach-cell--ok { fill: var(--reach-ok); }
 .reach-cell--blocked { fill: var(--reach-blocked); }
 .reach-cell--challenge { stroke: var(--reach-blocked); stroke-width: 1; }
-.reach-cell--none { fill: none; stroke: var(--line); stroke-width: 1; }
+.reach-cell--none { fill: none; stroke: var(--muted); stroke-width: 1; }
 .reach-hatch__base { fill: var(--paper); }
 .reach-hatch__line { fill: var(--reach-blocked); }
 .reach-legend { display: grid; gap: 4px; }
