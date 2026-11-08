@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, type Passkey, api } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate } from "../format.ts";
@@ -7,6 +7,7 @@ import { createPasskey, passkeyErrorCode, passkeysSupported, usePasskey } from "
 import { Icon } from "../icons.tsx";
 import { IS_ONION } from "../site.ts";
 import { SkButton, SkField, SkLine, Spin } from "./skeleton.tsx";
+import { focusHeading, focusLater } from "../focus.ts";
 
 const LIMIT = 5;
 
@@ -23,6 +24,7 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const add = async () => {
+    if (busy) return;
     setBusy(true);
     setErr("");
     try {
@@ -33,13 +35,15 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
       setBusy(false);
     }
   };
+  // shown in place of the account number, whose button is gone
+  useEffect(() => focusHeading(), []);
   return (
     <section class="wrap narrow stack" data-testid="passkey-offer">
       <h1>{t["passkey.offer.title"]}</h1>
       <p>{t["passkey.offer.body"]}</p>
       <p class="muted small">{t["passkey.what"]}</p>
       {err && <p class="error" role="alert">{err}</p>}
-      <button class="nb-button nb-button--primary" type="button" onClick={add} disabled={busy} aria-busy={busy}>
+      <button class="nb-button nb-button--primary" type="button" onClick={add} aria-disabled={busy} aria-busy={busy}>
         {busy ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.add"]}</>}
       </button>
       <button class="link-button" type="button" onClick={onDone} disabled={busy}>{t["passkey.offer.skip"]}</button>
@@ -65,9 +69,12 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
   const [err, setErr] = useState("");
   // known only in the browser; the prerendered page assumes passkeys work, so nothing flashes for most people
   const [supported, setSupported] = useState(true);
+  // where focus goes after a delete took the focused button away
+  const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => setSupported(passkeysSupported()), []);
 
   const run = async (what: "add" | "rotate" | number, task: () => Promise<void>) => {
+    if (busy !== null) return;
     setBusy(what);
     setErr("");
     try {
@@ -84,7 +91,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
   });
   const remove = (p: Passkey) => {
     if (!window.confirm(fmt(t["passkey.confirmDelete"], { name: p.label || t["passkey.unnamed"] }))) return;
-    void run(p.id, async () => setList(await api.deletePasskey(p.id)));
+    void run(p.id, async () => setList(await api.deletePasskey(p.id))).then(() => focusLater(() => heading.current, true));
   };
   const rotate = () => {
     if (!window.confirm(t["passkey.rotate.confirm"])) return;
@@ -93,7 +100,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
 
   return (
     <div class="stack account-section" data-testid="passkeys">
-      <h2>{t["passkey.title"]}</h2>
+      <h2 ref={heading}>{t["passkey.title"]}</h2>
       <p>{t["passkey.body"]}</p>
       {!supported && <p class="card card--warn card--flat small">{t[IS_ONION ? "passkey.onion" : "passkey.unsupported"]}</p>}
       {list === undefined && (
@@ -128,7 +135,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
           <label for="passkey-label" class="strong">{t["passkey.label"]} <span class="muted small">{t["feedback.optional"]}</span></label>
           <input id="passkey-label" class="nb-input" maxLength={40} autoComplete="off" placeholder={t["passkey.labelPh"]}
             value={label} onInput={(e) => setLabel(e.currentTarget.value)} />
-          <button class="nb-button nb-button--ink" type="button" onClick={add} disabled={busy !== null} aria-busy={busy === "add"}>
+          <button class="nb-button nb-button--ink" type="button" onClick={add} disabled={busy !== null && busy !== "add"} aria-disabled={busy === "add"} aria-busy={busy === "add"}>
             {busy === "add" ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.add"]}</>}
           </button>
         </div>
@@ -140,7 +147,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
         <div class="card card--flat stack" data-testid="rotate">
           <h3>{t["passkey.rotate.title"]}</h3>
           <p>{t["passkey.rotate.body"]}</p>
-          <button class="nb-button" type="button" onClick={rotate} disabled={busy !== null} aria-busy={busy === "rotate"}>
+          <button class="nb-button" type="button" onClick={rotate} disabled={busy !== null && busy !== "rotate"} aria-disabled={busy === "rotate"} aria-busy={busy === "rotate"}>
             {busy === "rotate" ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.rotate.submit"]}</>}
           </button>
         </div>

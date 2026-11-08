@@ -1,9 +1,10 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, type Invites as State, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate, formatDay } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { Spin } from "./skeleton.tsx";
+import { focusLater } from "../focus.ts";
 
 /**
  * The account page's invites (toomore/anoni-net-ws#458): how many more people the account can invite, making a code,
@@ -21,6 +22,9 @@ export function Invites() {
   const [canShare, setCanShare] = useState(false);
   // no clipboard where the page is not a secure context (Onion Browser on iOS); the link is on screen to select
   const [canCopy, setCanCopy] = useState(true);
+  // where focus goes when the button that had it is gone
+  const heading = useRef<HTMLHeadingElement>(null);
+  const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     api.invites().then((s) => setState(Array.isArray(s?.open) ? s : null)).catch(() => setState(null));
     setCanShare(typeof navigator.share === "function");
@@ -28,6 +32,7 @@ export function Invites() {
   }, []);
 
   const run = async (what: "make" | number, task: () => Promise<void>) => {
+    if (busy !== null) return;
     setBusy(what);
     setErr("");
     try {
@@ -43,10 +48,12 @@ export function Invites() {
     setMade({ code: r.code, expires_at: r.expires_at });
     setCopied(false);
     setState(await api.invites());
+    // the new code is what comes next, and the button is gone after the last one
+    focusLater(() => card.current);
   });
   const withdraw = (id: number) => {
     if (!window.confirm(t["invite.withdrawConfirm"])) return;
-    void run(id, async () => setState(await api.withdrawInvite(id)));
+    void run(id, async () => setState(await api.withdrawInvite(id))).then(() => focusLater(() => heading.current, true));
   };
 
   // Not a part of the page anyone needs: while it loads, if it fails, and when invites are off for every account,
@@ -69,7 +76,7 @@ export function Invites() {
 
   return (
     <div class="stack account-section" data-testid="invites">
-      <h2>{t["invite.title"]}</h2>
+      <h2 ref={heading}>{t["invite.title"]}</h2>
       <p>{fmt(t["invite.body"], { days: state.days })}</p>
       <div class="stack appear">
         {state.reason === null && <p class="strong" data-testid="invites-left">{fmt(t["invite.left"], { n: state.left })}</p>}
@@ -80,7 +87,7 @@ export function Invites() {
           </p>
         )}
         {made && (
-          <div class="card card--flat stack invite-made" data-testid="invite-made">
+          <div class="card card--flat stack invite-made" data-testid="invite-made" ref={card}>
             <p class="small strong">{t["invite.code"]}</p>
             <p class="mono number" data-testid="invite-code">{made.code}</p>
             <p class="small invite-link">{link}</p>
@@ -92,7 +99,7 @@ export function Invites() {
           </div>
         )}
         {state.reason === null && (
-          <button class="nb-button nb-button--ink" type="button" onClick={make} disabled={busy !== null} aria-busy={busy === "make"}>
+          <button class="nb-button nb-button--ink" type="button" onClick={make} disabled={busy !== null && busy !== "make"} aria-disabled={busy === "make"} aria-busy={busy === "make"}>
             {busy === "make" ? <><Spin />{t["busy.invite"]}</> : t["invite.make"]}
           </button>
         )}

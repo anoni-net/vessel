@@ -10,12 +10,14 @@ import { Invites } from "./invites.tsx";
 import { Passkeys } from "./passkeys.tsx";
 import { AccountNumber } from "./redeem.tsx";
 import { Busy, SkLine, Spin } from "./skeleton.tsx";
+import { focusHeading } from "../focus.ts";
 
 /** Links shown on the signed-in pages. */
 export function AccountNav() {
   const { t, href } = useCtx();
   const [leaving, setLeaving] = useState(false);
   const logout = async () => {
+    if (leaving) return;
     setLeaving(true);
     await api.logout().catch(() => undefined);
     setSignedIn(false);
@@ -25,7 +27,7 @@ export function AccountNav() {
     <nav class="subnav" aria-label={t["nav.account"]}>
       <a href={href("/devices/")}>{t["nav.devices"]}</a>
       <a href={href("/account/")}>{t["nav.account"]}</a>
-      <button class="link-button" type="button" onClick={logout} disabled={leaving} aria-busy={leaving}>
+      <button class="link-button" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
         {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
       </button>
     </nav>
@@ -68,6 +70,7 @@ export function Account() {
   }, []);
 
   const remove = async () => {
+    if (deleting) return;
     setDeleting(true);
     try {
       await api.deleteAccount();
@@ -78,7 +81,7 @@ export function Account() {
     }
   };
 
-  if (newNumber) return <AccountNumber number={newNumber} rotated onContinue={() => setNewNumber("")} />;
+  if (newNumber) return <AccountNumber number={newNumber} rotated onContinue={() => { setNewNumber(""); focusHeading(); }} />;
   if (err && !me) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
   // The page keeps its final layout while loading: the words are there from the start, and only what comes
   // from the server (the dates, the monthly record, the passkeys) is grey until it arrives, then eases in.
@@ -113,7 +116,7 @@ export function Account() {
             {t["account.deleteCheck"]}
           </label>
           {err && <p class="error" role="alert">{err}</p>}
-          <button class="nb-button nb-button--danger" type="button" disabled={!sure || deleting} aria-busy={deleting} onClick={remove}>
+          <button class="nb-button nb-button--danger" type="button" disabled={!sure} aria-disabled={deleting} aria-busy={deleting} onClick={remove}>
             {deleting ? <><Spin />{t["busy.delete"]}</> : t["account.deleteSubmit"]}
           </button>
         </div>

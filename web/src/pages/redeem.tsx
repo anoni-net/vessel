@@ -11,6 +11,7 @@ import { passkeysSupported } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
 import { saveFile, savesInPlace } from "../save-file.ts";
+import { focusHeading } from "../focus.ts";
 
 export function Redeem() {
   const { t, href } = useCtx();
@@ -38,6 +39,7 @@ export function Redeem() {
 
   const submit = async (e: Event) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setErr("");
     try {
@@ -72,7 +74,7 @@ export function Redeem() {
           <a href={href("/privacy/")}>{t["privacy.title"]}</a>{t["redeem.read.after"]}
         </p>
         <p class="small"><a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["faq.risky.q"]}</a></p>
-        <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+        <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
           {busy ? <><Spin />{t["busy.redeem"]}</> : t["redeem.submit"]}
         </button>
       </form>
@@ -102,6 +104,8 @@ export function AccountNumber({ number, rotated = false, onContinue }: { number:
   // a browser that can neither copy nor download without leaving the page (save-file.ts) gets neither button
   const [inPlace, setInPlace] = useState(true);
   useEffect(() => setInPlace(savesInPlace()), []);
+  // shown in place of the form or the account page, whose button is gone
+  useEffect(() => focusHeading(), []);
 
   const copy = async () => {
     try {

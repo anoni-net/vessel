@@ -14,6 +14,7 @@ import { FILTERS, Layers } from "./layers.tsx";
 import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 import { saveFile, savesInPlace } from "../save-file.ts";
+import { focusHeading } from "../focus.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
 // the steps inside AmneziaWG, after the config is saved
@@ -110,10 +111,12 @@ export function NewDevice() {
     setStep(s);
     track("device-step", { step: s, platform });
     window.scrollTo(0, 0);
+    focusHeading();
   };
 
   const create = async (e: Event) => {
     e.preventDefault();
+    if (busy) return;
     started.current = true;
     setBusy(true);
     setErr("");
@@ -316,7 +319,7 @@ export function NewDevice() {
           </p>
           {busy && <p class="muted" role="status">{t["config.waiting"]}</p>}
           {errorLine}
-          <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+          <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
             {busy ? <><Spin />{t["busy.create"]}</> : t["name.submit"]}
           </button>
           <button class="link-button" type="button" onClick={() => go("name")} disabled={busy}>{t["back"]}</button>

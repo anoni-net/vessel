@@ -17,6 +17,7 @@ import { StatusPage } from "./pages/status.tsx";
 import { loadNewDevice, loadedNewDevice } from "./pages/lazy.ts";
 import { NewDeviceSkeleton } from "./pages/skeleton.tsx";
 import { Legal, NotFound, preloadLegal } from "./pages/simple.tsx";
+import { focusHeading } from "./focus.ts";
 import { usePath } from "./router.ts";
 import { FAVICON, LOGO, LOGO_DARK } from "./images.ts";
 import { BUILT, REV, REV_URL } from "./rev.ts";
@@ -24,7 +25,7 @@ import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
 import { CLEARNET, COMMUNITY_SITE, IS_ONION, ONION_HOST, ONION_SITE } from "./site.ts";
 import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
-import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BlockTitle } from "./pages/block-title.tsx";
 
 // key generation and the QR code are only needed here, so they load with this page (see pages/lazy.ts)
@@ -127,6 +128,13 @@ export function App({ url }: { url?: string } = {}) {
   // after the page has rendered, so the title and path are the new page's
   useEffect(() => {
     if (route) trackView(path);
+  }, [locale, path]);
+  // a link followed inside the site swaps <main>: start at the new page's heading, or at the part the link points to
+  // (the first page loads like any other, and the browser handles that)
+  const shown = useRef(false);
+  useEffect(() => {
+    if (shown.current) focusHeading(decodeURIComponent(location.hash.slice(1)) || undefined);
+    shown.current = true;
   }, [locale, path]);
 
   if (typeof document !== "undefined") {
