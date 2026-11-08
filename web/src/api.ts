@@ -1,4 +1,5 @@
 /** Calls to the portal backend. Errors come back as short codes that the pages translate. */
+import type { Reach } from "./reach.ts";
 
 export class ApiError extends Error {
   constructor(public code: string, public status: number) {
@@ -136,6 +137,9 @@ export interface Status {
   regions: { id: string; state: NodeState }[];
   /** newest first, the last 30 days; region null means every city, ends_at null means still going on */
   notices: { region: string | null; kind: NoticeKind; starts_at: string; ends_at: string | null }[];
+  /** which common sites each city's node can open, checked by the node every hour; cities without a recent check are
+   *  left out (see reach.ts) */
+  reach?: Reach[];
 }
 
 export interface Passkey {

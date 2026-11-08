@@ -7,6 +7,7 @@
 #   resume <id>
 #   list --json
 #   usage --json
+#   reach --json   the sites this node can open (host/vessel-reach.py), not an awgctl call
 #
 # authorized_keys on the node:
 #   command="/usr/local/sbin/awgctl-remote",restrict,from="<portal host's tailnet IP>" ssh-ed25519 AAAA... vessel-portal
@@ -20,6 +21,7 @@ case "${a[0]:-}:${#a[@]}" in
   resume:2)     exec /usr/local/sbin/awgctl resume "${a[1]}" ;;
   list:2)       [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl list --json ;;
   usage:2)      [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl usage --json ;;
+  reach:2)      [ "${a[1]}" = --json ] && exec cat /opt/vessel-node/reach.json ;;
 esac
 echo "awgctl-remote: command not allowed" >&2
 exit 2

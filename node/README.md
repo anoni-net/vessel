@@ -18,6 +18,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
 | `host/cve-2026-98432-ipopt`、`host/cve-2026-98432-ipopt.service` | 腳本放 `/usr/local/sbin/`，服務放 `/etc/systemd/system/` | 核心修正之前丟棄帶 IPv4 選項的 TCP SYN，見「安裝」 |
 | `host/vessel-probe-watch.sh`、`host/vessel-probe-watch.service`、`host/vessel-probe-watch.timer` | 腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 統計打到 AWG 埠、不是使用者的封包，見「探測與掃描的觀察」 |
+| `reach-sites.tsv`、`host/vessel-reach.py`、`host/vessel-reach.service`、`host/vessel-reach.timer` | 清單放根目錄，腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 每小時檢查這個節點打不打得開常用的網站，見「節點打不開的網站」 |
 
 主機上另外有 `server/`（伺服器私鑰與 `HeaderProtectionKey`）、`peers/`、`clients/`、`conf/awg0.conf` 與 `rpz/`，都不進 repo。
 
@@ -85,7 +86,7 @@ awgctl remove <名稱>
 
 ## 入口網站的金鑰
 
-入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`suspend`、`resume`、`list --json`、`usage --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
+入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`suspend`、`resume`、`list --json`、`usage --json`，以及讀取「節點打不開的網站」結果的 `reach --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
 
 ```
 command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 tailnet IP>" ssh-ed25519 AAAA... vessel-portal
@@ -234,6 +235,24 @@ systemctl daemon-reload && systemctl enable --now vessel-probe-watch.timer
 同一份裝置清單也保護這個埠。Docker 用 DNAT 轉送，每個來源都佔一筆連線追蹤，偽造來源的封包可能塞滿追蹤表，讓所有人的新連線失敗。追蹤開始之前，現有裝置的端點直接放行，其他來源共用每秒 2,000 個封包的額度，超過就丟棄並計數，寫進 `hourly.csv` 的 `dropped`。依 UDP 沒有回應時 30 秒的逾時計算，放行的量最多約佔 6 萬筆，低於調高後 26 萬筆的上限（`nf_conntrack_max`，每筆約 320 位元組，用到才佔記憶體）。清單每分鐘更新，換了網路的裝置在下一次更新之前跟其他來源共用額度，通常感覺不到，遇到攻擊時最多等一分鐘。讀不到容器時保留上一份清單，這張表不存在時埠完全開放，這裡出錯不會把人擋在外面。大流量的攻擊在塞滿主機的網路之前就要靠主機商處理，這些規則擋不了。
 
 判讀時要知道：使用者換了網路（例如從 Wi-Fi 換到行動網路），新位址在下一次同步之前送來的握手也會被算進去，所以平常就會有少量的數字。要注意的是突然增加、來源變多，或只出現在某一個城市的節點。兩個城市一起增加，多半是一般的網路掃描。只有一個城市增加的話，再對照那個城市使用者的分布。大區看的是登記地，掃描器與代理可能在任何地方，要看的是某一區持續增加，尤其是有人從同一區連線之後才出現的情況。
+
+## 節點打不開的網站
+
+有些網站擋國外或機房的 IP。2026-11-08 從三台節點連 43 個常用網站：東京與新加坡節點打不開監理服務網與 momo，台北與新加坡節點打不開 Reddit 與香港郵政，新加坡節點打不開樂天市場，台灣銀行與巴哈姆特動畫瘋在東京與新加坡節點要通過驗證。使用者連上 Vessel 之後遇到這種網站，分不出是 Vessel 斷線還是網站擋了節點，所以每台節點每小時自己測一次，入口網站的服務狀態頁再依網站所在的地區列出各節點打不開的網站。
+
+- 清單在 `reach-sites.tsv`：網站所在的地區（各地都會用到的服務、台灣、香港、澳門、日本、新加坡）、網址，以及只有真正的頁面才有的文字。Vessel 的使用者不只在台灣，所以每個地區都放幾個常用的網站，服務狀態頁依地區分組，讀者看自己那一組即可。驗證頁或封鎖頁也可能回 200，有這段文字才算打得開。從哪裡連都會被 Cloudflare 要求驗證的網站（健保署、博客來、Dcard、Claude）與靠 JavaScript 產生的頁面（TVer、ABEMA）不放進清單，curl 分不出驗證與封鎖
+- `vessel-reach.py` 在容器的網路裡用 curl 連，請求從節點的公開 IP 出去，網域用不過濾的 `10.8.1.1` 查，跟使用者的路徑相同，過濾名單擋下的不會被當成打不開。東京節點主機自己的解析器查不到 `web.whatsapp.com`，所以不能直接在主機上連
+- 每個網站的結果是打得開（`ok`）、要驗證（`challenge`，瀏覽器可能自動通過）或打不開（`blocked`，逾時、拒絕連線、403、沒有那段文字）。連續兩次打不開才算打不開，一次的慢回應不會出現在頁面上
+- 結果寫進 `/opt/vessel-node/reach.json`，入口網站透過 `awgctl-remote reach --json` 讀取。只有網站與結果，不涉及任何使用者
+- 每個網站每小時一個請求，三台節點錯開最多 20 分鐘
+
+```bash
+install -m 644 reach-sites.tsv /opt/vessel-node/
+install -m 755 host/vessel-reach.py /opt/vessel-node/host/
+install -m 644 host/vessel-reach.service host/vessel-reach.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now vessel-reach.timer
+systemctl start vessel-reach.service && cat /opt/vessel-node/reach.json    # 立刻測一次
+```
 
 ## 升級
 

@@ -85,6 +85,9 @@ class FakeNode:
         self.handshakes: dict[str, int] = {}
         self.started = "2026-10-27T00:00:00Z"
         self.down = False
+        # what node/host/vessel-reach.py last wrote, or None before its first run
+        self.reach_result: dict | None = None
+        self.reach_calls = 0
 
     def add_pubkey(self, host, device_id, public_key, psk, dns_filter):
         if self.down:
@@ -115,6 +118,12 @@ class FakeNode:
         if device_id in self.suspended:
             self.peers[device_id] = self.suspended.pop(device_id)
             self.counters[device_id] = (0, 0)
+
+    def reach(self, host):
+        self.reach_calls += 1
+        if self.down or self.reach_result is None:
+            raise NodeError("cat: /opt/vessel-node/reach.json: No such file or directory")
+        return self.reach_result
 
     def usage(self, host):
         if self.down:

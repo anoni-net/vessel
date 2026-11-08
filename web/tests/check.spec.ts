@@ -107,6 +107,17 @@ for (const [notices, words] of [
   });
 }
 
+test("through a node that cannot open a site, the check points to the status page", async ({ page }) => {
+  await network(page, { region: "jp", ipv6: false }, [1, 2]);
+  await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "tw", state: "ok" }], notices: [], reach: [   { region: "jp", checked_at: "2026-11-08T04:20:00Z", sites: { mvdis: "blocked", momo: "blocked", bot: "challenge", ptt: "blocked", signal: "ok" } },   { region: "tw", checked_at: "2026-11-08T04:25:00Z", sites: { mvdis: "ok", momo: "ok", bot: "ok", ptt: "blocked", signal: "ok" } }, ] } }));
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  // no site is named: which ones matter depends on where the visitor lives, and the status page groups them by region
+  const note = page.getByTestId("check-reach");
+  await expect(note).toHaveText("有些網站會擋國外或機房的 IP，東京節點打不開的網站列在各節點打不開的網站。");
+  await expect(note.getByRole("link")).toHaveAttribute("href", "/status/#reach");
+});
+
 test("off Vessel, or when the status cannot be read, there is no line about a node", async ({ page }) => {
   await network(page, { region: null, ipv6: false }, []);
   await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "sg", state: "ok" }], notices: [] } }));

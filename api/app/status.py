@@ -1,5 +1,6 @@
-"""The status page (/status/): whether the worker can still read each open region's node, and the notices
-maintainers wrote with `admin notices`. Public, no session; nothing about the visitor is involved."""
+"""The status page (/status/): whether the worker can still read each open region's node, the notices
+maintainers wrote with `admin notices`, and which common sites each node can open (jobs.poll_reach). Public, no
+session; nothing about the visitor is involved."""
 
 from fastapi import APIRouter, Response
 
@@ -13,6 +14,8 @@ router = APIRouter(prefix="/api")
 STALE_MINUTES = 20
 WORKER_STALE_MINUTES = 5
 NOTICE_DAYS = 30
+# the nodes check every hour; a check older than this is from a node whose timer stopped, and is left out
+REACH_STALE_HOURS = 3
 
 
 @router.get("/status")
@@ -37,4 +40,12 @@ def status(conn: Conn, response: Response) -> dict:
             (NOTICE_DAYS,),
         )
     ]
-    return {"regions": regions, "notices": notices}
+    reach: dict[str, dict] = {}
+    for region, site, state, checked_at in conn.execute(
+        "SELECT r.region_id, r.site, r.state, r.checked_at FROM reach r JOIN regions g ON g.id = r.region_id "
+        "WHERE g.is_open AND r.checked_at > now() - make_interval(hours => %s) ORDER BY r.region_id, r.site",
+        (REACH_STALE_HOURS,),
+    ):
+        entry = reach.setdefault(region, {"region": region, "checked_at": checked_at.isoformat(), "sites": {}})
+        entry["sites"][site] = state
+    return {"regions": regions, "notices": notices, "reach": list(reach.values())}

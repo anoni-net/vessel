@@ -1,5 +1,6 @@
 """Calling awgctl on a node over SSH. On the node the key is pinned to awgctl-remote, which allows only
-add-pubkey, remove, suspend, resume, list --json and usage --json."""
+add-pubkey, remove, suspend, resume, list --json and usage --json, and reach --json, which reads the node's own
+check of the sites it can open (node/host/vessel-reach.py)."""
 
 import json
 import os
@@ -17,6 +18,7 @@ class Node(Protocol):
     def suspend(self, host: str, device_id: str) -> None: ...
     def resume(self, host: str, device_id: str) -> None: ...
     def usage(self, host: str) -> dict: ...
+    def reach(self, host: str) -> dict: ...
 
 
 class SSHNode:
@@ -57,6 +59,12 @@ class SSHNode:
 
     def usage(self, host):
         return json.loads(self._run(host, "usage", "--json"))
+
+    def reach(self, host):
+        try:
+            return json.loads(self._run(host, "reach", "--json"))
+        except ValueError as e:
+            raise NodeError(f"reach: {e}") from e
 
 
 _node: Node | None = None
