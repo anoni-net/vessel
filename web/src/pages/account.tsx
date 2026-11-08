@@ -17,21 +17,36 @@ import { announce } from "../announce.ts";
 export function AccountNav() {
   const { t, href } = useCtx();
   const [leaving, setLeaving] = useState(false);
+  const [failed, setFailed] = useState(false);
   const logout = async () => {
     if (leaving) return;
     setLeaving(true);
-    await api.logout().catch(() => undefined);
+    setFailed(false);
+    try {
+      await api.logout();
+    } catch (x) {
+      // only the server can clear the session cookie; until it answers, this browser stays signed in, and the next
+      // person at a shared computer would land in this account. An already ended session needs nothing more.
+      if (!(x instanceof ApiError && x.code === "signed_out")) {
+        setFailed(true);
+        setLeaving(false);
+        return;
+      }
+    }
     setSignedIn(false);
     navigate(href("/"));
   };
   return (
-    <nav class="subnav" aria-label={t["nav.account"]}>
-      <a href={href("/devices/")}>{t["nav.devices"]}</a>
-      <a href={href("/account/")}>{t["nav.account"]}</a>
-      <button class="link-button" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
-        {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
-      </button>
-    </nav>
+    <>
+      <nav class="subnav" aria-label={t["nav.account"]}>
+        <a href={href("/devices/")}>{t["nav.devices"]}</a>
+        <a href={href("/account/")}>{t["nav.account"]}</a>
+        <button class="link-button" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
+          {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
+        </button>
+      </nav>
+      {failed && <p class="error" role="alert">{t["nav.logoutFailed"]}</p>}
+    </>
   );
 }
 

@@ -7,6 +7,7 @@
   "nav.devices": "我的设备",
   "nav.account": "账号",
   "nav.logout": "退出登录",
+  "nav.logoutFailed": "退出登录没有完成，这个浏览器仍处于登录状态，请再点一次退出登录。",
   "home.title": "Vessel",
   "home.badge": "邀请制",
   "home.lead": "匿名网络社区 anoni.net 为身边的人架设的 VPN，在学校、酒店、出国这些常连不上 VPN 的地方，也能放心上网。",
