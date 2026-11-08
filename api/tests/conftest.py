@@ -119,6 +119,11 @@ class FakeNode:
             self.peers[device_id] = self.suspended.pop(device_id)
             self.counters[device_id] = (0, 0)
 
+    def list_peers(self, host):
+        if self.down:
+            raise NodeError("timeout")
+        return [{"name": n} for n in self.peers]
+
     def reach(self, host):
         self.reach_calls += 1
         if self.down or self.reach_result is None:

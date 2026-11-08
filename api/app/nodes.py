@@ -18,6 +18,7 @@ class Node(Protocol):
     def suspend(self, host: str, device_id: str) -> None: ...
     def resume(self, host: str, device_id: str) -> None: ...
     def usage(self, host: str) -> dict: ...
+    def list_peers(self, host: str) -> list[dict]: ...
     def reach(self, host: str) -> dict: ...
 
 
@@ -48,17 +49,29 @@ class SSHNode:
         try:
             self._run(host, "remove", device_id)
         except NodeError as e:
-            if "not found" not in str(e):
+            # gone already is what remove wants; awgctl says "awgctl: <id> not found" (and applies first)
+            if not str(e).endswith(f"{device_id} not found"):
                 raise
 
     def suspend(self, host, device_id):
-        self._run(host, "suspend", device_id)
+        try:
+            self._run(host, "suspend", device_id)
+        except NodeError as e:
+            # a peer the node does not have cannot connect either
+            if not str(e).endswith(f"{device_id} not found"):
+                raise
 
     def resume(self, host, device_id):
         self._run(host, "resume", device_id)
 
     def usage(self, host):
         return json.loads(self._run(host, "usage", "--json"))
+
+    def list_peers(self, host):
+        try:
+            return json.loads(self._run(host, "list", "--json"))
+        except ValueError as e:
+            raise NodeError(f"list: {e}") from e
 
     def reach(self, host):
         try:

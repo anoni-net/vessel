@@ -271,10 +271,22 @@ def usage_months(account_id: Account, conn: Conn) -> dict:
 @router.delete("/account", dependencies=[Depends(require_app_header)])
 def delete_account(account_id: Account, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
-        # the nodes still hold these peers; the worker removes them after the rows are gone
+        # waits for a device being created right now, so its add is either queued below or already on the node
+        conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))
+        devices = "SELECT id FROM devices WHERE account_id = %s"
+        # adds still waiting to reach a node are dropped, and configs nobody fetched go with them
+        conn.execute(
+            f"UPDATE jobs SET status = 'done', payload = NULL, result = NULL, done_at = now(), updated_at = now() "
+            f"WHERE device_id IN ({devices}) AND status = 'queued' AND action <> 'remove'",
+            (account_id,),
+        )
+        conn.execute(f"UPDATE jobs SET result = NULL WHERE device_id IN ({devices}) AND result IS NOT NULL",
+                     (account_id,))
+        # the nodes still hold these peers; the worker removes them after the rows are gone. A device already
+        # revoking has its remove job.
         conn.execute(
             "INSERT INTO jobs (region_id, device_id, action) "
-            "SELECT region_id, id, 'remove' FROM devices WHERE account_id = %s",
+            "SELECT region_id, id, 'remove' FROM devices WHERE account_id = %s AND status <> 'revoking'",
             (account_id,),
         )
         conn.execute("DELETE FROM accounts WHERE id = %s", (account_id,))
