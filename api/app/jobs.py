@@ -243,6 +243,7 @@ def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
 
 
 REACH_EVERY_MINUTES = 30
+REACH_KEEP_HOURS = 48
 REACH_STATES = frozenset({"ok", "challenge", "blocked"})
 SITE_ID = re.compile(r"^[a-z0-9]{1,32}$")
 
@@ -250,7 +251,7 @@ SITE_ID = re.compile(r"^[a-z0-9]{1,32}$")
 def poll_reach(conn: psycopg.Connection) -> None:
     """Read each open region's check of the sites its node can open (node/host/vessel-reach.py) into reach. The node
     checks every hour; a region read in the last half hour is skipped. A node without the check yet, or one that
-    cannot be reached, keeps what was read before."""
+    cannot be reached, keeps what was read before. Each check also goes into reach_history, kept for two days."""
     node = get_node()
     due = conn.execute(
         "SELECT r.id, r.node_host FROM regions r WHERE r.is_open AND NOT EXISTS "
@@ -270,3 +271,7 @@ def poll_reach(conn: psycopg.Connection) -> None:
             for site, state in sites.items():
                 conn.execute("INSERT INTO reach (region_id, site, state, checked_at) VALUES (%s, %s, %s, %s)",
                              (region_id, site, state, checked_at))
+                # the same check read again half an hour later is already there
+                conn.execute("INSERT INTO reach_history (region_id, site, state, checked_at) VALUES (%s, %s, %s, %s) "
+                             "ON CONFLICT DO NOTHING", (region_id, site, state, checked_at))
+    conn.execute("DELETE FROM reach_history WHERE checked_at < now() - make_interval(hours => %s)", (REACH_KEEP_HOURS,))

@@ -23,6 +23,24 @@ export interface Reach {
   sites: Record<string, ReachState>;
 }
 
+/** The last `hours` hours of the sites some node had trouble with: per site and region, one state a slot from the oldest
+ *  hour to the current one, null where the node did not check (api/app/status.py). */
+export interface ReachHistory {
+  hours: number;
+  until: string;
+  sites: Record<string, Record<string, (ReachState | null)[]>>;
+}
+
+/** The sites worth showing for the last day: some node could not open them, or asked for a check, while another
+ *  node opened them at some point. A site no node opened is most likely down itself. */
+export function troubledSites(history: ReachHistory): string[] {
+  return Object.keys(history.sites).filter((site) => {
+    const byRegion = Object.entries(history.sites[site]);
+    return byRegion.some(([region, slots]) =>
+      slots.some((s) => s && s !== "ok") && byRegion.some(([other, o]) => other !== region && o.includes("ok")));
+  });
+}
+
 /** The sites the node in `region` answers with `state`, among those another node opens. */
 export function sitesHere(reach: Reach[], region: string, state: Exclude<ReachState, "ok">): string[] {
   const here = reach.find((r) => r.region === region);
