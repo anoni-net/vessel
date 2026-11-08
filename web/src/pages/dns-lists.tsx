@@ -66,6 +66,7 @@ const KNOWN = [1, 2, 3, 4, 5] as const;
 const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
+  ["2026-11-09", "20261109"],
   ["2026-11-08", "20261108b"],
   ["2026-11-08", "20261108"],
   ["2026-11-07", "20261107b"],
