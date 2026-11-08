@@ -12,7 +12,7 @@
 | `/etc/vessel/db.env` | `POSTGRES_PASSWORD` | 可以進資料庫容器重設 |
 | `/etc/vessel/ssh/key`、`known_hosts` | 呼叫節點 `awgctl-remote` 的金鑰與節點的主機金鑰 | 重新產生，再換掉節點上 `authorized_keys` 的那一行 |
 
-`api.env` 可以另外加上 `VESSEL_STUN=<主機>:443`，連線檢測才會測試 UDP，STUN 伺服器的架設見 `stun/README.md`。沒有設定時不顯示這一項。
+連線檢測的 UDP 測試預設使用 Cloudflare 的公開 STUN 伺服器（`stun.cloudflare.com:3478`），`api.env` 加上 `VESSEL_STUN=<主機>:<埠>` 可以換成其他伺服器，設成空值就不顯示這一項。
 
 `VESSEL_ACCOUNT_PEPPER` 與 `VESSEL_HMAC_KEY` 要另外備份在主機以外的地方，例如維護者的密碼管理器，而且不要跟資料庫的備份放在一起。三個檔案的權限都是 600，擁有者是 root。
 

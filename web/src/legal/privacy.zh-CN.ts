@@ -31,7 +31,7 @@ export default {
         "谁邀请了谁。你生成的邀请码被使用之后，数据库里没有任何数据能把你和对方的账号连在一起",
         "设备的私钥。私钥在你的浏览器里生成，不会发送到我们的服务器",
         "你连往哪些网站、什么时候连接",
-        "你的 IP。门户网站与 API 都不记录访问日志，连接检测只在当下比对它是不是 Vessel 节点的 IP。没有经过 Vessel 时，连接检测另外向社区的测试服务器发送 UDP 数据包，服务器把来源地址返回给浏览器，同样不记录",
+        "你的 IP。门户网站与 API 都不记录访问日志，连接检测只在当下比对它是不是 Vessel 节点的 IP",
         "DNS 查询的内容。节点的解析器不记录查询，域名过滤页的网站查询只在当下与名单比对",
       ],
     },
@@ -49,7 +49,7 @@ export default {
     { h: "处理数据的第三方" },
     {
       ul: [
-        "Cloudflare：门户网站经过 Cloudflare，它可以取得访问者的 IP 与浏览的页面，适用 [Cloudflare 的隐私政策](https://www.cloudflare.com/privacypolicy/)。门户网站已经关闭 Cloudflare 的分析脚本。Cloudflare 的 Page Shield 会抽样在部分页面加上报告用的设置，让浏览器把页面加载的脚本与连接的网址报告给 Cloudflare，用来检测被植入的恶意脚本，报告的内容是网址，不含你输入的数据。VPN 的连接不经过 Cloudflare",
+        "Cloudflare：门户网站经过 Cloudflare，它可以取得访问者的 IP 与浏览的页面，适用 [Cloudflare 的隐私政策](https://www.cloudflare.com/privacypolicy/)。门户网站已经关闭 Cloudflare 的分析脚本。Cloudflare 的 Page Shield 会抽样在部分页面加上报告用的设置，让浏览器把页面加载的脚本与连接的网址报告给 Cloudflare，用来检测被植入的恶意脚本，报告的内容是网址，不含你输入的数据。连接检测发现没有经过 Vessel 时，浏览器另外向 Cloudflare 的公开 STUN 服务器发送 UDP 数据包，测试当前的网络能否发出 UDP，Cloudflare 会收到你的 IP。VPN 的连接不经过 Cloudflare",
         "DigitalOcean：新加坡的节点架设在 DigitalOcean 的主机上。它是网络的提供者，可以看到进出节点的流量，但无法解开加密的连接",
         "Akamai：东京的节点架设在 Akamai（原 Linode）的主机上，能看到的范围与 DigitalOcean 相同",
         "Greenhost：台北的节点架设在 Greenhost 的主机上，能看到的范围与 DigitalOcean 相同",

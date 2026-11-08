@@ -31,7 +31,7 @@ export default {
         "Who invited whom. Once a code you made is used, nothing in the database links your account to the other person's",
         "Device private keys. They are generated in your browser and never sent to our servers",
         "Which sites you visit, or when you connect",
-        "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment. When you are not on Vessel, the check also sends UDP packets to the community's test server, which returns the address they came from to your browser and does not log it either",
+        "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment",
         "DNS queries. The node's resolvers do not log them, and the site lookup on the DNS filtering page only compares a domain with the lists at that moment",
       ],
     },
@@ -49,7 +49,7 @@ export default {
     { h: "Third parties that handle data" },
     {
       ul: [
-        "Cloudflare: the portal goes through Cloudflare, which can see visitors' IP addresses and the pages they view, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/). Cloudflare's analytics script is turned off for the portal. Cloudflare's Page Shield adds a reporting policy to a sample of pages, so the browser reports the scripts the page loads and the addresses it connects to back to Cloudflare, to detect injected malicious scripts. The reports hold addresses, not anything you type. VPN connections do not go through Cloudflare",
+        "Cloudflare: the portal goes through Cloudflare, which can see visitors' IP addresses and the pages they view, under [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/). Cloudflare's analytics script is turned off for the portal. Cloudflare's Page Shield adds a reporting policy to a sample of pages, so the browser reports the scripts the page loads and the addresses it connects to back to Cloudflare, to detect injected malicious scripts. The reports hold addresses, not anything you type. When the connection check finds you are not on Vessel, your browser also sends UDP packets to Cloudflare's public STUN server to test whether your network lets UDP out, and Cloudflare receives your IP address. VPN connections do not go through Cloudflare",
         "DigitalOcean: the Singapore node runs on DigitalOcean servers. As the network provider it can see traffic in and out of the node, but cannot decrypt the connections",
         "Akamai: the Tokyo node runs on Akamai (formerly Linode) servers, which can see the same as DigitalOcean",
         "Greenhost: the Taipei node runs on Greenhost servers, which can see the same as DigitalOcean",

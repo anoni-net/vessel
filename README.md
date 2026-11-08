@@ -22,7 +22,6 @@ Vessel 是[匿名網路社群 anoni.net](https://anoni.net/) 架設的 VPN。連
 | `api/` | 入口網站的後端（FastAPI、PostgreSQL），開發中 |
 | `web/` | 入口網站的前端（Vite、Preact），開發中 |
 | `deploy/` | 後端的 compose 與 nginx 設定範例 |
-| `stun/` | 連線檢測測試 UDP 用的 STUN 伺服器，放在節點以外的主機 |
 
 開發的方式與規則見 [AGENTS.md](AGENTS.md)。
 
@@ -56,7 +55,6 @@ Vessel is under development and will start as an invite-only test at <https://ve
 | `api/` | Portal backend (FastAPI, PostgreSQL), in progress |
 | `web/` | Portal frontend (Vite, Preact), in progress |
 | `deploy/` | Compose file and nginx example for the backend |
-| `stun/` | The STUN server the connection check tests UDP against, on a host other than the nodes |
 
 See [AGENTS.md](AGENTS.md) (in Chinese) for how to develop.
 

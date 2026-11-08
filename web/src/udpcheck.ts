@@ -1,5 +1,6 @@
 // The UDP check on /check/: Vessel's nodes speak AmneziaWG over UDP, and a network that drops UDP cannot reach them. A page
-// cannot send UDP itself; WebRTC can, to a STUN server (stun/ in this repo, address from /api/network). A server-reflexive
+// cannot send UDP itself; WebRTC can, to a STUN server (Cloudflare's public one, address from /api/network). It listens
+// on 3478, not the nodes' 443: a network that lets only a few ports out can fail here and still reach Vessel. A server-reflexive
 // ("srflx") candidate comes from the server's answer, so the packet went out and came back.
 // That candidate carries the visitor's public address. Only its type is read here: the address is not shown, not kept,
 // and not sent anywhere.

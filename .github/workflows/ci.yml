@@ -62,12 +62,3 @@ jobs:
         run: for f in node/*.sh node/awgctl; do bash -n "$f"; done
       - name: shellcheck
         run: shellcheck -S warning node/*.sh node/awgctl
-
-  stun:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - run: python3 -m unittest discover -s stun -v

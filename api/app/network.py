@@ -2,8 +2,9 @@
 when they are not on Vessel. The request's address is looked up in a table held in memory (IPtoASN, public domain), so it
 reaches no one else; only the network's number goes to OONI, and answers are cached per network. Nothing is logged.
 
-The answer also carries the STUN server the page tests UDP against (stun/), from VESSEL_STUN ("host:port"). It is not on a
-node: every visitor gets it. Without it the page shows no UDP test."""
+The answer also carries the STUN server the page tests UDP against: Cloudflare's public one, which needs no setup and is
+not on a node (every visitor gets the address), unless VESSEL_STUN ("host:port") names another. An empty VESSEL_STUN turns
+the UDP test off."""
 
 import datetime
 import gzip
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/api")
 TABLE_URL = "https://iptoasn.com/data/ip2asn-combined.tsv.gz"
 OONI_URL = "https://api.ooni.io/api/v1/aggregation"
 USER_AGENT = "Vessel connection check (+https://vessel.anoni.net/check/)"
-STUN = os.environ.get("VESSEL_STUN") or None
+STUN = os.environ.get("VESSEL_STUN", "stun.cloudflare.com:3478") or None
 TESTS = ("web_connectivity", "signal", "telegram", "whatsapp", "tor")
 DAYS = 30
 TABLE_REFRESH_SECONDS = 7 * 86400

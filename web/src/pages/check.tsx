@@ -113,7 +113,7 @@ function NetworkChecks() {
   );
 }
 
-/** Sends UDP to the STUN server on the port Vessel's nodes use, see udpcheck.ts. The result stays on the page. */
+/** Sends UDP to a public STUN server, see udpcheck.ts. The result stays on the page. */
 function UdpSection({ server }: { server: string }) {
   const { t } = useCtx();
   const [result, setResult] = useState<UdpResult | null>(null);

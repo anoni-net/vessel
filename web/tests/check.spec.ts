@@ -266,7 +266,7 @@ test("off Vessel the check sends UDP to the STUN server, and never shows the add
 });
 
 for (const [mode, badge, words] of [
-  ["fail", "沒有通過", "很可能擋下 UDP"],
+  ["fail", "沒有通過", "測試用的埠跟 Vessel 不同"],
   ["none", "無法判斷", "瀏覽器沒有開放 WebRTC"],
 ] as const) {
   test(`a UDP check that ends ${mode} says so`, async ({ page }) => {

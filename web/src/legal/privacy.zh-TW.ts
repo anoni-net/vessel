@@ -31,7 +31,7 @@ export default {
         "誰邀請了誰。你產生的邀請碼被使用之後，資料庫裡沒有任何資料能把你和對方的帳號連在一起",
         "裝置的私鑰。私鑰在你的瀏覽器裡產生，不會送到我們的伺服器",
         "你連往哪些網站、什麼時候連線",
-        "你的 IP。入口網站與 API 都不記錄存取紀錄，連線檢測只在當下比對它是不是 Vessel 節點的 IP。沒有經過 Vessel 時，連線檢測另外向社群的測試伺服器送出 UDP 封包，伺服器把來源位址回傳給瀏覽器，同樣不記錄",
+        "你的 IP。入口網站與 API 都不記錄存取紀錄，連線檢測只在當下比對它是不是 Vessel 節點的 IP",
         "DNS 查詢的內容。節點的解析器不記錄查詢，網域過濾頁的網站查詢只在當下跟名單比對",
       ],
     },
@@ -49,7 +49,7 @@ export default {
     { h: "處理資料的第三方" },
     {
       ul: [
-        "Cloudflare：入口網站經過 Cloudflare，它可以取得造訪者的 IP 與瀏覽的頁面，適用 [Cloudflare 的隱私權政策](https://www.cloudflare.com/privacypolicy/)。入口網站已經關閉 Cloudflare 的分析腳本。Cloudflare 的 Page Shield 會抽樣在部分頁面加上回報用的設定，讓瀏覽器把頁面載入的腳本與連線的網址回報給 Cloudflare，用來偵測被植入的惡意腳本，回報的內容是網址，不含你輸入的資料。VPN 的連線不經過 Cloudflare",
+        "Cloudflare：入口網站經過 Cloudflare，它可以取得造訪者的 IP 與瀏覽的頁面，適用 [Cloudflare 的隱私權政策](https://www.cloudflare.com/privacypolicy/)。入口網站已經關閉 Cloudflare 的分析腳本。Cloudflare 的 Page Shield 會抽樣在部分頁面加上回報用的設定，讓瀏覽器把頁面載入的腳本與連線的網址回報給 Cloudflare，用來偵測被植入的惡意腳本，回報的內容是網址，不含你輸入的資料。連線檢測發現沒有經過 Vessel 時，瀏覽器另外向 Cloudflare 的公開 STUN 伺服器送出 UDP 封包，測試目前的網路能否送出 UDP，Cloudflare 會收到你的 IP。VPN 的連線不經過 Cloudflare",
         "DigitalOcean：新加坡的節點架在 DigitalOcean 的主機上。它是網路的提供者，可以看到進出節點的流量，但無法解開加密的連線",
         "Akamai：東京的節點架在 Akamai（原 Linode）的主機上，能看到的範圍跟 DigitalOcean 相同",
         "Greenhost：台北的節點架在 Greenhost 的主機上，能看到的範圍跟 DigitalOcean 相同",
