@@ -120,7 +120,7 @@ function Lookup() {
   };
   // the Taiwanese lists first: what they say (Taiwan's ISPs block the site too) matters most, and their appeals go
   // to the agencies that keep them, not to us
-  const list = answer && (answer.tw165 ? "tw165" : answer.twmoda ? "twmoda" : answer.malware ? "malware" : answer.quad9 ? "quad9" : answer.ads ? "ads" : null);
+  const list = answer && (answer.tw165 ? "tw165" : answer.twmoda ? "twmoda" : answer.stalkerware ? "stalkerware" : answer.malware ? "malware" : answer.quad9 ? "quad9" : answer.ads ? "ads" : null);
   const agency = list === "tw165" || list === "twmoda";
   return (
     <form class="card stack" onSubmit={look} data-testid="dns-lookup">

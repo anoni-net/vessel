@@ -29,7 +29,7 @@ bad.example CNAME .
 def api():
     # fresh lists, so the request does not start a download
     blocklists.set_lists({"malware": frozenset({"bad.example"}), "tw165": frozenset({"scam.example"}),
-                          "twmoda": frozenset({"fakeshop.example"}),
+                          "twmoda": frozenset({"fakeshop.example"}), "stalkerware": frozenset({"spy.example"}),
                           "ads": frozenset({"ads.example", "bad.example"})})
     blocklists.lookup_limiter.reset()
     yield TestClient(app)
@@ -52,6 +52,17 @@ def test_parse_165_cleans_the_entries():
             "11509,https://www.fake.example/login,電子商務,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n"
             "11509,not a domain,電子商務,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n")
     assert blocklists.parse_165(text) == frozenset({"scam.example", "shop.example", "www.fake.example"})
+
+
+def test_parse_hosts_reads_a_name_a_line():
+    text = "# a comment\nSpy.Example\nsync.spy.example\n\nnot a name\n"
+    assert blocklists.parse_hosts(text) == frozenset({"spy.example", "sync.spy.example"})
+
+
+def test_lookup_names_the_stalkerware_list(api):
+    body = ask(api, "media.spy.example").json()
+    assert {k: body[k] for k in ("malware", "tw165", "twmoda", "stalkerware", "ads")} == {
+        "malware": False, "tw165": False, "twmoda": False, "stalkerware": True, "ads": False}
 
 
 @pytest.mark.parametrize("raw, host", [
@@ -163,15 +174,17 @@ def test_a_download_leaves_out_the_excluded_name_but_not_the_names_under_it(monk
 
 def test_the_summary_counts_what_each_list_adds(api):
     blocklists.set_lists({"malware": frozenset({"bad.example", "only.example"}), "tw165": frozenset({"scam.example"}),
-                          "twmoda": frozenset({"sub.bad.example"}), "ads": frozenset({"bad.example", "ads.example"})})
+                          "twmoda": frozenset({"sub.bad.example"}), "stalkerware": frozenset({"spy.example"}),
+                          "ads": frozenset({"bad.example", "ads.example"})})
     body = api.get("/api/blocklist/lists").json()
     rows = {row["id"]: row for row in body["lists"]}
     assert rows["malware"] == {"id": "malware", "domains": 2, "only_here": 1}
     assert rows["tw165"] == {"id": "tw165", "domains": 1, "only_here": 1}
     # a parent on another list already blocks it
     assert rows["twmoda"] == {"id": "twmoda", "domains": 1, "only_here": 0}
+    assert rows["stalkerware"] == {"id": "stalkerware", "domains": 1, "only_here": 1}
     assert rows["ads"] == {"id": "ads", "domains": 2, "only_here": 1}
-    assert (body["malware_filter"], body["ads_filter"], body["hagezi"]) == (3, 4, 3)
+    assert (body["malware_filter"], body["ads_filter"], body["hagezi"]) == (4, 5, 3)
     assert "as_of" in body
 
 

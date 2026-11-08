@@ -4,3 +4,5 @@
 from-ia.com  # a public suffix for dynamic DNS hosts: listing it would block everyone under it
 gomlab.com  # on the 165 list since 2026-09, but HiNet resolves it again (checked 2026-11-07)
 playinfo.gomlab.com  # same as gomlab.com
+waws-prod-blu-247.sip.azurewebsites.windows.net  # an Azure App Service front end other sites point to, on Echap's stalkerware list
+waws-prod-blu-247-e7b3.eastus.cloudapp.azure.com  # the same front end's other name
