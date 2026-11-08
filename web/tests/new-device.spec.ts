@@ -9,7 +9,7 @@ const NODE = {
 const KEY = /^[A-Za-z0-9+/]{43}=$/;
 const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object; relays?: unknown[]; regions?: unknown[] } = {}) {
+async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object; relays?: unknown[]; regions?: unknown[]; node?: typeof NODE } = {}) {
   const posted: Record<string, string>[] = [];
   let polls = 0;
   await page.route("**/api/**", async (route) => {
@@ -27,7 +27,7 @@ async function mock(page: Page, opts: { pending?: boolean; createError?: string;
         ? route.fulfill({ status: 202, json: { id: "d-abcdef123456", status: "pending" } })
         // a relay device's config comes back with the relay's address as its Endpoint (the backend rewrites it)
         : route.fulfill({ json: { id: "d-abcdef123456", status: "active", config: req.postDataJSON().relay
-          ? { ...NODE, peer: { ...NODE.peer, Endpoint: "203.0.113.20:51820" } } : NODE } });
+          ? { ...NODE, peer: { ...NODE.peer, Endpoint: "203.0.113.20:51820" } } : opts.node ?? NODE } });
     }
     if (path === "/api/devices/d-abcdef123456/config") {
       polls++;
@@ -186,6 +186,20 @@ test("errors on create are shown", async ({ page }) => {
   await throughToFilter(page);
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("alert")).toHaveText("這個帳號的裝置已經到上限。");
+});
+
+test("a config with fields a node may not add is refused", async ({ page }) => {
+  for (const node of [
+    { ...NODE, interface: { ...NODE.interface, PostUp: "id" } },
+    { ...NODE, peer: { ...NODE.peer, Endpoint: "198.51.100.1:443\n[Interface]\nPrivateKey = x" } },
+  ]) {
+    await page.unrouteAll();
+    await mock(page, { node });
+    await throughToFilter(page);
+    await page.getByRole("button", { name: "產生設定檔" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toHaveCount(0);
+  }
 });
 
 test("install step switches platforms", async ({ page }) => {

@@ -8,6 +8,7 @@ from datetime import UTC, datetime, time
 import psycopg
 from psycopg.types.json import Jsonb
 
+from app import clientconfig
 from app.nodes import NodeError, get_node
 
 MAX_ATTEMPTS = 10
@@ -54,6 +55,7 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
                     # an earlier try reached the node but its answer was lost; start the peer over
                     node.remove(host, device_id)
                     result = node.add_pubkey(host, device_id, payload["public_key"], payload["psk"], payload["dns_filter"])
+                clientconfig.check(result)
                 conn.execute(
                     "UPDATE devices SET status = 'active', tunnel_address = %s, ipv6 = %s WHERE id = %s AND status = 'pending'",
                     # "10.8.1.7/32, fd60:f74e:973c::7/128": the IPv4 address first, then the private IPv6 one
