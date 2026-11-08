@@ -114,7 +114,7 @@ test("through a node that cannot open a site, the check points to the status pag
   await page.getByRole("button", { name: "開始檢測" }).click();
   // no site is named: which ones matter depends on where the visitor lives, and the status page groups them by region
   const note = page.getByTestId("check-reach");
-  await expect(note).toHaveText("有些網站會擋國外或機房的 IP，東京節點打不開的網站列在各城市打不開的網站。");
+  await expect(note).toHaveText("有些網站會擋國外或機房的 IP，東京節點打不開的網站列在各節點打不開的網站。");
   await expect(note.getByRole("link")).toHaveAttribute("href", "/status/#reach");
 });
 

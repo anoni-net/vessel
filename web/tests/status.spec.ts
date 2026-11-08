@@ -90,7 +90,7 @@ test("the sites a city cannot open, by the region they serve", async ({ page }) 
   await expect(page.getByTestId("status-reach").locator("> li")).toHaveCount(1);
   const tw = page.getByTestId("status-reach-tw");
   await expect(tw.getByRole("heading", { level: 3 })).toHaveText("台灣的網站");
-  await expect(tw.locator("p")).toHaveText(["東京打不開：監理服務網、momo 購物網", "東京可能要先通過驗證：臺灣銀行"]);
+  await expect(tw.locator("p")).toHaveText(["東京節點打不開：監理服務網、momo 購物網", "東京節點可能要先通過驗證：臺灣銀行"]);
   // nothing about the cities is said on their cards
   await expect(page.getByTestId("status-regions")).not.toContainText("打不開");
   const how = page.getByTestId("status-reach-how");
@@ -102,7 +102,7 @@ test("the sites a city cannot open, by the region they serve", async ({ page }) 
 test("when every city opens every site, the page says so", async ({ page }) => {
   await status(page, { regions: [{ id: "tw", state: "ok" }], notices: [], reach: [{ region: "tw", checked_at: "2026-11-08T04:25:00Z", sites: { signal: "ok" } }] });
   await page.goto("/status/");
-  await expect(page.getByTestId("status-reach-none")).toHaveText("目前各城市都打得開檢查的網站。");
+  await expect(page.getByTestId("status-reach-none")).toHaveText("目前各節點都打得開檢查的網站。");
 });
 
 test("without a recent check, a city shows nothing about sites", async ({ page }) => {
