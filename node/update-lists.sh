@@ -12,10 +12,9 @@
 #   stalkerware.rpz  the stalkerware domains Echap collects (github.com/AssoEchap/stalkerware-indicators,
 #                generated/hosts, CC BY 4.0): Quad9 blocks most of them, not the apps' own sites, and a block by the
 #                nodes' list is counted per device where Quad9's is not
-#   cti.rpz      the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only).
-#                Every 6 hours, the longest its README recommends, at times that keep out of Taiwan's evening: it
-#                changes about a thousand names an hour, so each run reloads it, and the filter resolver stops
-#                answering while it does (about 12 seconds on a 1 vCPU node, measured 2026-11-08)
+#   cti          the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only).
+#                Not refreshed on the nodes, whose unbound subscribes to the zone (unbound/cti-zone.conf.example):
+#                deploy/rpz/build-cti.sh sources this file and uses cti's entries below
 #   ads.rpz      HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
 # The names in exclude.txt are left out of all of them. Every list ends up as block entries only (block_only, zone_from).
 # node/test/update-lists-test.sh sources this file for its functions; run, it updates the lists.
@@ -147,7 +146,7 @@ mkdir -p "$D"
 exec 9>"$D/.update.lock"
 flock -n 9 || { echo "$(date -Is) another run is updating the lists" >&2; exit 0; }
 zones=("$@")
-[ ${#zones[@]} -gt 0 ] || zones=(malware tw165 twmoda stalkerware cti ads)
+[ ${#zones[@]} -gt 0 ] || zones=(malware tw165 twmoda stalkerware ads)
 for z in "${zones[@]}"; do
   [ -n "${SRC[$z]:-}" ] || { echo "unknown list: $z (malware, tw165, twmoda, stalkerware, cti, ads)" >&2; exit 2; }
 done
