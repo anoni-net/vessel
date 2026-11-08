@@ -1,0 +1,11 @@
+[Unit]
+Description=Vessel node: which common sites this node can open, every hour
+
+[Timer]
+OnCalendar=hourly
+# the three nodes do not ask the same sites at the same second
+RandomizedDelaySec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

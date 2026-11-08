@@ -1,0 +1,31 @@
+# Sites each node checks every hour (host/vessel-reach.py): id, address, and text only the
+# real page has, so a challenge or a block page that answers 200 is not taken for the site. The ids are the names in
+# web/src/i18n/*.json (reach.site.<id>). Sites that challenge curl from anywhere (Cloudflare's "Just a moment") are left
+# out: a check without a browser cannot tell them apart from a block. WhatsApp's home page answers 400 to anything but a
+# browser, so its robots.txt stands in for the site.
+signal	https://signal.org/	Signal
+telegram	https://telegram.org/	Telegram
+whatsapp	https://www.whatsapp.com/robots.txt	User-agent
+torproject	https://www.torproject.org/	Tor Project
+wikipedia	https://zh.wikipedia.org/wiki/Wikipedia:首页	維基百科
+proton	https://account.proton.me/login	Proton
+google	https://www.google.com/search?q=weather	Google
+youtube	https://www.youtube.com/	YouTube
+cathaybk	https://www.cathaybk.com.tw/cathaybk/	國泰世華
+ctbc	https://www.ctbcbank.com/twrbo/zh_tw/index.html	中國信託
+esun	https://www.esunbank.com/zh-tw/personal	玉山銀行
+taishin	https://www.taishinbank.com.tw/	台新銀行
+bot	https://www.bot.com.tw/tw/personal	臺灣銀行
+post	https://www.post.gov.tw/post/internet/index.jsp	中華郵政
+etax	https://www.etax.nat.gov.tw/etwmain/	稅務入口網
+mvdis	https://www.mvdis.gov.tw/	監理服務網
+ris	https://www.ris.gov.tw/app/portal	戶政司
+govtw	https://www.gov.tw/	我的E政府
+cdc	https://www.cdc.gov.tw/	疾病管制署
+cec	https://www.cec.gov.tw/	中央選舉委員會
+momo	https://www.momoshop.com.tw/main/Main.jsp	momo購物網
+pchome	https://24h.pchome.com.tw/	PChome
+ptt	https://www.ptt.cc/bbs/Gossiping/index.html	批踢踢
+104	https://www.104.com.tw/	104人力銀行
+litv	https://www.litv.tv/	LiTV
+anigamer	https://ani.gamer.com.tw/	動畫瘋

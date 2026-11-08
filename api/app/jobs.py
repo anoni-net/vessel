@@ -1,6 +1,7 @@
 """Work on the nodes. Each job runs inside a transaction that holds its row lock, so the API (which tries a job
 right away) and the worker never run the same job twice."""
 
+import re
 from datetime import UTC, datetime, time
 
 import psycopg
@@ -239,3 +240,33 @@ def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
         ).fetchall():
             conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'resume')",
                          (region_id, device_id))
+
+
+REACH_EVERY_MINUTES = 30
+REACH_STATES = frozenset({"ok", "challenge", "blocked"})
+SITE_ID = re.compile(r"^[a-z0-9]{1,32}$")
+
+
+def poll_reach(conn: psycopg.Connection) -> None:
+    """Read each open region's check of the sites its node can open (node/host/vessel-reach.py) into reach. The node
+    checks every hour; a region read in the last half hour is skipped. A node without the check yet, or one that
+    cannot be reached, keeps what was read before."""
+    node = get_node()
+    due = conn.execute(
+        "SELECT r.id, r.node_host FROM regions r WHERE r.is_open AND NOT EXISTS "
+        "(SELECT 1 FROM reach WHERE region_id = r.id AND fetched_at > now() - make_interval(mins => %s))",
+        (REACH_EVERY_MINUTES,),
+    ).fetchall()
+    for region_id, host in due:
+        try:
+            data = node.reach(host)
+            checked_at = datetime.fromisoformat(data["checked_at"])
+            sites = {site: state for site, state in data["sites"].items()
+                     if isinstance(site, str) and SITE_ID.match(site) and state in REACH_STATES}
+        except (NodeError, KeyError, TypeError, ValueError, AttributeError):
+            continue
+        with conn.transaction():
+            conn.execute("DELETE FROM reach WHERE region_id = %s", (region_id,))
+            for site, state in sites.items():
+                conn.execute("INSERT INTO reach (region_id, site, state, checked_at) VALUES (%s, %s, %s, %s)",
+                             (region_id, site, state, checked_at))

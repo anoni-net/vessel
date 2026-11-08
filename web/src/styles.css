@@ -580,6 +580,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the cities side by side and the notices in columns where there is room; one column on phones */
 .status-regions, .status-notices { display: grid; gap: 12px; }
 .status-regions .row { flex-wrap: wrap; gap: 8px; }
+.status-reach { margin-top: 10px; display: grid; gap: 4px; }
+.status-reach p { margin: 0; }
+/* on the check page, the sites a node cannot open start a line of their own under the node's state */
+.check-reach { display: block; margin-top: 4px; }
 @media (min-width: 641px) {
   .status-page { max-width: 800px; }
   .status-regions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }

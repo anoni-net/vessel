@@ -1,4 +1,14 @@
+import { readFileSync } from "node:fs";
 import { type Page, expect, test } from "@playwright/test";
+import en from "../src/i18n/en.json" with { type: "json" };
+import zhCN from "../src/i18n/zh-CN.json" with { type: "json" };
+import zhTW from "../src/i18n/zh-TW.json" with { type: "json" };
+
+// jp cannot open two sites Taipei opens and meets a bot check at a third; no node opens ptt, so it is not the node's fault
+const REACH = [
+  { region: "jp", checked_at: "2026-11-08T04:20:00Z", sites: { mvdis: "blocked", momo: "blocked", bot: "challenge", ptt: "blocked", signal: "ok" } },
+  { region: "tw", checked_at: "2026-11-08T04:25:00Z", sites: { mvdis: "ok", momo: "ok", bot: "ok", ptt: "blocked", signal: "ok" } },
+];
 
 async function status(page: Page, body: unknown, code = 200) {
   await page.route("**/api/status", (route) => route.fulfill({ status: code, json: body }));
@@ -70,4 +80,31 @@ test("a wide screen shows the cities side by side and the notices in columns, a 
   await page.setViewportSize({ width: 390, height: 800 });
   expect(new Set(await top("status-regions")).size).toBe(3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("under each city, the sites its node cannot open that another city's can", async ({ page }) => {
+  await status(page, { regions: [{ id: "jp", state: "ok" }, { id: "tw", state: "ok" }], notices: [], reach: REACH });
+  await page.goto("/status/");
+  const jp = page.getByTestId("status-reach-jp");
+  await expect(jp.locator("p")).toHaveText(["打不開：監理服務網、momo 購物網", "可能要先通過驗證：臺灣銀行"]);
+  await expect(page.getByTestId("status-reach-tw")).toHaveText("檢查的網站都打得開");
+  const how = page.getByTestId("status-reach-how");
+  await how.locator("summary").click();
+  await expect(how).toContainText("監理服務網、momo 購物網、臺灣銀行、PTT、Signal");
+});
+
+test("without a recent check, a city shows nothing about sites", async ({ page }) => {
+  await status(page, { regions: [{ id: "sg", state: "ok" }], notices: [] });
+  await page.goto("/status/");
+  await expect(page.getByTestId("status-regions").locator("li")).toHaveText([/新加坡\s*正常/]);
+  await expect(page.locator("[data-testid^=status-reach]")).toHaveCount(0);
+});
+
+test("every site the nodes check has a name in each language", () => {
+  const ids = readFileSync(new URL("../../node/reach-sites.tsv", import.meta.url), "utf-8")
+    .split("\n").filter((l) => l.trim() && !l.startsWith("#")).map((l) => l.split("\t")[0]);
+  expect(ids.length).toBeGreaterThanOrEqual(20);
+  for (const messages of [zhTW, zhCN, en] as Record<string, string>[]) {
+    expect(ids.filter((id) => !messages[`reach.site.${id}`])).toEqual([]);
+  }
 });

@@ -1,0 +1,9 @@
+[Unit]
+Description=Vessel node: check once which common sites this node can open (vessel-reach.py)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/vessel-node/host/vessel-reach.py
+TimeoutStartSec=15min

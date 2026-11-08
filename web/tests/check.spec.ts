@@ -107,6 +107,15 @@ for (const [notices, words] of [
   });
 }
 
+test("through a node that cannot open a site, the check says which city can", async ({ page }) => {
+  await network(page, { region: "jp", ipv6: false }, [1, 2]);
+  await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "tw", state: "ok" }], notices: [], reach: [   { region: "jp", checked_at: "2026-11-08T04:20:00Z", sites: { mvdis: "blocked", momo: "blocked", bot: "challenge", ptt: "blocked", signal: "ok" } },   { region: "tw", checked_at: "2026-11-08T04:25:00Z", sites: { mvdis: "ok", momo: "ok", bot: "ok", ptt: "blocked", signal: "ok" } }, ] } }));
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  // ptt fails everywhere and the bot check may pass in a browser: neither is named
+  await expect(page.getByTestId("check-reach")).toHaveText("這個節點打不開監理服務網、momo 購物網。改用台北節點就能打開。");
+});
+
 test("off Vessel, or when the status cannot be read, there is no line about a node", async ({ page }) => {
   await network(page, { region: null, ipv6: false }, []);
   await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "sg", state: "ok" }], notices: [] } }));
