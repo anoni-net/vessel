@@ -833,11 +833,11 @@
   "check.state.update": "需要更新",
   "check.state.unknown": "無法判斷",
   "check.udp.title": "UDP 連線",
-  "check.udp.lead": "Vessel 走 UDP 連線。瀏覽器會用跟節點相同的埠，送出 UDP 封包到測試伺服器，確認目前的網路能否送出 UDP。",
+  "check.udp.lead": "Vessel 使用 UDP 連線。瀏覽器會用跟節點相同的埠，送出 UDP 封包到測試伺服器，確認目前的網路能否送出 UDP。",
   "check.udp.row": "UDP 封包往返",
   "check.udp.running": "測試中",
   "check.udp.pass": "目前的網路可以送出 UDP，但不保證能連上 Vessel，節點的 IP 可能另外被擋。",
   "check.udp.fail": "5 秒內沒有收到回應，目前的網路很可能擋下 UDP，Vessel 可能無法連線。可以換一個網路再試，例如手機的行動網路。",
-  "check.udp.unknown": "瀏覽器沒有開放 WebRTC，無法測試，例如 Tor Browser，或關掉 WebRTC 的設定與擴充功能。",
+  "check.udp.unknown": "瀏覽器沒有開放 WebRTC，無法測試。Tor Browser，以及關掉 WebRTC 的設定或擴充功能都會這樣。",
   "check.udp.privacy": "測試伺服器會收到你的 IP，但不記錄，測試的結果只留在這一頁。"
 }
