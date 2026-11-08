@@ -831,5 +831,13 @@
   "check.state.pass": "通过",
   "check.state.fail": "没有通过",
   "check.state.update": "需要更新",
-  "check.state.unknown": "无法判断"
+  "check.state.unknown": "无法判断",
+  "check.udp.title": "UDP 连接",
+  "check.udp.lead": "Vessel 走 UDP 连接。浏览器会用跟节点相同的端口，发送 UDP 数据包到测试服务器，确认当前的网络能否发出 UDP。",
+  "check.udp.row": "UDP 数据包往返",
+  "check.udp.running": "测试中",
+  "check.udp.pass": "当前的网络可以发出 UDP，但不保证能连上 Vessel，节点的 IP 可能另外被封锁。",
+  "check.udp.fail": "5 秒内没有收到回应，当前的网络很可能封锁了 UDP，Vessel 可能无法连接。可以换一个网络再试，例如手机的移动数据。",
+  "check.udp.unknown": "浏览器没有开放 WebRTC，无法测试，例如 Tor Browser，或关闭了 WebRTC 的设置与扩展程序。",
+  "check.udp.privacy": "测试服务器会收到你的 IP，但不记录，测试的结果只留在这一页。"
 }

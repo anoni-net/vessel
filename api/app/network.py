@@ -1,11 +1,15 @@
 """The network part of the connection check on /check/: what OONI's public measurements say about the visitor's network
 when they are not on Vessel. The request's address is looked up in a table held in memory (IPtoASN, public domain), so it
-reaches no one else; only the network's number goes to OONI, and answers are cached per network. Nothing is logged."""
+reaches no one else; only the network's number goes to OONI, and answers are cached per network. Nothing is logged.
+
+The answer also carries the STUN server the page tests UDP against (stun/), from VESSEL_STUN ("host:port"). It is not on a
+node: every visitor gets it. Without it the page shows no UDP test."""
 
 import datetime
 import gzip
 import ipaddress
 import json
+import os
 import socket
 import threading
 import time
@@ -24,6 +28,7 @@ router = APIRouter(prefix="/api")
 TABLE_URL = "https://iptoasn.com/data/ip2asn-combined.tsv.gz"
 OONI_URL = "https://api.ooni.io/api/v1/aggregation"
 USER_AGENT = "Vessel connection check (+https://vessel.anoni.net/check/)"
+STUN = os.environ.get("VESSEL_STUN") or None
 TESTS = ("web_connectivity", "signal", "telegram", "whatsapp", "tor")
 DAYS = 30
 TABLE_REFRESH_SECONDS = 7 * 86400
@@ -176,5 +181,5 @@ def network(request: Request, response: Response) -> dict:
     refresh_in_background()
     asn = _table.lookup(address) if _table else None
     if asn is None:
-        return {"asn": None, "name": None, "tests": [], "days": DAYS}
-    return {"asn": asn, "name": _table.names.get(asn), **report(asn)}
+        return {"asn": None, "name": None, "tests": [], "days": DAYS, "stun": STUN}
+    return {"asn": asn, "name": _table.names.get(asn), **report(asn), "stun": STUN}

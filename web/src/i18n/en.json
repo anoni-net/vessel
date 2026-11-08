@@ -831,5 +831,13 @@
   "check.state.pass": "Passed",
   "check.state.fail": "Not passed",
   "check.state.update": "Needs update",
-  "check.state.unknown": "Cannot tell"
+  "check.state.unknown": "Cannot tell",
+  "check.udp.title": "UDP",
+  "check.udp.lead": "Vessel connects over UDP. Your browser sends UDP packets to a test server, on the same port as the nodes, to see whether the network you are on lets UDP out.",
+  "check.udp.row": "UDP round trip",
+  "check.udp.running": "Testing",
+  "check.udp.pass": "The network you are on lets UDP out. That does not guarantee Vessel connects: a node's address can be blocked on its own.",
+  "check.udp.fail": "No answer within 5 seconds. The network you are on probably blocks UDP, and Vessel may not connect. Try another network, such as your phone's mobile data.",
+  "check.udp.unknown": "Your browser does not allow WebRTC, so this cannot be tested: Tor Browser, for example, or a setting or extension that turns WebRTC off.",
+  "check.udp.privacy": "The test server receives your IP address but does not log it. The result stays on this page."
 }

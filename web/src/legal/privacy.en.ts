@@ -31,7 +31,7 @@ export default {
         "Who invited whom. Once a code you made is used, nothing in the database links your account to the other person's",
         "Device private keys. They are generated in your browser and never sent to our servers",
         "Which sites you visit, or when you connect",
-        "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment",
+        "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment. When you are not on Vessel, the check also sends UDP packets to the community's test server, which returns the address they came from to your browser and does not log it either",
         "DNS queries. The node's resolvers do not log them, and the site lookup on the DNS filtering page only compares a domain with the lists at that moment",
       ],
     },

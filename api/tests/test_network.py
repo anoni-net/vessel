@@ -78,7 +78,7 @@ def test_a_failed_answer_is_not_kept_for_long(api, monkeypatch):
 
 
 def test_an_unknown_network_or_a_table_still_loading_says_so(api, monkeypatch):
-    assert ask(api, "9.9.9.9").json() == {"asn": None, "name": None, "tests": [], "days": network.DAYS}
+    assert ask(api, "9.9.9.9").json() == {"asn": None, "name": None, "tests": [], "days": network.DAYS, "stun": None}
     monkeypatch.setattr(network, "_table", None)
     assert ask(api, "1.0.0.7").json()["asn"] is None
 
@@ -88,3 +88,10 @@ def test_rate_limited(api, monkeypatch):
     for _ in range(network.network_limiter.limit):
         assert ask(api, "1.0.0.7").status_code == 200
     assert ask(api, "1.0.0.7").status_code == 429
+
+
+def test_the_stun_server_comes_with_every_answer(api, monkeypatch):
+    monkeypatch.setattr(network, "STUN", "stun.example:443")
+    monkeypatch.setattr(network, "_measure", lambda asn, test: result(ok=50))
+    assert ask(api, "9.9.9.9").json()["stun"] == "stun.example:443"
+    assert ask(api, "1.0.0.7").json()["stun"] == "stun.example:443"
