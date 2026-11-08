@@ -4,6 +4,19 @@
 import type { Locale } from "./i18n/index.ts";
 
 export type ReachState = "ok" | "challenge" | "blocked";
+
+// The sites by the region they serve, in the order the status page shows them: the column after the id in
+// node/reach-sites.tsv (tests/status.spec.ts checks that the two match). People on Vessel live in many places, so
+// the page lets each reader look at the sites of their own place instead of naming sites to everyone.
+export const REACH_GROUPS = {
+  global: ["signal", "telegram", "whatsapp", "torproject", "wikipedia", "proton", "google", "youtube", "chatgpt", "reddit", "instagram", "x", "spotify"],
+  tw: ["cathaybk", "ctbc", "esun", "taishin", "bot", "post", "etax", "mvdis", "ris", "govtw", "cdc", "cec", "momo", "pchome", "ptt", "104", "litv", "anigamer"],
+  hk: ["hsbchk", "hangseng", "bochk", "govhk", "ird", "hkpost"],
+  mo: ["govmo"],
+  jp: ["nhk", "rakuten", "mufg"],
+  sg: ["singpass", "dbs"],
+} as const;
+export type ReachGroup = keyof typeof REACH_GROUPS;
 export interface Reach {
   region: string;
   checked_at: string;
@@ -19,16 +32,7 @@ export function sitesHere(reach: Reach[], region: string, state: Exclude<ReachSt
   );
 }
 
-/** The other cities whose nodes open every one of `sites`. */
-export function citiesFor(reach: Reach[], region: string, sites: string[]): string[] {
-  return reach.filter((r) => r.region !== region && sites.every((s) => r.sites[s] === "ok")).map((r) => r.region);
-}
-
-/** Names in a sentence: "A、B" in Chinese, "A, B" in English; `or` joins the last two with "or" ("或"). */
-export function joinNames(locale: Locale, names: string[], or = false): string {
-  if (locale === "en") {
-    return new Intl.ListFormat("en", { type: or ? "disjunction" : "conjunction" }).format(names);
-  }
-  if (or && names.length > 1) return `${names.slice(0, -1).join("、")}或${names[names.length - 1]}`;
-  return names.join("、");
+/** Names in a sentence: "A、B" in Chinese, "A, B and C" in English. */
+export function joinNames(locale: Locale, names: string[]): string {
+  return locale === "en" ? new Intl.ListFormat("en", { type: "conjunction" }).format(names) : names.join("、");
 }

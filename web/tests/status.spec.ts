@@ -3,6 +3,7 @@ import { type Page, expect, test } from "@playwright/test";
 import en from "../src/i18n/en.json" with { type: "json" };
 import zhCN from "../src/i18n/zh-CN.json" with { type: "json" };
 import zhTW from "../src/i18n/zh-TW.json" with { type: "json" };
+import { REACH_GROUPS } from "../src/reach.ts";
 
 // jp cannot open two sites Taipei opens and meets a bot check at a third; no node opens ptt, so it is not the node's fault
 const REACH = [
@@ -82,28 +83,42 @@ test("a wide screen shows the cities side by side and the notices in columns, a 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("under each city, the sites its node cannot open that another city's can", async ({ page }) => {
+test("the sites a city cannot open, by the region they serve", async ({ page }) => {
   await status(page, { regions: [{ id: "jp", state: "ok" }, { id: "tw", state: "ok" }], notices: [], reach: REACH });
   await page.goto("/status/");
-  const jp = page.getByTestId("status-reach-jp");
-  await expect(jp.locator("p")).toHaveText(["打不開：監理服務網、momo 購物網", "可能要先通過驗證：臺灣銀行"]);
-  await expect(page.getByTestId("status-reach-tw")).toHaveText("檢查的網站都打得開");
+  // only the groups with something to say; ptt fails everywhere, so it is not the node's fault
+  await expect(page.getByTestId("status-reach").locator("> li")).toHaveCount(1);
+  const tw = page.getByTestId("status-reach-tw");
+  await expect(tw.getByRole("heading", { level: 3 })).toHaveText("台灣的網站");
+  await expect(tw.locator("p")).toHaveText(["東京打不開：監理服務網、momo 購物網", "東京可能要先通過驗證：臺灣銀行"]);
+  // nothing about the cities is said on their cards
+  await expect(page.getByTestId("status-regions")).not.toContainText("打不開");
   const how = page.getByTestId("status-reach-how");
   await how.locator("summary").click();
-  await expect(how).toContainText("監理服務網、momo 購物網、臺灣銀行、PTT、Signal");
+  await expect(how).toContainText("香港的網站：滙豐香港、恒生銀行");
+  await expect(how.getByRole("link", { name: "意見回覆" })).toHaveAttribute("href", "/feedback/?from=status");
+});
+
+test("when every city opens every site, the page says so", async ({ page }) => {
+  await status(page, { regions: [{ id: "tw", state: "ok" }], notices: [], reach: [{ region: "tw", checked_at: "2026-11-08T04:25:00Z", sites: { signal: "ok" } }] });
+  await page.goto("/status/");
+  await expect(page.getByTestId("status-reach-none")).toHaveText("目前各城市都打得開檢查的網站。");
 });
 
 test("without a recent check, a city shows nothing about sites", async ({ page }) => {
   await status(page, { regions: [{ id: "sg", state: "ok" }], notices: [] });
   await page.goto("/status/");
   await expect(page.getByTestId("status-regions").locator("li")).toHaveText([/新加坡\s*正常/]);
-  await expect(page.locator("[data-testid^=status-reach]")).toHaveCount(0);
+  await expect(page.locator("#reach")).toHaveCount(0);
 });
 
-test("every site the nodes check has a name in each language", () => {
-  const ids = readFileSync(new URL("../../node/reach-sites.tsv", import.meta.url), "utf-8")
-    .split("\n").filter((l) => l.trim() && !l.startsWith("#")).map((l) => l.split("\t")[0]);
+test("every site the nodes check has a name in each language and the same region as on the page", () => {
+  const rows = readFileSync(new URL("../../node/reach-sites.tsv", import.meta.url), "utf-8")
+    .split("\n").filter((l) => l.trim() && !l.startsWith("#")).map((l) => l.split("\t"));
+  const ids = rows.map((r) => r[0]);
   expect(ids.length).toBeGreaterThanOrEqual(20);
+  expect(Object.fromEntries(rows.map((r) => [r[0], r[1]]))).toEqual(
+    Object.fromEntries(Object.entries(REACH_GROUPS).flatMap(([group, sites]) => sites.map((s) => [s, group]))));
   for (const messages of [zhTW, zhCN, en] as Record<string, string>[]) {
     expect(ids.filter((id) => !messages[`reach.site.${id}`])).toEqual([]);
   }

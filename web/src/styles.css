@@ -580,13 +580,17 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the cities side by side and the notices in columns where there is room; one column on phones */
 .status-regions, .status-notices { display: grid; gap: 12px; }
 .status-regions .row { flex-wrap: wrap; gap: 8px; }
-.status-reach { margin-top: 10px; display: grid; gap: 4px; }
+.status-reach { display: grid; gap: 12px; }
+.status-reach .card { display: grid; gap: 6px; align-content: start; }
 .status-reach p { margin: 0; }
+.status-reach__group { margin: 0; font-size: 16px; }
+.status-reach-how p { margin: 8px 0 0; }
 /* on the check page, the sites a node cannot open start a line of their own under the node's state */
 .check-reach { display: block; margin-top: 4px; }
 @media (min-width: 641px) {
   .status-page { max-width: 800px; }
   .status-regions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .status-reach { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .status-notices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 960px) {

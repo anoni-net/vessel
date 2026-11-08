@@ -8,7 +8,7 @@ import { faqAnchor } from "./faq.tsx";
 import { Spin } from "./skeleton.tsx";
 import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, notConnected, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
-import { citiesFor, joinNames, sitesHere } from "../reach.ts";
+import { sitesHere } from "../reach.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
 import { type UdpResult, udpCheck } from "../udpcheck.ts";
 
@@ -111,11 +111,9 @@ function NodeStatus({ region }: { region: string }) {
   const kind = notice ? t[`status.kind.${notice.kind}`] : "";
   // sentences run on in Chinese; English needs the space
   const gap = locale === "en" ? " " : "";
-  // sites this node cannot open that another city's node can, and the cities that open them all
+  // whether this node cannot open a site another city's node can: the status page says which, by region
   const reach = status.reach ?? [];
   const blocked = sitesHere(reach, region, "blocked");
-  const others = citiesFor(reach, region, blocked);
-  const siteName = (s: string) => t[`reach.site.${s}` as MessageKey] ?? s;
   const cityName = (r: string) => t[`region.${r}` as MessageKey] ?? r;
   return (
     <p class="small" data-testid="check-node">
@@ -126,8 +124,7 @@ function NodeStatus({ region }: { region: string }) {
       <a href={href("/status/")}>{t["status.title"]}</a>
       {blocked.length > 0 && (
         <span class="check-reach" data-testid="check-reach">
-          {fmt(t["check.reach.blocked"], { sites: joinNames(locale, blocked.map(siteName)) })}
-          {others.length > 0 && <>{gap}{fmt(t["check.reach.elsewhere"], { cities: joinNames(locale, others.map(cityName), true) })}</>}
+          {fmt(t["check.reach.note"], { city: cityName(region) })}<a href={href("/status/#reach")}>{t["status.reach.title"]}</a>{t["check.reach.noteAfter"]}
         </span>
       )}
     </p>

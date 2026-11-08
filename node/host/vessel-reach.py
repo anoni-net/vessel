@@ -36,7 +36,7 @@ def sites(path: str = SITES) -> list[tuple[str, str, str]]:
     rows = []
     for line in open(path, encoding="utf-8"):
         if line.strip() and not line.startswith("#"):
-            site, url, expect = line.rstrip("\n").split("\t")
+            site, _region, url, expect = line.rstrip("\n").split("\t")
             rows.append((site, url, expect))
     return rows
 
