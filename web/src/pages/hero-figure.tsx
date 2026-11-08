@@ -30,7 +30,7 @@ function Figure({ n, viewBox, label, caption, children }: {
   return (
     <figure ref={ref} class={`hero-fig${seen ? " hero-fig--live" : ""}`}>
       <svg viewBox={viewBox} role="img" aria-label={label}>{children}</svg>
-      <figcaption><span class="eyebrow">FIG. 0{n}</span><span>{caption}</span></figcaption>
+      <figcaption><span class="eyebrow" lang="en">FIG. 0{n}</span><span>{caption}</span></figcaption>
     </figure>
   );
 }

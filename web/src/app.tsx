@@ -144,6 +144,8 @@ export function App({ url }: { url?: string } = {}) {
 
   return (
     <LocaleContext.Provider value={{ locale, t, href }}>
+      {/* the first stop for the keyboard, seen only when it has focus: past the header to the page */}
+      <a class="skip-link" href="#main">{t["nav.skip"]}</a>
       {route && <LangHint locale={locale} path={path} />}
       <header class="site-header">
         <div class="wrap site-header__inner">
@@ -162,7 +164,8 @@ export function App({ url }: { url?: string } = {}) {
             <span class="site-header__langs" role="group" aria-label={t["lang.label"]}>
               <TranslateIcon />
               {others.map((l) => (
-                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-label={LANGUAGE_NAME[l]}
+                // named by what it shows, "EN" (WCAG 2.5.3); the full name is the title, and the footer's links
+                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} title={LANGUAGE_NAME[l]}
                   onClick={() => rememberLocale(l)}>{LANGUAGE_SHORT[l]}</a>
               ))}
             </span>
@@ -176,22 +179,23 @@ export function App({ url }: { url?: string } = {}) {
           </nav>
         </div>
       </header>
-      <main class="site-main" key={path}>{route ? route[1]() : <NotFound />}</main>
+      <main class="site-main" id="main" key={path}>{route ? route[1]() : <NotFound />}</main>
       <footer class="site-footer">
         {/* a drawing's title block: a frame of cells, each with a short English field name above it (left out on the
-            English pages, where the cell's own heading says the same) */}
+            English pages, where the cell's own heading says the same, and hidden from screen readers, which read the
+            heading) */}
         <div class="wrap">
           <div class="title-block">
             <div class="title-block__cell title-block__cell--project">
-              {locale !== "en" && <span class="title-block__field">PROJECT</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">PROJECT</span>}
               <a class="title-block__mark" href={href("/")} aria-label="Vessel"><BlockTitle plain /></a>
             </div>
             <div class="title-block__cell title-block__cell--by">
-              {locale !== "en" && <span class="title-block__field">BY</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">BY</span>}
               <p class="footer-brand__tagline"><img src={FAVICON} alt="" width="20" height="20" />{t["footer.service"]}</p>
             </div>
             <nav aria-labelledby="footer-help" class="title-block__cell footer-group">
-              {locale !== "en" && <span class="title-block__field">HELP</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">HELP</span>}
               <p class="footer-heading" id="footer-help">{t["footer.help"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={href("/learn/")}>{t["learn.title"]}</a></li>
@@ -201,7 +205,7 @@ export function App({ url }: { url?: string } = {}) {
               </ul>
             </nav>
             <nav aria-labelledby="footer-checks" class="title-block__cell footer-group">
-              {locale !== "en" && <span class="title-block__field">CHECK</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">CHECK</span>}
               <p class="footer-heading" id="footer-checks">{t["footer.checks"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={href("/check/")}>{t["check.title"]}</a></li>
@@ -210,7 +214,7 @@ export function App({ url }: { url?: string } = {}) {
               </ul>
             </nav>
             <nav aria-labelledby="footer-about" class="title-block__cell title-block__cell--about footer-group footer-group--about">
-              {locale !== "en" && <span class="title-block__field">ABOUT</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">ABOUT</span>}
               <p class="footer-heading" id="footer-about">{t["footer.about"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={COMMUNITY[locale]} target="_blank" rel="noopener">{t["footer.community"]}</a></li>
@@ -223,7 +227,7 @@ export function App({ url }: { url?: string } = {}) {
               </ul>
             </nav>
             <div class="title-block__cell title-block__cell--rev">
-              {locale !== "en" && <span class="title-block__field">REV</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">REV</span>}
               <p class="footer-heading">{t["footer.rev"]}</p>
               <p class="title-block__rev">
                 {REV_URL ? <a href={REV_URL} target="_blank" rel="noopener">{REV}</a> : "dev"}
@@ -231,7 +235,7 @@ export function App({ url }: { url?: string } = {}) {
               </p>
             </div>
             <nav class="title-block__cell title-block__cell--langs site-footer__langs" aria-label={t["lang.label"]}>
-              {locale !== "en" && <span class="title-block__field">LANGUAGES</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">LANGUAGES</span>}
               <span><TranslateIcon /> {t["lang.others"]}
                 {others.map((l, i) => (
                   <>

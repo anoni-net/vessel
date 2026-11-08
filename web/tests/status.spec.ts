@@ -102,7 +102,7 @@ test("the last day of the sites a node had trouble with, by the region they serv
   await expect(page.getByTestId("status-reach").locator("> li")).toHaveCount(1);
   const tw = page.getByTestId("status-reach-tw");
   await expect(tw.getByRole("heading", { level: 3 })).toHaveText("台灣的網站");
-  await expect(tw.locator(".reach-site > p")).toHaveText(["臺灣銀行", "監理服務網"]);
+  await expect(tw.getByRole("heading", { level: 4 })).toHaveText(["臺灣銀行", "監理服務網"]);
   const mvdis = page.getByTestId("reach-site-mvdis");
   await expect(mvdis.locator(".reach-row__node")).toHaveText(["東京節點", "台北節點"]);
   await expect(mvdis.locator(".reach-row__now")).toHaveText(["目前打不開", "目前打得開"]);

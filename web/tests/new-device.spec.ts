@@ -43,7 +43,7 @@ async function throughToFilter(page: Page) {
   await page.getByRole("button", { name: "已經安裝，下一步" }).click();
   await expect(page.getByRole("button", { name: /東京/ })).toBeDisabled();
   await page.getByRole("button", { name: /新加坡/ }).click();
-  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByLabel("替裝置取個名稱").fill("手機");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
 }
 
@@ -113,7 +113,7 @@ test("a device through a relay route: the cities first, the routes under them, t
   const lastCity = await page.locator("button.choice--city").filter({ hasText: "準備中" }).boundingBox();
   expect((await routes.boundingBox())!.y).toBeGreaterThan(lastCity!.y);
   await routes.getByRole("button", { name: /台北入口 → 新加坡/ }).click();
-  await page.getByLabel("裝置名稱").fill("筆電");
+  await page.getByLabel("替裝置取個名稱").fill("筆電");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
@@ -137,7 +137,7 @@ test("a relay route to the node in the same city as its entry", async ({ page })
   await page.goto("/devices/new/");
   await page.getByRole("button", { name: "已經安裝，下一步" }).click();
   await page.getByTestId("relay-routes").getByRole("button", { name: /台北入口 → 台北/ }).click();
-  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByLabel("替裝置取個名稱").fill("手機");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
@@ -151,7 +151,7 @@ test("a direct city sends no relay, and no routes show when there are none", asy
   await expect(page.getByRole("button", { name: /新加坡/ })).toBeVisible();
   await expect(page.getByTestId("relay-routes")).toHaveCount(0);
   await page.getByRole("button", { name: /新加坡/ }).click();
-  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByLabel("替裝置取個名稱").fill("手機");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
@@ -165,7 +165,7 @@ test("every back button goes one step back", async ({ page }) => {
   await page.getByRole("button", { name: "上一步" }).click();
   await expect(page.getByRole("heading", { name: "替裝置取個名稱" })).toBeVisible();
   // the name is still there
-  await expect(page.getByLabel("裝置名稱")).toHaveValue("手機");
+  await expect(page.getByLabel("替裝置取個名稱")).toHaveValue("手機");
   await page.getByRole("button", { name: "上一步" }).click();
   await expect(page.getByRole("heading", { name: "選擇城市" })).toBeVisible();
   await page.getByRole("button", { name: "上一步" }).click();
@@ -176,7 +176,8 @@ test("waits for a slow node", async ({ page }) => {
   await mock(page, { pending: true });
   await throughToFilter(page);
   await page.getByRole("button", { name: "產生設定檔" }).click();
-  await expect(page.getByRole("status")).toHaveText("節點正在加入這台裝置，請稍候，不要離開這一頁。");
+  await expect(page.getByText("節點正在加入這台裝置，請稍候，不要離開這一頁。")).toBeVisible();
+  await expect(page.locator("#announce")).toHaveText("節點正在加入這台裝置，請稍候，不要離開這一頁。");
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible({ timeout: 10_000 });
 });
 

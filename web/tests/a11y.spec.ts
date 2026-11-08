@@ -164,6 +164,69 @@ for (const scheme of ["light", "dark"] as const) {
   });
 }
 
+test("every stop of the keyboard shows a ring, in sight and not covered", async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const [path, signedIn] of PAGES) {
+    await page.unrouteAll();
+    await backend(page, signedIn);
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    const seen = new Set<string>();
+    const bad: string[] = [];
+    // around the page once: from the first stop until one comes back
+    for (let i = 0; i < 150; i++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const e = document.activeElement as HTMLElement | null;
+        if (!e || e === document.body) return null;
+        const s = getComputedStyle(e);
+        const r = e.getBoundingClientRect();
+        const ring = (s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0) || s.boxShadow !== "none";
+        const inView = r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+        // what is on top at its middle: itself, inside it, or something over it (WCAG 2.4.11)
+        const at = inView ? document.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 1), innerHeight - 1)) : null;
+        const covered = !!at && !e.contains(at) && !at.contains(e);
+        const name = `${e.tagName.toLowerCase()} "${(e.getAttribute("aria-label") ?? e.textContent ?? "").trim().slice(0, 24)}"`;
+        return { key: `${name}@${Math.round(r.top + scrollY)}`, name, ring, inView, covered };
+      });
+      if (!stop) continue;
+      if (seen.has(stop.key)) break;
+      seen.add(stop.key);
+      if (!stop.ring || !stop.inView || stop.covered) bad.push(`${stop.name} ring=${stop.ring} inView=${stop.inView} covered=${stop.covered}`);
+    }
+    expect(seen.size, path).toBeGreaterThan(5);
+    expect(bad, path).toEqual([]);
+  }
+});
+
+test.describe("with the text spacing of WCAG 1.4.12", () => {
+  // the spacing goes in as a style sheet, which the page's CSP would block
+  test.use({ bypassCSP: true });
+  test("nothing is cut off and nothing scrolls sideways", async ({ page }) => {
+    test.setTimeout(120_000);
+    for (const [path, signedIn] of PAGES) {
+      await page.unrouteAll();
+      await backend(page, signedIn);
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+      await page.addStyleTag({ content: "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }" });
+      const found = await page.evaluate(() => {
+        const cut: string[] = [];
+        for (const e of document.querySelectorAll<HTMLElement>("body *")) {
+          const s = getComputedStyle(e);
+          if (!/hidden|clip/.test(`${s.overflowX} ${s.overflowY}`) || !e.textContent?.trim() || e.offsetParent === null) continue;
+          // left out: what is hidden on purpose and kept for screen readers (.sr-only, a phone's table heads), 1px boxes
+          if (e.clientWidth <= 1 || e.clientHeight <= 1) continue;
+          if (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1) cut.push(`${e.tagName.toLowerCase()}.${e.className} "${e.textContent.trim().slice(0, 24)}"`);
+        }
+        return { cut, sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+      });
+      expect(found, path).toEqual({ cut: [], sideways: 0 });
+    }
+  });
+});
+
 test("nothing scrolls sideways on a 320px screen", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   for (const [path, signedIn] of PAGES) {

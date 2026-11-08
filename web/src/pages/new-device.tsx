@@ -12,6 +12,7 @@ import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
 import { FILTERS, Layers } from "./layers.tsx";
 import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
+import { announce } from "../announce.ts";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 import { saveFile, savesInPlace } from "../save-file.ts";
 import { focusHeading } from "../focus.ts";
@@ -120,6 +121,7 @@ export function NewDevice() {
     started.current = true;
     setBusy(true);
     setErr("");
+    announce(t["config.waiting"]);
     const keys = generateKeyPair();
     const psk = generatePresharedKey();
     try {
@@ -273,13 +275,21 @@ export function NewDevice() {
   if (step === "name") {
     return (
       <section class="wrap narrow" key="name">
-        <form class="stack" onSubmit={(e) => { e.preventDefault(); go("filter"); }}>
+        <form class="stack" onSubmit={(e) => {
+          e.preventDefault();
+          // only spaces passes `required` but not the server: say so here, next to the field, not a step later
+          if (name.trim()) return go("filter");
+          setErr(errorText(t, "invalid_name"));
+          document.getElementById("device-name")?.focus();
+        }}>
           {stepLabel(3)}
-          <h1>{t["name.title"]}</h1>
-          <label for="device-name" class="sr-only">{t["name.label"]}</label>
+          {/* the heading is the field's label, so what is read is what is shown (WCAG 2.5.3) */}
+          <h1 id="device-name-label">{t["name.title"]}</h1>
           <input id="device-name" class="nb-input" maxLength={40} required placeholder={t["name.placeholder"]}
-            value={name} onInput={(e) => setName(e.currentTarget.value)} aria-describedby="name-hint" />
+            value={name} onInput={(e) => setName(e.currentTarget.value)} aria-labelledby="device-name-label"
+            aria-invalid={err ? true : undefined} aria-describedby={err ? "device-name-error name-hint" : "name-hint"} />
           <p id="name-hint" class="muted small">{t["name.hint"]}</p>
+          {err && <p class="error" role="alert" id="device-name-error">{err}</p>}
           <button class="nb-button nb-button--ink" type="submit">{t["name.next"]}</button>
           <button class="link-button" type="button" onClick={() => go("region")}>{t["back"]}</button>
         </form>
@@ -317,7 +327,7 @@ export function NewDevice() {
             {/* a new tab, so the device being set up is not lost */}
             <a href={href("/dns/")} target="_blank" rel="noopener">{t["dns.link"]}</a>
           </p>
-          {busy && <p class="muted" role="status">{t["config.waiting"]}</p>}
+          {busy && <p class="muted">{t["config.waiting"]}</p>}
           {errorLine}
           <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
             {busy ? <><Spin />{t["busy.create"]}</> : t["name.submit"]}

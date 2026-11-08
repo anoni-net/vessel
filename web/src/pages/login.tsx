@@ -5,7 +5,7 @@ import { useCtx } from "../context.ts";
 import { Icon } from "../icons.tsx";
 import { Spin } from "./skeleton.tsx";
 import { errorText } from "../i18n/index.ts";
-import { ACCOUNT, PM_USERNAME, groupedLength, regroup } from "../grouped.ts";
+import { ACCOUNT, PM_USERNAME, regroup } from "../grouped.ts";
 import { passkeyErrorCode, passkeysSupported, usePasskey } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
@@ -73,16 +73,19 @@ export function Login() {
           tabIndex={-1} aria-hidden="true" />
         <div class="row">
           <label for="number" class="strong">{t["login.label"]}</label>
-          <button class="link-button small" type="button" aria-controls="number" aria-pressed={shown}
+          {/* the words say what a press does; aria-pressed as well would read as "Hide, pressed" */}
+          <button class="link-button small" type="button" aria-controls="number"
             onClick={() => setShown(!shown)}>{shown ? t["login.hide"] : t["login.show"]}</button>
         </div>
-        {/* Show turns it into a text field; Preact types the two separately, hence the cast */}
+        {/* Show turns it into a text field; Preact types the two separately, hence the cast. No maxLength: pasting the
+            saved vessel-account.txt brings its label line first, and a cut there leaves no digits for regroup */}
         <input id="number" class="nb-input nb-input--code mono" type={(shown ? "text" : "password") as "text"}
           name="password" inputMode="numeric" autoComplete="current-password" required spellcheck={false}
-          value={number} maxLength={groupedLength(ACCOUNT)} placeholder="0000 0000 0000 0000"
-          onInput={(e) => setNumber(regroup(e.currentTarget, ACCOUNT))} aria-describedby="number-hint" />
+          value={number} placeholder="0000 0000 0000 0000"
+          onInput={(e) => setNumber(regroup(e.currentTarget, ACCOUNT))} aria-invalid={err ? true : undefined}
+          aria-describedby={err ? "number-error number-hint" : "number-hint"} />
         <p id="number-hint" class="muted small">{t["login.hint"]}</p>
-        {err && <p class="error" role="alert">{err}</p>}
+        {err && <p class="error" role="alert" id="number-error">{err}</p>}
         <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
           {busy ? <><Spin />{t["busy.login"]}</> : t["login.submit"]}
         </button>

@@ -6,6 +6,7 @@ import { formatCount, formatTime } from "../format.ts";
 import { type MessageKey, fmt } from "../i18n/index.ts";
 import { faqAnchor } from "./faq.tsx";
 import { Spin } from "./skeleton.tsx";
+import { announce } from "../announce.ts";
 import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, notConnected, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { sitesHere } from "../reach.ts";
@@ -14,17 +15,22 @@ import { type UdpResult, udpCheck } from "../udpcheck.ts";
 
 type Result = { exit: Exit; dns: Verdict };
 
+const summaryOf = (r: Result) => (passed(r.exit, r.dns) ? "ok" : notConnected(r.exit, r.dns) ? "off" : "problem");
+
 export function Check() {
-  const { t, href } = useCtx();
+  const { t, href, locale } = useCtx();
   const [state, setState] = useState<"idle" | "running" | Result>("idle");
   const run = async () => {
     if (state === "running") return;
     setState("running");
     const [exit, dns] = await Promise.all([exitCheck(), runCheck()]);
     setState({ exit, dns });
+    // the answer, for those who cannot see it appear; the rows under it are there to read on
+    const summary = summaryOf({ exit, dns });
+    announce(summary === "off" ? `${t["check.off"]}${locale === "en" ? " " : ""}${t["check.off.more"]}` : t[`check.${summary}`]);
   };
   const result = typeof state === "object" ? state : null;
-  const summary = !result ? null : passed(result.exit, result.dns) ? "ok" : notConnected(result.exit, result.dns) ? "off" : "problem";
+  const summary = result && summaryOf(result);
   return (
     <section class="wrap narrow stack check-page">
       <h1>{t["check.title"]}</h1>
@@ -45,7 +51,7 @@ export function Check() {
           {result && (
             <>
               {/* the answer first, big enough to read at a glance; the two checks below say why */}
-              <p class={`check-verdict check-verdict--${summary === "problem" ? "bad" : summary}`} role="status">
+              <p class={`check-verdict check-verdict--${summary === "problem" ? "bad" : summary}`}>
                 <Icon name={summary === "ok" ? "ok" : summary === "off" ? "wifi" : "cancel"} />
                 {summary === "off" ? (
                   <span>{t["check.off"]}<span class="check-verdict__more">{t["check.off.more"]}</span></span>
