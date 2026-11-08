@@ -103,7 +103,7 @@ function DnsCheck() {
 // the Taiwanese lists first: what they say (Taiwan's ISPs block the site too) matters most, and their appeals go
 // to the agencies that keep them, not to us
 const listOf = (a: BlocklistAnswer) =>
-  a.tw165 ? "tw165" : a.twmoda ? "twmoda" : a.stalkerware ? "stalkerware" : a.malware ? "malware" : a.quad9 ? "quad9" : a.ads ? "ads" : null;
+  a.tw165 ? "tw165" : a.twmoda ? "twmoda" : a.stalkerware ? "stalkerware" : a.malware ? "malware" : a.cti ? "cti" : a.quad9 ? "quad9" : a.ads ? "ads" : null;
 
 /** Is a site on the lists? For a site that will not open with a filter on; the answer names the filters that block it. */
 function Lookup() {

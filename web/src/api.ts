@@ -77,12 +77,14 @@ export interface BlocklistAnswer {
   twmoda: boolean;
   /** on Echap's list of stalkerware domains: blocked by both filters */
   stalkerware: boolean;
+  /** on DNSBunker's CTI list of active malicious domains: blocked by both filters */
+  cti: boolean;
   /** on the ad list: blocked by the ads filter */
   ads: boolean;
 }
 
 export interface BlocklistSummary {
-  lists: { id: "malware" | "tw165" | "twmoda" | "stalkerware" | "ads"; domains: number; only_here: number }[];
+  lists: { id: "malware" | "tw165" | "twmoda" | "stalkerware" | "cti" | "ads"; domains: number; only_here: number }[];
   /** the names the malware filter blocks, all its lists together */
   malware_filter: number;
   ads_filter: number;

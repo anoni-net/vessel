@@ -947,10 +947,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .lists-page { max-width: 1120px; }
   .lists-page > .lead { max-width: 760px; }
   /* the two groups share their rows, so a title on two lines does not push one group's cards lower */
-  .lists-groups { grid-template-columns: minmax(0, 4fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lists-groups { grid-template-columns: minmax(0, 5fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .lists-group { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
-  .lists-group--both .lists-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lists-group--both .lists-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .lists-group--ads .lists-cards { grid-template-columns: minmax(0, 1fr); }
+  /* five cards to a row leave no room beside a six-digit number: the unit goes under it, on every card so the numbers line up */
+  .lists-card .lists-card__count { flex-direction: column; align-items: flex-start; gap: 0; }
   .lists-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; margin-top: 16px; }
   .lists-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .lists-col > h2:first-child { margin-top: 0; }

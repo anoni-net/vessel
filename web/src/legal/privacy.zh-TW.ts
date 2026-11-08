@@ -42,7 +42,7 @@ export default {
     { h: "中繼路線" },
     { p: "選擇中繼路線的裝置，連線會先到台北的入口，再原封不動轉送到節點，從節點所在的城市連上網路。中繼不解開通道，看不到你連往哪裡，也看不到連線的內容。中繼只統計經過的流量，除此之外不記錄任何資訊。連線期間，中繼的記憶體裡會有你目前的 IP，把回傳的資料送回給你時要用到它，只存在記憶體，不寫入硬碟。經過中繼的連線，節點看到的來源是中繼的 IP。" },
     { h: "網域過濾" },
-    { p: "建立裝置時可以選擇是否擋下惡意網站與廣告。過濾在節點的解析器上進行，不記錄被擋下的網域。擋惡意網站使用 HaGeZi 的 Threat Intelligence Feeds（mini），台灣警政署 165 與台灣數位產業署停止解析的詐騙網站，以及法國的協會 Echap 整理的跟蹤軟體網域，擋廣告再加上 HaGeZi Multi PRO。惡意網站的名單每 8 小時更新一次，廣告的名單每天更新一次，內容公開在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists) 、[台灣的政府資料開放平臺](https://data.gov.tw/dataset/176455)與 [Echap 的 GitHub](https://github.com/AssoEchap/stalkerware-indicators)。兩份台灣的名單依台灣的政府資料開放授權條款第 1 版使用，Echap 的名單依 CC BY 4.0 使用，排除了其中 2 個共用的主機名稱。" },
+    { p: "建立裝置時可以選擇是否擋下惡意網站與廣告。過濾在節點的解析器上進行，不記錄被擋下的網域。擋惡意網站使用 HaGeZi 的 Threat Intelligence Feeds（mini），台灣警政署 165 與台灣數位產業署停止解析的詐騙網站，法國的協會 Echap 整理的跟蹤軟體網域，以及德國的非商業專案 DNSBunker 公開的惡意網域（CTI），擋廣告再加上 HaGeZi Multi PRO。惡意網站的名單每 8 小時更新一次，DNSBunker 的 CTI 名單每 6 小時更新一次，廣告的名單每天更新一次，內容公開在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists) 、[台灣的政府資料開放平臺](https://data.gov.tw/dataset/176455)、[Echap 的 GitHub](https://github.com/AssoEchap/stalkerware-indicators) 與 [DNSBunker 的 GitHub](https://github.com/DNSBunker/CTI)。兩份台灣的名單依台灣的政府資料開放授權條款第 1 版使用，Echap 的名單依 CC BY 4.0 使用，排除了其中 2 個共用的主機名稱，DNSBunker 的 CTI 名單依 GPL-2.0-only 使用，排除的網域列在網域過濾的名單頁。" },
     { h: "統計" },
     { p: "公開頁面的瀏覽次數，以及兌換、登入、建立裝置每一步的結果，會送到 anoni.net 自架的 Umami，用來找出流程裡出問題的步驟。每筆資料只有頁面的路徑、語言、取到百位數的螢幕尺寸與步驟的結果，帳號號碼、裝置的名稱與設定、金鑰都不送。Umami 由 IP 推算國家與城市，但不保存 IP。" },
     { p: "瀏覽器開啟 Do Not Track 或 Global Privacy Control 時不送，也可以在頁尾選擇不要記錄。" },

@@ -26,7 +26,7 @@ async function backend(page: Page, signedIn: boolean) {
       mvdis: { jp: Array.from({ length: 24 }, (_, i) => (i === 5 ? null : "blocked")), sg: Array(24).fill("ok") },
       bot: { jp: Array(24).fill("challenge"), sg: Array(24).fill("ok") },
     } } } });
-    if (path === "/api/blocklist/lists") return route.fulfill({ json: { lists: [{ id: "malware", domains: 195355, only_here: 124030 }, { id: "tw165", domains: 86162, only_here: 85915 }, { id: "twmoda", domains: 1732, only_here: 1527 }, { id: "stalkerware", domains: 929, only_here: 902 }, { id: "ads", domains: 219318, only_here: 149687 }], malware_filter: 283040, ads_filter: 432727, hagezi: 345044, as_of: "2026-11-07T04:00:00+00:00" } });
+    if (path === "/api/blocklist/lists") return route.fulfill({ json: { lists: [{ id: "malware", domains: 195355, only_here: 124030 }, { id: "tw165", domains: 86162, only_here: 85915 }, { id: "twmoda", domains: 1732, only_here: 1527 }, { id: "stalkerware", domains: 929, only_here: 902 }, { id: "cti", domains: 381000, only_here: 378000 }, { id: "ads", domains: 219318, only_here: 149687 }], malware_filter: 283040, ads_filter: 432727, hagezi: 345044, as_of: "2026-11-07T04:00:00+00:00" } });
     if (path === "/api/passkeys") return route.fulfill({ json: [] });
     if (path === "/api/invites") return route.fulfill({ json: { per_account: 2, used: 1, left: 0, reason: null, eligible_on: "2026-10-15", days: 7, open: [{ id: 1, created_at: "2026-11-04T01:00:00Z", expires_at: "2026-11-11T01:00:00Z" }] } });
     return route.fulfill({ status: 404, json: { error: "not_found" } });
