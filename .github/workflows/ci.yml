@@ -62,3 +62,15 @@ jobs:
         run: for f in node/*.sh node/awgctl; do bash -n "$f"; done
       - name: shellcheck
         run: shellcheck -S warning node/*.sh node/awgctl
+
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -S warning relay/vessel-relay relay/test/netns-test.sh
+      - name: nftables
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq nftables
+      # a device, the entry and a node in network namespaces, with real UDP through the entry
+      - name: forward through the entry
+        run: sudo bash relay/test/netns-test.sh
