@@ -91,6 +91,38 @@ for (const [exit, hidden, exitText] of [
   });
 }
 
+for (const [notices, words] of [
+  [[{ region: "sg", kind: "restart", starts_at: "2026-11-08T01:56:33Z", ends_at: "2026-11-08T01:57:33Z" }], /^新加坡節點：正常。最近一次紀錄是 .+ 的節點重新啟動。服務狀態$/],
+  [[{ region: null, kind: "maintenance", starts_at: "2026-11-08T01:56:33Z", ends_at: null }], /^新加坡節點：正常。維護進行中。服務狀態$/],
+  [[{ region: "jp", kind: "outage", starts_at: "2026-11-08T01:56:33Z", ends_at: "2026-11-08T02:56:33Z" }], /^新加坡節點：正常。最近 30 天沒有維護或中斷的紀錄。服務狀態$/],
+] as const) {
+  test(`through a node, the check says how that node is doing: ${words}`, async ({ page }) => {
+    await network(page, { region: "sg", ipv6: false }, [1, 2]);
+    await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "ok" }], notices } }));
+    await page.goto("/check/");
+    await page.getByRole("button", { name: "開始檢測" }).click();
+    const node = page.getByTestId("check-node");
+    await expect(node).toHaveText(words);
+    await expect(node.getByRole("link", { name: "服務狀態" })).toHaveAttribute("href", "/status/");
+  });
+}
+
+test("off Vessel, or when the status cannot be read, there is no line about a node", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, []);
+  await page.route("**/api/status", (route) => route.fulfill({ json: { regions: [{ id: "sg", state: "ok" }], notices: [] } }));
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  await expect(page.getByTestId("check-network")).toBeVisible();
+  await expect(page.getByTestId("check-node")).toHaveCount(0);
+  await page.unroute("**/api/exit");
+  await page.route("**/api/exit", (route) => route.fulfill({ json: { region: "sg", ipv6: false } }));
+  await page.unroute("**/api/status");
+  await page.route("**/api/status", (route) => route.fulfill({ status: 500, json: { error: "x" } }));
+  await page.getByRole("button", { name: "再檢測一次" }).click();
+  await expect(page.getByTestId("check-exit")).toContainText("新加坡節點");
+  await expect(page.getByTestId("check-node")).toHaveCount(0);
+});
+
 test("the result can be left out, and a made-up one is ignored", async ({ page }) => {
   await network(page, { region: "jp", ipv6: false }, []);
   await page.goto("/feedback/?from=check&check=jp.notVessel");
