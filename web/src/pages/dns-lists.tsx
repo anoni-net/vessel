@@ -62,7 +62,7 @@ const PHISHING = [
   ["phishunt", 131, 63, 64, 69],
 ] as const;
 const RULES = [1, 2, 3, 4] as const;
-const KNOWN = [1, 2, 3, 4, 5] as const;
+const KNOWN = [1, 2, 3, 4, 5, 6] as const;
 const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [

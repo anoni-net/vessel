@@ -282,7 +282,7 @@ test("the page compares with other services in the open, weak points included", 
   await expect(rows).toHaveCount(5);
   await expect(rows.nth(1)).toContainText("釣魚網站，一天後");
   await expect(rows.nth(3)).toContainText("100%");
-  await expect(page.getByText("對 phishunt.io 回報的網站略少")).toBeVisible();
+  await expect(page.getByText("對 phishunt.io 回報的網站比 Cloudflare 少")).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Vessel 擋惡意網站", exact: true })).toBeAttached();
   await expect(page.getByRole("columnheader", { name: "Cloudflare 1.1.1.2" })).toBeAttached();
   await expect(page.getByTestId("list-quad9").getByRole("link", { name: "Quad9 的查詢頁" })).toHaveAttribute("href", "https://quad9.net/result/");
@@ -294,6 +294,7 @@ test("the page compares with other services in the open, weak points included", 
   await expect(panels.nth(0).getByRole("img", { name: "Cloudflare 1.1.1.2 87%" })).toBeVisible();
   await expect(panels.nth(2).getByRole("img", { name: "Vessel 擋惡意網站 63%" })).toBeVisible();
   await expect(page.getByText("在那個來源的比例會偏高")).toBeVisible();
+  await expect(page.getByText("DNSBunker CTI 沒有擋到測試清單")).toBeAttached();
 });
 
 test("the comparison fits a narrow phone with its column names beside the values", async ({ page }) => {
