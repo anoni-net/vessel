@@ -61,7 +61,10 @@ jobs:
       - name: shell syntax
         run: for f in node/*.sh node/awgctl node/test/*.sh; do bash -n "$f"; done
       - name: shellcheck
-        run: shellcheck -S warning node/*.sh node/awgctl node/test/*.sh
+        run: shellcheck -S warning -x node/*.sh node/awgctl node/test/*.sh
+      # block entries only, no shared names
+      - name: update-lists
+        run: bash node/test/update-lists-test.sh
       # concurrent adds, a failed apply tried again, flows of a reused address
       - name: awgctl
         run: bash node/test/awgctl-test.sh

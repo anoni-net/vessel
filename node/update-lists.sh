@@ -13,11 +13,13 @@
 #                generated/hosts, CC BY 4.0): Quad9 blocks most of them, not the apps' own sites, and a block by the
 #                nodes' list is counted per device where Quad9's is not
 #   ads.rpz      HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
-# The names in exclude.txt are left out of all of them.
+# The names in exclude.txt are left out of all of them. Every list ends up as block entries only (block_only, zone_from).
+# node/test/update-lists-test.sh sources this file for its functions; run, it updates the lists.
 set -uo pipefail
 D=/opt/vessel-node/rpz
 EXCLUDE=/opt/vessel-node/exclude.txt
-mkdir -p "$D"
+# the ad list is about 12 MB; a download many times that is not a list
+MAX_BYTES=$((64 * 1024 * 1024))
 declare -A SRC=(
   [malware]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt
   [tw165]=https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/29E8E643-88ED-4952-B21E-BD42A3B7108C/resource/D7839A03-8491-490E-BAF7-2ED2D98C5157/download
@@ -29,12 +31,28 @@ declare -A SRC=(
 declare -A MIN_LINES=([stalkerware]=500)
 # the domains in a list, without the header comments and the SOA serial, which change on every build
 entries() { grep -v -e '^;' -e ' SOA ' "$1" | sha256sum | cut -d' ' -f1; }
-# drop the names in exclude.txt, and their wildcards, from a zone
-drop_excluded() {
-  [ -s "$EXCLUDE" ] || return 0
-  awk 'NR == FNR { sub(/#.*/, ""); if (NF) skip[tolower($1)] = 1; next }
-       { name = tolower($1); sub(/^\*\./, "", name); sub(/\.$/, "", name); if (!(name in skip)) print }' \
-    "$EXCLUDE" "$1" > "$1.x" && mv "$1.x" "$1"
+# HaGeZi's zones, block entries only: a name or its wildcard, answered NXDOMAIN ("CNAME ."), which is all the lists
+# use. An RPZ entry can also answer with an address of its own, let a name through or match the asking device's
+# address, and a zone file can pull in other files ($INCLUDE); a list that changed hands upstream could use any of
+# them to send people to a site of its choosing, or to single out one device. Lines of any other shape are dropped and
+# counted, and the names in exclude.txt are left out with their wildcards. A name ending in an RPZ trigger label
+# (rpz-client-ip and the like) is not a domain: "<a device's address>.rpz-client-ip CNAME ." would answer NXDOMAIN to
+# every lookup from that one device.
+block_only() { # zone file
+  local exclude=$EXCLUDE
+  [ -s "$exclude" ] || exclude=/dev/null
+  awk 'FILENAME == ARGV[1] { sub(/#.*/, ""); if (NF) skip[tolower($1)] = 1; next }
+       /^;/ || /^\$TTL [0-9]+$/ || /^@ SOA / || /^ +NS +localhost\.$/ { print; next }
+       NF == 3 && tolower($0) ~ /^(\*\.)?[a-z0-9_-]+(\.[a-z0-9_-]+)+\.? cname \.$/ && tolower($1) !~ /(^|\.)rpz-[a-z-]+\.?$/ {
+         name = tolower($1); sub(/^\*\./, "", name); sub(/\.$/, "", name); if (!(name in skip)) print; next }
+       { dropped++ }
+       END { if (dropped) printf "%d lines that are not a block entry, dropped\n", dropped > "/dev/stderr" }' \
+    "$exclude" "$1" > "$1.x" && mv "$1.x" "$1"
+}
+
+# https only, redirects too, and no larger than MAX_BYTES
+fetch() { # url file
+  curl -fsSL -m 120 --proto =https --proto-redir =https --max-filesize "$MAX_BYTES" -o "$2" "$1"
 }
 # every list is loaded by the filter resolver (node/unbound/filter.conf), once, tagged with the addresses it serves
 
@@ -79,6 +97,20 @@ else:
         domain, url = clean(row.get("網域名稱")), clean(row.get("偽冒網址"))
         names.add(url if url and domain and url != domain and not url.endswith("." + domain) else domain or url)
 names.discard(None)
+# A name shared by many sites is never listed, whatever a dataset says: one mistaken row (a bare com.tw) would block
+# every site under it. The second-level names people register under, and the hosting platforms whose subdomains
+# belong to different people.
+SHARED = {
+    "com.tw", "net.tw", "org.tw", "gov.tw", "edu.tw", "idv.tw", "game.tw", "ebiz.tw", "club.tw", "mil.tw",
+    "com.hk", "net.hk", "org.hk", "gov.hk", "edu.hk", "idv.hk", "com.mo", "com.cn", "net.cn", "org.cn",
+    "co.jp", "ne.jp", "or.jp", "co.uk", "com.sg", "com.my", "co.kr",
+    "github.io", "gitlab.io", "pages.dev", "workers.dev", "vercel.app", "netlify.app", "web.app", "firebaseapp.com",
+    "appspot.com", "herokuapp.com", "azurewebsites.net", "cloudfront.net", "amazonaws.com", "blogspot.com",
+    "wordpress.com", "wixsite.com", "weebly.com", "glitch.me", "onrender.com", "fly.dev", "ngrok.io", "ngrok-free.app",
+}
+names -= SHARED
+# RPZ reads a name ending in rpz-client-ip, rpz-ip and the like as a trigger on addresses, not a domain
+names = {n for n in names if not re.search(r"(^|\.)rpz-[a-z-]+$", n)}
 # before the parents are compared: a name under an excluded one stays listed
 if os.path.exists(exclude):
     names -= {line.split("#")[0].strip().lower() for line in open(exclude, encoding="utf-8")}
@@ -92,6 +124,11 @@ for name in sorted(n for n in names if not covered(n)):
 PY
 }
 
+main() {
+mkdir -p "$D"
+# one run at a time: cron and a run by hand would otherwise write the same files
+exec 9>"$D/.update.lock"
+flock -n 9 || { echo "$(date -Is) another run is updating the lists" >&2; exit 0; }
 zones=("$@")
 [ ${#zones[@]} -gt 0 ] || zones=(malware tw165 twmoda stalkerware ads)
 for z in "${zones[@]}"; do
@@ -104,10 +141,10 @@ for z in "${zones[@]}"; do
   ok=0
   if [ "$z" = tw165 ] || [ "$z" = twmoda ] || [ "$z" = stalkerware ]; then
     src=$(mktemp "$D/.$z.src.XXXXXX")
-    curl -fsSL -m 120 -o "$src" "${SRC[$z]}" && zone_from "$z" "$src" > "$tmp" && ok=1
+    fetch "${SRC[$z]}" "$src" && zone_from "$z" "$src" > "$tmp" && ok=1
     rm -f "$src"
   else
-    curl -fsSL -m 120 -o "$tmp" "${SRC[$z]}" && drop_excluded "$tmp" && ok=1
+    fetch "${SRC[$z]}" "$tmp" && block_only "$tmp" && ok=1
   fi
   if [ "$ok" = 1 ] && grep -q ' SOA ' "$tmp" && [ "$(wc -l < "$tmp")" -gt "${MIN_LINES[$z]:-1000}" ]; then
     if [ -s "$D/$z.rpz" ] && [ "$(entries "$tmp")" = "$(entries "$D/$z.rpz")" ]; then
@@ -146,3 +183,6 @@ if [ ${#changed[@]} -gt 0 ] && docker ps -q -f name=^vessel-node$ | grep -q .; t
     echo "$(date -Is) reloaded every resolver with HUP"
   fi
 fi
+}
+
+[ "${BASH_SOURCE[0]}" != "$0" ] || main "$@"
