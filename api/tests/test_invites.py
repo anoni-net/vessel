@@ -61,13 +61,14 @@ def test_make_one_redeem_it_and_nothing_says_who_invited_whom(signed_in, db):
     invited = db.execute("SELECT id FROM accounts WHERE id <> %s", (inviter,)).fetchone()[0]
     # the inviter's count went up; no row anywhere ties the two accounts together
     assert db.execute("SELECT invites_used FROM accounts WHERE id = %s", (inviter,)).fetchone()[0] == 1
-    row = db.execute("SELECT created_by, redeemed_account, from_account FROM invites WHERE redeemed_at IS NOT NULL "
+    row = db.execute("SELECT created_by, from_account FROM invites WHERE redeemed_at IS NOT NULL "
                      "AND from_account").fetchone()
-    assert row == (None, None, True)
+    assert row == (None, True)
     columns = {c for (c,) in db.execute(
         "SELECT column_name FROM information_schema.columns WHERE table_name = 'accounts'")}
     assert "invited_by" not in columns
-    assert str(inviter) not in str(db.execute("SELECT * FROM accounts WHERE id = %s", (invited,)).fetchall()[0][1:])
+    # compared as values: a small id read as text turns up inside the hash bytes now and then
+    assert inviter not in db.execute("SELECT * FROM accounts WHERE id = %s", (invited,)).fetchone()[1:]
     state = signed_in.get("/api/invites").json()
     assert state["used"] == 1 and state["open"] == [] and state["left"] == 0
 
@@ -148,3 +149,14 @@ def test_admin_turns_it_on_and_the_report_counts_them(signed_in, db, capsys):
     assert "invites from maintainers: redeemed 1" in out
     assert "invites from accounts: redeemed 1, unused 1" in out
     assert "redeemed 1 of 2 (50%)" in out
+
+
+def test_a_maintainers_invite_forgets_the_account_it_made(client, db):
+    code = make_invite(db)
+    assert client.post("/api/redeem", json={"code": code}, headers=HEADERS).status_code == 200
+    columns = {c for (c,) in db.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'invites'")}
+    assert "redeemed_account" not in columns
+    # the day only, so the order of use says nothing about the order the accounts were made
+    redeemed = db.execute("SELECT redeemed_at FROM invites").fetchone()[0]
+    assert (redeemed.hour, redeemed.minute, redeemed.second, redeemed.microsecond) == (0, 0, 0, 0)

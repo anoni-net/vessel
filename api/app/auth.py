@@ -182,14 +182,14 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
             except psycopg.errors.UniqueViolation:
                 continue
         if invite[1]:
-            # an account's invite: count it for the account that made it, and forget which account that was, so
-            # the database never says who invited whom (app/invites.py)
+            # an account's invite: count it for the account that made it (app/invites.py)
             conn.execute("UPDATE accounts SET invites_used = invites_used + 1 WHERE id = %s", (invite[2],))
-            conn.execute("UPDATE invites SET redeemed_at = now(), created_by = NULL WHERE id = %s", (invite[0],))
-        else:
-            conn.execute(
-                "UPDATE invites SET redeemed_at = now(), redeemed_account = %s WHERE id = %s", (account_id, invite[0])
-            )
+        # Used, and nothing more: not which account made it, not which account it made. Only the day, so the order the
+        # codes were used in does not line up with the order the accounts were made (one at a time, the lock above).
+        # Whoever handed out a code and kept a note of whom it went to cannot find that person's account by it.
+        conn.execute(
+            "UPDATE invites SET redeemed_at = date_trunc('day', now()), created_by = NULL WHERE id = %s", (invite[0],)
+        )
         start_session(conn, request, response, account_id)
     return {"account_number": crypto.format_account_number(number)}
 
