@@ -6,7 +6,7 @@ import { formatCount } from "../format.ts";
 import { fmt } from "../i18n/index.ts";
 import { faqAnchor } from "./faq.tsx";
 import { Spin } from "./skeleton.tsx";
-import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, passed } from "../connection.ts";
+import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState, exitText, isOld, notConnected, passed } from "../connection.ts";
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
 import { type UdpResult, udpCheck } from "../udpcheck.ts";
@@ -22,6 +22,7 @@ export function Check() {
     setState({ exit, dns });
   };
   const result = typeof state === "object" ? state : null;
+  const summary = !result ? null : passed(result.exit, result.dns) ? "ok" : notConnected(result.exit, result.dns) ? "off" : "problem";
   return (
     <section class="wrap narrow stack check-page">
       <h1>{t["check.title"]}</h1>
@@ -42,9 +43,11 @@ export function Check() {
           {result && (
             <>
               {/* the answer first, big enough to read at a glance; the two checks below say why */}
-              <p class={`check-verdict ${passed(result.exit, result.dns) ? "check-verdict--ok" : "check-verdict--bad"}`} role="status">
-                <Icon name={passed(result.exit, result.dns) ? "ok" : "cancel"} />
-                {passed(result.exit, result.dns) ? t["check.ok"] : t["check.problem"]}
+              <p class={`check-verdict check-verdict--${summary === "problem" ? "bad" : summary}`} role="status">
+                <Icon name={summary === "ok" ? "ok" : summary === "off" ? "wifi" : "cancel"} />
+                {summary === "off" ? (
+                  <span>{t["check.off"]}<span class="check-verdict__more">{t["check.off.more"]}</span></span>
+                ) : t[`check.${summary ?? "problem"}`]}
               </p>
               <dl class="check-rows">
                 <div>

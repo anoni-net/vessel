@@ -58,8 +58,21 @@ test("a passing check, carried into feedback", async ({ page }) => {
   expect(sent[0].data.from).toBe("check");
 });
 
+test("not connected at all: a plain summary, not a warning, and on to the network", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, []);
+  await page.goto("/check/");
+  await page.getByRole("button", { name: "開始檢測" }).click();
+  const box = page.getByTestId("connection-check");
+  await expect(box.getByRole("status")).toHaveText("目前沒有連上 Vessel。下方是目前網路的狀況。要檢查 Vessel 的連線，先在 App 打開通道再檢測一次。");
+  await expect(box.locator(".check-verdict--bad")).toHaveCount(0);
+  await expect(box.getByTestId("check-exit")).toContainText("可能是 VPN 沒有開");
+  await expect(box.getByTestId("check-network")).toBeVisible();
+  expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
+});
+
 for (const [exit, hidden, exitText] of [
-  [{ region: null, ipv6: false }, [], "可能是 VPN 沒有開"],
+  // Vessel's DNS without its exit: half set up, which is a problem
+  [{ region: null, ipv6: false }, [1], "可能是 VPN 沒有開"],
   [{ region: null, ipv6: true }, [1], "這次連線走 IPv6，沒有經過 Vessel。"],
   ["fail", [1, 2, 3], "無法完成出口的檢測，請稍後再試。"],
 ] as const) {

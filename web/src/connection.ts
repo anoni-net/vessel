@@ -27,6 +27,11 @@ export async function exitCheck(): Promise<Exit> {
 export const passed = (exit: Exit, dns: Verdict) =>
   !(EXIT_PROBLEMS as readonly string[]).includes(exit) && (dns === "none" || dns === "malware" || dns === "ads");
 
+/** Not on Vessel at all: neither the traffic nor the lookups go through it, the usual case before connecting. Not a
+ * problem to fix, so the page says so plainly and goes on to the network. IPv6 or Vessel's DNS without its exit is a
+ * misconfiguration and stays a problem. */
+export const notConnected = (exit: Exit, dns: Verdict) => exit === "none" && (dns === "notVessel" || dns === "offline");
+
 /** The result as it travels to the feedback page: `?check=<exit>.<dns>` */
 export const encodeCheck = (exit: Exit, dns: Verdict) => `${exit}.${dns}`;
 
