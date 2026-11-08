@@ -460,6 +460,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 
 /* a passkey on the account page: its name and date on the left, delete on the right */
 .passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
+/* pages/reverify.tsx: confirming it is the person, over the account page; .card would show it before showModal() */
+.verify-dialog { width: min(100% - 32px, 440px); max-height: calc(100% - 32px); overflow: auto; margin: auto; color: var(--text); }
+.verify-dialog:not([open]) { display: none; }
+.verify-dialog::backdrop { background: rgb(0 0 0 / .45); }
 .passkey-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
 /* the passkey icon in a round tinted badge, beside each passkey's name */
 .passkey-badge { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--tint); color: var(--ink); font-size: 20px; }

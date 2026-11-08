@@ -160,6 +160,43 @@ test("the account page lists passkeys, removes one, and stops at five", async ({
   await expect(box.getByRole("button", { name: "加上 passkey" })).toBeVisible();
 });
 
+test("removing a passkey a while after signing in is confirmed with a passkey", async ({ page }) => {
+  await authenticator(page);
+  let made: Record<string, any> | undefined;
+  let confirmed = false;
+  let stored = [{ id: 1, label: "我的 iPhone", created_on: "2026-10-31" }, { id: 2, label: "公司電腦", created_on: "2026-11-01" }];
+  await backend(page, {
+    "GET /api/me": json(ME),
+    "GET /api/devices": json([]),
+    "GET /api/passkeys": (route) => route.fulfill({ json: stored }),
+    "POST /api/passkeys/options": json(creation()),
+    "POST /api/passkeys": (route) => { made = route.request().postDataJSON().credential; return route.fulfill({ json: stored }); },
+    "DELETE /api/passkeys/2": (route) => {
+      if (!confirmed) return route.fulfill({ status: 403, json: { error: "verify_required" } });
+      stored = stored.slice(0, 1);
+      return route.fulfill({ json: stored });
+    },
+    "POST /api/account/verify/options": (route) => route.fulfill({ json: request([made!.id]) }),
+    "POST /api/account/verify": (route) => {
+      confirmed = route.request().postDataJSON().credential?.id === made!.id;
+      return route.fulfill(confirmed ? { json: { ok: true } } : { status: 401, json: { error: "invalid_passkey" } });
+    },
+  });
+  await page.goto(SITE + "/account/");
+  // a passkey in the virtual authenticator to confirm with (adding it was within the minutes after signing in)
+  const box = page.getByTestId("passkeys");
+  await box.getByRole("button", { name: "加上 passkey" }).click();
+  await expect.poll(() => made).toBeTruthy();
+
+  page.once("dialog", (d) => d.accept());
+  await box.getByRole("button", { name: "刪除「公司電腦」" }).click();
+  const dialog = page.getByRole("dialog", { name: "先確認是你本人" });
+  await dialog.getByRole("button", { name: "用 passkey 確認" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(box.getByText("公司電腦")).toHaveCount(0);
+  await expect(box.getByText("我的 iPhone")).toBeVisible();
+});
+
 test("the sign-in page puts the account number first, the passkey under it", async ({ page }) => {
   await authenticator(page);
   await backend(page, { "GET /api/me": (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }) });

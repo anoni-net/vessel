@@ -12,6 +12,8 @@ import { AccountNumber } from "./redeem.tsx";
 import { Busy, SkLine, Spin } from "./skeleton.tsx";
 import { focusHeading } from "../focus.ts";
 import { announce } from "../announce.ts";
+import { passkeysSupported } from "../passkey.ts";
+import { useReverify } from "./reverify.tsx";
 
 /** Links shown on the signed-in pages. */
 export function AccountNav() {
@@ -57,6 +59,8 @@ export function Account() {
   const [deleting, setDeleting] = useState(false);
   // a number just replaced with a passkey: shown on its own, once, then back to the account page
   const [newNumber, setNewNumber] = useState("");
+  // adding or removing a passkey and deleting the account may first ask the person to confirm it is them
+  const { guard, dialog } = useReverify(!!passkeys?.length && passkeysSupported());
 
   useEffect(() => {
     api.passkeys().then(setPasskeys).catch(() => setPasskeys(null));
@@ -74,7 +78,7 @@ export function Account() {
     if (deleting) return;
     setDeleting(true);
     try {
-      await api.deleteAccount();
+      await guard(() => api.deleteAccount());
       // the header and the home page no longer offer "My devices", and the home page says it is done
       setSignedIn(false);
       announce(t["account.deleted"]);
@@ -108,7 +112,7 @@ export function Account() {
           <Invites />
         </div>
         <div class="account-col">
-          <Passkeys initial={passkeys} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
+          <Passkeys initial={passkeys} guard={guard} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
         </div>
       </div>
       <div class="account-section account-delete">
@@ -126,6 +130,7 @@ export function Account() {
         </div>
       </div>
       {loading && <Busy />}
+      {dialog}
     </section>
   );
 }

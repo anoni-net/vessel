@@ -236,6 +236,9 @@ export const api = {
   rotateOptions: () => call<WebAuthnJson>("POST", "/account/number/options").then((r) => r.data),
   rotateNumber: (credential: WebAuthnJson) =>
     call<{ account_number: string }>("POST", "/account/number", { credential }).then((r) => r.data),
+  /** confirming it is the person, before a step that needs a recent sign-in (pages/reverify.tsx) */
+  verifyOptions: () => call<WebAuthnJson>("POST", "/account/verify/options").then((r) => r.data),
+  verify: (proof: { account_number: string } | { credential: WebAuthnJson }) => call("POST", "/account/verify", proof),
   invites: () =>
     call<Invites>("GET", "/invites").then((r) => {
       if (Array.isArray(r.data?.open)) last.invites = r.data;

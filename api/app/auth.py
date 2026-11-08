@@ -74,11 +74,21 @@ def clear_session_cookie(request: Request, response: Response) -> None:
 
 def start_session(conn: psycopg.Connection, request: Request, response: Response, account_id: int) -> None:
     token = crypto.new_session_token()
+    # signing in is a confirmation too, for VERIFY_MINUTES
     conn.execute(
-        "INSERT INTO sessions (id_hmac, account_id, expires_at) VALUES (%s, %s, now() + make_interval(days => %s))",
-        (crypto.keyed_hash(load().hmac_key, token), account_id, policy.SESSION_DAYS),
+        "INSERT INTO sessions (id_hmac, account_id, expires_at, verified_until) "
+        "VALUES (%s, %s, now() + make_interval(days => %s), now() + make_interval(mins => %s))",
+        (crypto.keyed_hash(load().hmac_key, token), account_id, policy.SESSION_DAYS, policy.VERIFY_MINUTES),
     )
     set_session_cookie(request, response, token)
+
+
+def mark_verified(conn: psycopg.Connection, request: Request) -> None:
+    """The person at this browser just confirmed it is them (app/passkeys.py, /api/account/verify)."""
+    conn.execute(
+        "UPDATE sessions SET verified_until = now() + make_interval(mins => %s) WHERE id_hmac = %s",
+        (policy.VERIFY_MINUTES, crypto.keyed_hash(load().hmac_key, session_token(request) or "")),
+    )
 
 
 def extend_session(conn: psycopg.Connection, request: Request, response: Response) -> None:
@@ -108,6 +118,22 @@ def current_account(request: Request, conn: Conn) -> int:
 
 
 Account = Annotated[int, Depends(current_account)]
+
+
+def require_recent(request: Request, account_id: Account, conn: Conn) -> int:
+    """For what someone holding a signed-in browser for a minute must not do on their own: adding or removing a
+    passkey, and deleting the account. A new passkey would let them replace the number and lock the person out.
+    Signing in counts for VERIFY_MINUTES; after that the person confirms again with a passkey or the number."""
+    row = conn.execute(
+        "SELECT verified_until > now() FROM sessions WHERE id_hmac = %s",
+        (crypto.keyed_hash(load().hmac_key, session_token(request) or ""),),
+    ).fetchone()
+    if row is None or not row[0]:
+        raise error(403, "verify_required")
+    return account_id
+
+
+Recent = Annotated[int, Depends(require_recent)]
 
 
 class RedeemBody(BaseModel):
@@ -269,7 +295,7 @@ def usage_months(account_id: Account, conn: Conn) -> dict:
 
 
 @router.delete("/account", dependencies=[Depends(require_app_header)])
-def delete_account(account_id: Account, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
+def delete_account(account_id: Recent, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
         # waits for a device being created right now, so its add is either queued below or already on the node
         conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))

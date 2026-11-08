@@ -8,3 +8,6 @@ INVITE_DAYS = 30
 USER_INVITE_DAYS = 7        # an invite an account makes works this long (toomore/anoni-net-ws#458)
 INVITE_AFTER_DAYS = 14      # and an account may make them this many days after it was made
 PASSKEY_LIMIT = 5           # passkeys per account: a phone, a computer, a security key, and spares
+# Adding or removing a passkey and deleting the account need a person who just proved it is them: signing in counts
+# for this long, then they confirm again with a passkey or the account number (app/auth.py, require_recent)
+VERIFY_MINUTES = 10
