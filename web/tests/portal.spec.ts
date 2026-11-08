@@ -361,7 +361,7 @@ test("a sign-out the server did not take keeps this browser signed in and says s
     answer = next;
   }
   await page.getByRole("button", { name: "登出" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
 });
 
 test("after signing out, going back shows none of the account's passkeys", async ({ page }) => {
@@ -376,7 +376,8 @@ test("after signing out, going back shows none of the account's passkeys", async
   await page.goto("/account/");
   await expect(page.getByText("我的 iPhone")).toBeVisible();
   await page.getByRole("button", { name: "登出" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  // /\/$/ would match /account/ as well, and going back from there leaves the site
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
   await page.goBack();
   await expect(page).toHaveURL(/\/account\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("帳號");
