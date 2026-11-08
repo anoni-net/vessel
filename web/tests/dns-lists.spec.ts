@@ -7,6 +7,7 @@ const SUMMARY = {
     { id: "tw165", domains: 86154, only_here: 86000 },
     { id: "twmoda", domains: 1664, only_here: 1600 },
     { id: "stalkerware", domains: 929, only_here: 900 },
+    { id: "cti", domains: 381000, only_here: 378000 },
     { id: "ads", domains: 219320, only_here: 149750 },
   ],
   malware_filter: 282967,
@@ -69,7 +70,7 @@ test("the lists say what they block first, and are grouped by what people pick",
   await expect(page.getByTestId("list-tw165")).toContainText("內政部警政署");
   const groups = page.getByTestId("lists-groups").locator("section");
   await expect(groups).toHaveCount(2);
-  await expect(groups.nth(0).locator("li")).toHaveCount(4);
+  await expect(groups.nth(0).locator("li")).toHaveCount(5);
   await expect(groups.nth(1)).toContainText("只有選「擋惡意網站、廣告與追蹤」才擋");
   await expect(page.getByTestId("lists-as-of")).toBeVisible();
 });
@@ -95,7 +96,7 @@ test("the rest of the page stays when the numbers cannot be read", async ({ page
   await backend(page, 503);
   await page.goto("/dns/lists/");
   await expect(page.getByRole("alert")).toContainText("暫時無法讀取");
-  await expect(page.getByTestId("lists-groups").locator("li")).toHaveCount(5);
+  await expect(page.getByTestId("lists-groups").locator("li")).toHaveCount(6);
   await openMore(page);
   await expect(page.getByTestId("lists-excluded")).toContainText("from-ia.com");
   await expect(page.getByTestId("lists-chart-overlap")).toHaveCount(0);
@@ -155,7 +156,7 @@ test("a long list name wraps and its numbers stay inside the chart on a narrow p
   await openMore(page);
   const plot = await page.getByTestId("lists-chart-overlap").locator(".lists-bar__plot").first().boundingBox();
   const values = page.getByTestId("lists-chart-overlap").locator(".lists-bar__value");
-  await expect(values).toHaveCount(5);
+  await expect(values).toHaveCount(6);
   for (const box of await values.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().right))) {
     expect(box).toBeLessThanOrEqual(plot!.x + plot!.width + 1);
   }
@@ -166,21 +167,21 @@ test("the charts carry the numbers, with labels for screen readers", async ({ pa
   await page.goto("/dns/lists/");
   await openMore(page);
   const overlap = page.getByTestId("lists-chart-overlap");
-  await expect(overlap.locator(".lists-chart__bars li svg")).toHaveCount(5);
+  await expect(overlap.locator(".lists-chart__bars li svg")).toHaveCount(6);
   await expect(overlap.getByRole("img", { name: "惡意程式與釣魚網站：共 195,355 個網域，其中 90,000 個獨有" })).toBeVisible();
   // the same names as the cards above, so nobody has to work out which is which
-  for (const id of ["malware", "tw165", "twmoda", "stalkerware", "ads"]) {
+  for (const id of ["malware", "tw165", "twmoda", "stalkerware", "cti", "ads"]) {
     const name = await page.getByTestId(`list-${id}`).locator(".lists-card__name").innerText();
     await expect(overlap.locator(".lists-bar__head").filter({ hasText: name })).toHaveCount(1);
   }
   // largest first
-  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^廣告與追蹤/, /^惡意程式與釣魚網站/, /^假投資/, /^電商通報/, /^跟蹤軟體/]);
+  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^確認活躍/, /^廣告與追蹤/, /^惡意程式與釣魚網站/, /^假投資/, /^電商通報/, /^跟蹤軟體/]);
   // rounded down, so 99.8% does not read as nothing shared
   await expect(overlap.locator(".lists-chart__bars > li").filter({ hasText: "假投資" })).toContainText("獨有 99%");
   await expect(overlap.locator(".lists-chart__bars > li").filter({ hasText: "惡意程式與釣魚網站" })).toContainText("獨有 46%");
   // the longest list fills the width, the others in proportion
   const ads = overlap.getByRole("img", { name: /^廣告與追蹤/ });
-  expect(await ads.locator("rect.lists-bar__first").first().getAttribute("width")).toBe(`${(149750 / 219320) * 100}%`);
+  expect(await ads.locator("rect.lists-bar__first").first().getAttribute("width")).toBe(`${(149750 / 381000) * 100}%`);
 });
 
 const luminance = (hex: string) => {
@@ -281,7 +282,7 @@ test("the page compares with other services in the open, weak points included", 
   await expect(rows).toHaveCount(5);
   await expect(rows.nth(1)).toContainText("釣魚網站，一天後");
   await expect(rows.nth(3)).toContainText("100%");
-  await expect(page.getByText("Vessel 目前最弱的是釣魚網站")).toBeVisible();
+  await expect(page.getByText("對 phishunt.io 回報的網站略少")).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Vessel 擋惡意網站", exact: true })).toBeAttached();
   await expect(page.getByRole("columnheader", { name: "Cloudflare 1.1.1.2" })).toBeAttached();
   await expect(page.getByTestId("list-quad9").getByRole("link", { name: "Quad9 的查詢頁" })).toHaveAttribute("href", "https://quad9.net/result/");
@@ -290,8 +291,8 @@ test("the page compares with other services in the open, weak points included", 
   const panels = page.getByTestId("lists-phishing").locator("figure");
   await expect(panels).toHaveCount(3);
   await expect(panels.nth(0).getByRole("img")).toHaveCount(3);
-  await expect(panels.nth(0).getByRole("img", { name: "Cloudflare 1.1.1.2 86%" })).toBeVisible();
-  await expect(panels.nth(2).getByRole("img", { name: "Vessel 擋惡意網站 31%" })).toBeVisible();
+  await expect(panels.nth(0).getByRole("img", { name: "Cloudflare 1.1.1.2 87%" })).toBeVisible();
+  await expect(panels.nth(2).getByRole("img", { name: "Vessel 擋惡意網站 63%" })).toBeVisible();
   await expect(page.getByText("在那個來源的比例會偏高")).toBeVisible();
 });
 

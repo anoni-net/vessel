@@ -1,5 +1,5 @@
 """Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists, the two lists of scam sites
-Taiwan's ISPs stop resolving and Echap's stalkerware domains (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
+Taiwan's ISPs stop resolving, Echap's stalkerware domains and DNSBunker's CTI list (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
 can tell a visitor whether a site that will not open was blocked, and which filters block it. The domain asked
 about is only compared in memory and asked of Quad9, which the nodes' filter also forwards to: it is not logged or stored."""
 
@@ -42,6 +42,8 @@ SOURCES = {
     "twmoda": "https://www-api.moda.gov.tw/OpenData/Files/16352",
     # Echap's stalkerware indicators, a name a line (CC BY 4.0)
     "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
+    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only)
+    "cti": "https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
 REFRESH_SECONDS = 8 * 3600
@@ -49,7 +51,7 @@ REFRESH_SECONDS = 8 * 3600
 USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
 # a list this short means the download went wrong; keep the copy already loaded. Echap's has about 900 names
 MIN_ENTRIES = 1000
-MIN_ENTRIES_BY_LIST = {"stalkerware": 500}
+MIN_ENTRIES_BY_LIST = {"stalkerware": 500, "cti": 50000}
 
 LABEL = re.compile(r"^(?!-)[a-z0-9_-]{1,63}(?<!-)$")
 
@@ -115,7 +117,7 @@ def parse_hosts(text: str) -> frozenset[str]:
     return frozenset(name for name in names if name)
 
 
-PARSERS = {"tw165": parse_165, "twmoda": parse_moda, "stalkerware": parse_hosts}
+PARSERS = {"tw165": parse_165, "twmoda": parse_moda, "stalkerware": parse_hosts, "cti": parse_hosts}
 
 
 def tls_context(name: str) -> ssl.SSLContext:

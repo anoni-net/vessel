@@ -30,6 +30,7 @@ def api():
     # fresh lists, so the request does not start a download
     blocklists.set_lists({"malware": frozenset({"bad.example"}), "tw165": frozenset({"scam.example"}),
                           "twmoda": frozenset({"fakeshop.example"}), "stalkerware": frozenset({"spy.example"}),
+                          "cti": frozenset({"active.example"}),
                           "ads": frozenset({"ads.example", "bad.example"})})
     blocklists.lookup_limiter.reset()
     yield TestClient(app)
@@ -63,6 +64,12 @@ def test_lookup_names_the_stalkerware_list(api):
     body = ask(api, "media.spy.example").json()
     assert {k: body[k] for k in ("malware", "tw165", "twmoda", "stalkerware", "ads")} == {
         "malware": False, "tw165": False, "twmoda": False, "stalkerware": True, "ads": False}
+
+
+def test_lookup_names_the_cti_list(api):
+    body = ask(api, "login.active.example").json()
+    assert {k: body[k] for k in ("malware", "tw165", "twmoda", "stalkerware", "cti", "ads")} == {
+        "malware": False, "tw165": False, "twmoda": False, "stalkerware": False, "cti": True, "ads": False}
 
 
 @pytest.mark.parametrize("raw, host", [

@@ -51,8 +51,12 @@ cp $D/server/interface.conf $D/conf/awg0.conf
 
 $D/update-lists.sh
 ln -sf $D/awgctl /usr/local/sbin/awgctl
-# the malware, the two Taiwanese and the stalkerware lists every 8 hours, everything (the ad list too) once a day at 04:37 in Taiwan
+# the malware, the two Taiwanese and the stalkerware lists every 8 hours, the ad list too once a day at 04:37 in Taiwan.
+# CTI every 6 hours, at 00:37, 06:37, 12:37 and 18:37 in Taiwan; its 04:37 UTC run shares a line with the others because
+# only one run of update-lists.sh at a time goes ahead
 { crontab -l 2>/dev/null | grep -v vessel-node/update-lists.sh || true
-  echo "37 4,12 * * * /opt/vessel-node/update-lists.sh malware tw165 twmoda stalkerware >> /var/log/vessel-update-lists.log 2>&1"
-  echo "37 20 * * * /opt/vessel-node/update-lists.sh >> /var/log/vessel-update-lists.log 2>&1"; } | crontab -
+  echo "37 4 * * * /opt/vessel-node/update-lists.sh malware tw165 twmoda stalkerware cti >> /var/log/vessel-update-lists.log 2>&1"
+  echo "37 12 * * * /opt/vessel-node/update-lists.sh malware tw165 twmoda stalkerware >> /var/log/vessel-update-lists.log 2>&1"
+  echo "37 20 * * * /opt/vessel-node/update-lists.sh malware tw165 twmoda stalkerware ads >> /var/log/vessel-update-lists.log 2>&1"
+  echo "37 10,16,22 * * * /opt/vessel-node/update-lists.sh cti >> /var/log/vessel-update-lists.log 2>&1"; } | crontab -
 $D/run.sh

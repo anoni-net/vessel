@@ -14,14 +14,15 @@ const LISTS = [
   { id: "tw165", href: "https://data.gov.tw/dataset/176455" },
   { id: "twmoda", href: "https://data.gov.tw/dataset/165027" },
   { id: "stalkerware", href: "https://github.com/AssoEchap/stalkerware-indicators" },
+  { id: "cti", href: "https://github.com/DNSBunker/CTI" },
   { id: "ads", href: HAGEZI },
 ] as const;
 // what people pick when they make a device decides which lists apply
 const GROUPS = [
-  { key: "both", lists: LISTS.slice(0, 4) },
-  { key: "ads", lists: LISTS.slice(4) },
+  { key: "both", lists: LISTS.slice(0, 5) },
+  { key: "ads", lists: LISTS.slice(5) },
 ] as const;
-const CHART_ORDER: readonly string[] = ["ads", "malware", "tw165", "twmoda", "stalkerware"];
+const CHART_ORDER: readonly string[] = ["cti", "ads", "malware", "tw165", "twmoda", "stalkerware"];
 const EXCLUDE_FILE = "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt";
 // the names in node/exclude.txt; tests/dns-lists.spec.ts checks that the two match
 export const EXCLUDED = [
@@ -30,27 +31,42 @@ export const EXCLUDED = [
   ["playinfo.gomlab.com", "delisted"],
   ["waws-prod-blu-247.sip.azurewebsites.windows.net", "shared"],
   ["waws-prod-blu-247-e7b3.eastus.cloudapp.azure.com", "shared"],
+  ["wixsite.com", "hosting"],
+  ["cloudflare-ipfs.com", "hosting"],
+  ["graph.org", "hosting"],
+  ["meusitehostgator.com.br", "hosting"],
+  ["edgeone.dev", "hosting"],
+  ["jumpingcrab.com", "hosting"],
+  ["publicvm.com", "hosting"],
+  ["myhuaweicloud-custom.com", "hosting"],
+  ["hosted-by-vdsina.com", "hosting"],
+  ["awsdns-531.com", "hosting"],
+  ["top4top.io", "hosting"],
+  ["craftum.io", "hosting"],
+  ["eporner.com", "content"],
+  ["pmvhaven.com", "content"],
 ] as const;
 // Measured, not live: update these with the text around them when a measurement is repeated. Each row is the share
 // blocked by Vessel's malware filter and its ads filter, Quad9 included, and by Cloudflare (1.1.1.2).
 const COMPARE = [
-  ["phishNew", "2–12%", "3–13%", "4–61%"],
-  ["phishDay", "31–100%", "32–100%", "71–86%"],
+  ["phishNew", "2–12%", "3–13%", "4–63%"],
+  ["phishDay", "63–100%", "64–100%", "69–87%"],
   ["malware", "90%", "96%", "57%"],
   ["twScam", "100%", "100%", "1–2%"],
   ["tracking", "0%", "93%", "0%"],
 ] as const;
 // phishing sites a day after they first appeared, by who reported them
 const PHISHING = [
-  ["certpl", 2151, 100, 100, 86],
-  ["openphish", 1734, 40, 44, 74],
-  ["phishunt", 111, 31, 32, 71],
+  ["certpl", 2516, 100, 100, 87],
+  ["openphish", 2140, 91, 92, 75],
+  ["phishunt", 131, 63, 64, 69],
 ] as const;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 4, 5] as const;
 const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
+  ["2026-11-08", "20261108b"],
   ["2026-11-08", "20261108"],
   ["2026-11-07", "20261107b"],
   ["2026-11-07", "20261107"],
