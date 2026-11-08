@@ -9,6 +9,9 @@
 #                HaGeZi barely covers; published as CSV, so it is turned into a zone here
 #   twmoda.rpz   the fake shops MODA has ISPs stop resolving on e-commerce companies' reports (data.gov.tw
 #                dataset 165027), JSON
+#   stalkerware.rpz  the stalkerware domains Echap collects (github.com/AssoEchap/stalkerware-indicators,
+#                generated/hosts, CC BY 4.0): Quad9 blocks most of them, not the apps' own sites, and a block by the
+#                nodes' list is counted per device where Quad9's is not
 #   ads.rpz      HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
 # The names in exclude.txt are left out of all of them.
 set -uo pipefail
@@ -19,8 +22,11 @@ declare -A SRC=(
   [malware]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt
   [tw165]=https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/29E8E643-88ED-4952-B21E-BD42A3B7108C/resource/D7839A03-8491-490E-BAF7-2ED2D98C5157/download
   [twmoda]=https://www-api.moda.gov.tw/OpenData/Files/16352
+  [stalkerware]=https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts
   [ads]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt
 )
+# fewer lines than this means the download went wrong (Echap's list has about 1,300 lines once turned into a zone)
+declare -A MIN_LINES=([stalkerware]=500)
 # the domains in a list, without the header comments and the SOA serial, which change on every build
 entries() { grep -v -e '^;' -e ' SOA ' "$1" | sha256sum | cut -d' ' -f1; }
 # drop the names in exclude.txt, and their wildcards, from a zone
@@ -32,16 +38,18 @@ drop_excluded() {
 }
 # every list is loaded by the filter resolver (node/unbound/filter.conf), once, tagged with the addresses it serves
 
-# The two Taiwanese lists as RPZ zones: each domain and its subdomains answer NXDOMAIN.
+# The lists that are not RPZ zones yet, as zones: each domain and its subdomains answer NXDOMAIN.
 #   tw165   the 165 CSV (民國年月, 網域, 網站性質, ...)
 #   twmoda  the MODA JSON (網域名稱, 偽冒網址, ...). Where the domain field and the scam URL's host disagree (a typo
 #           in the field, three entries in November 2026), only the URL's host is used, so a mistyped name that
 #           belongs to someone else is not blocked.
+#   stalkerware  Echap's hosts file, a name a line. Names on shared platforms (Firebase, S3, CloudFront) each belong to
+#           one app; the two Azure App Service front ends it lists, which other sites point to, are in exclude.txt.
 # Entries are cleaned (a scheme, a path, an email address or stray characters in front) and the ones that are still
-# not a host name are dropped. Neither list names a shared parent like a URL shortener or a hosting platform, only
+# not a host name are dropped. None of the lists names a shared parent like a URL shortener or a hosting platform, only
 # names under them, so blocking subdomains does not reach other sites. A name whose parent is listed too is left
 # out: the parent's wildcard already blocks it (a quarter of the 165 list, and of the memory it takes).
-zone_from() { # tw165|twmoda file
+zone_from() { # tw165|twmoda|stalkerware file
   python3 -I - "$1" "$2" "$EXCLUDE" <<'PY'
 import csv, json, os, re, sys
 kind, path, exclude = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -55,12 +63,18 @@ def clean(raw):
         return None
     return name if host.fullmatch(name) and len(name) <= 253 else None
 names = set()
+OGDL = "Open Government Data License v1"
 if kind == "tw165":
-    source = "165反詐騙諮詢專線_遭停止解析涉詐網站, NPA (data.gov.tw/dataset/176455)"
+    source = f"165反詐騙諮詢專線_遭停止解析涉詐網站, NPA (data.gov.tw/dataset/176455), {OGDL}"
     for row in csv.DictReader(open(path, encoding="utf-8-sig")):
         names.add(clean(row.get("網域")))
+elif kind == "stalkerware":
+    source = "Echap stalkerware-indicators (github.com/AssoEchap/stalkerware-indicators), CC BY 4.0"
+    for line in open(path, encoding="utf-8"):
+        if not line.lstrip().startswith("#"):
+            names.add(clean(line))
 else:
-    source = "數位發展部數位產業署聲請詐騙網域名稱停止解析網址清單, MODA (data.gov.tw/dataset/165027)"
+    source = f"數位發展部數位產業署聲請詐騙網域名稱停止解析網址清單, MODA (data.gov.tw/dataset/165027), {OGDL}"
     for row in json.load(open(path, encoding="utf-8-sig")):
         domain, url = clean(row.get("網域名稱")), clean(row.get("偽冒網址"))
         names.add(url if url and domain and url != domain and not url.endswith("." + domain) else domain or url)
@@ -72,30 +86,30 @@ def covered(name):
     labels = name.split(".")
     return any(".".join(labels[i:]) in names for i in range(1, len(labels) - 1))
 print("$TTL 3600\n@ SOA localhost. root.localhost. 1 28800 3600 259200 3600\n  NS localhost.")
-print(f"; {source}, Open Government Data License v1")
+print(f"; {source}")
 for name in sorted(n for n in names if not covered(n)):
     print(f"{name} CNAME .\n*.{name} CNAME .")
 PY
 }
 
 zones=("$@")
-[ ${#zones[@]} -gt 0 ] || zones=(malware tw165 twmoda ads)
+[ ${#zones[@]} -gt 0 ] || zones=(malware tw165 twmoda stalkerware ads)
 for z in "${zones[@]}"; do
-  [ -n "${SRC[$z]:-}" ] || { echo "unknown list: $z (malware, tw165, twmoda, ads)" >&2; exit 2; }
+  [ -n "${SRC[$z]:-}" ] || { echo "unknown list: $z (malware, tw165, twmoda, stalkerware, ads)" >&2; exit 2; }
 done
 
 changed=()
 for z in "${zones[@]}"; do
   tmp=$(mktemp "$D/.$z.XXXXXX")
   ok=0
-  if [ "$z" = tw165 ] || [ "$z" = twmoda ]; then
+  if [ "$z" = tw165 ] || [ "$z" = twmoda ] || [ "$z" = stalkerware ]; then
     src=$(mktemp "$D/.$z.src.XXXXXX")
     curl -fsSL -m 120 -o "$src" "${SRC[$z]}" && zone_from "$z" "$src" > "$tmp" && ok=1
     rm -f "$src"
   else
     curl -fsSL -m 120 -o "$tmp" "${SRC[$z]}" && drop_excluded "$tmp" && ok=1
   fi
-  if [ "$ok" = 1 ] && grep -q ' SOA ' "$tmp" && [ "$(wc -l < "$tmp")" -gt 1000 ]; then
+  if [ "$ok" = 1 ] && grep -q ' SOA ' "$tmp" && [ "$(wc -l < "$tmp")" -gt "${MIN_LINES[$z]:-1000}" ]; then
     if [ -s "$D/$z.rpz" ] && [ "$(entries "$tmp")" = "$(entries "$D/$z.rpz")" ]; then
       # same domains: keep the file and skip the reload, which stops the resolver answering while the list loads
       rm -f "$tmp"

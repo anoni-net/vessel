@@ -869,17 +869,20 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-bar__gap { fill: var(--page); }
 .lists-col > h2 { margin: 24px 0 0; }
 .lists-page .legal { margin-top: 0; }
+/* long host names in the table of excluded domains break anywhere instead of running off a phone */
+.lists-page td code { overflow-wrap: anywhere; }
 @media (min-width: 641px) {
   .lists-page { max-width: 800px; }
-  .lists-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lists-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lists-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 960px) {
   .lists-page { max-width: 1120px; }
   .lists-page > .lead { max-width: 760px; }
   /* the two groups share their rows, so a title on two lines does not push one group's cards lower */
-  .lists-groups { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lists-groups { grid-template-columns: minmax(0, 4fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .lists-group { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
+  .lists-group--both .lists-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .lists-group--ads .lists-cards { grid-template-columns: minmax(0, 1fr); }
   .lists-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; margin-top: 16px; }
   .lists-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }

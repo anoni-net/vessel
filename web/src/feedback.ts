@@ -113,7 +113,7 @@ export async function sendFeedback(payload: ReturnType<typeof feedbackPayload>):
 }
 
 /** A site reported as blocked by mistake, from the lookup on the DNS page: `?blocked=<domain>&list=<malware|ads>` */
-export type BlockedReport = { domain: string; list: "malware" | "ads" | "quad9" };
+export type BlockedReport = { domain: string; list: "malware" | "stalkerware" | "ads" | "quad9" };
 
 export const blockedReport = (domain: string, list: BlockedReport["list"]) =>
   `blocked=${encodeURIComponent(domain)}&list=${list}`;
@@ -123,5 +123,5 @@ export function decodeBlocked(q: URLSearchParams): BlockedReport | null {
   const list = q.get("list");
   // only what the backend could have answered with: an ASCII host name
   if (domain.length > 253 || !/^[a-z0-9_-]+(\.[a-z0-9_-]+)+$/.test(domain)) return null;
-  return list === "malware" || list === "ads" || list === "quad9" ? { domain, list } : null;
+  return list === "malware" || list === "stalkerware" || list === "ads" || list === "quad9" ? { domain, list } : null;
 }

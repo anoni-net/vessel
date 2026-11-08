@@ -1,5 +1,5 @@
-"""Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists and the 165 list of scam sites
-Taiwan's ISPs stop resolving (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
+"""Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists, the two lists of scam sites
+Taiwan's ISPs stop resolving and Echap's stalkerware domains (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
 can tell a visitor whether a site that will not open was blocked, and which filters block it. The domain asked
 about is only compared in memory and asked of Quad9, which the nodes' filter also forwards to: it is not logged or stored."""
 
@@ -30,9 +30,9 @@ NXDOMAIN = 3
 
 router = APIRouter(prefix="/api")
 
-# the same files node/update-lists.sh downloads. Both filters load the malware list and the two Taiwanese lists,
-# and the ads filter the ads list too, so a site on any of the first three is blocked by both filters, one only on
-# the ads list by the ads filter alone
+# the same files node/update-lists.sh downloads. Both filters load every list but the last, and the ads filter the
+# ads list too, so a site on any of the others is blocked by both filters, one only on the ads list by the ads filter
+# alone
 SOURCES = {
     "malware": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt",
     # 165反詐騙諮詢專線_遭停止解析涉詐網站 (data.gov.tw dataset 176455), a CSV
@@ -40,13 +40,16 @@ SOURCES = {
     "/resource/D7839A03-8491-490E-BAF7-2ED2D98C5157/download",
     # 數位發展部數位產業署聲請詐騙網域名稱停止解析網址清單 (data.gov.tw dataset 165027), JSON
     "twmoda": "https://www-api.moda.gov.tw/OpenData/Files/16352",
+    # Echap's stalkerware indicators, a name a line (CC BY 4.0)
+    "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
 REFRESH_SECONDS = 8 * 3600
 # the MODA server refuses Python's default User-Agent; every download says what it is
 USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
-# a list this short means the download went wrong; keep the copy already loaded
+# a list this short means the download went wrong; keep the copy already loaded. Echap's has about 900 names
 MIN_ENTRIES = 1000
+MIN_ENTRIES_BY_LIST = {"stalkerware": 500}
 
 LABEL = re.compile(r"^(?!-)[a-z0-9_-]{1,63}(?<!-)$")
 
@@ -106,7 +109,13 @@ def parse_moda(text: str) -> frozenset[str]:
     return frozenset(names)
 
 
-PARSERS = {"tw165": parse_165, "twmoda": parse_moda}
+def parse_hosts(text: str) -> frozenset[str]:
+    """The names in a plain list, one a line; the node blocks each with its subdomains, like an RPZ zone's."""
+    names = (normalize(line) for line in text.splitlines() if not line.lstrip().startswith("#"))
+    return frozenset(name for name in names if name)
+
+
+PARSERS = {"tw165": parse_165, "twmoda": parse_moda, "stalkerware": parse_hosts}
 
 
 def tls_context(name: str) -> ssl.SSLContext:
@@ -144,7 +153,7 @@ def summarize(lists: dict[str, frozenset[str]]) -> dict:
     ]
     return {
         "lists": rows,
-        "malware_filter": _count_all(get("malware", "tw165", "twmoda")),
+        "malware_filter": _count_all(get(*(name for name in SOURCES if name != "ads"))),
         "ads_filter": _count_all(get(*SOURCES)),
         "hagezi": _count_all(get("malware", "ads")),
     }
@@ -168,7 +177,8 @@ def _download() -> None:
         except (OSError, ValueError):
             names = frozenset()
         # one failed list keeps its previous copy instead of emptying it
-        fresh[name] = names if len(names) >= MIN_ENTRIES else _lists.get(name, frozenset())
+        enough = len(names) >= MIN_ENTRIES_BY_LIST.get(name, MIN_ENTRIES)
+        fresh[name] = names if enough else _lists.get(name, frozenset())
     if any(fresh.values()):
         set_lists(fresh)
 

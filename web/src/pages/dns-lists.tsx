@@ -13,20 +13,23 @@ const LISTS = [
   { id: "malware", href: HAGEZI },
   { id: "tw165", href: "https://data.gov.tw/dataset/176455" },
   { id: "twmoda", href: "https://data.gov.tw/dataset/165027" },
+  { id: "stalkerware", href: "https://github.com/AssoEchap/stalkerware-indicators" },
   { id: "ads", href: HAGEZI },
 ] as const;
 // what people pick when they make a device decides which lists apply
 const GROUPS = [
-  { key: "both", lists: LISTS.slice(0, 3) },
-  { key: "ads", lists: LISTS.slice(3) },
+  { key: "both", lists: LISTS.slice(0, 4) },
+  { key: "ads", lists: LISTS.slice(4) },
 ] as const;
-const CHART_ORDER: readonly string[] = ["ads", "malware", "tw165", "twmoda"];
+const CHART_ORDER: readonly string[] = ["ads", "malware", "tw165", "twmoda", "stalkerware"];
 const EXCLUDE_FILE = "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt";
 // the names in node/exclude.txt; tests/dns-lists.spec.ts checks that the two match
 export const EXCLUDED = [
   ["from-ia.com", "suffix"],
   ["gomlab.com", "delisted"],
   ["playinfo.gomlab.com", "delisted"],
+  ["waws-prod-blu-247.sip.azurewebsites.windows.net", "shared"],
+  ["waws-prod-blu-247-e7b3.eastus.cloudapp.azure.com", "shared"],
 ] as const;
 // Measured, not live: update these with the text around them when a measurement is repeated. Each row is the share
 // blocked by Vessel's malware filter and its ads filter, Quad9 included, and by Cloudflare (1.1.1.2).
@@ -48,6 +51,7 @@ const KNOWN = [1, 2, 3, 4, 5] as const;
 const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
+  ["2026-11-08", "20261108"],
   ["2026-11-07", "20261107b"],
   ["2026-11-07", "20261107"],
   ["2026-11-01", "20261101b"],
@@ -250,6 +254,7 @@ export function DnsLists() {
       <ul class="lists-prose">
         <li>{t["lists.coverage.phishing"]}</li>
         <li>{t["lists.coverage.taiwan"]}</li>
+        <li>{t["lists.coverage.stalkerware"]}</li>
         <li>{t["lists.coverage.tracking"]}</li>
       </ul>
       <h3 id="beyond-the-lists">{t["lists.protect.title"]}</h3>

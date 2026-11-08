@@ -56,7 +56,8 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
     const ads = malware || body.domain.includes("ads");
     const tw165 = body.domain.includes("scam");
     const twmoda = body.domain.includes("fakeshop");
-    return route.fulfill({ json: { domain: body.domain.replace(/^https?:\/\//, "").split("/")[0], malware, tw165, twmoda, ads } });
+    const stalkerware = body.domain.includes("spy");
+    return route.fulfill({ json: { domain: body.domain.replace(/^https?:\/\//, "").split("/")[0], malware, tw165, twmoda, stalkerware, ads } });
   });
   await page.goto("/dns/");
   const box = page.getByTestId("dns-lookup");
@@ -86,6 +87,12 @@ test("look up whether a site is on the lists, and report one blocked by mistake"
   await expect(box.getByTestId("lookup-answer")).toContainText("fakeshop.example 在台灣數位產業署停止解析的詐騙購物網站名單上");
   await expect(box.getByTestId("lookup-answer")).toContainText("請向數位產業署申訴");
   await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveCount(0);
+
+  await box.getByLabel("網址或網域").fill("sync.spy.example");
+  await box.getByRole("button", { name: "查詢" }).click();
+  await expect(box.getByTestId("lookup-answer")).toContainText("sync.spy.example 在跟蹤軟體的名單上");
+  // a mistake on Echap's list is ours to exclude, so it is reported to us
+  await expect(box.getByRole("link", { name: /回報給我們/ })).toHaveAttribute("href", /list=stalkerware/);
 
   await box.getByLabel("網址或網域").fill("https://phish.example/login");
   await box.getByRole("button", { name: "查詢" }).click();

@@ -97,8 +97,8 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 名單從上游到解析器經過下面幾步：
 
-1. 下載：root 的 cron 執行 `update-lists.sh`。惡意網站與兩份台灣的名單一天三次（UTC 04:37、12:37、20:37），廣告名單一天一次（UTC 20:37，台灣清晨 04:37）
-2. 轉換：165 的 CSV 與數位產業署的 JSON 轉成 RPZ，HaGeZi 的名單本身就是 RPZ
+1. 下載：root 的 cron 執行 `update-lists.sh`。惡意網站、兩份台灣的名單與跟蹤軟體的名單一天三次（UTC 04:37、12:37、20:37），廣告名單一天一次（UTC 20:37，台灣清晨 04:37）
+2. 轉換：165 的 CSV、數位產業署的 JSON 與 Echap 的網域清單轉成 RPZ，HaGeZi 的名單本身就是 RPZ
 3. 排除：每份名單都拿掉 `exclude.txt` 列的名稱，見「排除清單」
 4. 檢查：下載失敗或內容太短時保留上一份，網域沒有變動就不重新載入
 5. 載入：有過濾的 unbound 只重新載入有變動的名單，再依查詢進來的位址套用，見「一個 unbound 服務兩種過濾」
@@ -108,8 +108,8 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | 位址 | 選項 | 名單 |
 |---|---|---|
 | `10.8.1.1` | 不過濾 | 無 |
-| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 與數位產業署停止解析的詐騙網站，其他查詢轉給 Quad9 |
-| `10.8.1.254` | 再擋廣告 | 上面三份，加上 HaGeZi Multi PRO，其他查詢轉給 Quad9 |
+| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 與數位產業署停止解析的詐騙網站、Echap 收集的跟蹤軟體網域，其他查詢轉給 Quad9 |
+| `10.8.1.254` | 再擋廣告 | 上面四份，加上 HaGeZi Multi PRO，其他查詢轉給 Quad9 |
 
 兩個 unbound 都不記錄查詢，開 DNSSEC 驗證，只接受隧道內的查詢。不過濾的 unbound 自行遞迴查詢，開 QNAME 最小化。三份名單載入後約佔 600 MB 記憶體，節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
 
@@ -154,6 +154,16 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 - 「網域名稱」欄有打錯字的情況，例如詐騙網址是 `laobeibi.shop`，網域欄寫 `aobeibi.shop`。網域欄跟「偽冒網址」的主機一致，或是那個主機的上層網域時才用網域欄，兩者都合法卻不一致時只用網址的主機，避免擋到打錯字的無關網域（2026-11-01 有 3 筆）
 - 伺服器擋下 Python 預設的 User-Agent，入口網站下載時要帶自己的 User-Agent，`curl` 不受影響
 - 開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站，記憶體約 2 MB
+
+### 跟蹤軟體
+
+跟蹤軟體（stalkerware）裝在別人的手機上，把位置、訊息與通話送到裝的人那裡，常見於親密關係暴力。法國的 Echap 協會整理這類 App 連線的網域，公布在 [stalkerware-indicators](https://github.com/AssoEchap/stalkerware-indicators)，授權是 CC BY 4.0，使用時要標明出處。
+
+- `update-lists.sh` 下載 `generated/hosts`，跟 165 的名單用同一段程式轉成 `rpz/stalkerware.rpz`，擋網域與子網域。2026-11-08 有 929 個網域，去掉上層網域已經涵蓋的之後剩 639 個
+- Firebase、S3、CloudFront 上的名稱各自屬於一個 App，擋了不影響同一個平台上的其他服務。Azure App Service 的兩個共用前端（`waws-prod-blu-247`）是其他網站也會指向的名稱，列進排除清單
+- Quad9 也採用 Echap 的名單。2026-11-08 比對還能解析的 520 個網域，Quad9 擋下 484 個，沒擋的 35 個多半是這些 App 的官網，節點的名單補上這些
+- Quad9 擋下的不會算進裝置的擋下次數，節點自己的名單開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站。之後要提醒使用者裝置可能被裝了跟蹤軟體時，需要這份計數
+- 記憶體約多 0.8 MB（2026-11-08 用 Alpine 3.24 的 unbound 實測）
 
 ### 排除清單
 
