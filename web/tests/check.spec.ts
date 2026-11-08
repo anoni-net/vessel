@@ -186,7 +186,8 @@ test("off Vessel the check shows OONI's measurements of this network, and asks n
   await page.getByRole("button", { name: "開始檢測" }).click();
   const box = page.getByTestId("check-network");
   await expect(box.getByRole("heading")).toHaveText("網路業者的公開量測");
-  await expect(box).toContainText("EXAMPLE - Example Network（AS64500）過去 30 天");
+  await expect(box).toContainText("跟你使用同一家網路業者的志工，過去 30 天用 OONI 量測過下列服務。");
+  await expect(box.getByTestId("check-network-provider")).toHaveText("目前的網路業者：EXAMPLE - Example Network（業者編號 AS64500）");
   await expect(box).toHaveAttribute("aria-busy", "false");
   const rows = box.locator("li");
   await expect(rows).toHaveCount(5);
@@ -371,4 +372,14 @@ test("without a STUN server, or through a Vessel node, there is no UDP check", a
   await expect(page.getByTestId("check-exit")).toContainText("新加坡");
   await expect(page.getByTestId("check-udp")).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { __stun: { urls: string[] } }).__stun.urls)).toEqual([]);
+});
+
+test("a provider without a registered name is shown by its number", async ({ page }) => {
+  await network(page, { region: null, ipv6: false }, [1]);
+  await page.route("**/api/network", (route) => route.fulfill({ json: { asn: 64500, name: null, days: 30, tests: [
+    { id: "web_connectivity", level: "ok", measurements: 26203, anomaly_pct: 3, confirmed: 0 },
+  ] } }));
+  await page.goto("/en/check/");
+  await page.getByRole("button", { name: "Start the check" }).click();
+  await expect(page.getByTestId("check-network-provider")).toHaveText("Your provider's number: AS64500");
 });

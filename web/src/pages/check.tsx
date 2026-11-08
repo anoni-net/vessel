@@ -202,7 +202,13 @@ function NetworkSection({ report }: { report: NetworkReport | "failed" | null })
       {report !== null && !known && <p>{t["check.network.none"]}</p>}
       {known && (
         <>
-          <p>{fmt(t["check.network.lead"], { name: known.name ?? "", asn: `AS${known.asn}`, days: String(known.days) })}</p>
+          {/* what this is first; the provider's registered name and number, which few people know, under it to check */}
+          <p>{fmt(t["check.network.lead"], { days: String(known.days) })}</p>
+          <p class="muted small" data-testid="check-network-provider">
+            {known.name
+              ? fmt(t["check.network.provider"], { name: known.name, asn: `AS${known.asn}` })
+              : fmt(t["check.network.providerNumber"], { asn: `AS${known.asn}` })}
+          </p>
           <ul class="plain check-rows">
             {known.tests.map((test) => (
               <li>
