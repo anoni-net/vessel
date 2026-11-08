@@ -7,6 +7,7 @@
   "nav.devices": "My devices",
   "nav.account": "Account",
   "nav.logout": "Sign out",
+  "nav.logoutFailed": "Signing out did not finish, so this browser is still signed in. Please try again.",
   "home.title": "Vessel",
   "home.badge": "Invite only",
   "home.lead": "A VPN the anoni.net community runs for the people around it, so you can get online with confidence where VPNs often fail: at school, in hotels, abroad.",

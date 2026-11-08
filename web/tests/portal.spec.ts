@@ -302,6 +302,45 @@ test("a signed-in visitor is not offered sign-in again", async ({ page }) => {
   await expect(page.locator(".hero").getByRole("link", { name: "我有邀請碼" })).toBeVisible();
 });
 
+test("a sign-out the server did not take keeps this browser signed in and says so", async ({ page }) => {
+  let answer: "drop" | "error" | "ok" = "drop";
+  await mockApi(page, {
+    ...signedIn,
+    "GET /api/passkeys": json([]),
+    "POST /api/logout": (route) => answer === "drop" ? route.abort() : answer === "error"
+      ? route.fulfill({ status: 500, json: { error: "unknown" } }) : route.fulfill({ json: { ok: true } }),
+  });
+  await page.goto("/account/");
+  for (const next of ["error", "ok"] as const) {
+    await page.getByRole("button", { name: "登出" }).click();
+    await expect(page.getByRole("alert")).toHaveText("登出沒有完成，這個瀏覽器仍然是登入狀態，請再按一次登出。");
+    await expect(page).toHaveURL(/\/account\/$/);
+    await expect(page.getByRole("button", { name: "登出" })).toBeEnabled();
+    answer = next;
+  }
+  await page.getByRole("button", { name: "登出" }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("after signing out, going back shows none of the account's passkeys", async ({ page }) => {
+  let inside = true;
+  const never = () => new Promise<void>(() => {});
+  await mockApi(page, {
+    "GET /api/me": (route) => inside ? route.fulfill({ json: ME }) : never(),
+    "GET /api/devices": json(DEVICES),
+    "GET /api/passkeys": (route) => inside ? route.fulfill({ json: [{ id: 1, label: "我的 iPhone", created_on: "2026-10-31" }] }) : never(),
+    "POST /api/logout": (route) => { inside = false; return route.fulfill({ json: { ok: true } }); },
+  });
+  await page.goto("/account/");
+  await expect(page.getByText("我的 iPhone")).toBeVisible();
+  await page.getByRole("button", { name: "登出" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/account\/$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("帳號");
+  await expect(page.getByText("我的 iPhone")).toHaveCount(0);
+});
+
 test("usage shows MB below 1 GB and GB from there on", async ({ page }) => {
   let used = 0;
   await mockApi(page, { "GET /api/me": (route) => route.fulfill({ json: { ...ME, used_bytes: used } }), "GET /api/devices": json(DEVICES) });

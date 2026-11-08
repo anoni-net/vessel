@@ -16,6 +16,7 @@ export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[]; months?:
 export function forgetAccount(): void {
   delete last.me;
   delete last.devices;
+  delete last.passkeys;
   delete last.months;
   delete last.invites;
 }
