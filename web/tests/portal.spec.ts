@@ -210,7 +210,8 @@ test("deleting the account a while after signing in asks for the number first", 
   await expect(dialog.getByRole("alert")).toHaveText("帳號號碼不正確。");
   await dialog.getByLabel("帳號號碼").fill("4821093755642018");
   await dialog.getByRole("button", { name: "用號碼確認" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  // /\/$/ would match /account/ as well
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
   expect(tried).toEqual(["asked", "asked", "confirmed"]);
 });
 
