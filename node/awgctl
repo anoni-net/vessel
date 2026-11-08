@@ -45,12 +45,26 @@ valid_key() { [[ $1 =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]] || die "$2 is n
 valid_filter() { [ -n "${RESOLVER[$1]:-}" ] || die "filter must be one of: ${!RESOLVER[*]}"; }
 
 apply() {
+  local tmp
   umask 077
+  tmp=$(mktemp $D/conf/.awg0.conf.XXXXXX)
   { cat $D/server/interface.conf
     for f in $D/peers/*.conf; do [ -e "$f" ] && { echo; cat "$f"; }; done
-  } > $D/conf/awg0.conf.new
-  mv $D/conf/awg0.conf.new $D/conf/awg0.conf
-  docker exec $C sh -c 'awg-quick strip /etc/amnezia/amneziawg/awg0.conf > /tmp/strip.conf && awg syncconf awg0 /tmp/strip.conf && rm /tmp/strip.conf'
+  } > "$tmp"
+  mv "$tmp" $D/conf/awg0.conf
+  docker exec $C sh -c 'f=$(mktemp) && awg-quick strip /etc/amnezia/amneziawg/awg0.conf > "$f" && awg syncconf awg0 "$f"; r=$?; rm -f "$f"; exit $r'
+}
+
+# the IPv4 tunnel address in a peer file
+peer_ip() { awk -v s="$SUBNET." 'match($0, "AllowedIPs = " s "[0-9]+/") { print substr($0, RSTART + 13, RLENGTH - 14); exit }' "$1"; }
+
+# Drop the kernel's connection tracking for a tunnel address. An established TCP flow stays tracked for five days,
+# and without this the next device given the address would get the replies meant for the previous one. Nothing is
+# printed: the entries name the sites the address was talking to. An image built without conntrack skips it.
+forget_flows() { # ipv4
+  docker exec $C sh -c 'command -v conntrack >/dev/null || exit 0
+    conntrack -D -s "$1"; conntrack -D -d "$1"; conntrack -D -f ipv6 -s "$2"; conntrack -D -f ipv6 -d "$2"; exit 0' \
+    sh "$1" "$(ip6_of "$1")" >/dev/null 2>&1 || true
 }
 
 # Client-only params (the server ignores them), so every peer gets its own values
@@ -90,6 +104,9 @@ next_ip() {
   die "no free address in $SUBNET.0/24"
 }
 
+# a peer by this name, online or suspended
+exists() { [ -e $D/peers/$1.conf ] || [ -e $D/suspended/$1.conf ]; }
+
 # the IPv6 address that goes with an IPv4 tunnel address
 ip6_of() { echo "$SUBNET6${1##*.}"; }
 
@@ -97,6 +114,8 @@ ip6_of() { echo "$SUBNET6${1##*.}"; }
 new_peer() { # name filter pubkey psk
   local ip
   ip=$(next_ip)
+  # in case the previous holder's flows were not dropped when it was removed
+  forget_flows "$ip"
   umask 077
   printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32, %s/128\n' \
     "$1" "$2" "$3" "$4" "$ip" "$(ip6_of "$ip")" > $D/peers/$1.conf
@@ -116,6 +135,14 @@ peer_table() { # name<TAB>filter<TAB>pubkey for every peer file
 }
 
 cmd=${1:-}; name=${2:-}
+case $cmd in
+  add|add-pubkey|remove|suspend|resume|apply)
+    # one change at a time: the portal and its worker can call at once, and two changes together could give two
+    # peers the same address or sync a config the other is still writing
+    exec 9>$D/.awgctl.lock
+    flock -w 15 9 || die "busy, try again"
+    ;;
+esac
 case $cmd in
   list|usage)
     json=0; [ "$name" = "--json" ] && json=1
@@ -172,7 +199,7 @@ else:
     valid_name "$name"
     filter=${3:-none}
     valid_filter "$filter"
-    [ -e $D/peers/$name.conf ] && die "$name already exists"
+    exists "$name" && die "$name already exists"
     priv=$(awg_run genkey </dev/null); pub=$(echo "$priv" | awg_run pubkey); psk=$(awg_run genpsk </dev/null)
     srv_pub=$(docker exec $C awg show awg0 public-key)
     ip=$(new_peer "$name" "$filter" "$pub" "$psk")
@@ -189,8 +216,8 @@ else:
     valid_name "$name"
     pub=${3:-}; psk=${4:-}; filter=${5:-none}
     valid_key "$pub" "public key"; valid_key "$psk" "preshared key"; valid_filter "$filter"
-    [ -e $D/peers/$name.conf ] && die "$name already exists"
-    grep -qxF "PublicKey = $pub" $D/peers/*.conf 2>/dev/null && die "public key already in use"
+    exists "$name" && die "$name already exists"
+    grep -qxF "PublicKey = $pub" $D/peers/*.conf $D/suspended/*.conf 2>/dev/null && die "public key already in use"
     srv_pub=$(docker exec $C awg show awg0 public-key)
     ip=$(new_peer "$name" "$filter" "$pub" "$psk")
     params=$(client_params)
@@ -209,9 +236,17 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     ;;
   remove)
     valid_name "$name"
-    [ -e $D/peers/$name.conf ] || [ -e $D/suspended/$name.conf ] || die "$name not found"
+    ip=
+    for f in $D/peers/$name.conf $D/suspended/$name.conf; do
+      [ -e "$f" ] && ip=$(peer_ip "$f")
+    done
+    found=0; exists "$name" && found=1
     rm -f $D/peers/$name.conf $D/clients/$name.conf $D/suspended/$name.conf
+    # apply even when the files are already gone: a try that deleted them and then failed to apply left the peer on
+    # the interface, and the portal tries again
     apply
+    [ -n "$ip" ] && forget_flows "$ip"
+    [ "$found" = 1 ] || die "$name not found"
     echo "removed $name"
     ;;
   suspend)
@@ -219,20 +254,21 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     if [ -e $D/peers/$name.conf ]; then
       [ -d $D/suspended ] || mkdir -m 700 $D/suspended
       mv $D/peers/$name.conf $D/suspended/$name.conf
-      apply
     elif [ ! -e $D/suspended/$name.conf ]; then
       die "$name not found"
     fi
+    # also when it was already moved: an earlier try may have moved it and failed to apply
+    apply
     echo "suspended $name"
     ;;
   resume)
     valid_name "$name"
     if [ -e $D/suspended/$name.conf ]; then
       mv $D/suspended/$name.conf $D/peers/$name.conf
-      apply
     elif [ ! -e $D/peers/$name.conf ]; then
       die "$name not found"
     fi
+    apply
     echo "resumed $name"
     ;;
   show)

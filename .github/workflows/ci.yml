@@ -59,9 +59,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shell syntax
-        run: for f in node/*.sh node/awgctl; do bash -n "$f"; done
+        run: for f in node/*.sh node/awgctl node/test/*.sh; do bash -n "$f"; done
       - name: shellcheck
-        run: shellcheck -S warning node/*.sh node/awgctl
+        run: shellcheck -S warning node/*.sh node/awgctl node/test/*.sh
+      # concurrent adds, a failed apply tried again, flows of a reused address
+      - name: awgctl
+        run: bash node/test/awgctl-test.sh
 
   relay:
     runs-on: ubuntu-latest
