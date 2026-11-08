@@ -67,6 +67,9 @@ export function Check() {
               </a>
               {/* on Vessel, the network would be the node's host: of no use to the visitor */}
               {(result.exit === "none" || result.exit === "ipv6") && <NetworkChecks />}
+              {result.exit !== "none" && result.exit !== "ipv6" && result.exit !== "error" && (
+                <p class="small" data-testid="check-network-hint">{t["check.networkHint"]}</p>
+              )}
             </>
           )}
           <p class="muted small">{t["check.privacy"]}</p>

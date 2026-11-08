@@ -570,6 +570,7 @@
   "check.problem": "有项目没有通过，处理方式见“没有通过时的处理”。",
   "check.off": "当前没有连上 Vessel。",
   "check.off.more": "下方是当前网络的状况。要检查 Vessel 的连接，先在 App 打开通道再检测一次。",
+  "check.networkHint": "想看当前网络的状况，先关掉 VPN 再检测一次。",
   "check.feedback": "附上结果写反馈",
   "check.privacy": "检测会把这次连接的来源 IP 与 Vessel 节点的 IP 比对，只返回比对的结果，门户网站不记录 IP。DNS 的部分会连接四个 anoni.net 的测试网址，服务器不记录这些连接。",
   "check.onion": "onion 版经过 Tor 网络连接，这次连接的来源 IP 与 DNS 查询都不经过 Vessel 的节点，检测无法判断 VPN 是否运作。请在连接 Vessel 的设备上，用一般浏览器打开 vessel.anoni.net 的连接检测。",

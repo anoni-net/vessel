@@ -42,6 +42,9 @@ test("a passing check, carried into feedback", async ({ page }) => {
   await expect(box.getByTestId("check-exit")).toHaveText("經過 Vessel 的新加坡節點。");
   await expect(box.getByTestId("check-dns")).toHaveText("正在使用 Vessel 的 DNS，會擋下惡意網站。");
   await expect(box.getByRole("status")).toContainText("兩項都通過");
+  // on Vessel the network checks would test the node, so the page says how to see the visitor's own network
+  await expect(box.getByTestId("check-network-hint")).toHaveText("想看目前網路的狀況，先關掉 VPN 再檢測一次。");
+  await expect(box.getByTestId("check-network")).toHaveCount(0);
   await expect(box.getByRole("button", { name: "再檢測一次" })).toBeVisible();
   expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
 
@@ -67,6 +70,7 @@ test("not connected at all: a plain summary, not a warning, and on to the networ
   await expect(box.locator(".check-verdict--bad")).toHaveCount(0);
   await expect(box.getByTestId("check-exit")).toContainText("可能是 VPN 沒有開");
   await expect(box.getByTestId("check-network")).toBeVisible();
+  await expect(box.getByTestId("check-network-hint")).toHaveCount(0);
   expect(Math.abs(await iconOffset(box.getByRole("status")))).toBeLessThan(1);
 });
 
