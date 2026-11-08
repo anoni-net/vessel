@@ -9,6 +9,7 @@ import { IS_ONION } from "../site.ts";
 import { SkButton, SkField, SkLine, Spin } from "./skeleton.tsx";
 import { focusHeading, focusLater } from "../focus.ts";
 import { announce } from "../announce.ts";
+import { useReverify } from "./reverify.tsx";
 
 const LIMIT = 5;
 
@@ -24,12 +25,14 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
   const message = useErrorText();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // a person who stays on the new number for a while is asked for it again (pages/reverify.tsx)
+  const { guard, dialog } = useReverify(false);
   const add = async () => {
     if (busy) return;
     setBusy(true);
     setErr("");
     try {
-      await api.addPasskey(await createPasskey(await api.passkeyOptions()), "");
+      await api.addPasskey(await createPasskey(await guard(() => api.passkeyOptions())), "");
       onDone();
     } catch (x) {
       setErr(message(x));
@@ -48,6 +51,7 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
         {busy ? <><Spin />{t["busy.passkey"]}</> : <><Icon name="passkey" />{t["passkey.add"]}</>}
       </button>
       <button class="link-button" type="button" onClick={onDone} disabled={busy}>{t["passkey.offer.skip"]}</button>
+      {dialog}
     </section>
   );
 }
@@ -56,7 +60,12 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
  * The account page's passkeys: the list, adding one, removing one, and replacing the account number with one.
  * The new number goes to `onNewNumber`, so the page can show it on its own, once.
  */
-export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null | undefined; onNewNumber: (number: string) => void }) {
+export function Passkeys({ initial, onNewNumber, guard }: {
+  initial: Passkey[] | null | undefined;
+  onNewNumber: (number: string) => void;
+  /** runs a step that may need the person to confirm it is them first (pages/reverify.tsx) */
+  guard: <T>(task: () => Promise<T>) => Promise<T>;
+}) {
   const { t, locale } = useCtx();
   const message = useErrorText();
   // the account page loads the list: undefined while it does, null if it failed
@@ -87,7 +96,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
     }
   };
   const add = () => run("add", async () => {
-    setList(await api.addPasskey(await createPasskey(await api.passkeyOptions()), label.trim()));
+    setList(await api.addPasskey(await createPasskey(await guard(() => api.passkeyOptions())), label.trim()));
     setLabel("");
     announce(t["passkey.addedNote"]);
   });
@@ -95,7 +104,7 @@ export function Passkeys({ initial, onNewNumber }: { initial: Passkey[] | null |
     const name = p.label || t["passkey.unnamed"];
     if (!window.confirm(fmt(t["passkey.confirmDelete"], { name }))) return;
     void run(p.id, async () => {
-      setList(await api.deletePasskey(p.id));
+      setList(await guard(() => api.deletePasskey(p.id)));
       announce(fmt(t["devices.deleted"], { name }));
     }).then(() => focusLater(() => heading.current, true));
   };

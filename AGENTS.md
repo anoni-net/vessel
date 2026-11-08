@@ -58,7 +58,7 @@ repo 是公開的。下面這些只放在主機上：
 - 裝置的私鑰在瀏覽器裡產生，不送到伺服器。後端只經手公鑰與 PresharedKey，PresharedKey 交給節點之後就不保存
 - 不收 email 或任何聯絡方式，帳號號碼只存 Argon2id 雜湊
 - 不記錄誰邀請了誰。使用者在帳號頁產生的邀請碼（`app/invites.py`，每個帳號的組數是設定 `user_invites`，0 是關閉）只在還沒被使用時記著是哪個帳號產生的，兌換或過期之後就清掉，帳號只留「已經有幾位使用」的計數
-- passkey 是帳號號碼以外的登入方式（`app/passkeys.py`），RP ID 是 `vessel.anoni.net`。後端只存公鑰、簽章計數、使用者取的名稱與加入日期，不存 AAGUID，`user.id` 是替帳號另外產生的隨機值。換一組帳號號碼一定要當下用這個帳號的 passkey 簽一次，換完之後其他登入中的 session 一律刪除
+- passkey 是帳號號碼以外的登入方式（`app/passkeys.py`），RP ID 是 `vessel.anoni.net`。後端只存公鑰、簽章計數、使用者取的名稱與加入日期，不存 AAGUID，`user.id` 是替帳號另外產生的隨機值。換一組帳號號碼一定要當下用這個帳號的 passkey 簽一次，換完之後其他登入中的 session 一律刪除。加上或刪除 passkey、刪除帳號要在登入後 10 分鐘內，超過時先用 passkey 或帳號號碼再確認一次（`app/auth.py` 的 `require_recent`、`web/src/pages/reverify.tsx`），短暫拿到已登入瀏覽器的人無法加上自己的 passkey 再換掉號碼
 - 入口網站、API 與節點都不記錄存取紀錄、連線的目的地與時間，節點的 DNS 解析器不記錄查詢
 - 頁面不載入第三方的腳本與字型。統計送到社群自架的 Umami（`web/src/analytics.ts`），只有公開頁面的瀏覽，以及兌換、登入、建立裝置每一步的結果。事件只能帶 `EVENTS` 列出的欄位與值。資料庫記著帳號的建立日期，Umami 又替每個事件加上由 IP 推算的國家，所以事件不帶資料庫裡也有的欄位，例如帳號號碼、裝置名稱、城市與網域過濾，避免兩邊的資料能互相對照
 

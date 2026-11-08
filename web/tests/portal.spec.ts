@@ -173,6 +173,48 @@ test("delete the account needs the checkbox", async ({ page }) => {
   expect(seen).toContain("DELETE /api/account");
 });
 
+test("deleting the account a while after signing in asks for the number first", async ({ page }) => {
+  let confirmed = false;
+  const tried: string[] = [];
+  await mockApi(page, {
+    ...signedIn,
+    "GET /api/passkeys": json([]),
+    "DELETE /api/account": (route) => {
+      tried.push(confirmed ? "confirmed" : "asked");
+      return confirmed ? route.fulfill({ json: { ok: true } }) : route.fulfill({ status: 403, json: { error: "verify_required" } });
+    },
+    "POST /api/account/verify": (route) => {
+      const number = route.request().postDataJSON().account_number;
+      confirmed = number === "4821 0937 5564 2018";
+      return confirmed ? route.fulfill({ json: { ok: true } }) : route.fulfill({ status: 401, json: { error: "invalid_number" } });
+    },
+  });
+  await page.goto("/account/");
+  await page.getByLabel("我了解，帳號刪除之後無法復原").check();
+  const del = page.getByRole("button", { name: "刪除帳號" });
+
+  // cancelling changes nothing and says so
+  await del.click();
+  const dialog = page.getByRole("dialog", { name: "先確認是你本人" });
+  await expect(dialog).toBeVisible();
+  // no passkey on this account: only the number
+  await expect(dialog.getByRole("button", { name: "用 passkey 確認" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "取消" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveText("沒有完成確認，所以沒有變更。");
+
+  // a wrong number keeps the dialog open; the right one confirms, and the deletion goes ahead by itself
+  await del.click();
+  await dialog.getByLabel("帳號號碼").fill("1111222233334444");
+  await dialog.getByRole("button", { name: "用號碼確認" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("帳號號碼不正確。");
+  await dialog.getByLabel("帳號號碼").fill("4821093755642018");
+  await dialog.getByRole("button", { name: "用號碼確認" }).click();
+  // /\/$/ would match /account/ as well
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+  expect(tried).toEqual(["asked", "asked", "confirmed"]);
+});
+
 test("unknown pages", async ({ page }) => {
   await page.goto("/nope/");
   await expect(page.getByRole("heading", { name: "找不到這一頁" })).toBeVisible();
