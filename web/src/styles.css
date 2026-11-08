@@ -792,10 +792,13 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .site-header__inner { gap: 12px; }
   .site-header .nb-button { padding-inline: 12px; }
 }
+/* narrower still (320 px), with room to spare for a wider fallback font than a phone's: "My devices" is the longest label */
 @media (max-width: 370px) {
-  .brand { gap: 8px; }
+  .site-header__inner { gap: 10px; padding-inline: 16px; }
+  .site-header .nb-button { padding-inline: 10px; }
+  .brand { gap: 6px; }
   .brand__logo { height: 18px; }
-  .brand__product { padding-inline-start: 8px; font-size: 16px; letter-spacing: .08em; }
+  .brand__product { padding-inline-start: 6px; font-size: 15px; letter-spacing: .06em; }
 }
 @media (prefers-reduced-motion: reduce) { .nb-button, .nb-input { transition: none; } }
 
