@@ -243,7 +243,7 @@ systemctl daemon-reload && systemctl enable --now vessel-probe-watch.timer
 - 清單在 `reach-sites.tsv`：網站所在的地區（各地都會用到的服務、台灣、香港、澳門、日本、新加坡）、網址，以及只有真正的頁面才有的文字。Vessel 的使用者不只在台灣，所以每個地區都放幾個常用的網站，服務狀態頁依地區分組，讀者看自己那一組即可。驗證頁或封鎖頁也可能回 200，有這段文字才算打得開。從哪裡連都會被 Cloudflare 要求驗證的網站（健保署、博客來、Dcard、Claude）與靠 JavaScript 產生的頁面（TVer、ABEMA）不放進清單，curl 分不出驗證與封鎖
 - `vessel-reach.py` 在容器的網路裡用 curl 連，請求從節點的公開 IP 出去，網域用不過濾的 `10.8.1.1` 查，跟使用者的路徑相同，過濾名單擋下的不會被當成打不開。東京節點主機自己的解析器查不到 `web.whatsapp.com`，所以不能直接在主機上連
 - 每個網站的結果是打得開（`ok`）、要驗證（`challenge`，瀏覽器可能自動通過）或打不開（`blocked`，逾時、拒絕連線、403、沒有那段文字）。連續兩次打不開才算打不開，一次的慢回應不會出現在頁面上
-- 結果寫進 `/opt/vessel-node/reach.json`，入口網站透過 `awgctl-remote reach --json` 讀取。只有網站與結果，不涉及任何使用者
+- 結果寫進 `/opt/vessel-node/reach.json`，入口網站透過 `awgctl-remote reach --json` 讀取，每次的結果保留 48 小時，服務狀態頁畫出近 24 小時、一小時一格的狀態。只有網站與結果，不涉及任何使用者
 - 每個網站每小時一個請求，三台節點錯開最多 20 分鐘
 
 ```bash

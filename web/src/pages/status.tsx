@@ -1,48 +1,108 @@
 import { useEffect, useState } from "preact/hooks";
 import { Icon } from "../icons.tsx";
 import { type Status, api } from "../api.ts";
-import type { Reach } from "../reach.ts";
 import { useCtx } from "../context.ts";
 import { formatTime } from "../format.ts";
 import { type MessageKey, fmt } from "../i18n/index.ts";
-import { REACH_GROUPS, type ReachGroup, joinNames, sitesHere } from "../reach.ts";
+import { REACH_GROUPS, type ReachGroup, type ReachState, joinNames, troubledSites } from "../reach.ts";
 import { flagOf } from "../regions.ts";
 import { SkCard } from "./skeleton.tsx";
 
 const REFRESH_EVERY = 2 * 60_000;
 
-/** The sites each city's node cannot open that another city's can, by the region the sites serve, so readers look at
- *  the group of their own place. A group where every city opens everything is left out. */
-function ReachSection({ reach, names, city }: { reach: Reach[]; names: (s: string[]) => string; city: (id: string) => string }) {
+const HATCH = "reach-hatch";
+
+/** One node's last day with a site: a slot an hour, coloured by the state and named in a title, oldest on the left. */
+function Strip({ slots, label, ago }: { slots: (ReachState | null)[]; label: string; ago: (i: number) => string }) {
+  const { t } = useCtx();
+  const w = 10;
+  return (
+    <svg class="reach-strip" viewBox={`0 0 ${slots.length * w} 14`} preserveAspectRatio="none" role="img" aria-label={label}>
+      {slots.map((s, i) => (
+        <rect class={`reach-cell reach-cell--${s ?? "none"}`} x={i * w + 1} y="1" width={w - 2} height="12" rx="1.5"
+          fill={s === "challenge" ? `url(#${HATCH})` : undefined}>
+          <title>{`${ago(slots.length - 1 - i)}${t["status.reach.colon"]}${t[`status.reach.state.${s ?? "none"}`]}`}</title>
+        </rect>
+      ))}
+    </svg>
+  );
+}
+
+/** The last day of the sites a node had trouble with, by the region the sites serve so readers look at the group of
+ *  their own place, a row per node. A group where every node opened everything is left out. */
+function ReachSection({ status, names, city }: { status: Status; names: (s: string[]) => string; city: (id: string) => string }) {
   const { t, href } = useCtx();
-  const groups = (Object.keys(REACH_GROUPS) as ReachGroup[]).map((group) => {
-    const inGroup = (sites: string[]) => sites.filter((s) => (REACH_GROUPS[group] as readonly string[]).includes(s));
-    const lines = reach.flatMap((r) => {
-      const blocked = inGroup(sitesHere(reach, r.region, "blocked"));
-      const challenge = inGroup(sitesHere(reach, r.region, "challenge"));
-      return [
-        ...(blocked.length ? [{ key: `${r.region}-b`, text: fmt(t["status.reach.blocked"], { city: city(r.region), sites: names(blocked) }), muted: false }] : []),
-        ...(challenge.length ? [{ key: `${r.region}-c`, text: fmt(t["status.reach.challenge"], { city: city(r.region), sites: names(challenge) }), muted: true }] : []),
-      ];
-    });
-    return { group, lines };
-  });
-  const shown = groups.filter((g) => g.lines.length > 0);
+  const history = status.reach_history ?? { hours: 24, until: "", sites: {} };
+  const now = Object.fromEntries((status.reach ?? []).map((r) => [r.region, r.sites]));
+  const troubled = troubledSites(history);
+  const order = status.regions.map((r) => r.id);
+  const groups = (Object.keys(REACH_GROUPS) as ReachGroup[]).map((group) => ({
+    group, sites: (REACH_GROUPS[group] as readonly string[]).filter((s) => troubled.includes(s)),
+  }));
+  const shown = groups.filter((g) => g.sites.length > 0);
+  const ago = (n: number) => (n === 0 ? t["status.reach.thisHour"] : fmt(t["status.reach.ago"], { n }));
+  const count = (slots: (ReachState | null)[], state: ReachState) => slots.filter((s) => s === state).length;
   return (
     <>
       <h2 id="reach">{t["status.reach.title"]}</h2>
-      <p>{t["status.reach.lead"]}</p>
+      <p>{fmt(t["status.reach.lead"], { hours: history.hours })}</p>
       {shown.length === 0 ? (
-        <p class="card card--dashed" data-testid="status-reach-none">{t["status.reach.allOk"]}</p>
+        <p class="card card--dashed" data-testid="status-reach-none">{fmt(t["status.reach.allOk"], { hours: history.hours })}</p>
       ) : (
-        <ul class="plain status-reach" data-testid="status-reach">
-          {shown.map(({ group, lines }) => (
-            <li class="card card--flat" data-testid={`status-reach-${group}`}>
-              <h3 class="status-reach__group">{t[`reach.group.${group}`]}</h3>
-              {lines.map((l) => <p class={`small${l.muted ? " muted" : ""}`} key={l.key}>{l.text}</p>)}
-            </li>
-          ))}
-        </ul>
+        <>
+          <svg class="reach-defs" width="0" height="0" aria-hidden="true">
+            <defs>
+              <pattern id={HATCH} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect class="reach-hatch__base" width="4" height="4" />
+                <rect class="reach-hatch__line" width="1.6" height="4" />
+              </pattern>
+            </defs>
+          </svg>
+          <div class="reach-legend small" data-testid="status-reach-legend">
+            <ul class="plain">
+              {(["ok", "challenge", "blocked", "none"] as const).map((s) => (
+                <li>
+                  <svg width="12" height="12" aria-hidden="true">
+                    <rect class={`reach-cell reach-cell--${s}`} x="1" y="1" width="10" height="10" rx="1.5"
+                      fill={s === "challenge" ? `url(#${HATCH})` : undefined} />
+                  </svg>
+                  {t[`status.reach.state.${s}`]}
+                </li>
+              ))}
+            </ul>
+            <p class="muted">{fmt(t["status.reach.axis"], { hours: history.hours })}</p>
+          </div>
+          <ul class="plain status-reach" data-testid="status-reach">
+            {shown.map(({ group, sites }) => (
+              <li class="card card--flat" data-testid={`status-reach-${group}`}>
+                <h3 class="status-reach__group">{t[`reach.group.${group}`]}</h3>
+                {sites.map((site) => (
+                  <div class="reach-site" data-testid={`reach-site-${site}`}>
+                    <p class="strong">{names([site])}</p>
+                    <ul class="plain reach-rows">
+                      {order.filter((r) => history.sites[site][r]).map((r) => {
+                        const slots = history.sites[site][r];
+                        const node = fmt(t["status.reach.node"], { city: city(r) });
+                        const current = now[r]?.[site];
+                        return (
+                          <li class="reach-row">
+                            <span class="reach-row__node small">{node}</span>
+                            <Strip slots={slots} ago={ago} label={fmt(t["status.reach.summary"], {
+                              node, hours: history.hours, blocked: count(slots, "blocked"), challenge: count(slots, "challenge"), ok: count(slots, "ok"),
+                            })} />
+                            <span class={`reach-row__now small${current === "ok" ? " muted" : ""}`}>
+                              {current ? t[`status.reach.now.${current}`] : ""}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       <details class="small status-reach-how" data-testid="status-reach-how">
         <summary>{t["status.reach.list"]}</summary>
@@ -53,7 +113,7 @@ function ReachSection({ reach, names, city }: { reach: Reach[]; names: (s: strin
         <p>{t["status.reach.more"]}<a href={href("/feedback/?from=status")}>{t["feedback.title"]}</a>{t["status.reach.moreAfter"]}</p>
       </details>
     </>
-  )
+  );
 }
 
 export function StatusPage() {
@@ -121,7 +181,7 @@ export function StatusPage() {
         )
       )}
       <p class="muted small">{t["status.how"]}</p>
-      {reach.length > 0 && <ReachSection reach={reach} names={names} city={(id) => city(id)} />}
+      {status && reach.length > 0 && <ReachSection status={status} names={names} city={(id) => city(id)} />}
 
       <h2>{t["status.notices"]}</h2>
       {status && (status.notices.length === 0 ? (

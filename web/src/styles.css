@@ -36,6 +36,9 @@
   /* FIG. 04's colours, shared with its canvas (faq-art.ts) */
   --chart-first: #1540b8;
   --chart-rest: #5f85ea;
+  /* the status page's last day of sites (pages/status.tsx): checked with the dataviz palette validator, 3:1 on the paper */
+  --reach-ok: #5f85ea;
+  --reach-blocked: #d97706;
   --fig-dest: #2f6bff;
   --fig-you: #0b3ca8;
   --fig-node: #a5bcf2;
@@ -85,6 +88,8 @@
     --skeleton: #1b3064;
     --chart-first: #6390f5;
     --chart-rest: #2f5ec9;
+    --reach-ok: #6390f5;
+    --reach-blocked: #d06f00;
     --fig-dest: #6f9bff;
     --fig-you: #c2d4ff;
     --fig-node: #4f71bd;
@@ -585,12 +590,37 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .status-reach p { margin: 0; }
 .status-reach__group { margin: 0; font-size: 16px; }
 .status-reach-how p { margin: 8px 0 0; }
+.reach-defs { position: absolute; }
+.reach-cell--ok { fill: var(--reach-ok); }
+.reach-cell--blocked { fill: var(--reach-blocked); }
+.reach-cell--challenge { stroke: var(--reach-blocked); stroke-width: 1; }
+.reach-cell--none { fill: none; stroke: var(--line); stroke-width: 1; }
+.reach-hatch__base { fill: var(--paper); }
+.reach-hatch__line { fill: var(--reach-blocked); }
+.reach-legend { display: grid; gap: 4px; }
+.reach-legend > ul.plain { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; }
+.reach-legend li { display: flex; align-items: center; gap: 6px; }
+.reach-legend p { margin: 0; }
+.reach-site { display: grid; gap: 4px; }
+.reach-site + .reach-site { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.reach-site > p { margin: 0; }
+.reach-rows { display: grid; gap: 6px; }
+/* a phone: the node and its state on a line, the strip under them across the card */
+.reach-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "node now" "strip strip"; gap: 2px 8px; align-items: center; }
+.reach-row__node { grid-area: node; }
+.reach-row__now { grid-area: now; text-align: end; }
+.reach-strip { grid-area: strip; width: 100%; height: 16px; display: block; }
+@media (min-width: 641px) {
+  .reach-row { grid-template-columns: 7em minmax(0, 1fr) 7.5em; grid-template-areas: "node strip now"; }
+}
 /* on the check page, the sites a node cannot open start a line of their own under the node's state */
 .check-reach { display: block; margin-top: 4px; }
 @media (min-width: 641px) {
   .status-page { max-width: 800px; }
   .status-regions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-  .status-reach { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* columns, not a grid: one region's card can be much longer than the next, and a grid row would leave a gap beside it */
+  .status-reach { display: block; columns: 2; column-gap: 12px; }
+  .status-reach > li { break-inside: avoid; margin-bottom: 12px; }
   .status-notices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 960px) {

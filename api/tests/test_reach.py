@@ -71,3 +71,46 @@ def test_the_status_page_shows_fresh_checks_of_open_regions(client, db, node):
     # a node whose timer stopped hours ago
     db.execute("UPDATE reach SET checked_at = now() - interval '4 hours' WHERE region_id = 'tw'")
     assert [r["region"] for r in client.get("/api/status").json()["reach"]] == ["jp"]
+
+
+def history_rows(db):
+    return db.execute("SELECT region_id, site, state FROM reach_history ORDER BY region_id, site, checked_at").fetchall()
+
+
+def test_every_new_check_is_kept_for_two_days(db, node):
+    regions(db)
+    node.reach_result = CHECK
+    jobs.poll_reach(db)
+    # read again half an hour later: the node has not checked since
+    db.execute("UPDATE reach SET fetched_at = now() - interval '31 minutes'")
+    jobs.poll_reach(db)
+    assert len(history_rows(db)) == 6
+    db.execute("UPDATE reach SET fetched_at = now() - interval '31 minutes'")
+    node.reach_result = {"checked_at": "2026-11-08T05:20:00+00:00", "sites": {"mvdis": "ok"}}
+    jobs.poll_reach(db)
+    assert ("jp", "mvdis", "ok") in history_rows(db) and len(history_rows(db)) == 8
+    db.execute("UPDATE reach_history SET checked_at = now() - interval '49 hours' WHERE state = 'challenge'")
+    db.execute("UPDATE reach SET fetched_at = now() - interval '31 minutes'")
+    jobs.poll_reach(db)
+    assert all(state != "challenge" for _, _, state in history_rows(db))
+
+
+def test_the_status_page_shows_the_last_day_of_the_sites_with_trouble(client, db):
+    regions(db)
+    for hours_ago, mvdis in ((30, "blocked"), (23.5, "blocked"), (5.2, "blocked"), (0.2, "ok")):
+        db.execute("INSERT INTO reach_history (region_id, site, state, checked_at) VALUES "
+                   "('jp', 'mvdis', %s, now() - make_interval(secs => %s)), "
+                   "('jp', 'signal', 'ok', now() - make_interval(secs => %s)), "
+                   "('tw', 'mvdis', 'ok', now() - make_interval(secs => %s)), "
+                   "('sg', 'mvdis', 'blocked', now() - make_interval(secs => %s))",
+                   (mvdis, *[hours_ago * 3600] * 4))
+    h = client.get("/api/status").json()["reach_history"]
+    assert h["hours"] == 24 and "until" in h
+    # signal never had trouble; the check 30 hours ago is outside the day
+    assert set(h["sites"]) == {"mvdis"}
+    jp = h["sites"]["mvdis"]["jp"]
+    assert len(jp) == 24 and jp[0] == "blocked" and jp[18] == "blocked" and jp[23] == "ok"
+    assert jp.count(None) == 21
+    assert h["sites"]["mvdis"]["tw"][23] == "ok"
+    # a closed region is left out
+    assert set(h["sites"]["mvdis"]) == {"jp", "tw"}

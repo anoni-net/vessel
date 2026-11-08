@@ -83,15 +83,38 @@ test("a wide screen shows the cities side by side and the notices in columns, a 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("the sites a city cannot open, by the region they serve", async ({ page }) => {
-  await status(page, { regions: [{ id: "jp", state: "ok" }, { id: "tw", state: "ok" }], notices: [], reach: REACH });
+// the last day: jp could not open mvdis for 20 hours and did not check twice; ptt failed everywhere, so it is left out
+const slots = (fill: string | null, last: Record<number, string | null> = {}) =>
+  Array.from({ length: 24 }, (_, i) => (i in last ? last[i] : fill));
+const HISTORY = {
+  hours: 24,
+  until: "2026-11-08T05:30:00Z",
+  sites: {
+    mvdis: { jp: slots("blocked", { 0: "ok", 1: "ok", 2: null, 3: "ok", 10: null }), tw: slots("ok") },
+    bot: { jp: slots("challenge"), tw: slots("ok") },
+    ptt: { jp: slots("blocked"), tw: slots("blocked") },
+  },
+};
+
+test("the last day of the sites a node had trouble with, by the region they serve, a row per node", async ({ page }) => {
+  await status(page, { regions: [{ id: "jp", state: "ok" }, { id: "tw", state: "ok" }], notices: [], reach: REACH, reach_history: HISTORY });
   await page.goto("/status/");
-  // only the groups with something to say; ptt fails everywhere, so it is not the node's fault
   await expect(page.getByTestId("status-reach").locator("> li")).toHaveCount(1);
   const tw = page.getByTestId("status-reach-tw");
   await expect(tw.getByRole("heading", { level: 3 })).toHaveText("台灣的網站");
-  await expect(tw.locator("p")).toHaveText(["東京節點打不開：監理服務網、momo 購物網", "東京節點可能要先通過驗證：臺灣銀行"]);
-  // nothing about the cities is said on their cards
+  await expect(tw.locator(".reach-site > p")).toHaveText(["臺灣銀行", "監理服務網"]);
+  const mvdis = page.getByTestId("reach-site-mvdis");
+  await expect(mvdis.locator(".reach-row__node")).toHaveText(["東京節點", "台北節點"]);
+  await expect(mvdis.locator(".reach-row__now")).toHaveText(["目前打不開", "目前打得開"]);
+  // the strip says in words what its colours say
+  await expect(mvdis.getByRole("img").first()).toHaveAttribute("aria-label", "東京節點，近 24 小時：打不開 19 次、要通過驗證 0 次、打得開 3 次");
+  await expect(mvdis.locator(".reach-strip").first().locator("rect")).toHaveCount(24);
+  await expect(mvdis.locator(".reach-strip").first().locator("rect title").last()).toHaveText("這一小時：打不開");
+  await expect(mvdis.locator(".reach-strip").first().locator("rect title").first()).toHaveText("23 小時前：打得開");
+  await expect(page.getByTestId("status-reach-legend")).toContainText("打得開要通過驗證打不開沒有檢查");
+  await expect(page.getByTestId("status-reach-legend")).toContainText("左邊是 24 小時前，右邊是現在");
+  await expect(page.getByTestId("reach-site-ptt")).toHaveCount(0);
+  // nothing about the sites is said on the cities' cards
   await expect(page.getByTestId("status-regions")).not.toContainText("打不開");
   const how = page.getByTestId("status-reach-how");
   await how.locator("summary").click();
@@ -99,10 +122,25 @@ test("the sites a city cannot open, by the region they serve", async ({ page }) 
   await expect(how.getByRole("link", { name: "意見回覆" })).toHaveAttribute("href", "/feedback/?from=status");
 });
 
-test("when every city opens every site, the page says so", async ({ page }) => {
-  await status(page, { regions: [{ id: "tw", state: "ok" }], notices: [], reach: [{ region: "tw", checked_at: "2026-11-08T04:25:00Z", sites: { signal: "ok" } }] });
+test("a strip fits a narrow phone, and a wide screen puts the node, the strip and the state on one line", async ({ page }) => {
+  await status(page, { regions: [{ id: "jp", state: "ok" }, { id: "tw", state: "ok" }], notices: [], reach: REACH, reach_history: HISTORY });
+  await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("/status/");
-  await expect(page.getByTestId("status-reach-none")).toHaveText("目前各節點都打得開檢查的網站。");
+  const row = page.getByTestId("reach-site-mvdis").locator(".reach-row").first();
+  const [strip, card] = await Promise.all([row.locator(".reach-strip").boundingBox(), page.getByTestId("status-reach-tw").boundingBox()]);
+  expect(strip!.width).toBeGreaterThan(200);
+  expect(strip!.x + strip!.width).toBeLessThanOrEqual(card!.x + card!.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const [node, wide] = await Promise.all([row.locator(".reach-row__node").boundingBox(), row.locator(".reach-strip").boundingBox()]);
+  expect(Math.abs(node!.y + node!.height / 2 - (wide!.y + wide!.height / 2))).toBeLessThan(4);
+});
+
+test("when every node opened every site in the last day, the page says so", async ({ page }) => {
+  await status(page, { regions: [{ id: "tw", state: "ok" }], notices: [], reach: [{ region: "tw", checked_at: "2026-11-08T04:25:00Z", sites: { signal: "ok" } }],
+    reach_history: { hours: 24, until: "2026-11-08T05:30:00Z", sites: {} } });
+  await page.goto("/status/");
+  await expect(page.getByTestId("status-reach-none")).toHaveText("近 24 小時各節點都打得開檢查的網站。");
 });
 
 test("without a recent check, a city shows nothing about sites", async ({ page }) => {
