@@ -22,6 +22,7 @@ def tick(conn: psycopg.Connection, usage: bool = True) -> None:
         jobs.poll_usage(conn)
         jobs.enforce_quota(conn, policy.MONTHLY_QUOTA_BYTES)
         jobs.poll_reach(conn)
+        jobs.reconcile_peers(conn)
     jobs.run_due_jobs(conn)
     jobs.clear_stale_results(conn)
     jobs.forget_expired_invites(conn)

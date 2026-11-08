@@ -175,14 +175,19 @@ def device_config(device_id: str, account_id: Account, conn: Conn, response: Res
 def delete_device(device_id: str, account_id: Account, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
         row = conn.execute(
-            "UPDATE devices SET status = 'revoking' WHERE id = %s AND account_id = %s RETURNING region_id",
-            (device_id, account_id),
+            "SELECT region_id, status FROM devices WHERE id = %s AND account_id = %s FOR UPDATE", (device_id, account_id)
         ).fetchone()
         if row is None:
             raise error(404, "not_found")
-        # a pending add that has not reached the node yet is dropped; remove covers it either way
+        if row[1] == "revoking":
+            # already on its way off the node; its remove job keeps trying
+            return {"ok": True}
+        conn.execute("UPDATE devices SET status = 'revoking' WHERE id = %s", (device_id,))
+        # a pending add that has not reached the node yet is dropped; remove covers it either way. A config nobody
+        # fetched goes too.
         conn.execute("UPDATE jobs SET status = 'done', payload = NULL WHERE device_id = %s AND status = 'queued'",
                      (device_id,))
+        conn.execute("UPDATE jobs SET result = NULL WHERE device_id = %s AND result IS NOT NULL", (device_id,))
         job_id = conn.execute(
             "INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'remove') RETURNING id",
             (row[0], device_id),

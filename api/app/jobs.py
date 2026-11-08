@@ -2,6 +2,7 @@
 right away) and the worker never run the same job twice."""
 
 import re
+import sys
 from datetime import UTC, datetime, time
 
 import psycopg
@@ -10,6 +11,14 @@ from psycopg.types.json import Jsonb
 from app.nodes import NodeError, get_node
 
 MAX_ATTEMPTS = 10
+# Taking a device off the node is never given up: a deleted device that stays on the node keeps working, which matters
+# most when the phone was lost or taken. These retry every ten minutes at most until the node answers; while they
+# wait, /internal/health counts them as stuck.
+UNTIL_DONE = frozenset({"remove", "suspend"})
+# how often the worker compares each node's peers with the devices table (reconcile_peers)
+RECONCILE_MINUTES = 60
+RECONCILE_MAX = 5
+DEVICE_ID = re.compile(r"^d-[a-z0-9]{12}$")
 
 
 def run_job(conn: psycopg.Connection, job_id: int) -> str:
@@ -25,12 +34,15 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
             return status[0] if status else "done"
         action, device_id, payload, attempts, host = row
         node = get_node()
-        if action in ("suspend", "resume"):
+        if action != "remove":
             device = conn.execute("SELECT status FROM devices WHERE id = %s", (device_id,)).fetchone()
-            if device is None or device[0] == "revoking":
-                # deleted or expiring meanwhile; its remove job takes care of the node
-                conn.execute("UPDATE jobs SET status = 'done', done_at = now(), updated_at = now() WHERE id = %s",
-                             (job_id,))
+            # an add for a device still waiting for it; a suspend or resume for a device still suspended. Anything else
+            # changed meanwhile: a deleted or expiring device has its remove job, and a suspend that waited past the
+            # device's resume must not take it offline again
+            wanted = "pending" if action == "add" else "suspended"
+            if device is None or device[0] != wanted:
+                conn.execute("UPDATE jobs SET status = 'done', payload = NULL, done_at = now(), updated_at = now() "
+                             "WHERE id = %s", (job_id,))
                 return "done"
         try:
             if action == "add":
@@ -67,7 +79,7 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
                 )
             return "done"
         except (NodeError, KeyError, ValueError) as e:
-            failed = attempts + 1 >= MAX_ATTEMPTS
+            failed = attempts + 1 >= MAX_ATTEMPTS and action not in UNTIL_DONE
             conn.execute(
                 "UPDATE jobs SET attempts = attempts + 1, last_error = %s, updated_at = now(), "
                 "status = CASE WHEN %s THEN 'failed' ELSE 'queued' END, "
@@ -84,6 +96,43 @@ def beat(conn: psycopg.Connection, name: str) -> None:
         "INSERT INTO heartbeats (name, at) VALUES (%s, now()) ON CONFLICT (name) DO UPDATE SET at = EXCLUDED.at",
         (name,),
     )
+
+
+def reconcile_peers(conn: psycopg.Connection) -> int:
+    """Queue the removal of a node's peers that no device row knows any more, once every RECONCILE_MINUTES per
+    region. A row is written before its peer is added and deleted only after the peer is removed, so a peer without
+    one was left behind (a remove that ran before a late add, or one lost some other way). Peers made by hand on the
+    node (names not shaped like a device id) are left alone. Returns how many removals were queued."""
+    node = get_node()
+    queued = 0
+    due = conn.execute(
+        "SELECT r.id, r.node_host FROM regions r WHERE NOT EXISTS "
+        "(SELECT 1 FROM heartbeats WHERE name = 'reconcile:' || r.id AND at > now() - make_interval(mins => %s))",
+        (RECONCILE_MINUTES,),
+    ).fetchall()
+    for region_id, host in due:
+        try:
+            names = [p["name"] for p in node.list_peers(host)]
+        except (NodeError, KeyError, TypeError, ValueError):
+            continue
+        ids = [n for n in names if isinstance(n, str) and DEVICE_ID.match(n)]
+        known = {r[0] for r in conn.execute("SELECT id FROM devices WHERE id = ANY(%s)", (ids,))}
+        removing = {r[0] for r in conn.execute(
+            "SELECT device_id FROM jobs WHERE device_id = ANY(%s) AND action = 'remove' AND status = 'queued'", (ids,)
+        )}
+        orphans = [n for n in ids if n not in known and n not in removing]
+        # more than a few at once looks like the wrong database (a restored backup, a test one) rather than leftovers;
+        # a person decides then
+        if len(orphans) > max(RECONCILE_MAX, len(ids) // 4):
+            print(f"reconcile: {region_id} has {len(orphans)} peers without a device, left alone", file=sys.stderr)
+            orphans = []
+        with conn.transaction():
+            for name in orphans:
+                conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'remove')",
+                             (region_id, name))
+        queued += len(orphans)
+        beat(conn, f"reconcile:{region_id}")
+    return queued
 
 
 def run_due_jobs(conn: psycopg.Connection, limit: int = 50) -> int:
