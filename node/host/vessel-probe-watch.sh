@@ -72,7 +72,10 @@ sync_peers() {
     echo "flush set inet vessel_probe peers6"
     if [ -n "$v4" ]; then echo "add element inet vessel_probe peers { ${v4%, } }"; fi
     if [ -n "$v6" ]; then echo "add element inet vessel_probe peers6 { ${v6%, } }"; fi
-  } | nft -f -
+  } | nft -f - 2>/dev/null && return 0
+  # nft prints the line it could not load, which lists every device's address; the journal gets this line instead.
+  # The batch is one transaction, so the last set stays, as when the container does not answer.
+  echo "vessel-probe-watch: could not load the device list into nftables, kept the last one" >&2
 }
 
 # the number of entries in a set, without printing them
