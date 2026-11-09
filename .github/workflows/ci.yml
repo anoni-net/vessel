@@ -59,9 +59,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shell syntax
-        run: for f in node/*.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh; do bash -n "$f"; done
+        run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh; do bash -n "$f"; done
       - name: shellcheck
-        run: shellcheck -S warning -x node/*.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh
+        run: shellcheck -S warning -x node/*.sh node/host/vessel-inspect-stream.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh
       # block entries only, no shared names
       - name: blocklists
         run: bash deploy/rpz/test/lists-test.sh
@@ -77,6 +77,13 @@ jobs:
       # one device over the limit is refused, another device is not
       - name: device connection limit
         run: sudo bash node/test/device-limit-test.sh
+
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: unit tests
+        run: python3 -m unittest discover -s inspect/tests
 
   relay:
     runs-on: ubuntu-latest
