@@ -61,6 +61,13 @@ class Spool:
             os.replace(self.part, self.path)
 
 
+def note_connected():
+    """Which nodes are connected, for analyze.py status."""
+    part = HOME / "connected.part"
+    part.write_text("\n".join(sorted({spool.dir.name for spool in spools})))
+    os.replace(part, HOME / "connected")
+
+
 def cut_old():
     for spool in spools:
         if spool.file is not None and time.monotonic() - spool.started >= ROTATE_SECONDS:
@@ -91,6 +98,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
             return
         spool = Spool(match[1].decode(), await reader.readexactly(24))
         spools.add(spool)
+        note_connected()
         while True:
             head = await reader.readexactly(16)
             length = struct.unpack("<I", head[8:12])[0]
@@ -103,6 +111,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         if spool is not None:
             spools.discard(spool)
             spool.close()
+            note_connected()
         writer.close()
 
 
@@ -111,6 +120,7 @@ async def main():
     if not host:
         sys.exit("set VESSEL_INSPECT_LISTEN to <tailnet IP>:<port>")
     (HOME / "spool").mkdir(parents=True, exist_ok=True, mode=0o700)
+    note_connected()
     loop = asyncio.get_running_loop()
     loop.add_signal_handler(signal.SIGUSR1, cut_all)
     stopping = asyncio.Event()

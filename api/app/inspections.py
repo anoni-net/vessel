@@ -126,6 +126,7 @@ def poll_confirms(conn, analysis) -> None:
                     analysis.clear(region, address)
                     node.inspect_on(host, row[0], int(until.timestamp()))
                     jobs.beat(conn, "analysis")
+                    jobs.beat(conn, f"stream:{region}")
                     conn.execute(
                         "UPDATE device_inspections SET status = 'active', started_at = now(), ends_at = %s, code_hmac = NULL "
                         "WHERE device_id = %s",
@@ -208,14 +209,20 @@ def tick(conn, usage: bool) -> None:
     conn.execute("DELETE FROM device_inspections WHERE status = 'ended' AND report_until < current_date")
     if not usage:
         return
-    active = conn.execute("SELECT 1 FROM device_inspections WHERE status = 'active' LIMIT 1").fetchone()
-    if active is None:
+    regions = [r[0] for r in conn.execute(
+        "SELECT DISTINCT d.region_id FROM device_inspections i JOIN devices d ON d.id = i.device_id WHERE i.status = 'active'"
+    ).fetchall()]
+    if not regions:
         return
     try:
-        analysis.status()
+        status = analysis.status()
     except NodeError:
         return
     jobs.beat(conn, "analysis")
+    # deploy/health_warn.py warns when a node with a device under inspection has stopped sending
+    for region in regions:
+        if region in status.get("connected", ()):
+            jobs.beat(conn, f"stream:{region}")
     due = conn.execute("SELECT NOT EXISTS (SELECT 1 FROM heartbeats WHERE name = 'inspect-refresh' AND at > now() - make_interval(mins => %s))",
                        (REFRESH_MINUTES,)).fetchone()[0]
     if due:

@@ -332,8 +332,10 @@ def status():
     """For the portal's health check: when the analysis last ran, and how full the disk is."""
     usage = shutil.disk_usage(HOME)
     stamp = HOME / "last-batch"
+    connected = HOME / "connected"
     return {"last_batch": stamp.stat().st_mtime if stamp.exists() else None, "disk_used": usage.used / usage.total,
-            "waiting": sum(1 for _ in (HOME / "spool").glob("*/*.pcap"))}
+            "waiting": sum(1 for _ in (HOME / "spool").glob("*/*.pcap")),
+            "connected": connected.read_text().split() if connected.exists() else []}
 
 
 def update_lists():

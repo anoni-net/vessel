@@ -12,7 +12,7 @@
 | `analyze.py` | 用 Zeek 分析封包、累計到每台裝置，封包隨即刪除，也負責更新名單、輸出結果與清除資料 |
 | `systemd/` | 接收服務與每 5 分鐘分析一次的計時器 |
 
-節點端的 `node/host/vessel-inspect-stream.sh` 在容器的網路空間讀 NFLOG，由主機開連線送出，走主機本來就有的 Tailscale，分析主機關閉連線時服務會結束並重新連線。節點的 `node.env` 沒有設定 `INSPECT_SINK` 時，服務不會做任何事。
+節點端的 `node/host/vessel-inspect-stream.sh` 在容器的網路空間讀 NFLOG，由主機上的 `vessel-inspect-send.py` 開連線送出，走主機本來就有的 Tailscale。分析主機關閉連線、當機或斷網時，一分鐘內服務會結束並重新連線。節點的 `node.env` 沒有設定 `INSPECT_SINK` 時，服務不會做任何事。
 
 ## 留下什麼
 

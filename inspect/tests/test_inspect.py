@@ -287,11 +287,13 @@ class Recv(Base):
             task = asyncio.create_task(recv.handle(reader, W()))
             await asyncio.sleep(0.01)
             self.assertEqual(suffixes(), [".part"])
+            self.assertEqual(analyze.status()["connected"], ["node-1"])
             check()
             self.assertEqual(suffixes(), [".pcap"])
             reader.feed_eof()
             await task
             self.assertEqual(recv.spools, set())
+            self.assertEqual(analyze.status()["connected"], [])
 
         asyncio.run(go())
 

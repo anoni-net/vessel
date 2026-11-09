@@ -15,6 +15,7 @@ SEALED = {"epk": "e", "iv": "i", "ct": "c"}
 class FakeAnalysis:
     def __init__(self):
         self.cleared, self.down, self.reports, self.flushes, self.waiting = [], False, 0, 0, 0
+        self.connected = ["sg"]
 
     def report(self, node, address, public_key):
         if self.down:
@@ -30,7 +31,7 @@ class FakeAnalysis:
     def status(self):
         if self.down:
             raise NodeError("timeout")
-        return {"last_batch": 1, "waiting": self.waiting}
+        return {"last_batch": 1, "waiting": self.waiting, "connected": self.connected}
 
     def flush(self):
         if self.down:
@@ -289,6 +290,19 @@ def test_health_watches_the_analysis_host_only_while_something_is_inspected(clie
     confirm(signed_in, device, node, db)
     worker.tick(db, usage=True)
     assert client.get("/internal/health").json()["analysis_age"] is not None
+
+
+def test_health_says_how_long_ago_a_node_under_inspection_was_connected(client, signed_in, node, db, device, analysis):
+    assert client.get("/internal/health").json()["stream_age"] == {}
+    confirm(signed_in, device, node, db)
+    assert client.get("/internal/health").json()["stream_age"]["sg"] is not None
+    analysis.connected = []
+    db.execute("UPDATE heartbeats SET at = now() - interval '20 minutes' WHERE name = 'stream:sg'")
+    worker.tick(db, usage=True)
+    assert client.get("/internal/health").json()["stream_age"]["sg"] >= 1200
+    analysis.connected = ["sg"]
+    worker.tick(db, usage=True)
+    assert client.get("/internal/health").json()["stream_age"]["sg"] < 60
 
 
 def test_nothing_happens_without_an_analysis_host(db, node):
