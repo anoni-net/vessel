@@ -87,3 +87,7 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 - 不快取
 - `/api/login` 與 `/api/redeem` 依 IP 做速率限制
 - `/dns/` 的即時檢測另外用到四個主機名稱 `vessel-dns-0` 到 `vessel-dns-3.anoni.net`，都是經代理、CNAME 到同一台主機的紀錄，nginx 的設定照 `nginx/vessel-dns.anoni.net.conf`。只回應 `/check`，只允許 `https://vessel.anoni.net` 讀取，不記存取紀錄。入口網站 CSP 的 `connect-src` 要列出這四個主機名稱
+
+## 裝置檢測
+
+裝置頁的檢測（`app/inspections.py`）要有分析主機才會開放。`/etc/vessel/api.env` 加上 `VESSEL_ANALYSIS_HOST=<分析主機的 tailnet IP>`，沒有設定時開始檢測回 503。入口用跟節點相同的 SSH 金鑰連線，分析主機的 `authorized_keys` 要把這把金鑰限制在 `inspect/inspect-remote`，分析主機的 host key 也要加進 `VESSEL_SSH_KNOWN_HOSTS`。節點端的設定見 `node/README.md`，分析主機見 `inspect/README.md`。

@@ -43,7 +43,7 @@ export function Legal({ doc, titleKey }: { doc: "terms" | "privacy"; titleKey: M
             <nav class="legal-toc" aria-label={t["legal.toc"]} data-testid="legal-toc">
               <p class="legal-toc__title">{t["legal.toc"]}</p>
               <ul class="plain">
-                {content.blocks.map((b, i) => "h" in b && <li><a href={`#section-${i}`}>{b.h}</a></li>)}
+                {content.blocks.map((b, i) => "h" in b && <li><a href={`#${b.id ?? `section-${i}`}`}>{b.h}</a></li>)}
               </ul>
             </nav>
             <div class="legal-body">
@@ -71,7 +71,7 @@ export function Legal({ doc, titleKey }: { doc: "terms" | "privacy"; titleKey: M
 }
 
 function LegalBlock({ block, index }: { block: Block; index: number }) {
-  if ("h" in block) return <h2 id={`section-${index}`}>{block.h}</h2>;
+  if ("h" in block) return <h2 id={block.id ?? `section-${index}`}>{block.h}</h2>;
   if ("p" in block) return <p><Inline text={block.p} /></p>;
   if ("ul" in block) return <ul>{block.ul.map((li) => <li><Inline text={li} /></li>)}</ul>;
   return (

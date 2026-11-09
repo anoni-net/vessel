@@ -30,7 +30,7 @@ export default {
       ],
     },
     { h: "We cannot trace individual accounts" },
-    { p: "Vessel does not log where you connect or when. An abuse report usually gives only an exit IP address and a time, which we cannot trace to an account, so we can only respond with service-wide limits such as blocking certain ports or domains. A request from law enforcement can only get the data listed in the [privacy policy](/privacy/)." },
+    { p: "Vessel does not log where you connect or when (except on a device where you turned on an inspection, see the privacy policy). An abuse report usually gives only an exit IP address and a time, which we cannot trace to an account, so we can only respond with service-wide limits such as blocking certain ports or domains. A request from law enforcement can only get the data listed in the [privacy policy](/privacy/)." },
     { h: "Revocation and termination" },
     { p: "If an account breaks these terms, we may revoke its devices or disable it. You can delete your account at any time on the account page, which revokes all its devices." },
     { h: "Disclaimer" },
