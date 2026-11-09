@@ -55,3 +55,11 @@ for (const path of ["/learn/", "/check/", "/faq/"]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
+
+test("tapping twice does not zoom the page, and pinching still can", async ({ page }) => {
+  await page.goto("/faq/");
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).touchAction)).toBe("manipulation");
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
+  expect(viewport).not.toContain("user-scalable");
+  expect(viewport).not.toContain("maximum-scale");
+});
