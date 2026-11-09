@@ -285,3 +285,44 @@ def test_an_account_in_a_group_cannot_invite_people(client, db, capsys):
     db.execute("UPDATE settings SET value = '3' WHERE key = 'user_invites'")
     redeem(client, leader_code(capsys))
     assert client.get("/api/invites").json()["reason"] == "off"
+
+
+def test_a_leader_can_be_removed_and_replaced(client, node, db, capsys):
+    db.execute("INSERT INTO regions (id, node_host, is_open) VALUES ('sg', 'node-sg', true)")
+    create_group()
+    redeem(client, leader_code(capsys))
+    device_id = create(client).json()["id"]
+    capsys.readouterr()
+    admin.main(["groups", "remove-leader", "g1", "--label", "L1", "--confirm", "L1"])
+    assert "nobody can manage g1" in capsys.readouterr().out
+    assert client.get("/api/me").status_code == 401
+    worker.tick(db)
+    assert device_id not in node.peers
+    # the alias is free for the new leader
+    new = leader_code(capsys)
+    assert redeem(client, new).status_code == 200
+
+
+def test_removing_a_leader_leaves_the_other_one(client, db, capsys):
+    create_group()
+    redeem(client, leader_code(capsys, "L1"))
+    db.execute("INSERT INTO accounts (number_hash, group_code, group_role, group_label) VALUES ('\\x04', 'g1', 'leader', 'L2')")
+    capsys.readouterr()
+    admin.main(["groups", "remove-leader", "g1", "--label", "L2", "--confirm", "L2"])
+    out = capsys.readouterr().out
+    assert "1 leaders left" in out and "nobody" not in out
+
+
+@pytest.mark.parametrize("argv", [
+    ["--label", "L1"],
+    ["--label", "L1", "--confirm", "L2"],
+    ["--label", "A1", "--confirm", "A1"],  # a member, not a leader
+    ["--label", "nobody", "--confirm", "nobody"],
+])
+def test_removing_a_leader_needs_the_right_alias_twice(client, db, capsys, argv):
+    create_group()
+    redeem(client, leader_code(capsys))
+    db.execute("INSERT INTO accounts (number_hash, group_code, group_role, group_label) VALUES ('\\x05', 'g1', 'member', 'A1')")
+    with pytest.raises(SystemExit):
+        admin.main(["groups", "remove-leader", "g1", *argv])
+    assert db.execute("SELECT count(*) FROM accounts WHERE group_code = 'g1'").fetchone()[0] == 2
