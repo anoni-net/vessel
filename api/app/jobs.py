@@ -147,11 +147,12 @@ def run_due_jobs(conn: psycopg.Connection, limit: int = 50) -> int:
 
 
 def expire_devices(conn: psycopg.Connection) -> int:
-    """Queue removal of devices whose account has not signed in for DEVICE_DAYS."""
+    """Queue removal of devices whose account has not signed in for DEVICE_DAYS. A group's devices stay until the
+    group is closed or they are revoked, even past the date they show."""
     with conn.transaction():
         rows = conn.execute(
             "UPDATE devices SET status = 'revoking' WHERE expires_on < current_date AND status <> 'revoking' "
-            "RETURNING id, region_id"
+            "AND account_id IN (SELECT id FROM accounts WHERE group_code IS NULL) RETURNING id, region_id"
         ).fetchall()
         for device_id, region_id in rows:
             conn.execute(
@@ -288,21 +289,26 @@ def poll_usage(conn: psycopg.Connection) -> None:
 
 
 def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
-    """Suspend the devices of accounts over this month's quota, and resume them once a new month starts."""
+    """Suspend the devices of accounts over this month's quota, and resume them once a new month starts. `quota` is
+    for personal accounts; an account in a group has its group's."""
     with conn.transaction():
         usage = (
             "(SELECT coalesce(sum(rx_bytes + tx_bytes), 0) FROM account_usage u "
             "WHERE u.account_id = d.account_id AND u.period = date_trunc('month', current_date))"
         )
+        allowed = (
+            "coalesce((SELECT g.monthly_quota_bytes FROM accounts a JOIN groups g ON g.code = a.group_code "
+            "WHERE a.id = d.account_id), %s)"
+        )
         for device_id, region_id in conn.execute(
-            f"UPDATE devices d SET status = 'suspended' WHERE status = 'active' AND {usage} >= %s "
+            f"UPDATE devices d SET status = 'suspended' WHERE status = 'active' AND {usage} >= {allowed} "
             "RETURNING id, region_id",
             (quota,),
         ).fetchall():
             conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'suspend')",
                          (region_id, device_id))
         for device_id, region_id in conn.execute(
-            f"SELECT id, region_id FROM devices d WHERE status = 'suspended' AND {usage} < %s "
+            f"SELECT id, region_id FROM devices d WHERE status = 'suspended' AND {usage} < {allowed} "
             "AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.device_id = d.id AND j.action = 'resume' "
             "AND j.status = 'queued')",
             (quota,),

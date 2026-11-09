@@ -195,10 +195,12 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
 
 
 def keep_alive(conn: psycopg.Connection, account_id: int) -> None:
-    """Signing in, or coming back while still signed in, keeps the account's devices for another DEVICE_DAYS."""
+    """Signing in, or coming back while still signed in, keeps the account's devices for another DEVICE_DAYS. A group's
+    devices last until the group ends instead."""
     conn.execute("UPDATE accounts SET last_login_on = current_date WHERE id = %s", (account_id,))
     conn.execute(
-        "UPDATE devices SET expires_on = current_date + %s WHERE account_id = %s AND status <> 'revoking'",
+        "UPDATE devices SET expires_on = current_date + %s WHERE account_id = %s AND status <> 'revoking' "
+        "AND account_id IN (SELECT id FROM accounts WHERE group_code IS NULL)",
         (policy.DEVICE_DAYS, account_id),
     )
 
@@ -256,11 +258,12 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
         "(SELECT 'usage:' || region_id FROM devices WHERE account_id = %s)",
         (account_id,),
     ).fetchone()[0]
+    limits = policy.limits_of(conn, account_id)
     return {
         "created_on": created_on.isoformat(),
         "last_login_on": last_login_on.isoformat() if last_login_on else None,
-        "device_limit": policy.DEVICE_LIMIT,
-        "monthly_quota_bytes": policy.MONTHLY_QUOTA_BYTES,
+        "device_limit": limits.devices,
+        "monthly_quota_bytes": limits.monthly_quota_bytes,
         "used_bytes": usage[0] if usage else 0,
         "usage_as_of": as_of.isoformat() if as_of else None,
     }

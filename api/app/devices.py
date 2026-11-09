@@ -116,12 +116,13 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
                 raise error(400, "invalid_relay")
             if not relay[1]:
                 raise error(400, "relay_closed")
+        limits = policy.limits_of(conn, account_id)
         count = conn.execute(
             "SELECT count(*) FROM devices WHERE account_id = %s AND status <> 'revoking'", (account_id,)
         ).fetchone()[0]
-        if count >= policy.DEVICE_LIMIT:
+        if count >= limits.devices:
             raise error(409, "device_limit")
-        if used_bytes(conn, account_id) >= policy.MONTHLY_QUOTA_BYTES:
+        if used_bytes(conn, account_id) >= limits.monthly_quota_bytes:
             raise error(403, "quota_exceeded")
         peers = conn.execute(f"SELECT {PEERS_ON_NODE} FROM regions r WHERE r.id = %s", (body.region,)).fetchone()[0]
         if peers >= policy.NODE_PEER_LIMIT:
@@ -130,8 +131,8 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
             raise error(409, "key_in_use")
         conn.execute(
             "INSERT INTO devices (id, account_id, region_id, name, public_key, dns_filter, expires_on, relay_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, current_date + %s, %s)",
-            (device_id, account_id, body.region, name, body.public_key, body.dns_filter, policy.DEVICE_DAYS,
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (device_id, account_id, body.region, name, body.public_key, body.dns_filter, limits.device_expires_on,
              body.relay),
         )
         job_id = conn.execute(

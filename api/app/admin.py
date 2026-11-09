@@ -274,7 +274,9 @@ def report(conn: psycopg.Connection, days: int) -> None:
     print(f"traffic this month: {by_region} (total {size(sum(b for _, b in rows))})")
     full = one(
         conn,
-        f"SELECT count(*) FROM account_usage WHERE period = {MONTH} AND rx_bytes + tx_bytes >= %s",
+        "SELECT count(*) FROM account_usage u JOIN accounts a ON a.id = u.account_id "
+        "LEFT JOIN groups g ON g.code = a.group_code "
+        f"WHERE u.period = {MONTH} AND u.rx_bytes + u.tx_bytes >= coalesce(g.monthly_quota_bytes, %s)",
         (policy.MONTHLY_QUOTA_BYTES,),
     )
     print(f"accounts at the monthly quota: {full}")
