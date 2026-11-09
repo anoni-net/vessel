@@ -43,7 +43,7 @@ def schema():
 def db(schema):
     with psycopg.connect(DB_URL, autocommit=True) as conn:
         conn.execute(
-            "TRUNCATE accounts, invites, sessions, regions, relays, devices, account_usage, device_counters, jobs, heartbeats CASCADE"
+            "TRUNCATE groups, accounts, invites, sessions, regions, relays, devices, account_usage, device_counters, jobs, heartbeats CASCADE"
         )
         conn.execute("UPDATE settings SET value = '0' WHERE key = 'account_cap'")
         conn.execute("UPDATE settings SET value = 'false' WHERE key = 'redeem_paused'")
