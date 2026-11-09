@@ -213,7 +213,7 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
 
   return (
     <section class="wrap narrow stack devices-page">
-      <AccountNav />
+      <AccountNav leader={me.group?.role === "leader"} />
       <div class="row">
         <h1>{t["devices.title"]}</h1>
         <span class="muted strong">{fmt(t["devices.count"], { n: devices.length, max: me.device_limit })}</span>

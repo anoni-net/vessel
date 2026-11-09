@@ -13,11 +13,22 @@ const DEVICES = [
     used_bytes: 0, blocked: 0, connected: false, ipv6: false, moved_until: null },
 ];
 
+const GROUP = {
+  code: "g1", ends_on: "2030-01-01", account_limit: 5, device_limit: 3, places_left: 3, invite_days: 7,
+  accounts: [
+    { label: "A1", role: "member", joined_on: "2026-11-01", devices: [{ id: "d-a", name: "phone", region: "jp", dns_filter: "malware",
+      status: "active", expires_on: "2030-01-01", issues: ["new_config"] }] },
+    { label: "L1", role: "leader", joined_on: "2026-10-27", devices: [] },
+  ],
+  invites: [{ id: 1, label: "A2", created_at: "2026-11-05T00:00:00Z", expires_at: "2026-11-12T00:00:00Z", expired: false }],
+};
+
 async function backend(page: Page, signedIn: boolean) {
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/me") return signedIn ? route.fulfill({ json: ME }) : route.fulfill({ status: 401, json: { error: "signed_out" } });
     if (path === "/api/devices") return route.fulfill({ json: DEVICES });
+    if (path === "/api/group") return route.fulfill({ json: GROUP });
     if (path === "/api/regions") return route.fulfill({ json: [{ id: "jp", open: true }, { id: "sg", open: true }] });
     if (path === "/api/status") return route.fulfill({ json: { regions: [{ id: "jp", state: "ok" }, { id: "sg", state: "ok" }], notices: [], reach: [
       { region: "jp", checked_at: "2026-11-08T04:20:00Z", sites: { mvdis: "blocked", bot: "challenge", signal: "ok" } },
@@ -36,7 +47,7 @@ async function backend(page: Page, signedIn: boolean) {
 const PAGES: [string, boolean][] = [
   ["/", false], ["/en/", false], ["/faq/", false], ["/learn/", false], ["/dns/", false], ["/dns/lists/", false], ["/check/", false],
   ["/status/", false], ["/feedback/", false], ["/terms/", false], ["/privacy/", false], ["/login/", false],
-  ["/redeem/", false], ["/devices/", true], ["/devices/new/", true], ["/account/", true],
+  ["/redeem/", false], ["/devices/", true], ["/devices/new/", true], ["/account/", true], ["/group/", true],
 ];
 
 for (const scheme of ["light", "dark"] as const) {
