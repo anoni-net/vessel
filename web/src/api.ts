@@ -300,6 +300,8 @@ export const api = {
   makeInvite: () => call<{ code: string; id: number; created_at: string; expires_at: string }>("POST", "/invites").then((r) => r.data),
   withdrawInvite: (id: number) => call<Invites>("DELETE", `/invites/${id}`).then((r) => r.data),
   group: () => call<Group>("GET", "/group").then((r) => r.data),
+  /** what the leaders see about this account */
+  myGroupView: () => call<GroupAccount>("GET", "/group/mine").then((r) => r.data),
   /** one invite per alias; the codes come back this once */
   makeGroupInvites: (labels: string[]) =>
     call<{ invites: MadeGroupInvite[]; days: number }>("POST", "/group/invites", { labels }).then((r) => r.data),

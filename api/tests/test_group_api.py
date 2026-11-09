@@ -256,3 +256,21 @@ def test_me_says_nothing_about_groups_on_a_personal_account(client, db):
 
 def test_me_tells_a_leader_their_role(leader):
     assert leader.get("/api/me").json()["group"] == {"role": "leader", "label": "L1", "device_revoked_on": None}
+
+
+def test_a_member_sees_what_the_leaders_see(leader, db):
+    member = join(leader)
+    create(member, name="phone")
+    db.execute("UPDATE devices SET created_on = current_date - 1")
+    mine = member.get("/api/group/mine").json()
+    assert mine == account(leader, "A1")
+    assert mine["devices"][0]["issues"] == ["not_connected"]
+
+
+def test_a_leader_can_read_their_own_view_too(leader):
+    assert leader.get("/api/group/mine").json()["role"] == "leader"
+
+
+def test_a_personal_account_has_no_group_view(client, db):
+    redeem(client, make_invite(db))
+    assert client.get("/api/group/mine").status_code == 404

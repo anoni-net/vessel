@@ -53,12 +53,7 @@ def issues_of(status: str, not_connected: bool, moved: bool, ipv6: bool | None, 
     return found
 
 
-@router.get("/group")
-def group(account_id: Account, conn: Conn) -> dict:
-    code = group_of_leader(conn, account_id)
-    account_limit, device_limit, ends_on = conn.execute(
-        "SELECT account_limit, device_limit, ends_on FROM groups WHERE code = %s", (code,)
-    ).fetchone()
+def devices_by_account(conn, where: str, param) -> dict[int, list[dict]]:
     by_account: dict[int, list[dict]] = {}
     for row in conn.execute(
         "SELECT d.account_id, d.id, d.name, d.region_id, d.dns_filter, d.status, d.expires_on, "
@@ -67,13 +62,38 @@ def group(account_id: Account, conn: Conn) -> dict:
         "d.moved AND r.previous_until IS NOT NULL, d.ipv6, coalesce(u.blocked, 0) >= %s "
         "FROM devices d JOIN accounts a ON a.id = d.account_id JOIN regions r ON r.id = d.region_id "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
-        "WHERE a.group_code = %s ORDER BY d.created_on, d.id",
-        (policy.GROUP_BLOCKED_ALERT, code),
+        f"WHERE {where} ORDER BY d.created_on, d.id",
+        (policy.GROUP_BLOCKED_ALERT, param),
     ):
         by_account.setdefault(row[0], []).append({
             "id": row[1], "name": row[2], "region": row[3], "dns_filter": row[4], "status": row[5],
             "expires_on": row[6].isoformat(), "issues": issues_of(row[5], row[7], row[8], row[9], row[10]),
         })
+    return by_account
+
+
+@router.get("/group/mine")
+def my_view(account_id: Account, conn: Conn) -> dict:
+    """What the leaders see about this account, for its own page: the same fields as an entry of /group."""
+    row = conn.execute(
+        "SELECT group_role, group_label, created_on FROM accounts WHERE id = %s AND group_code IS NOT NULL",
+        (account_id,),
+    ).fetchone()
+    if row is None:
+        raise error(404, "not_found")
+    return {
+        "label": row[1], "role": row[0], "joined_on": row[2].isoformat(),
+        "devices": devices_by_account(conn, "a.id = %s", account_id).get(account_id, []),
+    }
+
+
+@router.get("/group")
+def group(account_id: Account, conn: Conn) -> dict:
+    code = group_of_leader(conn, account_id)
+    account_limit, device_limit, ends_on = conn.execute(
+        "SELECT account_limit, device_limit, ends_on FROM groups WHERE code = %s", (code,)
+    ).fetchone()
+    by_account = devices_by_account(conn, "a.group_code = %s", code)
     accounts = [
         {"label": r[2], "role": r[1], "joined_on": r[3].isoformat(), "devices": by_account.get(r[0], [])}
         for r in conn.execute(
