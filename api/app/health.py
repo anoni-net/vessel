@@ -36,6 +36,10 @@ def internal_health(conn: Conn) -> dict:
         "worker_age": ages.get("worker"),
         "usage_age": {r: ages.get(f"usage:{r}") for r in regions},
         "stuck_jobs": stuck,
+        # seconds since the analysis host last answered, while a device inspection is running; otherwise nothing to check
+        "analysis_age": ages.get("analysis") if conn.execute(
+            "SELECT 1 FROM device_inspections WHERE status = 'active' LIMIT 1"
+        ).fetchone() else None,
         # seconds since each node last checked the common sites; a node that never did is left out
         "reach_age": reach_age,
         # the sites a node cannot open while another node can, as the status page lists them

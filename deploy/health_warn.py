@@ -58,6 +58,10 @@ def evaluate(data: dict) -> tuple[str, list[str]]:
         if age > REACH_STALE:
             problems.append(f"reach:{region}")
             lines.append(f"- {region} 節點：網站自測 {age // 3600} 小時沒有更新")
+    analysis = data.get("analysis_age")
+    if analysis is not None and analysis > 1800:
+        problems.append("analysis")
+        lines.append(f"- 分析主機超過 {analysis // 60} 分鐘沒有回應，檢測中的裝置這段時間沒有資料")
     if data.get("stuck_jobs"):
         problems.append("jobs")
         lines.append(f"- 有 {data['stuck_jobs']} 個節點工作排隊超過 15 分鐘")

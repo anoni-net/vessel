@@ -1,0 +1,250 @@
+import datetime as dt
+
+import pytest
+from conftest import HEADERS, create, key, make_invite, needs_db
+from fastapi.testclient import TestClient
+
+from app import inspections, policy, worker
+from app.main import app
+from app.nodes import NodeError, set_analysis
+
+pytestmark = needs_db
+SEALED = {"epk": "e", "iv": "i", "ct": "c"}
+
+
+class FakeAnalysis:
+    def __init__(self):
+        self.cleared, self.down, self.reports = [], False, 0
+
+    def report(self, node, address, public_key):
+        if self.down:
+            raise NodeError("timeout")
+        self.reports += 1
+        return SEALED
+
+    def clear(self, node, address):
+        if self.down:
+            raise NodeError("timeout")
+        self.cleared.append((node, address))
+
+    def status(self):
+        if self.down:
+            raise NodeError("timeout")
+        return {"last_batch": 1}
+
+
+@pytest.fixture
+def analysis():
+    fake = FakeAnalysis()
+    set_analysis(fake)
+    yield fake
+    set_analysis(None)
+
+
+@pytest.fixture
+def device(signed_in, node, analysis):
+    return create(signed_in).json()["id"]
+
+
+def start(client, device_id, **kw):
+    body = {"consent_version": policy.INSPECT_CONSENT_VERSION, "public_key": key()} | kw
+    return client.post(f"/api/devices/{device_id}/inspection", json=body, headers=HEADERS)
+
+
+def read(client, device_id):
+    return client.get(f"/api/devices/{device_id}/inspection").json()
+
+
+def confirm(client, device_id, node, db, address="10.8.1.2"):
+    code = start(client, device_id).json()["code"]
+    node.confirms.append({"code": code, "address": address})
+    worker.tick(db)
+    return code
+
+
+def test_nothing_starts_until_it_is_confirmed_on_the_device(signed_in, node, db, device):
+    r = start(signed_in, device).json()
+    assert r["url"] == f"https://{policy.INSPECT_CONFIRM_HOST}/c/{r['code']}" and r["minutes"] == policy.INSPECT_CONFIRM_MINUTES
+    worker.tick(db)
+    assert node.inspecting == {} and read(signed_in, device)["status"] == "confirming"
+
+
+def test_confirming_on_the_device_starts_it_for_the_days_in_the_policy(signed_in, node, db, device, analysis):
+    code = confirm(signed_in, device, node, db)
+    after = read(signed_in, device)
+    assert after["status"] == "active" and device in node.inspecting
+    days = (node.inspecting[device] - dt.datetime.now(dt.UTC).timestamp()) / 86400
+    assert policy.INSPECT_DAYS - 0.1 < days <= policy.INSPECT_DAYS
+    assert code in node.acked
+    # the address may have been someone else's: nothing of theirs carries over
+    assert analysis.cleared == [("sg", "10.8.1.2")]
+    assert db.execute("SELECT code_hmac FROM device_inspections").fetchone()[0] is None
+
+
+def test_a_code_opened_on_another_device_confirms_nothing(signed_in, node, db, device):
+    code = confirm(signed_in, device, node, db, address="10.8.1.99")
+    assert read(signed_in, device)["status"] == "confirming" and node.inspecting == {}
+    assert code in node.acked
+
+
+def test_a_code_is_not_stored_as_it_is(signed_in, db, device):
+    code = start(signed_in, device).json()["code"]
+    assert bytes(db.execute("SELECT code_hmac FROM device_inspections").fetchone()[0]) != code.encode()
+
+
+def test_an_unconfirmed_request_goes_away(signed_in, db, device):
+    start(signed_in, device)
+    db.execute("UPDATE device_inspections SET created_at = now() - interval '31 minutes'")
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "none"
+
+
+def test_the_node_down_at_confirmation_is_tried_again(signed_in, node, db, device):
+    code = start(signed_in, device).json()["code"]
+    node.confirms.append({"code": code, "address": "10.8.1.2"})
+    original = node.inspect_on
+    node.inspect_on = lambda *a: (_ for _ in ()).throw(NodeError("timeout"))
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "confirming" and code not in node.acked
+    node.inspect_on = original
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "active"
+
+
+@pytest.mark.parametrize(("body", "status", "err"), [
+    ({"consent_version": "1999-01-01"}, 400, "consent_outdated"),
+    ({"public_key": "nope"}, 400, "invalid_key"),
+])
+def test_bad_requests(signed_in, device, body, status, err):
+    r = start(signed_in, device, **body)
+    assert r.status_code == status and r.json() == {"error": err}
+
+
+def test_without_an_analysis_host_it_is_not_offered(signed_in, node):
+    set_analysis(None)
+    device_id = create(signed_in).json()["id"]
+    r = start(signed_in, device_id)
+    assert r.status_code == 503 and r.json() == {"error": "inspection_unavailable"}
+
+
+def test_only_the_devices_account(signed_in, db, device):
+    other = TestClient(app, base_url="https://testserver")
+    other.post("/api/redeem", json={"code": make_invite(db)}, headers=HEADERS)
+    assert start(other, device).status_code == 404
+    assert other.get(f"/api/devices/{device}/inspection").status_code == 404
+    assert other.delete(f"/api/devices/{device}/inspection", headers=HEADERS).status_code == 404
+
+
+def test_one_at_a_time(signed_in, node, db, device):
+    confirm(signed_in, device, node, db)
+    assert start(signed_in, device).json() == {"error": "inspection_running"}
+
+
+def test_a_suspended_device_cannot_start(signed_in, db, device):
+    db.execute("UPDATE devices SET status = 'suspended'")
+    assert start(signed_in, device).json() == {"error": "device_not_active"}
+
+
+def test_turning_it_off_stops_the_node_and_keeps_a_report_for_seven_days(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    assert signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS).status_code == 200
+    worker.tick(db)
+    after = read(signed_in, device)
+    assert after["status"] == "ended" and device not in node.inspecting
+    assert after["report"] == SEALED
+    assert after["report_until"] == (dt.datetime.now(dt.UTC).date() + dt.timedelta(days=policy.INSPECT_REPORT_DAYS)).isoformat()
+    # the analysis host keeps nothing once the report is out
+    assert analysis.cleared.count(("sg", "10.8.1.2")) == 2
+
+
+def test_it_ends_by_itself_on_the_day(signed_in, node, db, device):
+    confirm(signed_in, device, node, db)
+    db.execute("UPDATE device_inspections SET ends_at = now() - interval '1 minute'")
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "ended" and device not in node.inspecting
+
+
+def test_the_analysis_host_down_at_the_end_is_tried_again(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    analysis.down = True
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "ending"
+    analysis.down = False
+    worker.tick(db)
+    assert read(signed_in, device)["report"] == SEALED
+
+
+def test_a_report_past_its_days_is_gone(signed_in, node, db, device):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    worker.tick(db)
+    db.execute("UPDATE device_inspections SET report_until = current_date - 1")
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "none"
+    assert db.execute("SELECT count(*) FROM device_inspections").fetchone()[0] == 0
+
+
+def test_a_report_on_its_last_day_is_still_there(signed_in, node, db, device):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    worker.tick(db)
+    db.execute("UPDATE device_inspections SET report_until = current_date")
+    worker.tick(db)
+    assert read(signed_in, device)["report"] == SEALED
+
+
+def test_the_person_can_delete_a_finished_report(signed_in, node, db, device):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    worker.tick(db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    assert read(signed_in, device)["status"] == "none"
+
+
+def test_a_new_inspection_can_follow_a_finished_one(signed_in, node, db, device):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    worker.tick(db)
+    assert start(signed_in, device).status_code == 200
+    assert read(signed_in, device)["report"] is None
+
+
+def test_a_running_inspection_gets_a_report_so_far(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    worker.tick(db, usage=True)
+    assert read(signed_in, device)["report"] == SEALED
+
+
+def test_deleting_the_device_takes_the_inspection_with_it(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    analysis.cleared.clear()
+    signed_in.delete(f"/api/devices/{device}", headers=HEADERS)
+    worker.tick(db)
+    assert db.execute("SELECT count(*) FROM device_inspections").fetchone()[0] == 0
+    # what the analysis host counted goes too, and the note of it
+    assert analysis.cleared == [("sg", "10.8.1.2")]
+    assert db.execute("SELECT count(*) FROM inspection_leftovers").fetchone()[0] == 0
+
+
+def test_deleting_a_device_that_is_not_being_inspected_leaves_no_note(signed_in, db, device):
+    signed_in.delete(f"/api/devices/{device}", headers=HEADERS)
+    assert db.execute("SELECT count(*) FROM inspection_leftovers").fetchone()[0] == 0
+
+
+def test_the_device_list_says_there_is_one(signed_in, node, db, device):
+    assert signed_in.get("/api/devices").json()[0]["inspection"] is None
+    confirm(signed_in, device, node, db)
+    assert signed_in.get("/api/devices").json()[0]["inspection"] == "active"
+
+
+def test_health_watches_the_analysis_host_only_while_something_is_inspected(client, signed_in, node, db, device, analysis):
+    assert client.get("/internal/health").json()["analysis_age"] is None
+    confirm(signed_in, device, node, db)
+    worker.tick(db, usage=True)
+    assert client.get("/internal/health").json()["analysis_age"] is not None
+
+
+def test_nothing_happens_without_an_analysis_host(db, node):
+    set_analysis(None)
+    inspections.tick(db, True)

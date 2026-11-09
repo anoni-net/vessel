@@ -6,4 +6,4 @@ Requires=docker.service
 Type=oneshot
 EnvironmentFile=/etc/vessel-inspect.env
 ExecStart=/usr/bin/python3 -I /opt/vessel-inspect-app/analyze.py batch
-ExecStartPost=/usr/bin/python3 -I /opt/vessel-inspect-app/analyze.py purge --days 14
+ExecStartPost=/usr/bin/python3 -I /opt/vessel-inspect-app/analyze.py purge --days 8

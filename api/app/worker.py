@@ -9,7 +9,7 @@ import traceback
 
 import psycopg
 
-from app import jobs, policy
+from app import inspections, jobs, policy
 from app.config import load
 from app.db import KEEPALIVE
 
@@ -24,6 +24,7 @@ def tick(conn: psycopg.Connection, usage: bool = True) -> None:
         jobs.enforce_quota(conn, policy.MONTHLY_QUOTA_BYTES)
         jobs.poll_reach(conn)
         jobs.reconcile_peers(conn)
+    inspections.tick(conn, usage)
     jobs.run_due_jobs(conn)
     jobs.clear_stale_results(conn)
     jobs.forget_finished_jobs(conn)
