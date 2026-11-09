@@ -6,7 +6,7 @@ Requires=docker.service
 [Service]
 ExecStart=/opt/vessel-node/host/vessel-inspect-stream.sh
 # the container was recreated or the analysis host went away: start again with what is there now
-Restart=on-failure
+Restart=always
 RestartSec=15
 MemoryMax=200M
 
