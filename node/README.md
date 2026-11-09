@@ -254,6 +254,12 @@ VPN 使用者只能上網：
 
 `host/vessel-inspect.conf` 放到 `/etc/modules-load.d/`，開機時載入 `xt_time` 與 `nfnetlink_log`，容器沒有權限自己載入模組。
 
+### 確認頁
+
+開啟檢測時要在該裝置上打開確認連結，只知道帳號號碼的人無法遠端開啟。`host/vessel-inspect-confirm.py` 只聽通道內的 `10.8.1.1:443`，節點用連線的通道位址判斷是哪台裝置，WireGuard 不允許 peer 用別人的位址傳送。入口網站用 `awgctl inspect confirms --json` 讀取，用完 `inspect ack` 刪除，超過 1 小時的自動刪除。
+
+網域 `confirm.vessel.anoni.net` 由節點的解析器解析到 `10.8.1.1`，憑證放在 `/opt/vessel-node/confirm/`（`fullchain.pem`、`privkey.pem`），沒有憑證時服務不會啟動。
+
 ## 探測與掃描的觀察
 
 偽裝的連線被認出來之前，常見的跡象是有人模仿或重送使用者的握手，打到節點的 AWG 埠，看伺服器會不會回應。AmneziaWG 對驗證不過的封包一律不回應，這些封包本身不會造成問題，但數量的變化可以提早透露節點被注意到了。

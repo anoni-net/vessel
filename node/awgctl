@@ -19,6 +19,8 @@
 #                                               seconds); the node stops by itself at that time (toomore/anoni-net-ws#480)
 #   awgctl inspect off <name>                   stop at once
 #   awgctl inspect status --json                the devices being inspected
+#   awgctl inspect confirms --json              confirmation codes opened on devices (host/vessel-inspect-confirm.py)
+#   awgctl inspect ack <code>                   forget a confirmation the portal has read
 #
 # Layout under /opt/vessel-node:
 #   node.env                  NODE_IP and LISTEN_PORT of this node (not in the repo)
@@ -105,6 +107,22 @@ inspect_off() { # name
   [ -e "$f" ] || die "$1 not found"
   inspect_clear "$(peer_ip "$f")" || die "could not clear the inspection rules"
   echo "stopped inspecting $1"
+}
+
+# what host/vessel-inspect-confirm.py wrote; an old one is of no use to anybody
+inspect_confirms() {
+  [ -d $D/inspect-confirm ] || { echo '[]'; return; }
+  find $D/inspect-confirm -maxdepth 1 -type f -mmin +60 -delete
+  python3 -c '
+import json, os, sys
+d = sys.argv[1]
+out = []
+for code in sorted(os.listdir(d)):
+    if not code.startswith("."):
+        with open(os.path.join(d, code)) as f:
+            out.append({"code": code, "address": f.read().strip()})
+print(json.dumps(out))
+' $D/inspect-confirm
 }
 
 inspect_status() {
@@ -377,11 +395,16 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
       on) valid_name "${3:-}"; inspect_on "$3" "${4:-}" ;;
       off) valid_name "${3:-}"; inspect_off "$3" ;;
       status) inspect_status ;;
+      confirms) inspect_confirms ;;
+      ack)
+        [[ ${3:-} =~ ^[A-Z0-9]{16}$ ]] || die "not a confirmation code"
+        rm -f "$D/inspect-confirm/$3"
+        ;;
       *) die "inspect on <name> <until> | off <name> | status --json" ;;
     esac
     ;;
   *)
-    sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac

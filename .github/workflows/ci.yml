@@ -59,9 +59,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shell syntax
-        run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh; do bash -n "$f"; done
+        run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh; do bash -n "$f"; done
       - name: shellcheck
-        run: shellcheck -S warning -x node/*.sh node/host/vessel-inspect-stream.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh
+        run: shellcheck -S warning -x node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh
       # block entries only, no shared names
       - name: blocklists
         run: bash deploy/rpz/test/lists-test.sh

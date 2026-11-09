@@ -59,6 +59,8 @@ iptables -I FORWARD 1 -i awg0 -m conntrack --ctstate NEW -j VESSEL-NEW
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
+# the page a device opens to confirm an inspection (host/vessel-inspect-confirm.py)
+iptables -A INPUT -i awg0 -p tcp --dport 443 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
 # A TCP SYN carrying IPv4 options (Record Route, Timestamp) can trigger a use-after-free in the kernel's handshake
 # code (CVE-2026-98432), and a client reaches the resolvers' TCP port 53. Nothing legitimate sends those options;
