@@ -2,11 +2,14 @@ import asyncio
 import base64
 import json
 import os
+import signal
+import socket
 import struct
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import analyze
@@ -312,6 +315,29 @@ class Recv(Base):
         os.utime(spool / "a.part", (1, 1))
         analyze.purge(8)
         self.assertEqual(list(spool.iterdir()), [])
+
+    def test_stopping_the_service_keeps_what_it_has_received(self):
+        body = pcap(239, [(T0, nflog(ip("10.8.1.3", "1.1.1.1", 100)))])
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+
+        async def go():
+            task = asyncio.create_task(recv.main())
+            await asyncio.sleep(0.05)
+            _, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(b"vessel-inspect node-1\n" + body)
+            await writer.drain()
+            await asyncio.sleep(0.05)
+            os.kill(os.getpid(), signal.SIGTERM)
+            await asyncio.wait_for(task, 5)
+            writer.close()
+
+        with mock.patch.dict(os.environ, {"VESSEL_INSPECT_LISTEN": f"127.0.0.1:{port}"}):
+            asyncio.run(go())
+        files = sorted((analyze.HOME / "spool").glob("*/*"))
+        self.assertEqual([f.suffix for f in files], [".pcap"])
+        self.assertEqual(files[0].read_bytes(), body)
 
     def test_a_bad_name_is_refused(self):
         self.assertEqual(self.stream(b"vessel-inspect ../etc\n" + bytes(24)), [])
