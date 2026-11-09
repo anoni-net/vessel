@@ -106,6 +106,27 @@ class Checks(Base):
         r = self.run_one(conn=conn)
         self.assertEqual([c["count"] for c in r["checks"] if c["id"] == "bypass_dns"], [1])
 
+    def test_a_name_the_nodes_lists_stopped_is_not_a_name_that_does_not_exist(self):
+        rows = [dns("blocked.example", rcode="NXDOMAIN"), dns("gone.example", rcode="NXDOMAIN"), dns("a.example")]
+        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]},
+                      {**logs(dns=rows), "blocked": {("10.8.1.3", "blocked.example")}}, self.lists)
+        r = analyze.report("n1", "10.8.1.3")
+        self.assertEqual(r["nx_names"], [{"name": "gone.example", "count": 1}])
+        self.assertEqual(r["dns"]["total"], 3)
+
+    def test_a_name_on_a_list_still_counts_when_the_node_stopped_it(self):
+        rows = [dns("api.tracker.example", rcode="NXDOMAIN")]
+        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]},
+                      {**logs(dns=rows), "blocked": {("10.8.1.3", "api.tracker.example")}}, self.lists)
+        r = analyze.report("n1", "10.8.1.3")
+        self.assertEqual(r["findings"][0]["name"], "api.tracker.example")
+        self.assertEqual(r["nx_names"], [])
+
+    def test_the_name_the_ad_list_points_to_is_not_counted(self):
+        r = self.run_one(dns=[dns("blocked.vessel", rcode="NXDOMAIN"), dns("a.example")])
+        self.assertEqual(r["nx_names"], [])
+        self.assertEqual(r["dns"]["total"], 1)
+
     def test_shares(self):
         r = self.run_one(dns=[dns("ad.example"), dns("x.example", rcode="NXDOMAIN"), dns("a.example"), dns("b.example")])
         self.assertEqual((r["dns"]["ads_share"], r["dns"]["nx_share"]), (0.25, 0.25))
@@ -149,6 +170,41 @@ class Seal(Base):
         self.assertNotIn("report", json.dumps(box))
         with self.assertRaises(InvalidTag):
             opened(X25519PrivateKey.generate(), box)
+
+
+def dns_answer(name, flags, src="10.8.1.253", dst="10.8.1.3", sport=53):
+    question = b"".join(bytes([len(p)]) + p.encode() for p in name.split(".")) + b"\0\0\1\0\1"
+    body = struct.pack(">HHHHHH", 1, flags, 1, 0, 0, 0) + question
+    udp = struct.pack(">HHHH", sport, 40000, 8 + len(body), 0) + body
+    addr = lambda a: bytes(map(int, a.split(".")))  # noqa: E731
+    return bytes([0x45, 0]) + struct.pack(">HHHBBH", 20 + len(udp), 0, 0, 64, 17, 0) + addr(src) + addr(dst) + udp
+
+
+class BlockedAnswers(Base):
+    def found(self, *packets):
+        path = analyze.HOME / "c.pcap"
+        path.write_bytes(pcap(101, [(T0, p) for p in packets]))
+        return analyze.blocked_answers(path)
+
+    def test_nxdomain_with_ra_cleared_is_the_nodes_own(self):
+        self.assertEqual(self.found(dns_answer("Bad.Example", 0x8003)), {("10.8.1.3", "bad.example")})
+
+    def test_a_name_that_does_not_exist_has_ra_set(self):
+        self.assertEqual(self.found(dns_answer("gone.example", 0x8183)), set())
+
+    def test_an_ordinary_answer_is_not_blocked(self):
+        self.assertEqual(self.found(dns_answer("a.example", 0x8180)), set())
+
+    def test_only_the_nodes_resolvers_count(self):
+        self.assertEqual(self.found(dns_answer("bad.example", 0x8003, src="8.8.8.8")), set())
+
+    def test_a_packet_cut_before_the_name_ends_is_skipped(self):
+        self.assertEqual(self.found(dns_answer("a.example", 0x8003)[:45]), set())
+
+    def test_the_flag_is_read_from_a_packet_as_the_node_sends_it(self):
+        path = analyze.HOME / "c.pcap"
+        path.write_bytes(pcap(239, [(T0, nflog(dns_answer("bad.example", 0x8003)))]))
+        self.assertEqual(analyze.blocked_answers(path), {("10.8.1.3", "bad.example")})
 
 
 class Status(Base):

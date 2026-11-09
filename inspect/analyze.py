@@ -33,6 +33,7 @@ SUBNET = "10.8.1."
 RESOLVERS = {"10.8.1.1", "10.8.1.253", "10.8.1.254"}
 TZ = dt.timezone(dt.timedelta(hours=8))
 IDLE_HOURS = range(1, 6)
+AD_BLOCK_TARGET = "blocked.vessel"
 MAX_NX_NAMES = 500
 SOURCES = {
     "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
@@ -100,27 +101,58 @@ def ip_packet(link, data):
     return None
 
 
-def traffic(path):
-    """Bytes per device and hour, from the length in each IP header: it is still there in a packet cut to its start,
-    which Zeek's own counts for QUIC are not."""
-    totals = collections.defaultdict(lambda: [0, 0])
+def ipv4_packets(path):
+    """(time, IP packet, source, destination) of each IPv4 packet in a capture."""
     with open(path, "rb") as f:
         header = f.read(24)
         if len(header) < 24:
-            return totals
+            return
         link = struct.unpack("<I", header[20:24])[0]
         while len(record := f.read(16)) == 16:
             ts, _, length = struct.unpack("<IIIxxxx", record)
             ip = ip_packet(link, f.read(length))
-            if not ip or len(ip) < 20 or ip[0] >> 4 != 4:
-                continue
-            size = struct.unpack(">H", ip[2:4])[0]
-            src, dst = ".".join(map(str, ip[12:16])), ".".join(map(str, ip[16:20]))
-            if src.startswith(SUBNET) and src not in RESOLVERS:
-                totals[(src, hour_of(ts))][0] += size
-            elif dst.startswith(SUBNET) and dst not in RESOLVERS:
-                totals[(dst, hour_of(ts))][1] += size
+            if ip and len(ip) >= 20 and ip[0] >> 4 == 4:
+                yield ts, ip, ".".join(map(str, ip[12:16])), ".".join(map(str, ip[16:20]))
+
+
+def traffic(path):
+    """Bytes per device and hour, from the length in each IP header: it is still there in a packet cut to its start,
+    which Zeek's own counts for QUIC are not."""
+    totals = collections.defaultdict(lambda: [0, 0])
+    for ts, ip, src, dst in ipv4_packets(path):
+        size = struct.unpack(">H", ip[2:4])[0]
+        if src.startswith(SUBNET) and src not in RESOLVERS:
+            totals[(src, hour_of(ts))][0] += size
+        elif dst.startswith(SUBNET) and dst not in RESOLVERS:
+            totals[(dst, hour_of(ts))][1] += size
     return totals
+
+
+def question_name(dns):
+    """The name asked about in a DNS message, or None if the packet was cut before its end."""
+    labels, at = [], 12
+    while at < len(dns) and dns[at]:
+        end = at + 1 + dns[at]
+        if dns[at] > 63 or end > len(dns):
+            return None
+        labels.append(dns[at + 1:end].decode("ascii", "replace"))
+        at = end
+    return ".".join(labels).lower() if at < len(dns) else None
+
+
+def blocked_answers(path):
+    """(device, name) of the lookups the node's own lists stopped. Their NXDOMAIN has the RA flag cleared, which no other
+    answer has (node/start.sh counts them the same way). The flag is read here because Zeek's RA field is false for
+    every answer without records, so it cannot tell these from a name that really does not exist."""
+    found = set()
+    for _, ip, src, dst in ipv4_packets(path):
+        if src not in RESOLVERS or ip[9] != 17:
+            continue
+        udp = (ip[0] & 15) * 4
+        dns = ip[udp + 8:]
+        if len(dns) > 12 and struct.unpack(">H", ip[udp:udp + 2])[0] == 53 and dns[3] & 0x8F == 3 and (name := question_name(dns)):
+            found.add((dst, name))
+    return found
 
 
 def zeek_logs(path):
@@ -200,8 +232,11 @@ def merge(node, totals, logs, lists):
         state = get(row["id.orig_h"])
         seen(state, row["ts"])
         name = row["query"].lower()
+        # the ad list's answer points here, and some devices then look it up: Vessel's own name, not the device's lookup
+        if name == AD_BLOCK_TARGET:
+            continue
         state["dns"]["total"] += 1
-        if row.get("rcode_name") == "NXDOMAIN":
+        if row.get("rcode_name") == "NXDOMAIN" and (row["id.orig_h"], name) not in logs.get("blocked", ()):
             state["dns"]["nx"] += 1
             state["nx_names"][name] = state["nx_names"].get(name, 0) + 1
         if listed(name, lists["ads"]):
@@ -230,7 +265,7 @@ def batch():
     for path in sorted((HOME / "spool").glob("*/*.pcap")):
         node = path.parent.name
         try:
-            merge(node, traffic(path), zeek_logs(path), lists)
+            merge(node, traffic(path), {**zeek_logs(path), "blocked": blocked_answers(path)}, lists)
         except (subprocess.CalledProcessError, OSError, ValueError) as e:
             # left in place for the next run; purge deletes what never succeeds
             print(f"{path.name}: {e}", file=sys.stderr)
