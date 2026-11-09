@@ -14,7 +14,7 @@ SEALED = {"epk": "e", "iv": "i", "ct": "c"}
 
 class FakeAnalysis:
     def __init__(self):
-        self.cleared, self.down, self.reports = [], False, 0
+        self.cleared, self.down, self.reports, self.flushes, self.waiting = [], False, 0, 0, 0
 
     def report(self, node, address, public_key):
         if self.down:
@@ -30,7 +30,12 @@ class FakeAnalysis:
     def status(self):
         if self.down:
             raise NodeError("timeout")
-        return {"last_batch": 1}
+        return {"last_batch": 1, "waiting": self.waiting}
+
+    def flush(self):
+        if self.down:
+            raise NodeError("timeout")
+        self.flushes += 1
 
 
 @pytest.fixture
@@ -60,6 +65,14 @@ def confirm(client, device_id, node, db, address="10.8.1.2"):
     node.confirms.append({"code": code, "address": address})
     worker.tick(db)
     return code
+
+
+def finish_it(db):
+    """The steps of ending an inspection, without waiting for the seconds between them."""
+    worker.tick(db)
+    db.execute("UPDATE device_inspections SET stopped_at = now() - interval '1 minute' WHERE stopped_at IS NOT NULL")
+    worker.tick(db)
+    worker.tick(db)
 
 
 def test_nothing_starts_until_it_is_confirmed_on_the_device(signed_in, node, db, device):
@@ -148,7 +161,7 @@ def test_a_suspended_device_cannot_start(signed_in, db, device):
 def test_turning_it_off_stops_the_node_and_keeps_a_report_for_seven_days(signed_in, node, db, device, analysis):
     confirm(signed_in, device, node, db)
     assert signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS).status_code == 200
-    worker.tick(db)
+    finish_it(db)
     after = read(signed_in, device)
     assert after["status"] == "ended" and device not in node.inspecting
     assert after["report"] == SEALED
@@ -160,7 +173,7 @@ def test_turning_it_off_stops_the_node_and_keeps_a_report_for_seven_days(signed_
 def test_it_ends_by_itself_on_the_day(signed_in, node, db, device):
     confirm(signed_in, device, node, db)
     db.execute("UPDATE device_inspections SET ends_at = now() - interval '1 minute'")
-    worker.tick(db)
+    finish_it(db)
     assert read(signed_in, device)["status"] == "ended" and device not in node.inspecting
 
 
@@ -168,17 +181,17 @@ def test_the_analysis_host_down_at_the_end_is_tried_again(signed_in, node, db, d
     confirm(signed_in, device, node, db)
     signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
     analysis.down = True
-    worker.tick(db)
+    finish_it(db)
     assert read(signed_in, device)["status"] == "ending"
     analysis.down = False
-    worker.tick(db)
+    finish_it(db)
     assert read(signed_in, device)["report"] == SEALED
 
 
 def test_a_report_past_its_days_is_gone(signed_in, node, db, device):
     confirm(signed_in, device, node, db)
     signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
-    worker.tick(db)
+    finish_it(db)
     db.execute("UPDATE device_inspections SET report_until = current_date - 1")
     worker.tick(db)
     assert read(signed_in, device)["status"] == "none"
@@ -188,16 +201,49 @@ def test_a_report_past_its_days_is_gone(signed_in, node, db, device):
 def test_a_report_on_its_last_day_is_still_there(signed_in, node, db, device):
     confirm(signed_in, device, node, db)
     signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
-    worker.tick(db)
+    finish_it(db)
     db.execute("UPDATE device_inspections SET report_until = current_date")
     worker.tick(db)
     assert read(signed_in, device)["report"] == SEALED
 
 
-def test_the_person_can_delete_a_finished_report(signed_in, node, db, device):
+def test_the_node_stops_first_and_the_rest_waits_for_what_was_on_its_way(signed_in, node, db, device, analysis):
     confirm(signed_in, device, node, db)
     signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
     worker.tick(db)
+    assert device not in node.inspecting and read(signed_in, device)["status"] == "ending"
+    worker.tick(db)
+    assert analysis.flushes == 0
+
+
+def test_the_report_waits_for_what_is_still_being_analysed(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    analysis.reports = 0  # the report so far, from the tick that confirmed it
+    analysis.waiting = 1
+    finish_it(db)
+    assert analysis.flushes == 1 and analysis.reports == 0 and read(signed_in, device)["status"] == "ending"
+    # nothing is cleared before the report, or the last packets' results would come back afterwards
+    assert analysis.cleared.count(("sg", "10.8.1.2")) == 1
+    analysis.waiting = 0
+    worker.tick(db)
+    assert read(signed_in, device)["report"] == SEALED
+
+
+def test_a_capture_that_cannot_be_analysed_does_not_hold_the_report_back(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    analysis.waiting = 1
+    finish_it(db)
+    db.execute("UPDATE device_inspections SET flushed_at = now() - interval '21 minutes'")
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "ended"
+
+
+def test_the_person_can_delete_a_finished_report(signed_in, node, db, device):
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    finish_it(db)
     signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
     assert read(signed_in, device)["status"] == "none"
 
@@ -205,7 +251,7 @@ def test_the_person_can_delete_a_finished_report(signed_in, node, db, device):
 def test_a_new_inspection_can_follow_a_finished_one(signed_in, node, db, device):
     confirm(signed_in, device, node, db)
     signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
-    worker.tick(db)
+    finish_it(db)
     assert start(signed_in, device).status_code == 200
     assert read(signed_in, device)["report"] is None
 

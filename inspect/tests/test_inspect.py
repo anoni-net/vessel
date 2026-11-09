@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import os
 import struct
 import sys
 import tempfile
@@ -208,6 +209,53 @@ class Recv(Base):
         one = pcap(101, [(T0, ip("10.8.1.3", "1.1.1.1", 100))])
         files = self.stream(b"vessel-inspect node-1\n" + one + struct.pack("<IIII", T0, 0, 100, 100) + b"xx")
         self.assertEqual(files[0].read_bytes(), one)
+
+    def hold_open(self, check):
+        """A stream that has sent one packet and stays connected."""
+        body = pcap(239, [(T0, nflog(ip("10.8.1.3", "1.1.1.1", 100)))])
+
+        def suffixes():
+            return [f.suffix for f in (analyze.HOME / "spool").glob("*/*")]
+
+        async def go():
+            reader = asyncio.StreamReader()
+            reader.feed_data(b"vessel-inspect node-1\n" + body)
+
+            class W:
+                def close(self):
+                    pass
+
+            task = asyncio.create_task(recv.handle(reader, W()))
+            await asyncio.sleep(0.01)
+            self.assertEqual(suffixes(), [".part"])
+            check()
+            self.assertEqual(suffixes(), [".pcap"])
+            reader.feed_eof()
+            await task
+            self.assertEqual(recv.spools, set())
+
+        asyncio.run(go())
+
+    def test_a_quiet_stream_is_cut_by_the_clock_without_another_packet(self):
+        def check():
+            spool = next(iter(recv.spools))
+            recv.cut_old()
+            self.assertIsNotNone(spool.file)
+            spool.started -= recv.ROTATE_SECONDS
+            recv.cut_old()
+
+        self.hold_open(check)
+
+    def test_the_portal_can_have_everything_cut_now(self):
+        self.hold_open(recv.cut_all)
+
+    def test_a_partial_file_left_by_a_crash_goes_with_the_old_captures(self):
+        spool = analyze.HOME / "spool" / "n"
+        spool.mkdir(parents=True)
+        (spool / "a.part").write_bytes(b"x")
+        os.utime(spool / "a.part", (1, 1))
+        analyze.purge(8)
+        self.assertEqual(list(spool.iterdir()), [])
 
     def test_a_bad_name_is_refused(self):
         self.assertEqual(self.stream(b"vessel-inspect ../etc\n" + bytes(24)), [])

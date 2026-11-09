@@ -31,7 +31,7 @@
 
 ## 入口網站的呼叫
 
-入口網站用 SSH 連到分析主機，金鑰綁定 `inspect-remote`，只能取得加密的報告、清除結果與查詢狀態：
+入口網站用 SSH 連到分析主機，金鑰綁定 `inspect-remote`，只能取得加密的報告、清除結果、查詢狀態，以及在檢測結束時要 `recv.py` 立刻切檔：
 
 ```
 command="/opt/vessel-inspect-app/inspect-remote",restrict,from="<入口主機的 tailnet IP>" ssh-ed25519 AAAA... vessel-portal
