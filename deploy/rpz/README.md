@@ -22,11 +22,13 @@ docker run -d --name vessel-rpz-nsd --restart unless-stopped --network host --us
   -v /srv/vessel-rpz/nsd.conf:/etc/nsd/nsd.conf:ro vessel-rpz-nsd:alpine3.24 nsd -d -c /etc/nsd/nsd.conf
 ```
 
-防火牆只放行節點的 Tailscale 位址，每個節點一條 `ufw allow in on tailscale0 from <節點> to <本機> port 5300`。cron 在節點取得更新前 7 分鐘產生名單：
+防火牆只放行節點的 Tailscale 位址，每個節點一條 `ufw allow in on tailscale0 from <節點> to <本機> port 5300`。節點在 UTC 04:37、10:37、16:37、22:37 取得更新，名單要在 UTC 04:30、10:30、16:30、22:30 產生。cron 用主機的時區，主機是台灣時間時寫成：
 
 ```cron
-30 4,10,16,22 * * * /srv/vessel-rpz/build-cti.sh >> /srv/vessel-rpz/build.log 2>&1
+30 0,6,12,18 * * * VESSEL_NTFY=http://<ntfy 主機>/<topic> /srv/vessel-rpz/build-cti.sh >> /srv/vessel-rpz/build.log 2>&1
 ```
+
+設定 `VESSEL_NTFY` 之後，下載失敗、筆數超出上下限或 NSD 無法重新讀取時推播到 ntfy，跟 `deploy/health_warn.py` 一樣只在狀態改變時推一次，恢復時再推一次。超過上限時名單會停止更新，節點繼續使用上一份，收到告警要決定調高 `node/update-lists.sh` 的 `MAX_LINES`，或排除部分名單。每次的筆數記在 `build.log`。
 
 新增節點時，`nsd.conf` 加一行 `provide-xfr`，再執行 `docker exec vessel-rpz-nsd nsd-control -c /etc/nsd/nsd.conf reconfig`。
 
