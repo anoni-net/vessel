@@ -12,6 +12,8 @@
 | `lists.sh` | 每份名單的來源、清理方式與筆數上下限 |
 | `dedupe.py` | 後面的名單拿掉前面已經擋下的條目。順序要跟 `node/unbound/rpz-zones.conf.example` 相同 |
 
+`build-zones.sh` 另外下載 Public Suffix List，把私有區段存成 `platforms.txt`，DNSBunker CTI 只保留這些託管平台底下的名稱。下載失敗或內容太短時沿用上一份。
+
 NSD 只處理名單，看不到使用者的查詢。節點連線的 IP 不進 repo，只放在主機的 `nsd.conf` 與節點的 `node.env`。
 
 ## 安裝
@@ -36,4 +38,4 @@ docker run -d --name vessel-rpz-nsd --restart unless-stopped --network host --us
 
 新增節點時，`nsd.conf` 加一行 `provide-xfr`，再執行 `docker exec vessel-rpz-nsd nsd-control -c /etc/nsd/nsd.conf reconfig`。
 
-改了 `lists.sh`、`dedupe.py` 或 `node/exclude.txt` 之後，要同步複製到主機，下一次產生名單才會生效。
+改了 `build-zones.sh`、`lists.sh`、`dedupe.py` 或 `node/exclude.txt` 之後，要同步複製到主機，下一次產生名單才會生效。

@@ -22,7 +22,7 @@ const GROUPS = [
   { key: "both", lists: LISTS.slice(0, 5) },
   { key: "ads", lists: LISTS.slice(5) },
 ] as const;
-const CHART_ORDER: readonly string[] = ["cti", "ads", "malware", "tw165", "twmoda", "stalkerware"];
+const CHART_ORDER: readonly string[] = ["ads", "malware", "cti", "tw165", "twmoda", "stalkerware"];
 const EXCLUDE_FILE = "https://github.com/anoni-net/vessel/blob/main/node/exclude.txt";
 // the names in node/exclude.txt; tests/dns-lists.spec.ts checks that the two match
 export const EXCLUDED = [
@@ -50,7 +50,7 @@ export const EXCLUDED = [
 // blocked by Vessel's malware filter and its ads filter, Quad9 included, and by Cloudflare (1.1.1.2).
 const COMPARE = [
   ["phishNew", "2–12%", "3–13%", "4–63%"],
-  ["phishDay", "63–100%", "64–100%", "69–87%"],
+  ["phishDay", "32–100%", "34–100%", "69–87%"],
   ["malware", "90%", "96%", "57%"],
   ["twScam", "100%", "100%", "1–2%"],
   ["tracking", "0%", "93%", "0%"],
@@ -58,14 +58,15 @@ const COMPARE = [
 // phishing sites a day after they first appeared, by who reported them
 const PHISHING = [
   ["certpl", 2516, 100, 100, 87],
-  ["openphish", 2140, 91, 92, 75],
-  ["phishunt", 131, 63, 64, 69],
+  ["openphish", 2140, 88, 89, 75],
+  ["phishunt", 131, 32, 34, 69],
 ] as const;
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 5, 6] as const;
 const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line
 const LOG = [
+  ["2026-11-09", "20261109c"],
   ["2026-11-09", "20261109b"],
   ["2026-11-09", "20261109"],
   ["2026-11-08", "20261108b"],

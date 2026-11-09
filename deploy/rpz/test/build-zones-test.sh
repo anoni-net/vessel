@@ -48,7 +48,8 @@ open(f"{up}/pro.txt", "w").write(rpz([f"a{i}.example" for i in range(700)] + ["s
 open(f"{up}/download", "w", encoding="utf-8").write("網域\n" + "".join(f"t{i}.example\n" for i in range(700)))
 json.dump([{"網域名稱": f"mo{i}.example", "偽冒網址": f"https://mo{i}.example/"} for i in range(700)], open(f"{up}/16352", "w", encoding="utf-8"))
 open(f"{up}/hosts", "w").write("".join(f"s{i}.example\n" for i in range(300)))
-open(f"{up}/domains.txt", "w").write("".join(f"c{i}.example\n" for i in range(60000)))
+open(f"{up}/domains.txt", "w").write("".join(f"c{i}.pages.dev\n" for i in range(60000)) + "own-site.example\n")
+open(f"{up}/public_suffix_list.dat", "w").write("// ===BEGIN PRIVATE DOMAINS===\npages.dev\n" + "".join(f"p{i}.example\n" for i in range(1000)) + "// ===END PRIVATE DOMAINS===\n")
 PY
 cat > "$TMP/bin/curl" <<SH
 #!/bin/bash
@@ -72,6 +73,8 @@ build || { cat "$TMP/out"; fail "first build"; }
 for z in malware tw165 twmoda stalkerware cti ads; do [ -s "$R/zones/$z.zone" ] || fail "no $z zone"; done
 [ "$(grep -c 'reload' "$TMP/docker.log")" = 6 ] || fail "every zone reloads on the first build"
 grep -q 'shared-mal.example' "$R/zones/malware.zone" || fail "the earlier list lost its entry"
+grep -q 'c1.pages.dev' "$R/zones/cti.zone" || fail "cti lost a name on a hosting platform"
+if grep -q 'own-site.example' "$R/zones/cti.zone"; then fail "cti kept a name that is not on a hosting platform"; fi
 if grep -q 'shared-mal.example' "$R/zones/ads.zone"; then fail "the later list kept what an earlier one answers"; fi
 grep -q 'shared-mal.example' "$R/zones/raw/ads.zone" || fail "the raw list must keep it"
 if grep -q 'kept-out.example' "$R/zones/ads.zone"; then fail "exclude.txt was ignored"; fi
@@ -99,5 +102,18 @@ rm "$TMP/fail"
 build || fail "recovery build"
 [ "$(wc -l < "$TMP/pushes")" = 2 ] || fail "expected the recovery push"
 [ -z "$(find "$R/zones" -name '.*.*' -type f)" ] || fail "temporary files left behind"
+
+# without a new copy of the hosting platforms the last one is used, and a changed CTI list still gets through
+echo public_suffix_list.dat > "$TMP/fail"
+printf 'new-one.pages.dev\n' >> "$TMP/up/domains.txt"
+build && fail "a failed download of the platforms should end non-zero"
+grep -q 'new-one.pages.dev' "$R/zones/cti.zone" || fail "the last copy of the hosting platforms was not used"
+[ "$(wc -l < "$TMP/pushes")" = 3 ] || fail "expected a push for the platforms"
+rm "$TMP/fail"
+# a copy with too few platforms, a truncated download, does not replace it
+printf '// ===BEGIN PRIVATE DOMAINS===\nother.example\n' > "$TMP/up/public_suffix_list.dat"
+build && fail "a short list of platforms should end non-zero"
+grep -qx 'pages.dev' "$R/platforms.txt" || fail "a short list of platforms replaced the last copy"
+[ -z "$(find "$R" -maxdepth 1 -name 'platforms.?*' ! -name platforms.txt)" ] || fail "temporary platform files left behind"
 
 echo "build-zones: all checks passed"

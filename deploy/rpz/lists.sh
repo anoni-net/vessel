@@ -9,11 +9,14 @@
 #   stalkerware  the stalkerware domains Echap collects (github.com/AssoEchap/stalkerware-indicators,
 #                generated/hosts, CC BY 4.0): Quad9 blocks most of them, not the apps' own sites, and a block by the
 #                nodes' list is counted per device where Quad9's is not
-#   cti          the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only)
+#   cti          the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only),
+#                only those on hosting platforms: the rest of the list does not fit a node's memory, its maintainer expects
+#                1.2 million domains, and the platforms are where the other lists are weakest
 #   ads          HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
 # The names in exclude.txt are left out of all of them. Every list ends up as block entries only (block_only, zone_from).
 set -uo pipefail
 EXCLUDE=${EXCLUDE:-exclude.txt}
+PLATFORMS=${PLATFORMS:-platforms.txt}
 # the ad list is about 12 MB; a download many times that is not a list
 MAX_BYTES=$((64 * 1024 * 1024))
 # shellcheck disable=SC2034  # read by build-zones.sh
@@ -25,6 +28,11 @@ declare -A SRC=(
   [cti]=https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt
   [ads]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt
 )
+# the hosting platforms are the private section of this list; a section this short means the download went wrong
+# shellcheck disable=SC2034  # read by build-zones.sh
+PUBLIC_SUFFIXES=https://raw.githubusercontent.com/publicsuffix/list/main/public_suffix_list.dat
+# shellcheck disable=SC2034  # read by build-zones.sh
+MIN_PLATFORMS=1000
 # fewer lines than this means the download went wrong (Echap's list has about 1,300 lines once turned into a zone)
 declare -A MIN_LINES=([stalkerware]=500 [cti]=100000)
 # more lines than this and the list stays as it was: CTI takes about 1.3 KB of memory a name, grew by 420,000 names in
@@ -57,6 +65,13 @@ block_only() { # zone file
     "$exclude" "$1" > "$1.x" && mv "$1.x" "$1"
 }
 
+# The hosting platforms in the Public Suffix List, a name a line: its private section, where each name's subdomains
+# belong to different people. A wildcard rule (*.platform) or an exception (!name) counts as the name it is written on.
+private_suffixes() { # public_suffix_list.dat
+  awk '/BEGIN PRIVATE DOMAINS/ { on = 1 } /END PRIVATE DOMAINS/ { on = 0 }
+       on && NF && !/^\/\// { name = tolower($1); sub(/^!/, "", name); sub(/^\*\./, "", name); print name }' "$1"
+}
+
 # https only, redirects too, and no larger than MAX_BYTES
 fetch() { # url file
   curl -fsSL -m 120 --proto =https --proto-redir =https --max-filesize "$MAX_BYTES" -o "$2" "$1"
@@ -68,16 +83,17 @@ fetch() { # url file
 #           belongs to someone else is not blocked.
 #   stalkerware  Echap's hosts file, a name a line. Names on shared platforms (Firebase, S3, CloudFront) each belong to
 #           one app; the two Azure App Service front ends it lists, which other sites point to, are in exclude.txt.
-#   cti     DNSBunker's domains.txt, a name a line. Hosting platforms' subdomains are listed one by one; the platforms
-#           themselves, where the list has them, are in exclude.txt or SHARED below.
+#   cti     DNSBunker's domains.txt, a name a line, keeping only the subdomains of hosting platforms ($PLATFORMS; without
+#           that file there is no zone, and the previous one stays). The platforms themselves, where the list has them,
+#           are in exclude.txt or SHARED below.
 # Entries are cleaned (a scheme, a path, an email address or stray characters in front) and the ones that are still
 # not a host name are dropped. None of the lists names a shared parent like a URL shortener or a hosting platform, only
 # names under them, so blocking subdomains does not reach other sites. A name whose parent is listed too is left
 # out: the parent's wildcard already blocks it (a quarter of the 165 list, and of the memory it takes).
 zone_from() { # tw165|twmoda|stalkerware|cti file
-  python3 -I - "$1" "$2" "$EXCLUDE" <<'PY'
+  python3 -I - "$1" "$2" "$EXCLUDE" "$PLATFORMS" <<'PY'
 import csv, json, os, re, sys
-kind, path, exclude = sys.argv[1], sys.argv[2], sys.argv[3]
+kind, path, exclude, platforms_path = sys.argv[1:5]
 host = re.compile(r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+")
 def clean(raw):
     name = re.sub(r"^[^a-z0-9]+", "", re.sub(r"^[a-z]+://", "", (raw or "").strip().lower()))
@@ -105,6 +121,12 @@ else:
         domain, url = clean(row.get("網域名稱")), clean(row.get("偽冒網址"))
         names.add(url if url and domain and url != domain and not url.endswith("." + domain) else domain or url)
 names.discard(None)
+if kind == "cti":
+    platforms = {line.strip() for line in open(platforms_path, encoding="utf-8")}
+    def on_platform(name):
+        labels = name.split(".")
+        return any(".".join(labels[i:]) in platforms for i in range(1, len(labels)))
+    names = {n for n in names if on_platform(n)}
 # A name shared by many sites is never listed, whatever a dataset says: one mistaken row (a bare com.tw) would block
 # every site under it. The second-level names people register under, and the hosting platforms whose subdomains
 # belong to different people.

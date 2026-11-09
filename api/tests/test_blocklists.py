@@ -179,6 +179,61 @@ def test_a_download_leaves_out_the_excluded_name_but_not_the_names_under_it(monk
         blocklists._loaded_at = None
 
 
+def test_the_hosting_platforms_are_the_private_section():
+    text = "// ===BEGIN ICANN DOMAINS===\ncom\n// ===END ICANN DOMAINS===\n// ===BEGIN PRIVATE DOMAINS===\n// a platform\n" \
+           "pages.dev\n*.Compute.Example-Cloud.com\n!exception.other-cloud.com\n// ===END PRIVATE DOMAINS===\n"
+    assert blocklists.parse_platforms(text) == frozenset(
+        {"pages.dev", "compute.example-cloud.com", "exception.other-cloud.com"})
+
+
+def _serve(monkeypatch, files: dict[str, str]) -> None:
+    class Response:
+        def __init__(self, url: str):
+            if url not in files:
+                raise OSError("offline")
+            self.body = files[url].encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return self.body
+
+    monkeypatch.setattr(blocklists.urllib.request, "urlopen", lambda request, **_: Response(request.full_url))
+
+
+def test_only_the_names_on_a_hosting_platform_are_used_from_cti(monkeypatch):
+    platforms = "// ===BEGIN PRIVATE DOMAINS===\npages.dev\n" + "".join(f"p{i}.example\n" for i in range(1000))
+    cti = "".join(f"site{i}.pages.dev\n" for i in range(60000)) + "own-site.example\npages.dev\n"
+    monkeypatch.setattr(blocklists, "SOURCES", {"cti": "https://lists.example/cti"})
+    monkeypatch.setattr(blocklists, "_platforms", frozenset())
+    _serve(monkeypatch, {blocklists.PUBLIC_SUFFIXES: platforms, "https://lists.example/cti": cti})
+    blocklists._download()
+    try:
+        assert blocklists.blocked_by("site1.pages.dev") == {"cti": True}
+        assert blocklists.blocked_by("own-site.example") == {"cti": False}
+        assert blocklists.blocked_by("pages.dev") == {"cti": False}
+    finally:
+        blocklists.set_lists({}, at=None)
+        blocklists._loaded_at = None
+
+
+def test_cti_keeps_what_it_had_without_the_hosting_platforms(monkeypatch):
+    blocklists.set_lists({"cti": frozenset({"old.pages.dev"})})
+    monkeypatch.setattr(blocklists, "SOURCES", {"cti": "https://lists.example/cti"})
+    monkeypatch.setattr(blocklists, "_platforms", frozenset())
+    _serve(monkeypatch, {"https://lists.example/cti": "".join(f"site{i}.pages.dev\n" for i in range(60000))})
+    blocklists._download()
+    try:
+        assert blocklists._lists["cti"] == frozenset({"old.pages.dev"})
+    finally:
+        blocklists.set_lists({}, at=None)
+        blocklists._loaded_at = None
+
+
 def test_the_summary_counts_what_each_list_adds(api):
     blocklists.set_lists({"malware": frozenset({"bad.example", "only.example"}), "tw165": frozenset({"scam.example"}),
                           "twmoda": frozenset({"sub.bad.example"}), "stalkerware": frozenset({"spy.example"}),
