@@ -196,7 +196,10 @@ export function GroupPage() {
     <section class="wrap narrow stack group-page">
       <AccountNav leader />
       <h1>{t["group.title"]}</h1>
-      {left <= ENDING_DAYS && (
+      {group.closing_on && (
+        <p class="card card--warn card--flat" data-testid="group-closing">{fmt(t["group.closing"], { date: day(group.closing_on) })}</p>
+      )}
+      {!group.closing_on && left <= ENDING_DAYS && (
         <p class="card card--warn card--flat" data-testid="group-ending">
           {left < 0 ? fmt(t["group.ended"], { date: day(group.ends_on) })
             : fmt(t["group.ending"], { date: day(group.ends_on), days: left })}
@@ -309,6 +312,8 @@ export function GroupPage() {
             </button>
             <button class="link-button" type="button" onClick={() => setLabels([])}>{t["group.invites.cancel"]}</button>
           </form>
+        ) : group.closing_on ? (
+          <p class="muted">{t["group.invites.closing"]}</p>
         ) : group.places_left > 0 ? (
           <button class="nb-button nb-button--ink" type="button" onClick={openForm}>{t["group.invites.open"]}</button>
         ) : <p class="muted">{t["group.invites.none"]}</p>}

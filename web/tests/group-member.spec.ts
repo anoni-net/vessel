@@ -69,3 +69,11 @@ for (const [name, me, words] of [
     await expect(page.locator("#name-hint")).toContainText(words);
   });
 }
+
+test("a member of a closing group is told on the devices and the account page", async ({ page }) => {
+  await backend(page, { group: { role: "member", label: "A1", device_revoked_on: null, closing_on: "2030-02-01" } });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("group-closing-note")).toContainText("提早安排");
+  await page.goto("/account/");
+  await expect(page.getByTestId("group-view")).toContainText("提早安排");
+});

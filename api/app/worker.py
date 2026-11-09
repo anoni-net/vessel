@@ -18,6 +18,7 @@ USAGE_EVERY = 300  # seconds
 
 def tick(conn: psycopg.Connection, usage: bool = True) -> None:
     jobs.expire_devices(conn)
+    jobs.close_groups(conn)
     if usage:
         jobs.poll_usage(conn)
         jobs.enforce_quota(conn, policy.MONTHLY_QUOTA_BYTES)

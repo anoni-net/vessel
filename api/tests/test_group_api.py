@@ -210,7 +210,7 @@ def test_another_groups_things_are_out_of_reach(leader, db, node, capsys):
 def test_revoking_takes_the_device_off_and_tells_its_owner_the_day(leader, db, node):
     member = join(leader)
     device_id = create(member).json()["id"]
-    assert member.get("/api/me").json()["group"] == {"role": "member", "label": "A1", "device_revoked_on": None}
+    assert member.get("/api/me").json()["group"] == {"role": "member", "label": "A1", "device_revoked_on": None, "closing_on": None}
     assert leader.delete(f"/api/group/devices/{device_id}", headers=HEADERS).status_code == 200
     assert device_id not in node.peers
     assert account(leader, "A1")["devices"] == []
@@ -255,7 +255,7 @@ def test_me_says_nothing_about_groups_on_a_personal_account(client, db):
 
 
 def test_me_tells_a_leader_their_role(leader):
-    assert leader.get("/api/me").json()["group"] == {"role": "leader", "label": "L1", "device_revoked_on": None}
+    assert leader.get("/api/me").json()["group"] == {"role": "leader", "label": "L1", "device_revoked_on": None, "closing_on": None}
 
 
 def test_a_member_sees_what_the_leaders_see(leader, db):
@@ -274,3 +274,102 @@ def test_a_leader_can_read_their_own_view_too(leader):
 def test_a_personal_account_has_no_group_view(client, db):
     redeem(client, make_invite(db))
     assert client.get("/api/group/mine").status_code == 404
+
+
+def close(*extra):
+    admin.main(["groups", "close", "g1", *extra])
+
+
+def test_closing_keeps_the_service_going_until_the_day(leader, db, node):
+    member = join(leader)
+    device_id = create(member).json()["id"]
+    day = date.today() + timedelta(days=10)
+    close("--until", day.isoformat())
+    worker.tick(db)
+    assert device_id in node.peers
+    assert page(leader)["closing_on"] == day.isoformat()
+    assert member.get("/api/me").json()["group"]["closing_on"] == day.isoformat()
+    # the date a device shows is the day it will go, and a device made now goes the same day
+    assert db.execute("SELECT DISTINCT expires_on FROM devices").fetchall() == [(day,)]
+    assert create(member, name="another").status_code == 200
+    assert db.execute("SELECT DISTINCT expires_on FROM devices").fetchall() == [(day,)]
+
+
+def test_closing_defaults_to_thirty_days(leader, db):
+    close()
+    assert page(leader)["closing_on"] == (date.today() + timedelta(days=policy.GROUP_CLOSE_DAYS)).isoformat()
+
+
+def test_closing_voids_unused_invites_and_stops_new_ones(leader, db, capsys):
+    code = invite(leader, "A1").json()["invites"][0]["code"]
+    close()
+    assert redeem(browser(), code).json() == {"error": "invalid_invite"}
+    assert page(leader)["invites"] == []
+    assert invite(leader, "A2").json() == {"error": "group_closing"}
+    with pytest.raises(SystemExit):
+        admin.main(["groups", "leader-invite", "g1", "--label", "L2"])
+
+
+def test_on_the_day_the_accounts_devices_and_group_go(leader, db, node):
+    member = join(leader)
+    device_id = create(member).json()["id"]
+    leader_device = create(leader, name="leader-phone").json()["id"]
+    close("--until", (date.today() + timedelta(days=3)).isoformat())
+    db.execute("UPDATE groups SET closing_on = current_date")
+    worker.tick(db)
+    assert db.execute("SELECT count(*) FROM groups").fetchone()[0] == 0
+    assert db.execute("SELECT count(*) FROM accounts WHERE group_code IS NOT NULL").fetchone()[0] == 0
+    assert db.execute("SELECT count(*) FROM devices").fetchone()[0] == 0
+    assert device_id not in node.peers and leader_device not in node.peers
+    assert member.get("/api/me").status_code == 401 and leader.get("/api/me").status_code == 401
+
+
+def test_closing_a_group_leaves_other_accounts_alone(leader, db, node, capsys):
+    personal = browser()
+    redeem(personal, make_invite(db))
+    mine = create(personal).json()["id"]
+    other = new_group(capsys, "g2", label="L9")
+    close("--now", "--confirm", "g1")
+    worker.tick(db)
+    assert mine in node.peers and personal.get("/api/me").status_code == 200
+    assert page(other)["code"] == "g2"
+
+
+def test_closing_now_needs_the_code_typed_again(leader, db):
+    for extra in (["--now"], ["--now", "--confirm", "wrong"]):
+        with pytest.raises(SystemExit):
+            close(*extra)
+    assert page(leader)["closing_on"] is None
+    close("--now", "--confirm", "g1")
+    assert page(leader)["closing_on"] == date.today().isoformat()
+
+
+def test_a_cancelled_close_goes_on_and_puts_the_dates_back(leader, db, node):
+    member = join(leader)
+    device_id = create(member).json()["id"]
+    close("--until", (date.today() + timedelta(days=3)).isoformat())
+    close("--cancel")
+    assert page(leader)["closing_on"] is None
+    assert db.execute("SELECT expires_on FROM devices WHERE id = %s", (device_id,)).fetchone()[0] == ENDS_ON
+    db.execute("UPDATE groups SET ends_on = current_date - 1")  # past its end date, and still not closing
+    worker.tick(db)
+    assert device_id in node.peers
+
+
+@pytest.mark.parametrize("extra", [["--until", "2020-01-01"], ["--cancel"]])
+def test_close_refuses_what_makes_no_sense(leader, db, extra):
+    with pytest.raises(SystemExit):
+        close(*extra)
+
+
+def test_the_end_date_cannot_change_while_closing(leader, db):
+    close()
+    with pytest.raises(SystemExit):
+        admin.main(["groups", "set", "g1", "--ends-on", "2031-01-01"])
+
+
+def test_the_list_says_a_group_is_closing(leader, db, capsys):
+    close("--until", (date.today() + timedelta(days=3)).isoformat())
+    capsys.readouterr()
+    admin.main(["groups"])
+    assert "CLOSING" in capsys.readouterr().out

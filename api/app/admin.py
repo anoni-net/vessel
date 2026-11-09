@@ -31,6 +31,11 @@
                                                                print a code that makes a leader's account; the same
                                                                alias again replaces a code not used yet
 
+  python -m app.admin groups close CODE [--until YYYY-MM-DD]   stop new invites, void unused ones, and on that day
+                                                               (default in 30 days) delete its accounts and devices
+  python -m app.admin groups close CODE --now --confirm CODE   the same today, with no time to move elsewhere
+  python -m app.admin groups close CODE --cancel               it goes on; voided invites do not come back
+
   python -m app.admin notices [list]                           notices on the status page, newest first
   python -m app.admin notices add (REGION|all) KIND [--start ISO] [--minutes N]
                                                                KIND is restart, maintenance or outage; without
@@ -45,7 +50,7 @@ may make, 0 turns it off; toomore/anoni-net-ws#458).
 import argparse
 import re
 import sys
-from datetime import date
+from datetime import date, timedelta
 
 import psycopg
 
@@ -107,6 +112,13 @@ def main(argv: list[str] | None = None) -> None:
     gi.add_argument("code")
     gi.add_argument("--label", required=True)
     gi.add_argument("--days", type=int, default=policy.INVITE_DAYS)
+    gl = gr.add_parser("close")
+    gl.add_argument("code")
+    when = gl.add_mutually_exclusive_group()
+    when.add_argument("--until", type=date.fromisoformat)
+    when.add_argument("--now", action="store_true")
+    when.add_argument("--cancel", action="store_true")
+    gl.add_argument("--confirm")
     nt = sub.add_parser("notices").add_subparsers(dest="action")
     nt.add_parser("list")
     na = nt.add_parser("add")
@@ -219,16 +231,52 @@ GROUP_CODE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 GROUP_ENDING_DAYS = 30
 
 
+def close_group(conn: psycopg.Connection, args: argparse.Namespace, closing_on: date | None, ends_on: date) -> None:
+    move_devices = (
+        "UPDATE devices SET expires_on = %s WHERE status <> 'revoking' "
+        "AND account_id IN (SELECT id FROM accounts WHERE group_code = %s)"
+    )
+    if args.cancel:
+        if closing_on is None:
+            sys.exit(f"{args.code} is not closing")
+        with conn.transaction():
+            conn.execute("UPDATE groups SET closing_on = NULL WHERE code = %s", (args.code,))
+            conn.execute(move_devices, (ends_on, args.code))
+        print(f"{args.code}: goes on until {ends_on.isoformat()}; invites voided when it was closed do not come back")
+        return
+    if args.now:
+        # everyone in the group loses their connection within seconds: the code typed twice is the second look
+        if args.confirm != args.code:
+            sys.exit(f"--now deletes its accounts at once; repeat the group with --confirm {args.code}")
+        day = date.today()
+    else:
+        day = args.until or date.today() + timedelta(days=policy.GROUP_CLOSE_DAYS)
+        if day <= date.today():
+            sys.exit("--until is a later day; --now closes it today")
+    with conn.transaction():
+        conn.execute("UPDATE groups SET closing_on = %s WHERE code = %s", (day, args.code))
+        conn.execute("DELETE FROM invites WHERE group_code = %s", (args.code,))
+        conn.execute(move_devices, (day, args.code))
+    print(f"{args.code}: closes on {day.isoformat()}, unused invites voided; the worker deletes its accounts that day")
+    print(f"when it is gone, delete {args.code}.age from the file of who each code is")
+
+
 def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) -> None:
     """Totals only, for the maintainer: the aliases, device names and states belong to the group's own page."""
     for name in ("accounts", "devices", "quota_gb"):
         value = getattr(args, name, None)
         if value is not None and value <= 0:
             sys.exit(f"--{name.replace('_', '-')} must be above zero")
-    if args.action in ("set", "leader-invite") and not conn.execute(
-        "SELECT 1 FROM groups WHERE code = %s", (args.code,)
-    ).fetchone():
-        sys.exit(f"no group {args.code}")
+    state = None
+    if args.action in ("set", "leader-invite", "close"):
+        state = conn.execute("SELECT closing_on, ends_on FROM groups WHERE code = %s", (args.code,)).fetchone()
+        if state is None:
+            sys.exit(f"no group {args.code}")
+    if args.action == "close":
+        close_group(conn, args, *state)
+        return
+    if state and state[0] and (args.action == "leader-invite" or args.ends_on):
+        sys.exit(f"{args.code} closes on {state[0].isoformat()}: `groups close {args.code} --cancel` first")
     if args.action == "create":
         if not GROUP_CODE.match(args.code):
             sys.exit(f"{args.code}: a code is lowercase letters, digits and dashes, up to 32")
@@ -271,8 +319,8 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
             )
         print(code)
         return
-    for code, account_limit, device_limit, quota, ends_on, members, leaders, devices, used in conn.execute(
-        "SELECT g.code, g.account_limit, g.device_limit, g.monthly_quota_bytes, g.ends_on, "
+    for code, account_limit, device_limit, quota, ends_on, closing_on, members, leaders, devices, used in conn.execute(
+        "SELECT g.code, g.account_limit, g.device_limit, g.monthly_quota_bytes, g.ends_on, g.closing_on, "
         "(SELECT count(*) FROM accounts a WHERE a.group_code = g.code AND a.group_role = 'member'), "
         "(SELECT count(*) FROM accounts a WHERE a.group_code = g.code AND a.group_role = 'leader'), "
         "(SELECT count(*) FROM devices d JOIN accounts a ON a.id = d.account_id "
@@ -282,7 +330,8 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
         "FROM groups g ORDER BY g.ends_on, g.code"
     ):
         left = (ends_on - date.today()).days
-        note = "  ENDED" if left < 0 else f"  ends in {left} days" if left <= GROUP_ENDING_DAYS else ""
+        note = (f"  CLOSING {closing_on.isoformat()}" if closing_on
+                else "  ENDED" if left < 0 else f"  ends in {left} days" if left <= GROUP_ENDING_DAYS else "")
         print(f"{code}  members {members}/{account_limit}  leaders {leaders}  devices {devices} ({device_limit} each)  "
               f"quota {size(quota)}  this month {size(used)}  until {ends_on.isoformat()}{note}")
 

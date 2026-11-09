@@ -225,6 +225,9 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
         <span class="muted strong">{fmt(t["devices.count"], { n: devices.length, max: me.device_limit })}</span>
       </div>
 
+      {me.group?.closing_on && (
+        <p class="card card--warn card--flat" data-testid="group-closing-note">{fmt(t["group.closingMember"], { date: formatDate(locale, me.group.closing_on) })}</p>
+      )}
       {revokedLately(me) && (
         <p class="card card--flat" data-testid="revoked-note">{fmt(t["devices.revokedByLeader"], { date: formatDate(locale, me.group!.device_revoked_on!) })}</p>
       )}
