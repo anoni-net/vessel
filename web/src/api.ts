@@ -124,6 +124,8 @@ export interface NodeConfig {
 export interface Region {
   id: string;
   open: boolean;
+  /** the node has no address left; an older backend does not send it */
+  full?: boolean;
 }
 
 /** A relay route (anoni-net/vessel#136): an entry that forwards to `region`'s node, which stays the exit. */

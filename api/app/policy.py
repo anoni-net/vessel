@@ -1,6 +1,7 @@
 """Service limits shown to users and enforced by the backend (#433)."""
 
 DEVICE_LIMIT = 3
+NODE_PEER_LIMIT = 248       # a node hands out 10.8.1.2 to .249 (node/awgctl, next_ip); a suspended peer keeps its address
 MONTHLY_QUOTA_BYTES = 50 * 10**9
 DEVICE_DAYS = 30            # a device expires this many days after the account's last sign-in
 SESSION_DAYS = 30

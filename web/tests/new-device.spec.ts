@@ -311,3 +311,29 @@ test("a browser that cannot download is told before the config replaces the page
   expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual([expect.stringMatching(/^blob:/)]);
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
 });
+
+test("a full city cannot be picked, and its relay routes neither", async ({ page }) => {
+  await mock(page, {
+    regions: [{ id: "jp", open: true, full: true }, { id: "sg", open: true, full: false }],
+    relays: [{ id: "tw-jp", region: "jp", open: true }, { id: "tw-sg", region: "sg", open: true }],
+  });
+  await page.goto("/devices/new/");
+  await page.getByRole("button", { name: "已經安裝，下一步" }).click();
+  const tokyo = page.getByRole("button", { name: /^東京/ });
+  await expect(tokyo).toBeDisabled();
+  await expect(tokyo).toContainText("額滿");
+  await expect(page.getByRole("button", { name: /新加坡/ }).first()).toBeEnabled();
+  // open cities first, then the full one
+  await expect(page.locator(".choice--city").first()).toContainText("新加坡");
+  const routes = page.getByTestId("relay-routes").getByRole("button");
+  await expect(routes.filter({ hasText: "東京" })).toBeDisabled();
+  await expect(routes.filter({ hasText: "東京" })).toContainText("額滿");
+  await expect(routes.filter({ hasText: "新加坡" })).toBeEnabled();
+});
+
+test("a city that fills up while the device is being set up says so", async ({ page }) => {
+  await mock(page, { createError: "region_full" });
+  await throughToFilter(page);
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByRole("alert")).toHaveText("這個城市目前額滿，請選擇其他城市。");
+});

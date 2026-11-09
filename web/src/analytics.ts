@@ -30,7 +30,7 @@ const PLATFORMS = ["android", "apple", "windows"];
 // error codes the pages already translate; anything else is "other"
 const RESULTS = [
   "ok", "invalid_invite", "full", "redeem_paused", "too_many_attempts", "invalid_number", "signed_out", "network",
-  "missing_header", "unknown", "device_limit", "region_closed", "invalid_name", "invalid_key", "key_in_use",
+  "missing_header", "unknown", "device_limit", "region_closed", "region_full", "invalid_name", "invalid_key", "key_in_use",
   "quota_exceeded", "node_failed", "not_found", "config_gone", "timeout", "invalid_passkey", "passkey_expired",
   "passkey_cancelled", "passkey_unsupported", "other",
 ];
