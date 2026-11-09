@@ -38,14 +38,14 @@ function gateOf(me?: Me | null, devices?: Device[] | null): Gate | undefined {
   return "ok";
 }
 
-type CityState = "open" | "closed" | "planned";
+type CityState = "open" | "full" | "closed" | "planned";
 
-/** Open cities first, then the ones being set up, then the ones still in talks with a host. */
+/** Open cities first, then the full ones, then the ones being set up, then the ones still in talks with a host. */
 function cityChoices(regions: Region[]): { id: string; state: CityState }[] {
-  const rank: Record<CityState, number> = { open: 0, closed: 1, planned: 2 };
+  const rank: Record<CityState, number> = { open: 0, full: 1, closed: 2, planned: 3 };
   const known = new Set(regions.map((r) => r.id));
   return [
-    ...regions.map((r) => ({ id: r.id, state: (r.open ? "open" : "closed") as CityState })),
+    ...regions.map((r) => ({ id: r.id, state: (!r.open ? "closed" : r.full ? "full" : "open") as CityState })),
     ...PLANNED.filter((id) => !known.has(id)).map((id) => ({ id, state: "planned" as CityState })),
   ].sort((a, b) => rank[a.state] - rank[b.state]);
 }
@@ -251,13 +251,14 @@ export function NewDevice() {
             <p class="muted small">{t["pick.relaysBody"]}</p>
             {relays.map((r) => {
               const city = t[`region.${r.region}` as MessageKey] ?? r.region;
+              const full = regions?.some((x) => x.id === r.region && x.full);
               return (
-                <button type="button" class="choice choice--city" data-state="open"
+                <button type="button" class="choice choice--city" data-state={full ? "full" : "open"} disabled={full}
                   onClick={() => { setRegion(r.region); setRelay(r.id); go("name"); }}>
                   {flagOf(r.region) && <img class="flag" src={flagOf(r.region)} alt="" width="32" height="24" />}
                   <span class="choice__text">
                     <span class="strong big">{fmt(t["pick.relayRoute"], { entry: t[relayEntry(r.id)], city })}</span>
-                    <span class="muted small">{fmt(t["pick.relayExit"], { city })}</span>
+                    <span class="muted small">{full ? t["pick.full"] : fmt(t["pick.relayExit"], { city })}</span>
                   </span>
                 </button>
               );

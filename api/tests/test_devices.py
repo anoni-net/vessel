@@ -1,6 +1,6 @@
 from conftest import HEADERS, create, key, make_invite, needs_db
 
-from app import jobs, worker
+from app import jobs, policy, worker
 
 pytestmark = needs_db
 
@@ -69,6 +69,33 @@ def test_limits(signed_in, node, db):
     assert r.status_code == 409 and r.json() == {"error": "device_limit"}
 
 
+def test_full_node_takes_no_more_devices(signed_in, node, db, monkeypatch):
+    monkeypatch.setattr(policy, "NODE_PEER_LIMIT", 2)
+    full = lambda: {r["id"]: r["full"] for r in signed_in.get("/api/regions").json()}["sg"]
+    first = create(signed_in, name="a").json()["id"]
+    assert full() is False and create(signed_in, name="b").status_code == 200
+    assert full() is True
+    r = create(signed_in, name="c")
+    assert r.status_code == 409 and r.json() == {"error": "region_full"}
+    # a closed city still says it is closed
+    assert create(signed_in, name="c", region="jp").json() == {"error": "region_closed"}
+    # the address comes back once the peer is off the node
+    assert signed_in.delete(f"/api/devices/{first}", headers=HEADERS).status_code == 200
+    assert full() is False and create(signed_in, name="c").status_code == 200
+
+
+def test_deleted_account_keeps_its_addresses_until_the_peers_are_gone(signed_in, node, db, monkeypatch):
+    monkeypatch.setattr(policy, "NODE_PEER_LIMIT", 1)
+    create(signed_in, name="a")
+    device_id = db.execute("SELECT id FROM devices").fetchone()[0]
+    # what deleting an account leaves: no row, and a remove job the node has not done yet
+    db.execute("INSERT INTO jobs (region_id, device_id, action) VALUES ('sg', %s, 'remove')", (device_id,))
+    db.execute("DELETE FROM devices")
+    assert create(signed_in, name="b").json() == {"error": "region_full"}
+    worker.tick(db)
+    assert node.peers == {} and create(signed_in, name="b").status_code == 200
+
+
 def test_validation(signed_in, node):
     assert create(signed_in, region="jp").json() == {"error": "region_closed"}
     assert create(signed_in, public_key="nope").json() == {"error": "invalid_key"}
@@ -121,7 +148,9 @@ def test_account_deletion_cleans_the_node(signed_in, node, db):
 
 
 def test_regions_hide_node_hosts(signed_in):
-    assert signed_in.get("/api/regions").json() == [{"id": "jp", "open": False}, {"id": "sg", "open": True}]
+    assert signed_in.get("/api/regions").json() == [
+        {"id": "jp", "open": False, "full": False}, {"id": "sg", "open": True, "full": False},
+    ]
 
 
 def test_devices_made_before_a_move_ask_for_a_new_config(signed_in, node, db):

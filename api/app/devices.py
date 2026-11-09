@@ -40,10 +40,22 @@ def used_bytes(conn, account_id: int) -> int:
     return row[0] if row else 0
 
 
+# The addresses taken on a region's node: every device row, and the peers of deleted accounts, whose rows are gone
+# while their remove jobs are still waiting (the row of a device being removed otherwise goes only after its peer)
+PEERS_ON_NODE = (
+    "(SELECT count(*) FROM devices d WHERE d.region_id = r.id) + "
+    "(SELECT count(*) FROM jobs j WHERE j.region_id = r.id AND j.action = 'remove' AND j.status = 'queued' "
+    "AND NOT EXISTS (SELECT 1 FROM devices d WHERE d.id = j.device_id))"
+)
+
+
 @router.get("/regions")
 def regions(_: Account, conn: Conn) -> list[dict]:
-    # the frontend names regions by id; node hosts and endpoints are not exposed here
-    return [{"id": r[0], "open": r[1]} for r in conn.execute("SELECT id, is_open FROM regions ORDER BY id")]
+    # the frontend names regions by id; node hosts, endpoints and how many peers a node has are not exposed here
+    return [
+        {"id": r[0], "open": r[1], "full": r[2] >= policy.NODE_PEER_LIMIT}
+        for r in conn.execute(f"SELECT r.id, r.is_open, {PEERS_ON_NODE} FROM regions r ORDER BY r.id")
+    ]
 
 
 @router.get("/relays")
@@ -94,7 +106,9 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
     device_id = new_device_id()
     with conn.transaction():
         conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))
-        if not conn.execute("SELECT 1 FROM regions WHERE id = %s AND is_open", (body.region,)).fetchone():
+        # one creation at a time per region, so two at once cannot take the node's last address; NO KEY so the foreign
+        # keys of other writers do not wait for it
+        if not conn.execute("SELECT 1 FROM regions WHERE id = %s AND is_open FOR NO KEY UPDATE", (body.region,)).fetchone():
             raise error(400, "region_closed")
         if body.relay is not None:
             relay = conn.execute("SELECT region_id, is_open FROM relays WHERE id = %s", (body.relay,)).fetchone()
@@ -109,6 +123,9 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
             raise error(409, "device_limit")
         if used_bytes(conn, account_id) >= policy.MONTHLY_QUOTA_BYTES:
             raise error(403, "quota_exceeded")
+        peers = conn.execute(f"SELECT {PEERS_ON_NODE} FROM regions r WHERE r.id = %s", (body.region,)).fetchone()[0]
+        if peers >= policy.NODE_PEER_LIMIT:
+            raise error(409, "region_full")
         if conn.execute("SELECT 1 FROM devices WHERE public_key = %s", (body.public_key,)).fetchone():
             raise error(409, "key_in_use")
         conn.execute(
