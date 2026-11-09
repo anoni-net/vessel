@@ -48,6 +48,53 @@ export interface Me {
   used_bytes: number;
   /** when the worker last read the nodes this account's devices are on; null before the first read */
   usage_as_of: string | null;
+  /** null for a personal account; an older backend does not send it */
+  group?: { role: "leader" | "member"; label: string; device_revoked_on: string | null } | null;
+}
+
+export type GroupIssue = "not_connected" | "suspended" | "new_config" | "blocked_many";
+
+export interface GroupDevice {
+  id: string;
+  name: string;
+  region: string;
+  dns_filter: DnsFilter;
+  status: DeviceStatus;
+  expires_on: string;
+  issues: GroupIssue[];
+}
+
+export interface GroupAccount {
+  label: string;
+  role: "leader" | "member";
+  joined_on: string;
+  devices: GroupDevice[];
+}
+
+export interface GroupInvite {
+  id: number;
+  label: string;
+  created_at: string;
+  expires_at: string;
+  expired: boolean;
+}
+
+export interface Group {
+  code: string;
+  ends_on: string;
+  account_limit: number;
+  device_limit: number;
+  places_left: number;
+  invite_days: number;
+  accounts: GroupAccount[];
+  invites: GroupInvite[];
+}
+
+export interface MadeGroupInvite {
+  id: number;
+  label: string;
+  code: string;
+  expires_at: string;
 }
 
 export type DnsFilter = "none" | "malware" | "ads";
@@ -252,6 +299,14 @@ export const api = {
   /** a new invite; its code comes back this once */
   makeInvite: () => call<{ code: string; id: number; created_at: string; expires_at: string }>("POST", "/invites").then((r) => r.data),
   withdrawInvite: (id: number) => call<Invites>("DELETE", `/invites/${id}`).then((r) => r.data),
+  group: () => call<Group>("GET", "/group").then((r) => r.data),
+  /** one invite per alias; the codes come back this once */
+  makeGroupInvites: (labels: string[]) =>
+    call<{ invites: MadeGroupInvite[]; days: number }>("POST", "/group/invites", { labels }).then((r) => r.data),
+  withdrawGroupInvite: (id: number) => call("DELETE", `/group/invites/${id}`),
+  revokeGroupDevice: (id: string) => call("DELETE", `/group/devices/${id}`),
+  /** deletes the member's account; needs a recent sign-in (pages/reverify.tsx) */
+  removeGroupMember: (label: string) => call("POST", "/group/members/remove", { label }),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** the open relay routes, without their addresses */
   relays: () => call<Relay[]>("GET", "/relays").then((r) => r.data),

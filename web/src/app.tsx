@@ -3,6 +3,7 @@ import { LocaleContext, useCtx } from "./context.ts";
 import { HTML_LANG, LANGUAGE_NAME, LANGUAGE_SHORT, LOCALES, type Locale, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
+import { GroupPage } from "./pages/group.tsx";
 import { Check } from "./pages/check.tsx";
 import { Devices } from "./pages/devices.tsx";
 import { Dns } from "./pages/dns.tsx";
@@ -87,7 +88,7 @@ function LangHint({ locale, path }: { locale: Locale; path: string }) {
 }
 
 // pages that need a session show their own account links instead of "sign in"
-const SIGNED_IN = new Set(["/devices/", "/devices/new/", "/account/"]);
+const SIGNED_IN = new Set(["/devices/", "/devices/new/", "/account/", "/group/"]);
 
 const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/": ["home.title", () => <Home />],
@@ -96,6 +97,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/devices/": ["devices.title", () => <Devices />],
   "/devices/new/": ["new.title", () => <NewDevice />],
   "/account/": ["account.title", () => <Account />],
+  "/group/": ["group.title", () => <GroupPage />],
   "/faq/": ["faq.title", () => <Faq />],
   "/dns/": ["dns.title", () => <Dns />],
   "/dns/lists/": ["lists.title", () => <DnsLists />],

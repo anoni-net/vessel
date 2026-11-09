@@ -15,8 +15,8 @@ import { announce } from "../announce.ts";
 import { passkeysSupported } from "../passkey.ts";
 import { useReverify } from "./reverify.tsx";
 
-/** Links shown on the signed-in pages. */
-export function AccountNav() {
+/** Links shown on the signed-in pages. `leader`: the account leads a group, so its page is among them. */
+export function AccountNav({ leader = false }: { leader?: boolean }) {
   const { t, href } = useCtx();
   const [leaving, setLeaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -43,6 +43,7 @@ export function AccountNav() {
       <nav class="subnav" aria-label={t["nav.account"]}>
         <a href={href("/devices/")}>{t["nav.devices"]}</a>
         <a href={href("/account/")}>{t["nav.account"]}</a>
+        {(leader || last.me?.group?.role === "leader") && <a href={href("/group/")}>{t["nav.group"]}</a>}
         <button class="link-button" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
           {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
         </button>
@@ -112,7 +113,7 @@ export function Account() {
   const day = (iso: string | null | undefined) => (iso ? formatDate(locale, iso) : "-");
   return (
     <section class="wrap narrow stack account-page" aria-busy={loading}>
-      <AccountNav />
+      <AccountNav leader={me?.group?.role === "leader"} />
       <h1>{t["account.title"]}</h1>
       <dl class="facts">
         <dt>{t["account.created"]}</dt>
