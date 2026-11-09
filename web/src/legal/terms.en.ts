@@ -1,13 +1,14 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-04",
+  updated: "2026-11-09",
   blocks: [
     { h: "The service" },
     { p: "Vessel is a free VPN set up by the anoni.net anonymous network community and run by volunteers, made up of the portal (vessel.anoni.net) and nodes in several cities. It is in testing: no network is guaranteed to work, and the service may be interrupted. We may change the allowance, nodes and features, or end the service, and will try to announce changes in advance." },
     { h: "Accounts" },
     { p: "Your account number is your sign-in credential, so keep it safe. A lost number cannot be recovered, and we have no email address to reset it with." },
     { p: "Each invite code creates one account. Invite codes and accounts must not be sold or traded for money. Give the invite codes you make on the account page to people you know, and do not post them publicly." },
+    { p: "For accounts issued by a group, data, device limits and expiry follow the group's settings instead of the figures under \"Limits and expiry\" below, and devices last until the group ends or they are revoked. Leaders can revoke devices or take back accounts, and accounts are deleted when the group ends. Apart from the invites leaders give to members, these accounts cannot create invites." },
     { h: "Prohibited uses" },
     { p: "When using Vessel, do not:" },
     {

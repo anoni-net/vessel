@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-08",
+  updated: "2026-11-09",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -13,6 +13,8 @@ export default {
           ["The account's creation date and the last day it opened the portal (day only)", "Deciding when devices expire", "Until the account is deleted"],
           ["A hash of each invite code and the day it was redeemed (the day only, not the account it created)", "Making sure each code is used once", "Kept for now; the final version will set a limit"],
           ["Invite codes you make on the account page: a hash of each, when it was made and when it expires, and how many people have used yours (a number only)", "Listing your unused codes and counting how many more you can invite", "Once a code is used or expires, which account made it is no longer kept. The number, until the account is deleted"],
+          ["For an account issued by a group: the group's code, the role (leader or member), the alias a leader gave it, and the day a leader last revoked one of its devices (the day only)", "Lets leaders manage the group's places and devices", "Until the account is deleted or the group ends"],
+          ["For a group: its code, places, limits on devices and data, end date and closing date, and the alias, role and expiry of its unused invites", "Manages the group's settings and places", "Until the group ends. Once a group invite is used, it no longer records the alias or the group"],
           ["Each device's name, public key, city, whether it connects through a relay route, tunnel IP address, DNS filter option, expiry date, and whether it has ever connected (yes or no only)", "Letting the node recognize the device and listing it for you", "Until the device is deleted or expires"],
           ["Jobs for the nodes: which device to add, remove, suspend or resume, and when it ran", "Sending changes to the nodes, and trying again while a node cannot be reached", "24 hours after the job finishes; a failed add is kept until its device is deleted"],
           ["The account's monthly traffic total, and how many lookups the scam and malware list and the ads and trackers list each blocked (counts only, no names or days)", "Counting the allowance, and the monthly record on the account page", "The last 12 months, or until the account is deleted"],
@@ -29,7 +31,7 @@ export default {
     {
       ul: [
         "Email addresses, phone numbers or any other contact details",
-        "Who invited whom. Once a code you made is used, nothing in the database links your account to the other person's",
+        "Who invited whom. Once a code you made is used, nothing in the database links your account to the other person's (for accounts issued by a group, see \"Groups\" below)",
         "Device private keys. They are generated in your browser and never sent to our servers",
         "Which sites you visit, or when you connect",
         "Your IP address. Neither the portal nor the API keeps access logs, and the connection check only compares it with the Vessel nodes' addresses at that moment",
@@ -41,6 +43,10 @@ export default {
     { p: "During the test the terms forbid P2P file sharing, but connections are not blocked. To decide whether blocking will be needed, each node counts how many of the first few packets of each connection look like BitTorrent (an unencrypted handshake, a DHT query, a tracker request). Only the node's total is kept: nothing per device, and no record of where connections come from or go." },
     { h: "Relay routes" },
     { p: "A device on a relay route connects to an entry in Taipei first, which forwards the connection as it is to the node, and it reaches the internet in the node's city. The relay does not open the tunnel, so it cannot see where you connect to or what you send. It counts the traffic that passes through and keeps no other record. While you are connected, the relay holds your current IP address in memory, since it needs it to send data back to you; it exists only in memory and is never written to disk. For a connection through a relay, the node sees the relay's address as where it comes from." },
+    { h: "Groups" },
+    { p: "Some accounts are issued by groups such as civil society organizations and newsrooms. In the database these accounts are tied to the group's code. The database does not hold the group's real name. The maintainers keep the link between codes and names encrypted, outside the portal, and delete it after the group ends. If the database leaks or is demanded, it shows which accounts belong to the same group and their aliases, and does not connect them to real identities." },
+    { p: "Leaders can see each account's alias and joining date, and each device's name, city, filter option, expiry, status and whether it needs attention (has not connected, suspended, needs a new configuration, many malicious sites blocked this month). Leaders cannot see your usage or the actual number of blocked lookups, the sites you visit, when you connect, your IP or your account number, or any account you have outside the group. Your account page lists what leaders can see." },
+    { p: "Leaders can revoke devices in the group and take back members' accounts. When a group ends, its accounts, devices and the group itself are deleted together, and copies in backups disappear within 14 days. Only the daily per-city totals listed above remain." },
     { h: "DNS filtering" },
     { p: "When creating a device you can choose to block malicious sites and ads. Filtering happens on the node's resolver, which does not log what it blocks. Blocking malicious sites uses HaGeZi's Threat Intelligence Feeds (mini), together with the scam sites Taiwan's ISPs stop resolving on the requests of Taiwan's National Police Agency (the 165 list) and Taiwan's Ministry of Digital Affairs, the stalkerware domains collected by Echap, a French nonprofit, and the malicious domains published by DNSBunker (CTI), a non-commercial project in Germany, and blocking ads adds HaGeZi Multi PRO. The malicious site lists are updated every 8 hours, DNSBunker's CTI list every 6 hours and the ad list once a day, and all of them are published on [HaGeZi's GitHub](https://github.com/hagezi/dns-blocklists), [Taiwan's open government data platform](https://data.gov.tw/dataset/176455) [Echap's GitHub](https://github.com/AssoEchap/stalkerware-indicators) and [DNSBunker's GitHub](https://github.com/DNSBunker/CTI). The two Taiwanese lists are used under Taiwan's Open Government Data License, version 1, Echap's list under CC BY 4.0, without 2 shared host names, and DNSBunker's CTI list under GPL-2.0-only, with the excluded domains listed on the DNS filtering lists page." },
     { h: "Statistics" },
