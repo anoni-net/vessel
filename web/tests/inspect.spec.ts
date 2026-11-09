@@ -165,6 +165,10 @@ test("a running inspection shows the end date and the results so far, and can be
   await expect(page.getByTestId("inspect-running")).toContainText("自動結束");
   await expect(page.getByTestId("inspect-report")).toBeVisible();
   await expect(page.getByTestId("inspect-download")).toHaveCount(0);
+  // readable at any time, and it says how far behind it is, below the report
+  await expect(page.getByTestId("inspect-delay")).toContainText("延遲 30 分鐘，最久約 1 小時");
+  const [report, delay] = await Promise.all([page.getByTestId("inspect-report").boundingBox(), page.getByTestId("inspect-delay").boundingBox()]);
+  expect(delay!.y).toBeGreaterThan(report!.y + report!.height - 1);
   page.on("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "結束檢測" }).click();
   await expect(page.getByText("正在結束檢測")).toBeVisible();

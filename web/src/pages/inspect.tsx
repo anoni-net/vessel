@@ -303,8 +303,8 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
   return (
     <div class="stack">
       {!partial && <button class="nb-button nb-button--primary" type="button" onClick={download} data-testid="inspect-download">{t["inspect.download"]}</button>}
-      {partial && <p class="muted small">{t["inspect.partial"]}</p>}
       <div ref={area}><ReportView report={report} locale={locale} /></div>
+      {partial && <p class="muted small" data-testid="inspect-delay">{t["inspect.partial"]}</p>}
     </div>
   );
 }
