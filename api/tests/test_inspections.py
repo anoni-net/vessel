@@ -152,7 +152,7 @@ def test_turning_it_off_stops_the_node_and_keeps_a_report_for_seven_days(signed_
     after = read(signed_in, device)
     assert after["status"] == "ended" and device not in node.inspecting
     assert after["report"] == SEALED
-    assert after["report_until"] == (dt.date.today() + dt.timedelta(days=policy.INSPECT_REPORT_DAYS)).isoformat()
+    assert after["report_until"] == (dt.datetime.now(dt.UTC).date() + dt.timedelta(days=policy.INSPECT_REPORT_DAYS)).isoformat()
     # the analysis host keeps nothing once the report is out
     assert analysis.cleared.count(("sg", "10.8.1.2")) == 2
 
