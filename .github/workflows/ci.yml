@@ -59,12 +59,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shell syntax
-        run: for f in node/*.sh node/awgctl node/test/*.sh; do bash -n "$f"; done
+        run: for f in node/*.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh; do bash -n "$f"; done
       - name: shellcheck
-        run: shellcheck -S warning -x node/*.sh node/awgctl node/test/*.sh
+        run: shellcheck -S warning -x node/*.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh
       # block entries only, no shared names
-      - name: update-lists
-        run: bash node/test/update-lists-test.sh
+      - name: blocklists
+        run: bash deploy/rpz/test/lists-test.sh
+      # earlier lists leave later ones lighter and change nothing else; failures keep the previous list
+      - name: build the zones
+        run: bash deploy/rpz/test/build-zones-test.sh
       # concurrent adds, a failed apply tried again, flows of a reused address
       - name: awgctl
         run: bash node/test/awgctl-test.sh

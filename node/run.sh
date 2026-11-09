@@ -18,6 +18,5 @@ docker run -d --name vessel-node --restart unless-stopped --log-driver none \
   -p "$LISTEN_PORT:$LISTEN_PORT/udp" \
   -v $D/conf:/etc/amnezia/amneziawg \
   -v $D/unbound:/etc/unbound/conf.d:ro \
-  -v $D/rpz:/etc/unbound/rpz:ro \
   -v $D/rpz-sub:/var/lib/unbound-rpz \
   vessel-node:latest
