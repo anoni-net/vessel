@@ -15,6 +15,7 @@ PASSKEY_LIMIT = 5           # passkeys per account: a phone, a computer, a secur
 # Adding or removing a passkey and deleting the account need a person who just proved it is them: signing in counts
 # for this long, then they confirm again with a passkey or the account number (app/auth.py, require_recent)
 VERIFY_MINUTES = 10
+GROUP_BLOCKED_ALERT = 100    # malware lookups in a month that mark a group's device for checking (toomore/anoni-net-ws#464)
 
 
 @dataclass(frozen=True)

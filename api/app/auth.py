@@ -270,6 +270,10 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
         (account_id,),
     ).fetchone()[0]
     limits = policy.limits_of(conn, account_id)
+    group = conn.execute(
+        "SELECT group_role, group_label, device_revoked_on FROM accounts WHERE id = %s AND group_code IS NOT NULL",
+        (account_id,),
+    ).fetchone()
     return {
         "created_on": created_on.isoformat(),
         "last_login_on": last_login_on.isoformat() if last_login_on else None,
@@ -277,6 +281,9 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
         "monthly_quota_bytes": limits.monthly_quota_bytes,
         "used_bytes": usage[0] if usage else 0,
         "usage_as_of": as_of.isoformat() if as_of else None,
+        "group": group and {
+            "role": group[0], "label": group[1], "device_revoked_on": group[2].isoformat() if group[2] else None,
+        },
     }
 
 
@@ -308,27 +315,32 @@ def usage_months(account_id: Account, conn: Conn) -> dict:
     return {"filter": ("none", "malware", "ads")[strongest or 0], "months": months}
 
 
+def remove_account(conn: psycopg.Connection, account_id: int) -> None:
+    """Delete an account and queue its peers' removal, inside the caller's transaction."""
+    # waits for a device being created right now, so its add is either queued below or already on the node
+    conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))
+    devices = "SELECT id FROM devices WHERE account_id = %s"
+    # adds still waiting to reach a node are dropped, and configs nobody fetched go with them
+    conn.execute(
+        f"UPDATE jobs SET status = 'done', payload = NULL, result = NULL, done_at = now(), updated_at = now() "
+        f"WHERE device_id IN ({devices}) AND status = 'queued' AND action <> 'remove'",
+        (account_id,),
+    )
+    conn.execute(f"UPDATE jobs SET result = NULL WHERE device_id IN ({devices}) AND result IS NOT NULL",
+                 (account_id,))
+    # the nodes still hold these peers; the worker removes them after the rows are gone. A device already
+    # revoking has its remove job.
+    conn.execute(
+        "INSERT INTO jobs (region_id, device_id, action) "
+        "SELECT region_id, id, 'remove' FROM devices WHERE account_id = %s AND status <> 'revoking'",
+        (account_id,),
+    )
+    conn.execute("DELETE FROM accounts WHERE id = %s", (account_id,))
+
+
 @router.delete("/account", dependencies=[Depends(require_app_header)])
 def delete_account(account_id: Recent, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
-        # waits for a device being created right now, so its add is either queued below or already on the node
-        conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))
-        devices = "SELECT id FROM devices WHERE account_id = %s"
-        # adds still waiting to reach a node are dropped, and configs nobody fetched go with them
-        conn.execute(
-            f"UPDATE jobs SET status = 'done', payload = NULL, result = NULL, done_at = now(), updated_at = now() "
-            f"WHERE device_id IN ({devices}) AND status = 'queued' AND action <> 'remove'",
-            (account_id,),
-        )
-        conn.execute(f"UPDATE jobs SET result = NULL WHERE device_id IN ({devices}) AND result IS NOT NULL",
-                     (account_id,))
-        # the nodes still hold these peers; the worker removes them after the rows are gone. A device already
-        # revoking has its remove job.
-        conn.execute(
-            "INSERT INTO jobs (region_id, device_id, action) "
-            "SELECT region_id, id, 'remove' FROM devices WHERE account_id = %s AND status <> 'revoking'",
-            (account_id,),
-        )
-        conn.execute("DELETE FROM accounts WHERE id = %s", (account_id,))
+        remove_account(conn, account_id)
     clear_session_cookie(request, response)
     return {"ok": True}

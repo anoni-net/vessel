@@ -190,6 +190,20 @@ def device_config(device_id: str, account_id: Account, conn: Conn, response: Res
     raise error(410, "config_gone")
 
 
+def queue_revoke(conn, device_id: str, region_id: str) -> int:
+    """Start taking a device off its node, inside the caller's transaction. Returns the remove job to try."""
+    conn.execute("UPDATE devices SET status = 'revoking' WHERE id = %s", (device_id,))
+    # a pending add that has not reached the node yet is dropped; remove covers it either way. A config nobody
+    # fetched goes too.
+    conn.execute("UPDATE jobs SET status = 'done', payload = NULL WHERE device_id = %s AND status = 'queued'",
+                 (device_id,))
+    conn.execute("UPDATE jobs SET result = NULL WHERE device_id = %s AND result IS NOT NULL", (device_id,))
+    return conn.execute(
+        "INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'remove') RETURNING id",
+        (region_id, device_id),
+    ).fetchone()[0]
+
+
 @router.delete("/devices/{device_id}", dependencies=[Depends(require_app_header)])
 def delete_device(device_id: str, account_id: Account, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
@@ -201,15 +215,6 @@ def delete_device(device_id: str, account_id: Account, conn: Conn) -> dict[str, 
         if row[1] == "revoking":
             # already on its way off the node; its remove job keeps trying
             return {"ok": True}
-        conn.execute("UPDATE devices SET status = 'revoking' WHERE id = %s", (device_id,))
-        # a pending add that has not reached the node yet is dropped; remove covers it either way. A config nobody
-        # fetched goes too.
-        conn.execute("UPDATE jobs SET status = 'done', payload = NULL WHERE device_id = %s AND status = 'queued'",
-                     (device_id,))
-        conn.execute("UPDATE jobs SET result = NULL WHERE device_id = %s AND result IS NOT NULL", (device_id,))
-        job_id = conn.execute(
-            "INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'remove') RETURNING id",
-            (row[0], device_id),
-        ).fetchone()[0]
+        job_id = queue_revoke(conn, device_id, row[0])
     jobs.run_job(conn, job_id)
     return {"ok": True}
