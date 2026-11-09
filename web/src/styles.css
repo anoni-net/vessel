@@ -1,6 +1,9 @@
 /* Blueprint look (toomore/anoni-net-ws#433): one cobalt ink on white paper, thin rules and square corners, IBM Plex
    Mono for the wordmark, labels and figures, the system's sans-serif for Chinese and running text. Orange marks what
    needs the reader's attention and red what went wrong; nothing else adds a colour. */
+/* iOS zooms to the block tapped twice, so text in a card (narrower than the page) jumped while text outside it did not.
+   Pinching to zoom still works. */
+html { touch-action: manipulation; }
 :root {
   --ink: #0b3ca8;
   --text: #17295e;
