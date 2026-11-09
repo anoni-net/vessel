@@ -373,3 +373,9 @@ def test_the_list_says_a_group_is_closing(leader, db, capsys):
     capsys.readouterr()
     admin.main(["groups"])
     assert "CLOSING" in capsys.readouterr().out
+
+
+def test_redeeming_says_whether_the_account_is_in_a_group(leader, db):
+    code = invite(leader, "A1").json()["invites"][0]["code"]
+    assert redeem(browser(), code).json()["group_role"] == "member"
+    assert redeem(browser(), make_invite(db)).json()["group_role"] is None

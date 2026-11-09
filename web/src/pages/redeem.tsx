@@ -20,6 +20,7 @@ export function Redeem() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [number, setNumber] = useState("");
+  const [inGroup, setInGroup] = useState(false);
   const [offer, setOffer] = useState(false);
   const signedIn = useSignedIn();
   // a link from a friend's account page: /redeem/#<code>. The code is after the #, so it never reached the server;
@@ -35,7 +36,7 @@ export function Redeem() {
   // the number is saved; then a passkey, so it never has to be typed again, unless this browser cannot make one
   if (offer) return <PasskeyOffer onDone={toDevices} />;
   if (number) {
-    return <AccountNumber number={number} onContinue={() => (passkeysSupported() ? setOffer(true) : toDevices())} />;
+    return <AccountNumber number={number} inGroup={inGroup} onContinue={() => (passkeysSupported() ? setOffer(true) : toDevices())} />;
   }
 
   const submit = async (e: Event) => {
@@ -44,7 +45,9 @@ export function Redeem() {
     setBusy(true);
     setErr("");
     try {
-      setNumber((await api.redeem(code)).account_number);
+      const redeemed = await api.redeem(code);
+      setInGroup(!!redeemed.group_role);
+      setNumber(redeemed.account_number);
       setSignedIn(true);
       track("redeem", { result: "ok" });
     } catch (x) {
@@ -99,7 +102,7 @@ async function offerToSave(number: string): Promise<void> {
 }
 
 /** The account number, shown once: after redeeming an invite, or after replacing the number with a passkey. */
-export function AccountNumber({ number, rotated = false, onContinue }: { number: string; rotated?: boolean; onContinue: () => void }) {
+export function AccountNumber({ number, rotated = false, inGroup = false, onContinue }: { number: string; rotated?: boolean; inGroup?: boolean; onContinue: () => void }) {
   const { t } = useCtx();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -127,6 +130,7 @@ export function AccountNumber({ number, rotated = false, onContinue }: { number:
   return (
     <section class="wrap narrow stack">
       <h1>{t[rotated ? "passkey.rotate.doneTitle" : "number.title"]}</h1>
+      {inGroup && <p class="card card--flat" data-testid="redeem-group-note">{t["redeem.groupNote"]}</p>}
       <p class="muted">{t[rotated ? "passkey.rotate.doneLead" : "number.lead"]}</p>
       <div class="number-box printable">
         <p class="small strong">{t["number.label"]}</p>

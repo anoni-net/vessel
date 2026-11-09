@@ -150,7 +150,7 @@ def setting(conn: psycopg.Connection, key: str) -> str:
 
 
 @router.post("/redeem", dependencies=[Depends(require_app_header), Depends(limit)])
-def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -> dict[str, str]:
+def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -> dict[str, str | None]:
     code = crypto.normalize_invite_code(body.code)
     if code is None:
         raise error(400, "invalid_invite")
@@ -202,7 +202,7 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
             (invite[0],),
         )
         start_session(conn, request, response, account_id)
-    return {"account_number": crypto.format_account_number(number)}
+    return {"account_number": crypto.format_account_number(number), "group_role": group_role}
 
 
 def keep_alive(conn: psycopg.Connection, account_id: int) -> None:
