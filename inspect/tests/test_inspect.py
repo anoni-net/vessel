@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import struct
 import sys
@@ -125,6 +126,36 @@ class Checks(Base):
         self.run_one(dns=[dns("api.tracker.example")])
         analyze.state_path("n1", "10.8.1.3").unlink()
         self.assertTrue(analyze.report("n1", "10.8.1.3")["empty"])
+
+
+class Seal(Base):
+    def test_only_the_private_key_opens_it(self):
+        from cryptography.exceptions import InvalidTag
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+        def opened(private, box):
+            shared = private.exchange(X25519PublicKey.from_public_bytes(base64.b64decode(box["epk"])))
+            key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"vessel-inspection-report").derive(shared)
+            return AESGCM(key).decrypt(base64.b64decode(box["iv"]), base64.b64decode(box["ct"]), None)
+
+        mine = X25519PrivateKey.generate()
+        public = base64.b64encode(mine.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()
+        box = analyze.seal(b'{"report": 1}', public)
+        self.assertEqual(opened(mine, box), b'{"report": 1}')
+        self.assertNotIn("report", json.dumps(box))
+        with self.assertRaises(InvalidTag):
+            opened(X25519PrivateKey.generate(), box)
+
+
+class Status(Base):
+    def test_status_says_when_the_analysis_last_ran(self):
+        (analyze.HOME / "spool").mkdir()
+        self.assertIsNone(analyze.status()["last_batch"])
+        analyze.batch()
+        self.assertIsNotNone(analyze.status()["last_batch"])
 
 
 class Batch(Base):
