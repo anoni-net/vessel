@@ -12,7 +12,7 @@ export function SkLine({ w = "full", big = false }: { w?: Width; big?: boolean }
 }
 
 /** `size` gives the card the height of the one it stands for, so nothing moves when the data arrives. */
-export function SkCard({ lines, tint = false, size }: { lines: Width[]; tint?: boolean; size?: "usage" | "device" }) {
+export function SkCard({ lines, tint = false, size }: { lines: Width[]; tint?: boolean; size?: "usage" | "device" | "collect" | "handling" }) {
   return (
     <div class={`card card--flat sk-card${tint ? " card--tint" : ""}${size ? ` sk-card--${size}` : ""}`}>
       {lines.map((w, i) => <SkLine w={w} big={i === 0} />)}

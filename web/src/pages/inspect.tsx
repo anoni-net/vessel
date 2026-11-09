@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ApiError, type Inspection, type Me, api } from "../api.ts";
+import { ApiError, type Inspection, type Me, api, last } from "../api.ts";
 import { announce } from "../announce.ts";
 import { useCtx } from "../context.ts";
 import { formatBytes, formatCount, formatDate, formatDay, formatTime } from "../format.ts";
@@ -10,7 +10,7 @@ import { saveFile } from "../save-file.ts";
 import { setSignedIn } from "../session.ts";
 import { qrSvg } from "../wgconfig.ts";
 import { AccountNav } from "./account.tsx";
-import { Busy, Spin } from "./skeleton.tsx";
+import { Busy, SkButton, SkCard, SkLine, Spin } from "./skeleton.tsx";
 
 const WAITING_EVERY = 10_000;
 const RUNNING_EVERY = 5 * 60_000;
@@ -35,8 +35,10 @@ export function Inspect() {
   const { t, href } = useCtx();
   const id = deviceId();
   const [state, setState] = useState<Inspection | null>(null);
-  const [name, setName] = useState("");
-  const [me, setMe] = useState<Me | null>(null);
+  // what this tab already knows from the devices page, so the name is there from the first frame
+  const known = last.devices?.find((x) => x.id === id);
+  const [name, setName] = useState(known?.name ?? "");
+  const [me, setMe] = useState<Me | null>(last.me ?? null);
   const [err, setErr] = useState("");
   const [local, setLocal] = useState<Kept | null>(() => (id ? kept(id) : null));
 
@@ -55,11 +57,12 @@ export function Inspect() {
   };
   useEffect(() => {
     if (!id) return navigate(href("/devices/"), true);
-    void load();
-    void Promise.all([api.me(), api.devices()]).then(([m, d]) => {
-      setMe(m);
-      setName(d.find((x) => x.id === id)?.name ?? "");
-    }).catch(() => undefined);
+    // all at once: a name arriving after the page is drawn would push everything down
+    void Promise.all([api.inspection(id), api.me().catch(() => null), api.devices().catch(() => null)]).then(([s, m, d]) => {
+      if (m) setMe(m);
+      if (d) setName(d.find((x) => x.id === id)?.name ?? "");
+      setState(s);
+    }).catch(fail);
   }, []);
 
   const status = state?.status;
@@ -74,7 +77,16 @@ export function Inspect() {
   }, [status]);
 
   if (err) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
-  if (!state) return <section class="wrap narrow stack" aria-busy="true"><AccountNav /><h1>{t["inspect.title"]}</h1><Busy /></section>;
+  if (!state) {
+    return (
+      <section class="wrap narrow stack inspect-page" aria-busy="true">
+        <AccountNav />
+        <h1>{t["inspect.title"]}</h1>
+        <InspectSkeleton consent={!known?.inspection} />
+        <Busy />
+      </section>
+    );
+  }
 
   const stop = async () => {
     try {
@@ -106,6 +118,24 @@ export function Inspect() {
   );
 }
 
+/** The page while it loads, in the shape of the consent page unless this tab knows the device has an inspection. */
+function InspectSkeleton({ consent }: { consent: boolean }) {
+  return (
+    <div class="stack" aria-hidden="true">
+      <div class="sk-lead"><SkLine w="mid" big /></div>
+      {consent ? (
+        <>
+          <div class="sk-intro stack"><SkLine /><SkLine /><SkLine w="long" /></div>
+          <SkCard size="collect" lines={["mid", "full", "long", "full", "long"]} />
+          <SkCard size="handling" lines={["mid", "full", "long", "full", "long"]} />
+          <SkLine w="long" />
+          <SkButton />
+        </>
+      ) : <SkCard size="device" lines={["mid", "full", "long"]} />}
+    </div>
+  );
+}
+
 function Consent({ state, grouped, id, setKept, reload, fail }: {
   state: Inspection; grouped: boolean; id: string; setKept: (k: Kept) => void; reload: () => Promise<void>; fail: (x: unknown) => void;
 }) {
@@ -126,7 +156,7 @@ function Consent({ state, grouped, id, setKept, reload, fail }: {
       setBusy(false);
     }
   };
-  const items = (["names", "where", "size", "packets"] as const).map((k) => t[`inspect.collect.${k}`]);
+  const items = (["names", "where", "size", "packets", "plain"] as const).map((k) => t[`inspect.collect.${k}`]);
   return (
     <form class="stack" onSubmit={start} data-testid="inspect-consent">
       <p>{fmt(t["inspect.intro"], { days: state.days })}</p>
@@ -243,6 +273,8 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
     openReport<Report>(sealed, local.key).then((r) => { setReport(r); setWrong(false); }).catch(() => setWrong(true));
   }, [state.report, local?.key]);
 
+  // the key is here and the report is being opened: not the moment to ask for a key
+  if (!report && local && !wrong) return <SkCard size="device" lines={["mid", "full", "long"]} />;
   if (!report) {
     return (
       <form class="card card--flat stack" data-testid="inspect-locked" onSubmit={(e) => { e.preventDefault(); if (isKey(typed.trim())) setKept({ key: typed.trim() }); else setWrong(true); }}>

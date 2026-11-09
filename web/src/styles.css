@@ -1007,3 +1007,19 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-table th, .inspect-table td { padding: 3px 6px 3px 0; text-align: start; border-bottom: 1px solid var(--line); }
 .inspect-names { display: grid; gap: 4px; margin-top: 6px; overflow-wrap: anywhere; }
 .spec--figures { grid-template-columns: minmax(0, 1fr) max-content; }
+/* the consent page while it loads (pages/inspect.tsx): each block as tall as the one it stands for */
+.sk-lead { display: flex; align-items: center; height: 34px; }
+.sk-intro { min-height: 109px; }
+.sk-card--collect { min-height: 525px; }
+.sk-card--handling { min-height: 536px; }
+:lang(en) .sk-intro { min-height: 163px; }
+:lang(en) .sk-card--collect { min-height: 756px; }
+:lang(en) .sk-card--handling { min-height: 798px; }
+@media (min-width: 641px) {
+  .sk-intro { min-height: 82px; }
+  .sk-card--collect { min-height: 433px; }
+  .sk-card--handling { min-height: 478px; }
+  :lang(en) .sk-intro { min-height: 109px; }
+  :lang(en) .sk-card--collect { min-height: 593px; }
+  :lang(en) .sk-card--handling { min-height: 573px; }
+}

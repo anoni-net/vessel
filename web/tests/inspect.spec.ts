@@ -49,7 +49,7 @@ test("says what is collected and needs agreement before it starts", async ({ pag
   await expect(form).toContainText("匿名網路社群 anoni.net");
   await expect(form).toContainText("日本東京");
   await expect(form).toContainText("7 天");
-  await expect(form).toContainText("12 個封包");
+  await expect(form).toContainText("不安全");
   await expect(form.getByRole("button", { name: "同意並開始" })).toBeDisabled();
   await page.getByTestId("inspect-agree").check();
   await form.getByRole("button", { name: "同意並開始" }).click();
@@ -61,6 +61,40 @@ test("says what is collected and needs agreement before it starts", async ({ pag
   const key = await page.getByTestId("inspect-key").locator("code").textContent();
   expect(key).toMatch(/^[A-Za-z0-9+\/]{43}=$/);
   expect(JSON.stringify(sent)).not.toContain(key!);
+});
+
+test("the page keeps its shape while it loads, and nothing jumps when the data arrives", async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { shifts: number[] }).shifts = [];
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries() as unknown as { value: number }[]) (window as unknown as { shifts: number[] }).shifts.push(e.value);
+    }).observe({ type: "layout-shift", buffered: true });
+  });
+  await backend(page, { ...BASE, status: "none" });
+  await page.route("**/api/devices/*/inspection", async (route) => {
+    await new Promise((done) => setTimeout(done, 700));
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ...BASE, status: "none" }) });
+  });
+  await goto(page);
+  await expect(page.locator('main [aria-busy="true"]')).toBeVisible();
+  await expect(page.getByTestId("inspect-consent")).toBeVisible();
+  await expect(page.getByText("檢測的裝置：我的手機")).toBeVisible();
+  await page.waitForTimeout(200);
+  const shifts = await page.evaluate(() => (window as unknown as { shifts: number[] }).shifts);
+  expect(Math.max(0, ...shifts)).toBeLessThan(0.05);
+});
+
+test("with the key here, the page never asks for it while the report opens", async ({ page }) => {
+  await page.addInitScript(() => {
+    new MutationObserver(() => {
+      if (document.querySelector('[data-testid="inspect-locked"]')) (window as unknown as { asked: boolean }).asked = true;
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await backend(page, ended);
+  await withKey(page);
+  await goto(page);
+  await expect(page.getByTestId("inspect-report")).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { asked?: boolean }).asked ?? false)).toBe(false);
 });
 
 test("a group's person is told the leaders do not see it", async ({ page }) => {
