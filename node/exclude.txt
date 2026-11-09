@@ -1,4 +1,4 @@
-# Names left out of every blocklist on the nodes (update-lists.sh) and in the portal's lookup. Only the name itself:
+# Names left out of every blocklist on the nodes (deploy/rpz/lists.sh) and in the portal's lookup. Only the name itself:
 # a name under it stays listed, and a listed parent still blocks it. api/app/blocklist_exclude.txt is a copy, a test
 # checks that the two match. Each line says why, so that anyone can check the decision.
 from-ia.com  # a public suffix for dynamic DNS hosts: listing it would block everyone under it

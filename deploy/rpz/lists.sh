@@ -1,28 +1,22 @@
 #!/bin/bash
-# Refresh the RPZ blocklists and reload the resolvers. With no arguments every list; with names, only those.
-# root's crontab runs the malware and the two Taiwanese lists every 8 hours, which is how long HaGeZi says a copy stays fresh
-# ("Expires: 8 hours" in each list), and the ad list once a day at 20:37 UTC (04:37 in Taiwan): the filter
-# resolver stops answering on both its addresses while it loads the ad list, and an ad list a few hours old
-# matters less than a pause in the evening.
-#   malware.rpz  HaGeZi Threat Intelligence Feeds (mini)
-#   tw165.rpz    the scam sites Taiwan's police have ISPs stop resolving (165, data.gov.tw dataset 176455), which
+# Where each blocklist comes from and how it is cleaned, for build-zones.sh, on the maintainers' host. The nodes do not
+# download anything; their unbound subscribes to the zones this produces (node/unbound/rpz-zones.conf.example).
+#   malware      HaGeZi Threat Intelligence Feeds (mini)
+#   tw165        the scam sites Taiwan's police have ISPs stop resolving (165, data.gov.tw dataset 176455), which
 #                HaGeZi barely covers; published as CSV, so it is turned into a zone here
-#   twmoda.rpz   the fake shops MODA has ISPs stop resolving on e-commerce companies' reports (data.gov.tw
+#   twmoda       the fake shops MODA has ISPs stop resolving on e-commerce companies' reports (data.gov.tw
 #                dataset 165027), JSON
-#   stalkerware.rpz  the stalkerware domains Echap collects (github.com/AssoEchap/stalkerware-indicators,
+#   stalkerware  the stalkerware domains Echap collects (github.com/AssoEchap/stalkerware-indicators,
 #                generated/hosts, CC BY 4.0): Quad9 blocks most of them, not the apps' own sites, and a block by the
 #                nodes' list is counted per device where Quad9's is not
-#   cti          the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only).
-#                Not refreshed on the nodes, whose unbound subscribes to the zone (unbound/cti-zone.conf.example):
-#                deploy/rpz/build-cti.sh sources this file and uses cti's entries below
-#   ads.rpz      HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
+#   cti          the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only)
+#   ads          HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
 # The names in exclude.txt are left out of all of them. Every list ends up as block entries only (block_only, zone_from).
-# node/test/update-lists-test.sh sources this file for its functions; run, it updates the lists.
 set -uo pipefail
-D=/opt/vessel-node/rpz
-EXCLUDE=/opt/vessel-node/exclude.txt
+EXCLUDE=${EXCLUDE:-exclude.txt}
 # the ad list is about 12 MB; a download many times that is not a list
 MAX_BYTES=$((64 * 1024 * 1024))
+# shellcheck disable=SC2034  # read by build-zones.sh
 declare -A SRC=(
   [malware]=https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt
   [tw165]=https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/29E8E643-88ED-4952-B21E-BD42A3B7108C/resource/D7839A03-8491-490E-BAF7-2ED2D98C5157/download
@@ -67,8 +61,6 @@ block_only() { # zone file
 fetch() { # url file
   curl -fsSL -m 120 --proto =https --proto-redir =https --max-filesize "$MAX_BYTES" -o "$2" "$1"
 }
-# every list is loaded by the filter resolver (node/unbound/filter.conf), once, tagged with the addresses it serves
-
 # The lists that are not RPZ zones yet, as zones: each domain and its subdomains answer NXDOMAIN.
 #   tw165   the 165 CSV (民國年月, 網域, 網站性質, ...)
 #   twmoda  the MODA JSON (網域名稱, 偽冒網址, ...). Where the domain field and the scam URL's host disagree (a typo
@@ -139,66 +131,3 @@ for name in sorted(n for n in names if not covered(n)):
     print(f"{name} CNAME .\n*.{name} CNAME .")
 PY
 }
-
-main() {
-mkdir -p "$D"
-# one run at a time: cron and a run by hand would otherwise write the same files
-exec 9>"$D/.update.lock"
-flock -n 9 || { echo "$(date -Is) another run is updating the lists" >&2; exit 0; }
-zones=("$@")
-[ ${#zones[@]} -gt 0 ] || zones=(malware tw165 twmoda stalkerware ads)
-for z in "${zones[@]}"; do
-  [ -n "${SRC[$z]:-}" ] || { echo "unknown list: $z (malware, tw165, twmoda, stalkerware, cti, ads)" >&2; exit 2; }
-done
-
-changed=()
-for z in "${zones[@]}"; do
-  tmp=$(mktemp "$D/.$z.XXXXXX")
-  ok=0
-  if [ "$z" = tw165 ] || [ "$z" = twmoda ] || [ "$z" = stalkerware ] || [ "$z" = cti ]; then
-    src=$(mktemp "$D/.$z.src.XXXXXX")
-    fetch "${SRC[$z]}" "$src" && zone_from "$z" "$src" > "$tmp" && ok=1
-    rm -f "$src"
-  else
-    fetch "${SRC[$z]}" "$tmp" && block_only "$tmp" && ok=1
-  fi
-  if [ "$ok" = 1 ] && grep -q ' SOA ' "$tmp" && size_ok "$z" "$tmp"; then
-    if [ -s "$D/$z.rpz" ] && [ "$(entries "$tmp")" = "$(entries "$D/$z.rpz")" ]; then
-      # same domains: keep the file and skip the reload, which stops the resolver answering while the list loads
-      rm -f "$tmp"
-      echo "$(date -Is) $z: unchanged"
-    else
-      chmod 644 "$tmp"; mv "$tmp" "$D/$z.rpz"; changed+=("$z")
-      echo "$(date -Is) $z: $(wc -l < "$D/$z.rpz") lines"
-    fi
-  else
-    rm -f "$tmp"
-    echo "$(date -Is) $z: download failed or an unexpected size, keeping the previous list" >&2
-  fi
-  # never leave a resolver without a zone file
-  if [ ! -s "$D/$z.rpz" ]; then
-    printf '$TTL 3600\n@ SOA localhost. root.localhost. 1 28800 3600 259200 3600\n  NS localhost.\n' > "$D/$z.rpz"
-    chmod 644 "$D/$z.rpz"
-  fi
-done
-# Reload only the changed lists. The filter resolver stops answering, on both its addresses, while it loads a list
-# (tens of seconds for the ad list on a 1 vCPU node); HUP would reload every list. The no-filter resolver has no
-# list and keeps answering.
-if [ ${#changed[@]} -gt 0 ] && docker ps -q -f name=^vessel-node$ | grep -q .; then
-  fallback=0
-  for z in "${changed[@]}"; do
-    if docker exec vessel-node unbound-control -c /etc/unbound/conf.d/filter.conf auth_zone_reload "$z.rpz.vessel" >/dev/null; then
-      echo "$(date -Is) filter: reloaded $z"
-    else
-      fallback=1
-    fi
-  done
-  # a list the running resolver does not have yet (a new zone in filter.conf) needs the configuration read again
-  if [ "$fallback" = 1 ]; then
-    docker exec vessel-node pkill -HUP -x unbound
-    echo "$(date -Is) reloaded every resolver with HUP"
-  fi
-fi
-}
-
-[ "${BASH_SOURCE[0]}" != "$0" ] || main "$@"

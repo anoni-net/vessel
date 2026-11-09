@@ -16,12 +16,35 @@ server:
 remote-control:
   control-enable: yes
   control-interface: /tmp/nsd.ctl
-zone:
-  name: "cti.rpz.vessel"
-  zonefile: "cti.zone"
+pattern:
+  name: "rpz"
   provide-xfr: NODE_TAILSCALE_ADDRESS NOKEY
   store-ixfr: yes
   create-ixfr: yes
   ixfr-number: 5
   # no limit on the size of a change: a change over the default falls back to transferring the whole zone
   ixfr-size: 0
+zone:
+  name: "malware.rpz.vessel"
+  zonefile: "malware.zone"
+  include-pattern: "rpz"
+zone:
+  name: "tw165.rpz.vessel"
+  zonefile: "tw165.zone"
+  include-pattern: "rpz"
+zone:
+  name: "twmoda.rpz.vessel"
+  zonefile: "twmoda.zone"
+  include-pattern: "rpz"
+zone:
+  name: "stalkerware.rpz.vessel"
+  zonefile: "stalkerware.zone"
+  include-pattern: "rpz"
+zone:
+  name: "cti.rpz.vessel"
+  zonefile: "cti.zone"
+  include-pattern: "rpz"
+zone:
+  name: "ads.rpz.vessel"
+  zonefile: "ads.zone"
+  include-pattern: "rpz"

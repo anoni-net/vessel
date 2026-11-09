@@ -10,8 +10,8 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
-| `update-lists.sh` | 根目錄 | 更新 RPZ 名單（165 的 CSV 與數位產業署的 JSON 先轉成 RPZ），網域有變才重新載入 unbound。root 的 cron 每 8 小時更新惡意網站與兩份台灣的名單（UTC 04:37、12:37、20:37），跟 HaGeZi 名單標示的有效期限一致。廣告的名單一天一次，在 UTC 20:37（台灣清晨 04:37），重新載入時有過濾的解析器會暫停約 20 秒，避開晚上的使用高峰。DNSBunker CTI 由維護者的主機產生，節點每 6 小時取得變動的部分，見「DNSBunker CTI」 |
-| `exclude.txt` | 根目錄 | 不該擋的網域與理由，見「排除清單」 |
+| `pull-lists.sh` | 根目錄 | 向維護者的主機取得名單的變動。root 的 cron 在 UTC 04:37、10:37、16:37、22:37 執行，名單由主機在 7 分鐘前產生，見 `deploy/rpz/` |
+| `exclude.txt` | 維護者的主機（`deploy/rpz/`） | 不該擋的網域與理由，見「排除清單」 |
 | `unbound/*.conf` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
@@ -98,11 +98,12 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 名單從上游到解析器經過下面幾步：
 
-1. 下載：root 的 cron 執行 `update-lists.sh`。惡意網站、兩份台灣的名單與跟蹤軟體的名單一天三次（UTC 04:37、12:37、20:37），廣告名單一天一次（UTC 20:37，台灣清晨 04:37）。DNSBunker CTI 由維護者的主機下載，見「DNSBunker CTI」。只接受 HTTPS（轉址也是），單一檔案上限 64 MB，同一時間只有一個執行中
+1. 下載：維護者的主機（`deploy/rpz/build-zones.sh`）每 6 小時（UTC 04:30、10:30、16:30、22:30）下載六份名單，節點不連到上游，上游看到的是維護者主機的 IP。只接受 HTTPS（轉址也是），單一檔案上限 64 MB，同一時間只有一個執行中
 2. 轉換：165 的 CSV、數位產業署的 JSON 與 Echap 的網域清單轉成 RPZ，HaGeZi 的名單本身就是 RPZ。每份名單最後都只剩「擋下」的條目（`名稱 CNAME .` 與它的萬用字元）。RPZ 還能回應自訂的位址、放行某個名稱，或依查詢裝置的位址觸發（`rpz-client-ip`），上游的名單被竄改時可以拿來把使用者導到別的網站，或只針對某一台裝置，所以這些條目與 `$INCLUDE` 一律丟掉並計數。轉換的名單另外不收多個網站共用的名稱（`com.tw`、`github.io` 這類），資料集裡一筆錯誤不會擋掉底下所有網站
 3. 排除：每份名單都拿掉 `exclude.txt` 列的名稱，見「排除清單」
-4. 檢查：下載失敗、內容太短，或 CTI 超過 45 萬個網域時保留上一份，網域沒有變動就不重新載入。`filter.conf` 另外替擋惡意網站的五份名單設定 `rpz-action-override: nxdomain`，即使有別的條目通過上一步，回應也只會是 NXDOMAIN。`node/test/update-lists-test.sh` 測試這一步與上一步
-5. 載入：有過濾的 unbound 只重新載入有變動的名單，再依查詢進來的位址套用，見「一個 unbound 服務兩種過濾」
+4. 檢查：下載失敗、內容太短，或 CTI 超過 45 萬個網域時保留上一份，網域沒有變動就不更新。`rpz-zones.conf` 另外替擋惡意網站的五份名單設定 `rpz-action-override: nxdomain`，即使有別的條目通過上一步，回應也只會是 NXDOMAIN。`deploy/rpz/test/` 測試這一步與上一步
+5. 去重複：後面的名單拿掉前面已經擋下的條目（`deploy/rpz/dedupe.py`）。unbound 依序比對，第一筆符合就結束，後面重複的條目用不到，拿掉不改變任何回應與計數。2026-11-09 用實際名單比對 4,830 筆，兩個解析位址都沒有差異，條目少 8%（幾乎都在廣告名單），記憶體從 1,108 MB 降到 1,017 MB。任何一份會少掉超過六成時保留上一份並告警
+6. 載入：節點的 unbound 透過 Tailscale 只取得變動的部分（IXFR），依查詢進來的位址套用，見「一個 unbound 服務兩種過濾」
 
 入口網站的網域過濾頁（`/dns/`）可以查一個網域在不在名單上。後端（`api/app/blocklists.py`）另外下載同樣的名單放在記憶體裡，每 8 小時更新，排除的網域相同，查詢不經過節點。
 
@@ -144,7 +145,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 台灣的電信業者依《詐欺犯罪危害防制條例》第 42 條，對刑事警察局列管的涉詐網站停止解析，HiNet 的 DNS 對這些網域回封鎖頁的 IP。連上 Vessel 之後查詢改走節點的解析器，少了這層保護，而 HaGeZi 的名單幾乎沒有收這些網域（2026-10-31 比對 8.6 萬個網域，完整的 TIF 只涵蓋 0.2%）。所以兩個有過濾的解析器另外載入這份名單（toomore/anoni-net-ws#446）。
 
 - 來源是警政署在政府資料開放平台公布的[165反詐騙諮詢專線_遭停止解析涉詐網站](https://data.gov.tw/dataset/176455)，政府資料開放授權條款第 1 版，CSV 格式，不定期更新，資料約落後一個月
-- `update-lists.sh` 下載 CSV，取出網域，清掉前面的協定與雜字，格式不對的捨棄，產生 `rpz/tw165.rpz`。每個網域連同子網域回 NXDOMAIN，上層網域也在名單上的網域就不再列出，2026-10-31 的 8.6 萬個網域因此剩 6.5 萬個。清單裡沒有短網址、免費架站平台這類共用的上層網域，只有它們底下的子網域，擋子網域不會波及其他網站
+- 維護者的主機（`deploy/rpz/lists.sh`）下載 CSV，取出網域，清掉前面的協定與雜字，格式不對的捨棄，產生 `tw165` 這份名單。每個網域連同子網域回 NXDOMAIN，上層網域也在名單上的網域就不再列出，2026-10-31 的 8.6 萬個網域因此剩 6.5 萬個。清單裡沒有短網址、免費架站平台這類共用的上層網域，只有它們底下的子網域，擋子網域不會波及其他網站
 - 開 `rpz-signal-nxdomain-ra`，擋下的次數算進詐騙與惡意網站
 - 兩個解析器各多約 80 MB 記憶體（2026-10-31 在 unbound 1.25 實測，去掉重複之前是 110 MB）
 - 名單只照資料集的內容，資料集刪掉的網域，下次更新時就不再擋
@@ -153,7 +154,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 數位發展部數位產業署是 TWNIC DNS RPZ 的可信任通報機構，受理電商通報的一頁式詐騙購物網站，多半冒用台灣的電商與金流業者。清單公布在政府資料開放平台的[數位產業署聲請詐騙網域名稱停止解析網址清單](https://data.gov.tw/dataset/165027)，JSON 格式，2026-11-01 有 1,734 筆，從 2023 年 6 月到 2026 年 10 月。165 的名單只涵蓋其中 11%，HaGeZi 的 TIF 約 1%，沒被涵蓋的網域約 15% 還能解析（toomore/anoni-net-ws#448）。
 
-- `update-lists.sh` 跟 165 的名單用同一段程式轉成 `rpz/twmoda.rpz`，清理、去重複的方式相同，擋網域與子網域
+- 維護者的主機跟 165 的名單用同一段程式轉成 `twmoda` 這份名單，清理、去重複的方式相同，擋網域與子網域
 - 「網域名稱」欄有打錯字的情況，例如詐騙網址是 `laobeibi.shop`，網域欄寫 `aobeibi.shop`。網域欄跟「偽冒網址」的主機一致，或是那個主機的上層網域時才用網域欄，兩者都合法卻不一致時只用網址的主機，避免擋到打錯字的無關網域（2026-11-01 有 3 筆）
 - 伺服器擋下 Python 預設的 User-Agent，入口網站下載時要帶自己的 User-Agent，`curl` 不受影響
 - 開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站，記憶體約 2 MB
@@ -162,7 +163,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 跟蹤軟體（stalkerware）裝在別人的手機上，把位置、訊息與通話送到裝的人那裡，常見於親密關係暴力。法國的 Echap 協會整理這類 App 連線的網域，公布在 [stalkerware-indicators](https://github.com/AssoEchap/stalkerware-indicators)，授權是 CC BY 4.0，使用時要標明出處。
 
-- `update-lists.sh` 下載 `generated/hosts`，跟 165 的名單用同一段程式轉成 `rpz/stalkerware.rpz`，擋網域與子網域。2026-11-08 有 929 個網域，去掉上層網域已經涵蓋的之後剩 639 個
+- 維護者的主機下載 `generated/hosts`，跟 165 的名單用同一段程式轉成 `stalkerware` 這份名單，擋網域與子網域。2026-11-08 有 929 個網域，去掉上層網域已經涵蓋的之後剩 639 個
 - Firebase、S3、CloudFront 上的名稱各自屬於一個 App，擋了不影響同一個平台上的其他服務。Azure App Service 的兩個共用前端（`waws-prod-blu-247`）是其他網站也會指向的名稱，列進排除清單
 - Quad9 也採用 Echap 的名單。2026-11-08 比對還能解析的 520 個網域，Quad9 擋下 484 個，沒擋的 35 個多半是這些 App 的官網，節點的名單補上這些
 - Quad9 擋下的不會算進裝置的擋下次數，節點自己的名單開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站。之後要提醒使用者裝置可能被裝了跟蹤軟體時，需要這份計數
@@ -172,19 +173,19 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 [DNSBunker/CTI](https://github.com/DNSBunker/CTI) 公開確認活躍的惡意網域，包括釣魚、惡意程式散布、詐騙與假店，託管平台只收個別主機名，授權是 GPL-2.0-only。Vessel 原有的名單對託管平台上的釣魚網站涵蓋不足，DNSBunker CTI 收錄了其中許多個別主機名。
 
-- 維護者的主機（`deploy/rpz/`）下載 `domains.txt`，跟 165 的名單用同一段程式清理，產生區域檔，由 NSD 提供。節點的 unbound 透過 Tailscale 訂閱（`unbound/cti-zone.conf`，從 `cti-zone.conf.example` 產生，主伺服器的位址放在 `node.env` 的 `CTI_PRIMARY`）。兩個過濾選項都載入，開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站
+- 維護者的主機（`deploy/rpz/`）下載 `domains.txt`，跟 165 的名單用同一段程式清理，產生區域檔，由 NSD 提供。節點的 unbound 跟其他名單一樣透過 Tailscale 訂閱（`unbound/rpz-zones.conf`，從 `rpz-zones.conf.example` 產生，主伺服器的位址放在 `node.env` 的 `RPZ_PRIMARY`）。兩個過濾選項都載入，開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站
 - 主機在 UTC 04:30、10:30、16:30、22:30 產生名單，節點 7 分鐘後用 `auth_zone_transfer` 取得變動的部分（IXFR）。上游建議每 1 到 6 小時取用，這份名單一小時變動約一千筆。2026-11-08 在東京節點實測，3,336 個網域的變動讓有過濾的解析器暫停約 1.5 秒，查詢沒有失敗，整份重新載入要 12 秒。NOTIFY 被 unbound 拒絕，所以由節點主動取得
 - 主機無法連線時，節點繼續用手上的名單，unbound 把名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送
 - 2026-11-08 用 Alpine 3.24 的 unbound 實測，38 萬個網域約多 485 MB 記憶體，更新時峰值沒有升高。筆數上限是 45 萬個網域，超過就保留上一份，低於 5 萬個網域也一樣
-- 第一次加入時不能用 HUP，HUP 會讓所有名單重新載入，記憶體高峰可能超過容器的上限。把 `filter.conf`、`cti-zone.conf` 複製到節點，再用「轉發給 Quad9」一節的指令只重啟有過濾的 unbound
+- 第一次加入時不能用 HUP，HUP 會讓所有名單重新載入，記憶體高峰可能超過容器的上限。把 `filter.conf`、`rpz-zones.conf` 複製到節點，再用「轉發給 Quad9」一節的指令只重啟有過濾的 unbound
 - 涵蓋率的量測與上游的確認，記錄在維護者的內部研究
 
 ### 排除清單
 
-少數不該擋的網域列在 `exclude.txt`，每一行寫明理由，`update-lists.sh` 產生每份名單時都會拿掉。公開的清單讓任何人都可以檢查這些決定。
+少數不該擋的網域列在 `exclude.txt`，每一行寫明理由，維護者的主機產生每份名單時都會拿掉。公開的清單讓任何人都可以檢查這些決定。
 
 - 只排除那個名稱本身。底下的名稱仍然留在名單上，上層網域在名單上時仍然會擋到它
-- 改了之後複製到節點的 `/opt/vessel-node/exclude.txt`，下一次更新就會生效。網域有變才重新載入，不必重建映像或重啟容器
+- 改了之後複製到維護者主機的 `/srv/vessel-rpz/exclude.txt`，下一次產生名單就會生效，節點接著取得變動的部分，不必重建映像或重啟容器
 - 入口網站的查詢讀 `api/app/blocklist_exclude.txt`，內容要相同，後端的測試會比對
 
 ### 擋下次數
@@ -217,7 +218,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
 
-`update-lists.sh` 換名單時不用 HUP，改用 `unbound-control auth_zone_reload` 只重新載入有變的那份名單，每份名單只載入一次。有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。載入期間 `.253` 與 `.254` 都不回應，但時間大約是 HUP 的一半，不過濾的 `.1` 照常運作。在限制 CPU 的測試裡，擋廣告的名單重新載入約 20 秒，HUP 約 40 秒以上。重新載入失敗時（例如 `filter.conf` 新增了名單，執行中的解析器還沒有這個 zone），腳本退回 HUP。
+名單更新時不用 HUP，節點用 `unbound-control auth_zone_transfer`（`pull-lists.sh`）向主機取得變動的部分，有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。傳送期間 `.253` 與 `.254` 會暫停一下，CTI 3,336 個網域的變動約 1.5 秒，不過濾的 `.1` 照常運作。主機無法連線時，節點繼續用手上的名單，unbound 把收到的名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送。
 
 ## 容器內的防火牆
 

@@ -1,12 +1,12 @@
 #!/bin/bash
-# update-lists.sh's list handling, without downloading: block_only keeps block entries and nothing else, zone_from never
+# lists.sh, without downloading: block_only keeps block entries and nothing else, zone_from never
 # lists a name many sites share. Run by CI (.github/workflows).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-# shellcheck source=../update-lists.sh
-. ./update-lists.sh
+# shellcheck source=../lists.sh
+. ./lists.sh
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 EXCLUDE=$TMP/exclude.txt
@@ -71,4 +71,4 @@ if size_ok cti "$TMP/n"; then fail "a list over the limit was accepted"; fi
 seq 1 2000 > "$TMP/n"
 size_ok malware "$TMP/n" || fail "a list with no upper limit was refused"
 
-echo "update-lists: all checks passed"
+echo "lists: all checks passed"

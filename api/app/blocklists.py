@@ -1,5 +1,5 @@
 """Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists, the two lists of scam sites
-Taiwan's ISPs stop resolving, Echap's stalkerware domains and DNSBunker's CTI list (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
+Taiwan's ISPs stop resolving, Echap's stalkerware domains and DNSBunker's CTI list (deploy/rpz/lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
 can tell a visitor whether a site that will not open was blocked, and which filters block it. The domain asked
 about is only compared in memory and asked of Quad9, which the nodes' filter also forwards to: it is not logged or stored."""
 
@@ -30,7 +30,7 @@ NXDOMAIN = 3
 
 router = APIRouter(prefix="/api")
 
-# the same files node/update-lists.sh downloads. Both filters load every list but the last, and the ads filter the
+# the same files deploy/rpz/lists.sh downloads. Both filters load every list but the last, and the ads filter the
 # ads list too, so a site on any of the others is blocked by both filters, one only on the ads list by the ads filter
 # alone
 SOURCES = {
