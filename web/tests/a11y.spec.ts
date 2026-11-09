@@ -14,7 +14,7 @@ const DEVICES = [
 ];
 
 const GROUP = {
-  code: "g1", ends_on: "2030-01-01", account_limit: 5, device_limit: 3, places_left: 3, invite_days: 7,
+  code: "g1", ends_on: "2030-01-01", closing_on: null, account_limit: 5, device_limit: 3, places_left: 3, invite_days: 7,
   accounts: [
     { label: "A1", role: "member", joined_on: "2026-11-01", devices: [{ id: "d-a", name: "phone", region: "jp", dns_filter: "malware",
       status: "active", expires_on: "2030-01-01", issues: ["new_config"] }] },

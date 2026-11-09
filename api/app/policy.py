@@ -15,6 +15,7 @@ PASSKEY_LIMIT = 5           # passkeys per account: a phone, a computer, a secur
 # Adding or removing a passkey and deleting the account need a person who just proved it is them: signing in counts
 # for this long, then they confirm again with a passkey or the account number (app/auth.py, require_recent)
 VERIFY_MINUTES = 10
+GROUP_CLOSE_DAYS = 30        # how long a closing group goes on, unless the maintainer gives another day
 GROUP_BLOCKED_ALERT = 100    # malware lookups in a month that mark a group's device for checking (toomore/anoni-net-ws#464)
 
 
@@ -29,7 +30,7 @@ def limits_of(conn, account_id: int) -> Limits:
     """What applies to an account: its group's settings (toomore/anoni-net-ws#464), or the values above for a personal
     account. A group's devices last until the group ends, however rarely their people sign in."""
     row = conn.execute(
-        "SELECT coalesce(g.device_limit, %s), coalesce(g.monthly_quota_bytes, %s), coalesce(g.ends_on, current_date + %s) "
+        "SELECT coalesce(g.device_limit, %s), coalesce(g.monthly_quota_bytes, %s), coalesce(g.closing_on, g.ends_on, current_date + %s) "
         "FROM accounts a LEFT JOIN groups g ON g.code = a.group_code WHERE a.id = %s",
         (DEVICE_LIMIT, MONTHLY_QUOTA_BYTES, DEVICE_DAYS, account_id),
     ).fetchone()

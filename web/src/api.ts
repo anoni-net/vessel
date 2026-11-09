@@ -49,7 +49,7 @@ export interface Me {
   /** when the worker last read the nodes this account's devices are on; null before the first read */
   usage_as_of: string | null;
   /** null for a personal account; an older backend does not send it */
-  group?: { role: "leader" | "member"; label: string; device_revoked_on: string | null } | null;
+  group?: { role: "leader" | "member"; label: string; device_revoked_on: string | null; closing_on?: string | null } | null;
 }
 
 export type GroupIssue = "not_connected" | "suspended" | "new_config" | "blocked_many";
@@ -82,6 +82,8 @@ export interface GroupInvite {
 export interface Group {
   code: string;
   ends_on: string;
+  /** the day the group and its accounts are deleted; null while it is not closing */
+  closing_on: string | null;
   account_limit: number;
   device_limit: number;
   places_left: number;

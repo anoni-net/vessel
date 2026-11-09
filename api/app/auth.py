@@ -271,7 +271,8 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
     ).fetchone()[0]
     limits = policy.limits_of(conn, account_id)
     group = conn.execute(
-        "SELECT group_role, group_label, device_revoked_on FROM accounts WHERE id = %s AND group_code IS NOT NULL",
+        "SELECT a.group_role, a.group_label, a.device_revoked_on, g.closing_on FROM accounts a "
+        "JOIN groups g ON g.code = a.group_code WHERE a.id = %s",
         (account_id,),
     ).fetchone()
     return {
@@ -283,6 +284,7 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
         "usage_as_of": as_of.isoformat() if as_of else None,
         "group": group and {
             "role": group[0], "label": group[1], "device_revoked_on": group[2].isoformat() if group[2] else None,
+            "closing_on": group[3].isoformat() if group[3] else None,
         },
     }
 

@@ -19,6 +19,7 @@ export function GroupView({ me }: { me: Me | null }) {
   return (
     <div class="stack account-section" data-testid="group-view">
       <h2>{t["group.view.title"]}</h2>
+      {me.group.closing_on && <p class="strong">{fmt(t["group.closingMember"], { date: day(me.group.closing_on) })}</p>}
       <p>{t["group.view.body"]}</p>
       <div class="card card--flat stack group-account">
         <span>

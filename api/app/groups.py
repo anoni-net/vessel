@@ -90,8 +90,8 @@ def my_view(account_id: Account, conn: Conn) -> dict:
 @router.get("/group")
 def group(account_id: Account, conn: Conn) -> dict:
     code = group_of_leader(conn, account_id)
-    account_limit, device_limit, ends_on = conn.execute(
-        "SELECT account_limit, device_limit, ends_on FROM groups WHERE code = %s", (code,)
+    account_limit, device_limit, ends_on, closing_on = conn.execute(
+        "SELECT account_limit, device_limit, ends_on, closing_on FROM groups WHERE code = %s", (code,)
     ).fetchone()
     by_account = devices_by_account(conn, "a.group_code = %s", code)
     accounts = [
@@ -115,6 +115,7 @@ def group(account_id: Account, conn: Conn) -> dict:
     return {
         "code": code,
         "ends_on": ends_on.isoformat(),
+        "closing_on": closing_on.isoformat() if closing_on else None,
         "account_limit": account_limit,
         "device_limit": device_limit,
         "places_left": max(0, account_limit - members - sum(not i["expired"] for i in invites)),
@@ -134,7 +135,11 @@ def make_invites(body: NewInvites, account_id: Account, conn: Conn) -> dict:
     made = []
     with conn.transaction():
         # one batch at a time per group, so two leaders at once cannot hand out more places than there are
-        limit = conn.execute("SELECT account_limit FROM groups WHERE code = %s FOR NO KEY UPDATE", (code,)).fetchone()[0]
+        limit, closing_on = conn.execute(
+            "SELECT account_limit, closing_on FROM groups WHERE code = %s FOR NO KEY UPDATE", (code,)
+        ).fetchone()
+        if closing_on:
+            raise error(409, "group_closing")
         taken = conn.execute(
             f"SELECT 1 FROM accounts WHERE group_code = %s AND group_label = ANY(%s) UNION ALL "
             f"SELECT 1 FROM invites WHERE group_code = %s AND group_label = ANY(%s) AND {OPEN}",

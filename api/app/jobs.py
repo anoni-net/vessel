@@ -8,7 +8,7 @@ from datetime import UTC, datetime, time
 import psycopg
 from psycopg.types.json import Jsonb
 
-from app import clientconfig
+from app import auth, clientconfig
 from app.nodes import NodeError, get_node
 
 MAX_ATTEMPTS = 10
@@ -164,6 +164,18 @@ def expire_devices(conn: psycopg.Connection) -> int:
                 (region_id,),
             )
     return len(rows)
+
+
+def close_groups(conn: psycopg.Connection) -> int:
+    """On a closing group's last day: its accounts go, their peers leave the nodes through the remove jobs, then the
+    group. Nothing of it stays but the daily totals, which never knew about groups (toomore/anoni-net-ws#464)."""
+    due = conn.execute("SELECT code FROM groups WHERE closing_on <= current_date").fetchall()
+    for (code,) in due:
+        with conn.transaction():
+            for (account_id,) in conn.execute("SELECT id FROM accounts WHERE group_code = %s", (code,)).fetchall():
+                auth.remove_account(conn, account_id)
+            conn.execute("DELETE FROM groups WHERE code = %s", (code,))
+    return len(due)
 
 
 def forget_expired_invites(conn: psycopg.Connection) -> None:

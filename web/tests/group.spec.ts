@@ -6,7 +6,7 @@ const device = (id: string, name: string, issues: string[] = []) => ({
   id, name, region: "jp", dns_filter: "malware", status: "active", expires_on: "2030-01-01", issues,
 });
 const GROUP = {
-  code: "g1", ends_on: "2030-01-01", account_limit: 5, device_limit: 3, places_left: 2, invite_days: 7,
+  code: "g1", ends_on: "2030-01-01", closing_on: null, account_limit: 5, device_limit: 3, places_left: 2, invite_days: 7,
   accounts: [
     { label: "A1", role: "member", joined_on: "2026-11-01", devices: [device("d-1", "手機"), device("d-2", "筆電", ["new_config"])] },
     { label: "A2", role: "member", joined_on: "2026-11-02", devices: [] },
@@ -102,6 +102,8 @@ test("Escape backs out of revoking", async ({ page }) => {
   const sent = await backend(page);
   await page.goto("/group/");
   await page.getByRole("button", { name: "撤銷: A1 的 手機" }).click();
+  // focus is in the dialog once it is modal: a key pressed earlier has nothing to close
+  await expect(page.getByTestId("group-confirm").getByRole("button", { name: "先不要" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("group-confirm")).toHaveCount(0);
   expect(sent).toEqual([]);
@@ -196,4 +198,13 @@ test("the page reads in the other languages", async ({ page }) => {
   await expect(page.getByTestId("group-needs")).toContainText("Needs a new configuration");
   await page.goto("/zh-cn/group/");
   await expect(page.getByRole("heading", { level: 1, name: "管理团体" })).toBeVisible();
+});
+
+test("a closing group says when, and takes no more invites", async ({ page }) => {
+  await backend(page, { group: { closing_on: "2030-02-01" } });
+  await page.goto("/group/");
+  await expect(page.getByTestId("group-closing")).toContainText("都會刪除");
+  await expect(page.getByTestId("group-ending")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "發放邀請碼" })).toHaveCount(0);
+  await expect(page.getByTestId("group-invites")).toContainText("即將結束");
 });
