@@ -158,25 +158,34 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
     with conn.transaction():
         # one redemption at a time, so the account cap holds under concurrent requests
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('vessel-redeem'))")
-        if setting(conn, "redeem_paused") == "true":
-            raise error(503, "redeem_paused")
-        cap = int(setting(conn, "account_cap") or 0)
-        if cap > 0 and conn.execute("SELECT count(*) FROM accounts").fetchone()[0] >= cap:
-            raise error(409, "full")
         invite = conn.execute(
-            "SELECT id, from_account, created_by FROM invites "
+            "SELECT id, from_account, created_by, group_code, group_role, group_label FROM invites "
             "WHERE code_hmac = %s AND redeemed_at IS NULL AND expires_at > now() FOR UPDATE",
             (crypto.keyed_hash(settings.hmac_key, code),),
         ).fetchone()
+        # a group's places are its own (toomore/anoni-net-ws#464): the pause and the cap are about everyone else
+        if invite is None or invite[3] is None:
+            if setting(conn, "redeem_paused") == "true":
+                raise error(503, "redeem_paused")
+            cap = int(setting(conn, "account_cap") or 0)
+            if cap > 0 and conn.execute("SELECT count(*) FROM accounts WHERE group_code IS NULL").fetchone()[0] >= cap:
+                raise error(409, "full")
         if invite is None:
+            raise error(400, "invalid_invite")
+        group_code, group_role, group_label = invite[3:]
+        # checked here, under the lock, because a duplicate alias would look like a taken number to the loop below
+        if group_code and conn.execute(
+            "SELECT 1 FROM accounts WHERE group_code = %s AND group_label = %s", (group_code, group_label)
+        ).fetchone():
             raise error(400, "invalid_invite")
         while True:
             number = crypto.new_account_number()
             try:
                 with conn.transaction():
                     account_id = conn.execute(
-                        "INSERT INTO accounts (number_hash) VALUES (%s) RETURNING id",
-                        (crypto.hash_account_number(number, settings.account_pepper),),
+                        "INSERT INTO accounts (number_hash, group_code, group_role, group_label) "
+                        "VALUES (%s, %s, %s, %s) RETURNING id",
+                        (crypto.hash_account_number(number, settings.account_pepper), group_code, group_role, group_label),
                     ).fetchone()[0]
                 break
             except psycopg.errors.UniqueViolation:
@@ -188,7 +197,9 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
         # codes were used in does not line up with the order the accounts were made (one at a time, the lock above).
         # Whoever handed out a code and kept a note of whom it went to cannot find that person's account by it.
         conn.execute(
-            "UPDATE invites SET redeemed_at = date_trunc('day', now()), created_by = NULL WHERE id = %s", (invite[0],)
+            "UPDATE invites SET redeemed_at = date_trunc('day', now()), created_by = NULL, "
+            "group_code = NULL, group_role = NULL, group_label = NULL WHERE id = %s",
+            (invite[0],),
         )
         start_session(conn, request, response, account_id)
     return {"account_number": crypto.format_account_number(number)}

@@ -20,6 +20,17 @@
                                                                add or change one; the endpoint goes into the
                                                                configs of devices made through it
 
+  python -m app.admin groups [list]                            groups: codes, settings and totals, nothing about
+                                                               their people (toomore/anoni-net-ws#464)
+  python -m app.admin groups create CODE --accounts N --ends-on YYYY-MM-DD [--devices N] [--quota-gb N]
+                                                               --accounts is how many members it can invite;
+                                                               --devices and --quota-gb are per account
+  python -m app.admin groups set CODE [--accounts N] [--devices N] [--quota-gb N] [--ends-on YYYY-MM-DD]
+                                                               a new end date moves its devices' date too
+  python -m app.admin groups leader-invite CODE --label ALIAS [--days D]
+                                                               print a code that makes a leader's account; the same
+                                                               alias again replaces a code not used yet
+
   python -m app.admin notices [list]                           notices on the status page, newest first
   python -m app.admin notices add (REGION|all) KIND [--start ISO] [--minutes N]
                                                                KIND is restart, maintenance or outage; without
@@ -78,6 +89,24 @@ def main(argv: list[str] | None = None) -> None:
     rstate = rls.add_mutually_exclusive_group(required=True)
     rstate.add_argument("--open", dest="is_open", action="store_true")
     rstate.add_argument("--closed", dest="is_open", action="store_false")
+    gr = sub.add_parser("groups").add_subparsers(dest="action")
+    gr.add_parser("list")
+    gc = gr.add_parser("create")
+    gc.add_argument("code")
+    gc.add_argument("--accounts", type=int, required=True)
+    gc.add_argument("--ends-on", type=date.fromisoformat, required=True)
+    gc.add_argument("--devices", type=int, default=policy.DEVICE_LIMIT)
+    gc.add_argument("--quota-gb", type=int, default=policy.MONTHLY_QUOTA_BYTES // 10**9)
+    gs = gr.add_parser("set")
+    gs.add_argument("code")
+    gs.add_argument("--accounts", type=int)
+    gs.add_argument("--ends-on", type=date.fromisoformat)
+    gs.add_argument("--devices", type=int)
+    gs.add_argument("--quota-gb", type=int)
+    gi = gr.add_parser("leader-invite")
+    gi.add_argument("code")
+    gi.add_argument("--label", required=True)
+    gi.add_argument("--days", type=int, default=policy.INVITE_DAYS)
     nt = sub.add_parser("notices").add_subparsers(dest="action")
     nt.add_parser("list")
     na = nt.add_parser("add")
@@ -159,6 +188,8 @@ def main(argv: list[str] | None = None) -> None:
             notices(conn, args)
         elif args.cmd == "relays":
             relays(conn, args)
+        elif args.cmd == "groups":
+            groups(conn, args, settings.hmac_key)
 
 
 ENDPOINT = re.compile(r"^(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9.-]+):([0-9]{1,5})$")
@@ -182,6 +213,78 @@ def relays(conn: psycopg.Connection, args: argparse.Namespace) -> None:
     ):
         devices = one(conn, "SELECT count(*) FROM devices WHERE relay_id = %s AND status <> 'revoking'", (rid,))
         print(f"{rid}  -> {region}  {endpoint}  {'open' if is_open else 'closed'}  {devices} devices")
+
+
+GROUP_CODE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+GROUP_ENDING_DAYS = 30
+
+
+def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) -> None:
+    """Totals only, for the maintainer: the aliases, device names and states belong to the group's own page."""
+    for name in ("accounts", "devices", "quota_gb"):
+        value = getattr(args, name, None)
+        if value is not None and value <= 0:
+            sys.exit(f"--{name.replace('_', '-')} must be above zero")
+    if args.action in ("set", "leader-invite") and not conn.execute(
+        "SELECT 1 FROM groups WHERE code = %s", (args.code,)
+    ).fetchone():
+        sys.exit(f"no group {args.code}")
+    if args.action == "create":
+        if not GROUP_CODE.match(args.code):
+            sys.exit(f"{args.code}: a code is lowercase letters, digits and dashes, up to 32")
+        if conn.execute("SELECT 1 FROM groups WHERE code = %s", (args.code,)).fetchone():
+            sys.exit(f"group {args.code} already exists")
+        conn.execute(
+            "INSERT INTO groups (code, account_limit, device_limit, monthly_quota_bytes, ends_on) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (args.code, args.accounts, args.devices, args.quota_gb * 10**9, args.ends_on),
+        )
+    elif args.action == "set":
+        with conn.transaction():
+            conn.execute(
+                "UPDATE groups SET account_limit = coalesce(%s, account_limit), device_limit = coalesce(%s, device_limit), "
+                "monthly_quota_bytes = coalesce(%s, monthly_quota_bytes), ends_on = coalesce(%s, ends_on) WHERE code = %s",
+                (args.accounts, args.devices, args.quota_gb * 10**9 if args.quota_gb else None, args.ends_on, args.code),
+            )
+            if args.ends_on:
+                conn.execute(
+                    "UPDATE devices SET expires_on = %s WHERE status <> 'revoking' "
+                    "AND account_id IN (SELECT id FROM accounts WHERE group_code = %s)",
+                    (args.ends_on, args.code),
+                )
+    elif args.action == "leader-invite":
+        label = args.label.strip()
+        if not 1 <= len(label) <= 40:
+            sys.exit("--label is 1 to 40 characters")
+        if args.days <= 0:
+            sys.exit("--days must be above zero")
+        if conn.execute("SELECT 1 FROM accounts WHERE group_code = %s AND group_label = %s", (args.code, label)).fetchone():
+            sys.exit(f"{args.code} already has an account called {label}")
+        code = crypto.new_invite_code()
+        with conn.transaction():
+            # the code itself cannot be shown again, so issuing it again replaces the one not used yet
+            conn.execute("DELETE FROM invites WHERE group_code = %s AND group_label = %s", (args.code, label))
+            conn.execute(
+                "INSERT INTO invites (code_hmac, expires_at, group_code, group_role, group_label) "
+                "VALUES (%s, now() + make_interval(days => %s), %s, 'leader', %s)",
+                (crypto.keyed_hash(hmac_key, crypto.normalize_invite_code(code)), args.days, args.code, label),
+            )
+        print(code)
+        return
+    for code, account_limit, device_limit, quota, ends_on, members, leaders, devices, used in conn.execute(
+        "SELECT g.code, g.account_limit, g.device_limit, g.monthly_quota_bytes, g.ends_on, "
+        "(SELECT count(*) FROM accounts a WHERE a.group_code = g.code AND a.group_role = 'member'), "
+        "(SELECT count(*) FROM accounts a WHERE a.group_code = g.code AND a.group_role = 'leader'), "
+        "(SELECT count(*) FROM devices d JOIN accounts a ON a.id = d.account_id "
+        " WHERE a.group_code = g.code AND d.status <> 'revoking'), "
+        "(SELECT coalesce(sum(u.rx_bytes + u.tx_bytes), 0) FROM account_usage u JOIN accounts a ON a.id = u.account_id "
+        f" WHERE a.group_code = g.code AND u.period = {MONTH}) "
+        "FROM groups g ORDER BY g.ends_on, g.code"
+    ):
+        left = (ends_on - date.today()).days
+        note = "  ENDED" if left < 0 else f"  ends in {left} days" if left <= GROUP_ENDING_DAYS else ""
+        print(f"{code}  members {members}/{account_limit}  leaders {leaders}  devices {devices} ({device_limit} each)  "
+              f"quota {size(quota)}  this month {size(used)}  until {ends_on.isoformat()}{note}")
 
 
 def notices(conn: psycopg.Connection, args: argparse.Namespace) -> None:
