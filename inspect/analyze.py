@@ -3,7 +3,8 @@
 
   analyze.py update-lists              download the lists to compare against
   analyze.py batch                     process finished captures; nothing of them stays but the counts below
-  analyze.py report --node N --address A
+  analyze.py report --node N --address A [--seal PUBLIC_KEY]
+  analyze.py status
   analyze.py clear --node N --address A
   analyze.py purge --days D
 
@@ -11,6 +12,7 @@ What is kept for a device: traffic per hour, DNS totals, names that hit a list, 
 visited are not kept: a report that lists them would be a tool for whoever holds someone else's phone (#461)."""
 
 import argparse
+import base64
 import collections
 import datetime as dt
 import json
@@ -234,6 +236,7 @@ def batch():
             print(f"{path.name}: {e}", file=sys.stderr)
             continue
         path.unlink()
+    (HOME / "last-batch").touch()
 
 
 def report(node, address):
@@ -271,6 +274,31 @@ def report(node, address):
         "checks": checks, "findings": findings,
         "nx_names": [{"name": n, "count": c} for n, c in collections.Counter(state["nx_names"]).most_common(50)],
     }
+
+
+def seal(payload: bytes, public_key: str) -> dict:
+    """Encrypt to the X25519 key the person's browser made, so that what the portal stores it cannot read: an ephemeral
+    key, HKDF-SHA256 and AES-256-GCM, which the browser undoes with Web Crypto."""
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    ephemeral = X25519PrivateKey.generate()
+    shared = ephemeral.exchange(X25519PublicKey.from_public_bytes(base64.b64decode(public_key)))
+    key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"vessel-inspection-report").derive(shared)
+    iv = os.urandom(12)
+    raw = ephemeral.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return {"epk": base64.b64encode(raw).decode(), "iv": base64.b64encode(iv).decode(),
+            "ct": base64.b64encode(AESGCM(key).encrypt(iv, payload, None)).decode()}
+
+
+def status():
+    """For the portal's health check: when the analysis last ran, and how full the disk is."""
+    usage = shutil.disk_usage(HOME)
+    stamp = HOME / "last-batch"
+    return {"last_batch": stamp.stat().st_mtime if stamp.exists() else None, "disk_used": usage.used / usage.total,
+            "waiting": sum(1 for _ in (HOME / "spool").glob("*/*.pcap"))}
 
 
 def update_lists():
@@ -311,6 +339,9 @@ def main():
         p = sub.add_parser(name)
         p.add_argument("--node", required=True)
         p.add_argument("--address", required=True)
+        if name == "report":
+            p.add_argument("--seal")
+    sub.add_parser("status")
     sub.add_parser("purge").add_argument("--days", type=int, required=True)
     args = parser.parse_args()
     if args.cmd == "update-lists":
@@ -318,7 +349,10 @@ def main():
     elif args.cmd == "batch":
         batch()
     elif args.cmd == "report":
-        print(json.dumps(report(args.node, args.address), ensure_ascii=False))
+        text = json.dumps(report(args.node, args.address), ensure_ascii=False)
+        print(json.dumps(seal(text.encode(), args.seal)) if args.seal else text)
+    elif args.cmd == "status":
+        print(json.dumps(status()))
     elif args.cmd == "clear":
         state_path(args.node, args.address).unlink(missing_ok=True)
     elif args.cmd == "purge":

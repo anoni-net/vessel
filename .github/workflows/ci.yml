@@ -82,8 +82,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: install
+        run: pip install cryptography
       - name: unit tests
         run: python3 -m unittest discover -s inspect/tests
+      - name: shellcheck
+        run: shellcheck -S warning inspect/inspect-remote
 
   relay:
     runs-on: ubuntu-latest
