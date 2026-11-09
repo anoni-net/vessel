@@ -39,3 +39,9 @@ test("WCAG 1.3.1: on a phone a policy's table stays a table with its column name
   expect(await page.getByRole("columnheader").count()).toBeGreaterThan(0);
   await expect(page.getByRole("cell").first()).toBeAttached();
 });
+
+test("the consent page can link to the device inspection section of the policy", async ({ page }) => {
+  await page.goto("/privacy/#inspection");
+  await expect(page.locator("#inspection")).toHaveText("裝置檢測");
+  await expect(page.locator("#inspection")).toBeInViewport();
+});
