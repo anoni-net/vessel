@@ -15,6 +15,10 @@
 #   awgctl apply                                rebuild awg0.conf and sync it to the running interface
 #   awgctl p2p                                  whole-node counts of BitTorrent-like packets, and of connections refused
 #                                               over the per-device limit, since the container started
+#   awgctl inspect on <name> <until>            copy a device's packets to the inspection stream until <until> (epoch
+#                                               seconds); the node stops by itself at that time (toomore/anoni-net-ws#480)
+#   awgctl inspect off <name>                   stop at once
+#   awgctl inspect status --json                the devices being inspected
 #
 # Layout under /opt/vessel-node:
 #   node.env                  NODE_IP and LISTEN_PORT of this node (not in the repo)
@@ -44,6 +48,84 @@ awg_run() { docker run --rm -i --entrypoint awg $IMG "$@"; }
 valid_name() { [[ $1 =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]] || die "name must match [a-z0-9-], up to 32 chars"; }
 valid_key() { [[ $1 =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]] || die "$2 is not a WireGuard key"; }
 valid_filter() { [ -n "${RESOLVER[$1]:-}" ] || die "filter must be one of: ${!RESOLVER[*]}"; }
+
+# Inspection copies a device's packets to NFLOG group 42 (host/vessel-inspect-stream reads it). The first packets of a
+# connection go whole, a TLS or QUIC hello needs them to show its server name; after that only the start of each
+# packet, so what leaves the node is the headers and not the content. Each rule names the address it is for and
+# carries its own end time, so a node that has lost the portal still stops.
+INSPECT_GROUP=42
+INSPECT_WHOLE=12    # packets of a connection copied whole
+INSPECT_SNAP=128    # bytes copied of the packets after those
+INSPECT_MAX_SECONDS=$(( 8 * 86400 ))
+
+# Remove every inspection rule of a tunnel address. The next device given the address must not be copied, so callers
+# stop when this fails.
+inspect_clear() { # ipv4
+  local rules line
+  rules=$(docker exec $C iptables -t mangle -S) || return 1
+  { grep -E -- "--comment \"?vessel-inspect:${1//./\\.}\"?( |\$)" <<<"$rules" || true; } | sed -E 's/^-A /-D /' |
+    while read -r line; do
+      # iptables -S quotes the comment; passed on as it is, the quotes would be part of it and no rule would match
+      line=${line//\"/}
+      # shellcheck disable=SC2086  # the rule's own words
+      docker exec $C iptables -t mangle $line || exit 1
+    done
+}
+
+# shellcheck disable=SC2086  # $match and $count are lists of words
+inspect_add() { # chain, match words, ipv4, end time
+  local chain=$1 match=$2 mark="vessel-inspect:$3" stop=$4 count="-m connbytes --connbytes-dir both --connbytes-mode packets"
+  docker exec $C iptables -t mangle -A "$chain" $match $count --connbytes 0:$INSPECT_WHOLE \
+    -m comment --comment "$mark" -m time --datestop "$stop" -j NFLOG --nflog-group $INSPECT_GROUP || return 1
+  docker exec $C iptables -t mangle -A "$chain" $match $count --connbytes $(( INSPECT_WHOLE + 1 )): \
+    -m comment --comment "$mark" -m time --datestop "$stop" -j NFLOG --nflog-group $INSPECT_GROUP --nflog-size $INSPECT_SNAP
+}
+
+inspect_on() { # name, until (epoch seconds)
+  local f=$D/peers/$1.conf ip now stop
+  [ -e "$f" ] || f=$D/suspended/$1.conf
+  [ -e "$f" ] || die "$1 not found"
+  [[ ${2:-} =~ ^[0-9]{1,12}$ ]] || die "until is epoch seconds"
+  now=$(date +%s)
+  (( $2 > now && $2 <= now + INSPECT_MAX_SECONDS )) || die "until must be in the future, within $(( INSPECT_MAX_SECONDS / 86400 )) days"
+  ip=$(peer_ip "$f")
+  stop=$(date -u -d "@$2" +%Y-%m-%dT%H:%M:%S)
+  inspect_clear "$ip" || die "could not read or clear the inspection rules"
+  if ! { inspect_add PREROUTING "-i awg0 -s $ip/32" "$ip" "$stop" && inspect_add POSTROUTING "-o awg0 -d $ip/32" "$ip" "$stop"; }; then
+    # never half of it: one direction alone would be a wrong report
+    inspect_clear "$ip" || true
+    die "could not add the inspection rules"
+  fi
+  echo "inspecting $1 until $stop UTC"
+}
+
+inspect_off() { # name
+  local f=$D/peers/$1.conf
+  [ -e "$f" ] || f=$D/suspended/$1.conf
+  [ -e "$f" ] || die "$1 not found"
+  inspect_clear "$(peer_ip "$f")" || die "could not clear the inspection rules"
+  echo "stopped inspecting $1"
+}
+
+inspect_status() {
+  local peers f
+  peers=$(for f in $D/peers/*.conf $D/suspended/*.conf; do
+    if [ -e "$f" ]; then printf '%s\t%s\n' "$(peer_ip "$f")" "$(basename "$f" .conf)"; fi
+  done)
+  docker exec $C iptables -t mangle -S | PEERS="$peers" python3 -c '
+import datetime, json, os, re, sys
+names = dict(line.split("\t") for line in os.environ["PEERS"].splitlines())
+now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+seen = {}
+for line in sys.stdin:
+    m = re.search(r"vessel-inspect:([0-9.]+)", line)
+    stop = re.search(r"--datestop (\S+)", line)
+    if m and stop:
+        seen[m[1]] = stop[1]
+print(json.dumps([{"name": names.get(ip), "address": ip, "until": until, "active": datetime.datetime.fromisoformat(until) > now}
+                  for ip, until in sorted(seen.items())]))
+'
+}
 
 apply() {
   local tmp
@@ -117,6 +199,8 @@ new_peer() { # name filter pubkey psk
   ip=$(next_ip)
   # in case the previous holder's flows were not dropped when it was removed
   forget_flows "$ip"
+  # nor may the previous holder's inspection carry over to whoever gets the address next
+  inspect_clear "$ip" || die "could not clear the inspection rules of $ip"
   umask 077
   printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32, %s/128\n' \
     "$1" "$2" "$3" "$4" "$ip" "$(ip6_of "$ip")" > $D/peers/$1.conf
@@ -137,7 +221,7 @@ peer_table() { # name<TAB>filter<TAB>pubkey for every peer file
 
 cmd=${1:-}; name=${2:-}
 case $cmd in
-  add|add-pubkey|remove|suspend|resume|apply)
+  add|add-pubkey|remove|suspend|resume|apply|inspect)
     # one change at a time: the portal and its worker can call at once, and two changes together could give two
     # peers the same address or sync a config the other is still writing
     exec 9>$D/.awgctl.lock
@@ -242,6 +326,8 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
       [ -e "$f" ] && ip=$(peer_ip "$f")
     done
     found=0; exists "$name" && found=1
+    # before the files go: a try that fails here finds the address again the next time
+    if [ -n "$ip" ]; then inspect_clear "$ip" || die "could not clear the inspection rules of $name"; fi
     rm -f $D/peers/$name.conf $D/clients/$name.conf $D/suspended/$name.conf
     # apply even when the files are already gone: a try that deleted them and then failed to apply left the peer on
     # the interface, and the portal tries again
@@ -286,8 +372,16 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     { docker exec $C iptables -nvxL VESSEL-NEW 2>/dev/null; docker exec $C iptables -nvxL VESSEL-P2P 2>/dev/null; docker exec $C iptables -nvxL VESSEL-LIMIT 2>/dev/null || true; } |
       awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
     ;;
+  inspect)
+    case $name in
+      on) valid_name "${3:-}"; inspect_on "$3" "${4:-}" ;;
+      off) valid_name "${3:-}"; inspect_off "$3" ;;
+      status) inspect_status ;;
+      *) die "inspect on <name> <until> | off <name> | status --json" ;;
+    esac
+    ;;
   *)
-    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
