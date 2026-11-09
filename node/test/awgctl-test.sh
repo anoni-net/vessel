@@ -114,4 +114,15 @@ awgctl add-pubkey i-3 "$(key)" "$(key)" none > /dev/null 2>&1 && fail "add passe
 rm "$TMP/ipt-fail"
 [ ! -e "$N/peers/i-3.conf" ] || fail "a failed add left a peer"
 
+# confirmations: what the page wrote, read once, and gone after an ack
+[ "$(awgctl inspect confirms --json)" = "[]" ] || fail "confirms with nothing written"
+mkdir -p "$N/inspect-confirm"; echo -n 10.8.1.7 > "$N/inspect-confirm/ABCDEFGH23456789"; touch "$N/inspect-confirm/.tmpx"
+awgctl inspect confirms --json | python3 -c 'import json,sys; assert json.load(sys.stdin)==[{"code":"ABCDEFGH23456789","address":"10.8.1.7"}]' || fail "confirms"
+awgctl inspect ack "../../etc" 2> /dev/null && fail "ack took a path"
+awgctl inspect ack ABCDEFGH23456789
+[ ! -e "$N/inspect-confirm/ABCDEFGH23456789" ] || fail "ack did not forget the code"
+touch -d "2 hours ago" "$N/inspect-confirm/OLDOLDOLDOLD2345"
+awgctl inspect confirms --json > /dev/null
+[ ! -e "$N/inspect-confirm/OLDOLDOLDOLD2345" ] || fail "an old confirmation stayed"
+
 echo "awgctl: all checks passed"

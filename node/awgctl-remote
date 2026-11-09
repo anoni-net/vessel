@@ -11,6 +11,8 @@
 #   inspect on <id> <until>
 #   inspect off <id>
 #   inspect status --json
+#   inspect confirms --json
+#   inspect ack <code>
 #
 # authorized_keys on the node:
 #   command="/usr/local/sbin/awgctl-remote",restrict,from="<portal host's tailnet IP>" ssh-ed25519 AAAA... vessel-portal
@@ -27,7 +29,9 @@ case "${a[0]:-}:${#a[@]}" in
   reach:2)      [ "${a[1]}" = --json ] && exec cat /opt/vessel-node/reach.json ;;
   inspect:4)    [ "${a[1]}" = on ] && exec /usr/local/sbin/awgctl inspect on "${a[2]}" "${a[3]}" ;;
   inspect:3)    [ "${a[1]}" = off ] && exec /usr/local/sbin/awgctl inspect off "${a[2]}"
-                [ "${a[1]} ${a[2]}" = "status --json" ] && exec /usr/local/sbin/awgctl inspect status --json ;;
+                [ "${a[1]} ${a[2]}" = "status --json" ] && exec /usr/local/sbin/awgctl inspect status --json
+                [ "${a[1]} ${a[2]}" = "confirms --json" ] && exec /usr/local/sbin/awgctl inspect confirms --json
+                [ "${a[1]}" = ack ] && exec /usr/local/sbin/awgctl inspect ack "${a[2]}" ;;
 esac
 echo "awgctl-remote: command not allowed" >&2
 exit 2

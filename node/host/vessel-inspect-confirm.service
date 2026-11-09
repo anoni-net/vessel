@@ -1,0 +1,14 @@
+[Unit]
+Description=Vessel inspection: the confirmation page, reachable only inside the tunnel
+After=docker.service
+Requires=docker.service
+
+[Service]
+ExecStart=/opt/vessel-node/host/vessel-inspect-confirm.sh
+# the container was recreated: bind again in the new namespace
+Restart=on-failure
+RestartSec=15
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target
