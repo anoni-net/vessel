@@ -218,7 +218,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
 
-名單更新時不用 HUP，節點用 `unbound-control auth_zone_transfer`（`pull-lists.sh`）向主機取得變動的部分，有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。傳送期間 `.253` 與 `.254` 會暫停一下，CTI 3,336 個網域的變動約 1.5 秒，不過濾的 `.1` 照常運作。主機無法連線時，節點繼續用手上的名單，unbound 把收到的名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送。
+名單更新時不用 HUP。`pull-lists.sh` 先比對序號，主機比較新的名單才用 `unbound-control auth_zone_transfer` 取得變動的部分，這個指令會略過序號檢查，沒有變動的名單也照樣傳送，六份一起約中斷 10 秒。有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。傳送期間 `.253` 與 `.254` 會暫停一下，2026-11-09 在東京實測，廣告名單增減 2,500 個網域約 0.5 秒，CTI 的一般變動約 1.8 秒，不過濾的 `.1` 照常運作。主機無法連線時，節點繼續用手上的名單，unbound 把收到的名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送。
 
 ## 容器內的防火牆
 
