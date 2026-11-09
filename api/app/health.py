@@ -40,6 +40,10 @@ def internal_health(conn: Conn) -> dict:
         "analysis_age": ages.get("analysis") if conn.execute(
             "SELECT 1 FROM device_inspections WHERE status = 'active' LIMIT 1"
         ).fetchone() else None,
+        # seconds since each node with a device under inspection was last seen connected to the analysis host
+        "stream_age": {r[0]: ages.get(f"stream:{r[0]}") for r in conn.execute(
+            "SELECT DISTINCT d.region_id FROM device_inspections i JOIN devices d ON d.id = i.device_id WHERE i.status = 'active'"
+        ).fetchall()},
         # seconds since each node last checked the common sites; a node that never did is left out
         "reach_age": reach_age,
         # the sites a node cannot open while another node can, as the status page lists them

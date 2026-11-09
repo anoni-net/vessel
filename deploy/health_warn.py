@@ -41,6 +41,7 @@ WORKER_STALE = 5 * 60
 USAGE_STALE = 20 * 60
 # the nodes check common sites every hour (node/host/vessel-reach.py); three hours without a check means the timer stopped
 REACH_STALE = 3 * 3600
+STREAM_STALE = 900  # 秒，worker 每 5 分鐘確認一次，節點斷線後 15 秒內會重連
 
 
 def evaluate(data: dict) -> tuple[str, list[str]]:
@@ -62,6 +63,10 @@ def evaluate(data: dict) -> tuple[str, list[str]]:
     if analysis is not None and analysis > 1800:
         problems.append("analysis")
         lines.append(f"- 分析主機超過 {analysis // 60} 分鐘沒有回應，檢測中的裝置這段時間沒有資料")
+    for region, age in sorted(data.get("stream_age", {}).items()):
+        if age is None or age > STREAM_STALE:
+            problems.append(f"stream:{region}")
+            lines.append(f"- {region} 節點的檢測串流沒有連上分析主機" + ("" if age is None else f"，已經 {age // 60} 分鐘") + "，檢測中的裝置這段時間沒有資料")
     if data.get("stuck_jobs"):
         problems.append("jobs")
         lines.append(f"- 有 {data['stuck_jobs']} 個節點工作排隊超過 15 分鐘")
