@@ -2,13 +2,16 @@
 """Receive the inspection streams from the nodes (node/host/vessel-inspect-stream.sh) into spool files for analyze.py.
 
 Each connection starts with a line naming the node, then a pcap stream. Files are cut on packet boundaries, every
-ROTATE_SECONDS or ROTATE_BYTES, and only appear under their final name when complete."""
+ROTATE_SECONDS or ROTATE_BYTES, and only appear under their final name when complete. The time is watched apart from
+the packets, so a device that goes quiet does not leave its last packets waiting on disk. SIGUSR1 cuts every file now,
+for the portal when an inspection ends."""
 
 import asyncio
 import datetime as dt
 import os
 import re
 import shutil
+import signal
 import struct
 import sys
 import time
@@ -20,7 +23,9 @@ ROTATE_BYTES = 64 * 10**6
 MAX_PACKET = 262144
 DISK_LIMIT = 0.9
 NAME = re.compile(rb"^vessel-inspect ([a-zA-Z0-9][a-zA-Z0-9_.-]{0,62})\n$")
+CHECK_EVERY = 10
 serial = 0
+spools = set()
 
 
 class Spool:
@@ -56,6 +61,23 @@ class Spool:
             os.replace(self.part, self.path)
 
 
+def cut_old():
+    for spool in spools:
+        if spool.file is not None and time.monotonic() - spool.started >= ROTATE_SECONDS:
+            spool.close()
+
+
+def cut_all():
+    for spool in spools:
+        spool.close()
+
+
+async def keep_cutting():
+    while True:
+        await asyncio.sleep(CHECK_EVERY)
+        cut_old()
+
+
 def disk_full() -> bool:
     usage = shutil.disk_usage(HOME)
     return usage.used / usage.total >= DISK_LIMIT
@@ -68,6 +90,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         if match is None:
             return
         spool = Spool(match[1].decode(), await reader.readexactly(24))
+        spools.add(spool)
         while True:
             head = await reader.readexactly(16)
             length = struct.unpack("<I", head[8:12])[0]
@@ -78,6 +101,7 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         pass
     finally:
         if spool is not None:
+            spools.discard(spool)
             spool.close()
         writer.close()
 
@@ -87,8 +111,11 @@ async def main():
     if not host:
         sys.exit("set VESSEL_INSPECT_LISTEN to <tailnet IP>:<port>")
     (HOME / "spool").mkdir(parents=True, exist_ok=True, mode=0o700)
+    asyncio.get_running_loop().add_signal_handler(signal.SIGUSR1, cut_all)
+    cutting = asyncio.create_task(keep_cutting())  # kept: the loop holds only a weak reference to a task
     async with await asyncio.start_server(handle, host, int(port)) as server:
         await server.serve_forever()
+    cutting.cancel()
 
 
 if __name__ == "__main__":

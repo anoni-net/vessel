@@ -3,6 +3,7 @@
 #
 #   report <node> <address> <public key>   the device's results, encrypted to that key
 #   clear <node> <address>
+#   flush                                  close what has been received, so the next analysis includes it
 #   status
 set -euo pipefail
 set -a
@@ -16,6 +17,7 @@ case "${a[0]:-}:${#a[@]}" in
   report:4) [[ ${a[1]} =~ $node && ${a[2]} =~ $address && ${a[3]} =~ $key ]] && exec "${A[@]}" report --node "${a[1]}" --address "${a[2]}" --seal "${a[3]}" ;;
   clear:3)  [[ ${a[1]} =~ $node && ${a[2]} =~ $address ]] && exec "${A[@]}" clear --node "${a[1]}" --address "${a[2]}" ;;
   status:1) exec "${A[@]}" status ;;
+  flush:1)  exec /usr/bin/systemctl kill -s SIGUSR1 --kill-who=main vessel-inspect-recv.service ;;
 esac
 echo "inspect-remote: command not allowed" >&2
 exit 2

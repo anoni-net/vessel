@@ -325,7 +325,7 @@ def purge(days):
         if path.stat().st_mtime < limit:
             path.unlink()
     # a capture that could not be analysed does not stay around for long
-    for path in (HOME / "spool").glob("*/*.pcap"):
+    for path in (HOME / "spool").glob("*/*"):
         if path.stat().st_mtime < time.time() - 86400:
             path.unlink()
 

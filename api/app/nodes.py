@@ -30,6 +30,7 @@ class Analysis(Protocol):
     def report(self, node: str, address: str, public_key: str) -> dict: ...
     def clear(self, node: str, address: str) -> None: ...
     def status(self) -> dict: ...
+    def flush(self) -> None: ...
 
 
 class SSHNode:
@@ -131,6 +132,9 @@ class SSHAnalysis:
 
     def status(self):
         return self._json("status")
+
+    def flush(self):
+        self.ssh._run(self.host, "flush")
 
 
 _node: Node | None = None

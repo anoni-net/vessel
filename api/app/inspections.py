@@ -23,6 +23,8 @@ PUBLIC_KEY = re.compile(r"^[A-Za-z0-9+/]{43}=$")
 ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 RUNNING = ("confirming", "active", "ending")
 REFRESH_MINUTES = 30
+SETTLE_SECONDS = 5  # for packets already on their way when the node stopped copying
+DRAIN_MINUTES = 20  # the longest a report waits for the analysis
 
 
 class NewInspection(BaseModel):
@@ -135,24 +137,38 @@ def poll_confirms(conn, analysis) -> None:
 
 
 def finish(conn, analysis) -> None:
+    """One step per tick. The node stops copying; a few seconds later, for what was on its way, the analysis host closes
+    what it has received; once that has been analysed the report is sealed and the results cleared. Clearing any sooner
+    would leave the last packets out of the report, and the next analysis would bring their results back."""
     node = get_node()
-    for device_id, region, host, address, key in conn.execute(
-        "SELECT d.id, r.id, r.node_host, d.tunnel_address, i.public_key FROM device_inspections i "
-        "JOIN devices d ON d.id = i.device_id JOIN regions r ON r.id = d.region_id "
-        "WHERE i.status = 'ending' OR (i.status = 'active' AND i.ends_at <= now())"
+    for device_id, region, host, address, key, stopped, settled, flushed, overdue in conn.execute(
+        "SELECT d.id, r.id, r.node_host, d.tunnel_address, i.public_key, i.stopped_at IS NOT NULL, "
+        "i.stopped_at < now() - make_interval(secs => %s), i.flushed_at IS NOT NULL, "
+        "i.flushed_at < now() - make_interval(mins => %s) "
+        "FROM device_inspections i JOIN devices d ON d.id = i.device_id JOIN regions r ON r.id = d.region_id "
+        "WHERE i.status = 'ending' OR (i.status = 'active' AND i.ends_at <= now())",
+        (SETTLE_SECONDS, DRAIN_MINUTES),
     ).fetchall():
         address = str(address)
         try:
-            node.inspect_off(host, device_id)
-            report = analysis.report(region, address, key)
-            analysis.clear(region, address)
+            if not stopped:
+                node.inspect_off(host, device_id)
+                conn.execute("UPDATE device_inspections SET status = 'ending', stopped_at = now() WHERE device_id = %s", (device_id,))
+            elif not flushed:
+                if settled:
+                    analysis.flush()
+                    conn.execute("UPDATE device_inspections SET flushed_at = now() WHERE device_id = %s", (device_id,))
+            # a capture that cannot be analysed stays for a day: it does not hold the report back past the limit
+            elif overdue or not analysis.status()["waiting"]:
+                report = analysis.report(region, address, key)
+                analysis.clear(region, address)
+                conn.execute(
+                    "UPDATE device_inspections SET status = 'ended', report = %s, report_until = current_date + %s WHERE device_id = %s",
+                    (Jsonb(report), policy.INSPECT_REPORT_DAYS, device_id),
+                )
         except NodeError:
-            # the node's own end time has stopped it either way; try again for the report
+            # the node's own end time has stopped it either way; the next tick tries this step again
             continue
-        conn.execute(
-            "UPDATE device_inspections SET status = 'ended', report = %s, report_until = current_date + %s WHERE device_id = %s",
-            (Jsonb(report), policy.INSPECT_REPORT_DAYS, device_id),
-        )
 
 
 def refresh(conn, analysis) -> None:
