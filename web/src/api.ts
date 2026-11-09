@@ -253,7 +253,7 @@ export interface NewDevice {
 }
 
 export const api = {
-  redeem: (code: string) => call<{ account_number: string }>("POST", "/redeem", { code }).then((r) => r.data),
+  redeem: (code: string) => call<{ account_number: string; group_role?: string | null }>("POST", "/redeem", { code }).then((r) => r.data),
   login: (accountNumber: string) => call("POST", "/login", { account_number: accountNumber }),
   logout: () => call("POST", "/logout"),
   me: () =>

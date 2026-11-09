@@ -86,6 +86,7 @@
   "redeem.label": "邀請碼",
   "redeem.hint": "格式像 ABCD-EFGH-JKMN-PQRS，大小寫都可以，輸入時會自動分組。",
   "redeem.submit": "兌換",
+  "redeem.groupNote": "這個帳號屬於你的團體。負責人看得到帳號的代稱、裝置的名稱、城市、過濾選項與狀態，看不到你連往的網站、連線時間、IP、流量與帳號號碼。帳號頁隨時列出負責人看到的內容。",
   "redeem.read.before": "兌換之前，請先讀過",
   "redeem.read.and": "與",
   "redeem.read.after": "。",

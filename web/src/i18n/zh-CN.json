@@ -86,6 +86,7 @@
   "redeem.label": "邀请码",
   "redeem.hint": "格式像 ABCD-EFGH-JKMN-PQRS，大小写都可以，输入时会自动分组。",
   "redeem.submit": "兑换",
+  "redeem.groupNote": "这个账号属于你的团体。负责人看得到账号的代称、设备的名称、城市、过滤选项与状态，看不到你访问的网站、连接时间、IP、流量与账号号码。账号页随时列出负责人看到的内容。",
   "redeem.read.before": "兑换之前，请先读过",
   "redeem.read.and": "与",
   "redeem.read.after": "。",

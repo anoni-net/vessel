@@ -86,6 +86,7 @@
   "redeem.label": "Invite code",
   "redeem.hint": "Looks like ABCD-EFGH-JKMN-PQRS, in either case. The groups appear as you type.",
   "redeem.submit": "Redeem",
+  "redeem.groupNote": "This account belongs to your group. Its leaders can see the account's alias and each device's name, city, filter option and status. They cannot see the sites you visit, when you connect, your IP, your usage or your account number. Your account page always lists what leaders can see.",
   "redeem.read.before": "Before redeeming, please read the ",
   "redeem.read.and": " and the ",
   "redeem.read.after": ".",

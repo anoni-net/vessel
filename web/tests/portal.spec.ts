@@ -107,6 +107,23 @@ test("redeem shows the number once and gates continue", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "我的裝置" })).toBeVisible();
 });
 
+test("redeeming a group's invite says what its leaders can see", async ({ page }) => {
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018", group_role: "member" }), ...signedIn });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("ABCD-EFGH-JKMN-PQRS");
+  await page.getByRole("button", { name: "兌換" }).click();
+  await expect(page.getByTestId("redeem-group-note")).toContainText("負責人看得到");
+});
+
+test("redeeming a personal invite says nothing about groups", async ({ page }) => {
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018", group_role: null }), ...signedIn });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("ABCD-EFGH-JKMN-PQRS");
+  await page.getByRole("button", { name: "兌換" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByTestId("redeem-group-note")).toHaveCount(0);
+});
+
 test("redeem errors are translated", async ({ page }) => {
   await mockApi(page, { "POST /api/redeem": json({ error: "invalid_invite" }, 400) });
   await page.goto("/en/redeem/");
