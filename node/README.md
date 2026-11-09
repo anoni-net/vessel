@@ -14,6 +14,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `exclude.txt` | 維護者的主機（`deploy/rpz/`） | 不該擋的網域與理由，見「排除清單」 |
 | `unbound/*.conf` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
+| `host/vessel-inspect.conf` | `/etc/modules-load.d/` | 裝置檢測需要的核心模組，見「裝置檢測」 |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
 | `host/cve-2026-98432-ipopt`、`host/cve-2026-98432-ipopt.service` | 腳本放 `/usr/local/sbin/`，服務放 `/etc/systemd/system/` | 核心修正之前丟棄帶 IPv4 選項的 TCP SYN，見「安裝」 |
@@ -74,6 +75,9 @@ awgctl suspend <名稱>                         # 額度用完：peer 下線，�
 awgctl resume <名稱>                          # 恢復暫停的 peer
 awgctl show <名稱>
 awgctl remove <名稱>
+awgctl inspect on <名稱> <結束時間的 epoch 秒數>  # 開始檢測，最長 8 天
+awgctl inspect off <名稱>                     # 立刻停止
+awgctl inspect status --json                  # 檢測中的裝置
 ```
 
 增刪使用者用 `awg syncconf` 套到執行中的介面，不會中斷其他人。會改變設定的指令一次只執行一個（`flock`），入口網站與 worker 同時呼叫時不會配出重複的位址。隧道位址從 `.2` 配到 `.249`，`.250` 到 `.254` 保留給節點自己。位址回收給下一台裝置之前，先清掉核心裡這個位址的連線追蹤（`conntrack`），已建立的 TCP 連線預設保留 5 天，不清的話前一台裝置的回應封包會送到新的裝置。2026-11 之前建置的映像沒有 `conntrack`，會略過這一步，重建映像並執行 `run.sh` 之後生效。每個使用者另外有一個私有的 IPv6 位址（ULA，`fd60:f74e:973c::/64`），結尾的數字跟 IPv4 位址相同，用途見下方防火牆的 IPv6 那一條。
@@ -234,6 +238,21 @@ VPN 使用者只能上網：
 - 帶 IPv4 選項（Record Route、Timestamp）的 TCP SYN 一律丟棄。這類 SYN 能觸發核心處理 TCP 握手時的釋放後使用漏洞（CVE-2026-98432），使用者連得到解析器的 TCP 53 埠，而正常的連線不會帶這些選項。所有節點換上修正的核心之後就可以拿掉
 - P2P 只計數、不擋：每條連線最前面 4 個封包裡，符合 BitTorrent 特徵（沒有加密的握手、DHT 查詢、UDP 與 HTTP tracker 的請求）的封包數，記在 `VESSEL-P2P`，另外 `VESSEL-NEW` 記新連線的總數當作對照。都是整個節點的總數，不分裝置，容器重啟時歸零，用 `awgctl p2p` 讀。加密的握手看不出來，所以數字是下限
 - IPv6 一律拒絕：從隧道進來的 IPv6 不轉送、也不進容器，回 ICMPv6 的拒絕讓 App 立刻改用 IPv4。節點沒有 IPv6 的對外連線，但每個使用者仍然要有一個 ULA 位址。設定檔只有 IPv4 位址時，iOS 即使在 `AllowedIPs` 寫了 `::/0` 也不會把 IPv6 送進隧道，有 IPv6 的網站會繞過 VPN 直接連線（2026-11-03 在 iPhone 上用連線檢測發現）。有了 ULA，作業系統連網際網路上的位址時會優先選 IPv4（RFC 6724），IPv6 被送進隧道後拒絕，不會外洩。要拒絕而不是丟棄，轉送的封包才會經過 `FORWARD`，所以 `run.sh` 開了 `net.ipv6.conf.all.forwarding`，`FORWARD` 的預設政策仍然是 DROP
+
+## 裝置檢測
+
+開啟檢測的裝置，封包會複製到 NFLOG 群組 42，規劃見 toomore/anoni-net-ws#480。沒有開啟的裝置沒有任何規則，封包不會被複製。
+
+每條連線前 12 個封包完整複製，TLS 與 QUIC 的 hello 要完整才讀得到伺服器名稱，之後每個封包只取前 128 位元組，內容不會離開節點。實測下，傳出去的資料量比完整封包少了 91% 到 97%，封包表頭算出的流量跟完整封包相同。
+
+規則寫在 `mangle` 表的 `PREROUTING` 與 `POSTROUTING`，以通道位址比對。幾個會影響隱私的地方：
+
+- 每條規則帶著自己的結束時間（`-m time --datestop`），入口網站連不上節點時也會停止
+- `remove` 刪除裝置前先清掉規則，`add` 與 `add-pubkey` 配發位址時再清一次。通道位址會重複使用，沒有清掉的話，下一個拿到這個位址的裝置會被複製
+- 清除失敗時 `remove` 與新增都會中止，不會留下規則繼續執行
+- 容器重建時規則會消失，檢測會停止，不會自動恢復
+
+`host/vessel-inspect.conf` 放到 `/etc/modules-load.d/`，開機時載入 `xt_time` 與 `nfnetlink_log`，容器沒有權限自己載入模組。
 
 ## 探測與掃描的觀察
 
