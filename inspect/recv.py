@@ -111,11 +111,19 @@ async def main():
     if not host:
         sys.exit("set VESSEL_INSPECT_LISTEN to <tailnet IP>:<port>")
     (HOME / "spool").mkdir(parents=True, exist_ok=True, mode=0o700)
-    asyncio.get_running_loop().add_signal_handler(signal.SIGUSR1, cut_all)
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGUSR1, cut_all)
+    stopping = asyncio.Event()
+    for name in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(name, stopping.set)
     cutting = asyncio.create_task(keep_cutting())  # kept: the loop holds only a weak reference to a task
-    async with await asyncio.start_server(handle, host, int(port)) as server:
-        await server.serve_forever()
+    server = await asyncio.start_server(handle, host, int(port))
+    await stopping.wait()
+    # what has been received goes to the next analysis, instead of being lost with the process and leaving a partial file.
+    # Not wait_closed(): it would wait for the nodes to hang up
+    server.close()
     cutting.cancel()
+    cut_all()
 
 
 if __name__ == "__main__":
