@@ -31,6 +31,9 @@
                                                                print a code that makes a leader's account; the same
                                                                alias again replaces a code not used yet
 
+  python -m app.admin groups remove-leader CODE --label ALIAS --confirm ALIAS
+                                                               delete a leader's account and devices, for a leader
+                                                               who left or is no longer trusted
   python -m app.admin groups close CODE [--until YYYY-MM-DD]   stop new invites, void unused ones, and on that day
                                                                (default in 30 days) delete its accounts and devices
   python -m app.admin groups close CODE --now --confirm CODE   the same today, with no time to move elsewhere
@@ -54,7 +57,7 @@ from datetime import date, timedelta
 
 import psycopg
 
-from app import crypto, policy
+from app import auth, crypto, policy
 from app.config import load
 
 
@@ -112,6 +115,10 @@ def main(argv: list[str] | None = None) -> None:
     gi.add_argument("code")
     gi.add_argument("--label", required=True)
     gi.add_argument("--days", type=int, default=policy.INVITE_DAYS)
+    gm = gr.add_parser("remove-leader")
+    gm.add_argument("code")
+    gm.add_argument("--label", required=True)
+    gm.add_argument("--confirm")
     gl = gr.add_parser("close")
     gl.add_argument("code")
     when = gl.add_mutually_exclusive_group()
@@ -231,6 +238,25 @@ GROUP_CODE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 GROUP_ENDING_DAYS = 30
 
 
+def remove_leader(conn: psycopg.Connection, args: argparse.Namespace) -> None:
+    """Leaders cannot remove each other from the group's page, so one under someone's control cannot lock the other out.
+    Replacing a leader is the maintainer's: it deletes the account, so the alias is typed twice."""
+    if args.confirm != args.label:
+        sys.exit(f"this deletes the account and its devices; repeat the alias with --confirm {args.label}")
+    with conn.transaction():
+        row = conn.execute(
+            "SELECT id FROM accounts WHERE group_code = %s AND group_label = %s AND group_role = 'leader'",
+            (args.code, args.label),
+        ).fetchone()
+        if row is None:
+            sys.exit(f"{args.code} has no leader called {args.label}")
+        auth.remove_account(conn, row[0])
+    left = one(conn, "SELECT count(*) FROM accounts WHERE group_code = %s AND group_role = 'leader'", (args.code,))
+    print(f"{args.code}: removed {args.label}, {left} leaders left; the worker takes its devices off the nodes")
+    if left == 0:
+        print(f"nobody can manage {args.code} now: `groups leader-invite {args.code} --label ALIAS` for a new leader")
+
+
 def close_group(conn: psycopg.Connection, args: argparse.Namespace, closing_on: date | None, ends_on: date) -> None:
     move_devices = (
         "UPDATE devices SET expires_on = %s WHERE status <> 'revoking' "
@@ -268,12 +294,15 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
         if value is not None and value <= 0:
             sys.exit(f"--{name.replace('_', '-')} must be above zero")
     state = None
-    if args.action in ("set", "leader-invite", "close"):
+    if args.action in ("set", "leader-invite", "close", "remove-leader"):
         state = conn.execute("SELECT closing_on, ends_on FROM groups WHERE code = %s", (args.code,)).fetchone()
         if state is None:
             sys.exit(f"no group {args.code}")
     if args.action == "close":
         close_group(conn, args, *state)
+        return
+    if args.action == "remove-leader":
+        remove_leader(conn, args)
         return
     if state and state[0] and (args.action == "leader-invite" or args.ends_on):
         sys.exit(f"{args.code} closes on {state[0].isoformat()}: `groups close {args.code} --cancel` first")
