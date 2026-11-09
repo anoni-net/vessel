@@ -162,6 +162,20 @@ export interface Device {
   ipv6: boolean;
   /** the relay route it connects through, or null for a direct connection (missing from an older backend) */
   relay?: string | null;
+  /** the device inspection, if there is one (missing from an older backend) */
+  inspection?: "confirming" | "active" | "ending" | "ended" | null;
+}
+
+export interface Inspection {
+  status: "none" | "confirming" | "active" | "ending" | "ended";
+  consent_version: string;
+  days: number;
+  report_days: number;
+  started_at?: string | null;
+  ends_at?: string | null;
+  /** ciphertext, for the key this browser made */
+  report?: { epk: string; iv: string; ct: string } | null;
+  report_until?: string | null;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */
@@ -268,6 +282,10 @@ export const api = {
       return r.data;
     }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
+  inspection: (id: string) => call<Inspection>("GET", `/devices/${encodeURIComponent(id)}/inspection`).then((r) => r.data),
+  startInspection: (id: string, body: { consent_version: string; public_key: string }) =>
+    call<{ code: string; url: string; minutes: number }>("POST", `/devices/${encodeURIComponent(id)}/inspection`, body).then((r) => r.data),
+  stopInspection: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}/inspection`),
   deleteAccount: () => call("DELETE", "/account"),
   usageMonths: () =>
     call<UsageMonths>("GET", "/usage/months").then((r) => {

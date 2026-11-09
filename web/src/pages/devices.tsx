@@ -334,6 +334,11 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
                 </p>
               )}
               <div class="row small device-foot">
+                {(d.status === "active" || d.inspection) && d.status !== "revoking" && !deleting.has(d.id) && (
+                  <a data-testid="device-inspect" href={`${href("/devices/inspect/")}?d=${encodeURIComponent(d.id)}`}>
+                    {t[d.inspection ? (`devices.inspect.${d.inspection}` as const) : "devices.inspect"]}
+                  </a>
+                )}
                 {deleting.has(d.id) ? (
                   <span class="muted strong"><Spin />{t["busy.delete"]}</span>
                 ) : d.status !== "revoking" && (

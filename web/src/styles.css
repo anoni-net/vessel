@@ -712,6 +712,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .spec__with-icon { display: flex; align-items: center; gap: 8px; }
 .spec__figure { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .device-foot { justify-content: flex-end; }
+.device-foot > a { margin-inline-end: auto; }
 /* Centre the icons on the letters rather than on the line box. Fonts leave different space above and below their
    glyphs: a fixed offset that lined the icons up with Noto Sans put them 1.5 px too high with PingFang on iPhone.
    Trimming the text to its cap height and baseline makes the box hug the letters in any font. */
@@ -979,3 +980,30 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .group-invite-row .nb-input { flex: 1; min-width: 0; }
 .group-message { width: 100%; box-sizing: border-box; }
 .group-view__issue { margin-top: 6px; }
+
+/* The device inspection (pages/inspect.tsx). Its hours, one cobalt from light to dark; orange and red keep their
+   meaning from the rest of the site, and carry a mark so they do not depend on colour. */
+:root { --tile-0: var(--grey); --tile-1: #d6e2fb; --tile-2: #a5bcf2; --tile-3: #5f85ea; --tile-4: #2f5fd4; --tile-5: #0b3ca8; }
+@media (prefers-color-scheme: dark) {
+  :root { --tile-1: #2a4478; --tile-2: #3f64ad; --tile-3: #6088da; --tile-4: #93b0ef; --tile-5: #d6e2fb; }
+}
+.inspect-list { margin: 0; padding-inline-start: 1.3em; display: grid; gap: 6px; }
+.inspect-key { display: block; padding: 8px 10px; background: var(--grey); overflow-wrap: anywhere; user-select: all; }
+.inspect-link { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: 15px; }
+.inspect-qr { max-width: 220px; padding: 8px; background: #fff; }
+.tiles { display: grid; gap: 3px; }
+.tiles__row { display: grid; grid-template-columns: 3.2em repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.tiles__axis > span { white-space: nowrap; }
+.tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 2px; background: var(--tile-0); font: 700 10px/1 var(--mono); color: #fff; }
+.tile--1 { background: var(--tile-1); } .tile--2 { background: var(--tile-2); } .tile--3 { background: var(--tile-3); }
+.tile--4 { background: var(--tile-4); } .tile--5 { background: var(--tile-5); }
+.tile--check { background: var(--caution); } .tile--threat { background: #b3261e; }
+.inspect-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0; }
+.inspect-legend .tile { width: 14px; height: 14px; }
+.inspect-finding { display: grid; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--caution); }
+.inspect-finding--threat { border-color: var(--danger); }
+.inspect-finding code { overflow-wrap: anywhere; }
+.inspect-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+.inspect-table th, .inspect-table td { padding: 3px 6px 3px 0; text-align: start; border-bottom: 1px solid var(--line); }
+.inspect-names { display: grid; gap: 4px; margin-top: 6px; overflow-wrap: anywhere; }
+.spec--figures { grid-template-columns: minmax(0, 1fr) max-content; }
