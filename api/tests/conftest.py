@@ -88,6 +88,10 @@ class FakeNode:
         # what node/host/vessel-reach.py last wrote, or None before its first run
         self.reach_result: dict | None = None
         self.reach_calls = 0
+        # device inspection
+        self.inspecting: dict[str, int] = {}
+        self.confirms: list[dict] = []
+        self.acked: list[str] = []
 
     def add_pubkey(self, host, device_id, public_key, psk, dns_filter):
         if self.down:
@@ -118,6 +122,25 @@ class FakeNode:
         if device_id in self.suspended:
             self.peers[device_id] = self.suspended.pop(device_id)
             self.counters[device_id] = (0, 0)
+
+    def inspect_on(self, host, device_id, until):
+        if self.down:
+            raise NodeError("timeout")
+        self.inspecting[device_id] = until
+
+    def inspect_off(self, host, device_id):
+        if self.down:
+            raise NodeError("timeout")
+        self.inspecting.pop(device_id, None)
+
+    def inspect_confirms(self, host):
+        if self.down:
+            raise NodeError("timeout")
+        return list(self.confirms)
+
+    def inspect_ack(self, host, code):
+        self.acked.append(code)
+        self.confirms = [c for c in self.confirms if c["code"] != code]
 
     def list_peers(self, host):
         if self.down:

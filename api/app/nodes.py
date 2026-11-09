@@ -20,6 +20,16 @@ class Node(Protocol):
     def usage(self, host: str) -> dict: ...
     def list_peers(self, host: str) -> list[dict]: ...
     def reach(self, host: str) -> dict: ...
+    def inspect_on(self, host: str, device_id: str, until: int) -> None: ...
+    def inspect_off(self, host: str, device_id: str) -> None: ...
+    def inspect_confirms(self, host: str) -> list[dict]: ...
+    def inspect_ack(self, host: str, code: str) -> None: ...
+
+
+class Analysis(Protocol):
+    def report(self, node: str, address: str, public_key: str) -> dict: ...
+    def clear(self, node: str, address: str) -> None: ...
+    def status(self) -> dict: ...
 
 
 class SSHNode:
@@ -80,7 +90,51 @@ class SSHNode:
             raise NodeError(f"reach: {e}") from e
 
 
+    def inspect_on(self, host, device_id, until):
+        self._run(host, "inspect", "on", device_id, str(until))
+
+    def inspect_off(self, host, device_id):
+        try:
+            self._run(host, "inspect", "off", device_id)
+        except NodeError as e:
+            # a device that is gone has no rules left
+            if not str(e).endswith(f"{device_id} not found"):
+                raise
+
+    def inspect_confirms(self, host):
+        try:
+            return json.loads(self._run(host, "inspect", "confirms", "--json"))
+        except ValueError as e:
+            raise NodeError(f"confirms: {e}") from e
+
+    def inspect_ack(self, host, code):
+        self._run(host, "inspect", "ack", code)
+
+
+class SSHAnalysis:
+    """The analysis host: the key is pinned to inspect/inspect-remote there."""
+
+    def __init__(self, host: str, ssh: SSHNode):
+        self.host, self.ssh = host, ssh
+
+    def _json(self, *args: str) -> dict:
+        try:
+            return json.loads(self.ssh._run(self.host, *args))
+        except ValueError as e:
+            raise NodeError(f"analysis: {e}") from e
+
+    def report(self, node, address, public_key):
+        return self._json("report", node, address, public_key)
+
+    def clear(self, node, address):
+        self.ssh._run(self.host, "clear", node, address)
+
+    def status(self):
+        return self._json("status")
+
+
 _node: Node | None = None
+_analysis: Analysis | None = None
 
 
 def get_node() -> Node:
@@ -88,6 +142,21 @@ def get_node() -> Node:
     if _node is None:
         _node = SSHNode(os.environ["VESSEL_SSH_KEY"], os.environ["VESSEL_SSH_KNOWN_HOSTS"])
     return _node
+
+
+def get_analysis() -> Analysis | None:
+    """None where no analysis host is set: inspection is not offered."""
+    global _analysis
+    host = os.environ.get("VESSEL_ANALYSIS_HOST")
+    if _analysis is None and host:
+        _analysis = SSHAnalysis(host, SSHNode(os.environ["VESSEL_SSH_KEY"], os.environ["VESSEL_SSH_KNOWN_HOSTS"]))
+    return _analysis
+
+
+def set_analysis(analysis: Analysis | None) -> None:
+    """Tests swap in a fake one."""
+    global _analysis
+    _analysis = analysis
 
 
 def set_node(node: Node | None) -> None:
