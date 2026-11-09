@@ -1064,7 +1064,7 @@
   "inspect.handling.packets": "封包",
   "inspect.handling.packetsValue": "每 5 分鐘分析一次，分析完立刻刪除，只留下統計與比對到名單的網域",
   "inspect.handling.report": "報告",
-  "inspect.handling.reportValue": "用這個瀏覽器產生的鑰匙加密，檢測結束後保存 {days} 天。請記得下載，到期後不保留任何檢測資料",
+  "inspect.handling.reportValue": "用這個瀏覽器產生的鑰匙加密，檢測結束後保存 {days} 天。請記得下載，到期後刪除，資料庫備份裡無法解開的密文在 14 天內消失",
   "inspect.handling.stop": "結束",
   "inspect.handling.stopValue": "隨時可以結束，節點立刻停止複製，分析主機上的統計一併刪除",
   "inspect.handling.group": "團體的負責人看不到這份報告，也不會知道你開啟了檢測。",

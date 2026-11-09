@@ -1064,7 +1064,7 @@
   "inspect.handling.packets": "Packets",
   "inspect.handling.packetsValue": "Analysed every 5 minutes and deleted right after; only totals and domains matched against the lists remain",
   "inspect.handling.report": "Report",
-  "inspect.handling.reportValue": "Encrypted with a key made in this browser and kept for {days} days after the end. Please download it: no inspection data is kept after that",
+  "inspect.handling.reportValue": "Encrypted with a key made in this browser and kept for {days} days after the end. Please download it: after that it is deleted, and the unreadable ciphertext in database backups is gone within 14 days",
   "inspect.handling.stop": "Ending it",
   "inspect.handling.stopValue": "You can end it at any time. The node stops copying right away and the totals on the analysis host are deleted",
   "inspect.handling.group": "Your group's leaders cannot see this report and are not told that you turned on an inspection.",
