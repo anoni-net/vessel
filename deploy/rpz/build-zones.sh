@@ -9,6 +9,8 @@ exec 9>.lock; flock -n 9 || exit 0
 . ./lists.sh
 # shellcheck disable=SC2034  # read by lists.sh
 EXCLUDE=$PWD/exclude.txt
+# shellcheck disable=SC2034  # read by lists.sh
+PLATFORMS=$PWD/platforms.txt
 # the order unbound checks them in (node/unbound/rpz-zones.conf.example)
 ZONES=(malware tw165 twmoda stalkerware cti ads)
 mkdir -p zones/raw
@@ -58,6 +60,19 @@ refresh() { # zone
   rm -f "$tmp"
 }
 
+# the hosting platforms the CTI list is cut down to; a failed download keeps the last copy
+refresh_platforms() {
+  local src tmp
+  src=$(mktemp); tmp=$(mktemp platforms.XXXXXX)
+  if fetch "$PUBLIC_SUFFIXES" "$src" && private_suffixes "$src" > "$tmp" && [ "$(wc -l < "$tmp")" -ge "$MIN_PLATFORMS" ]; then
+    chmod 644 "$tmp"; mv "$tmp" platforms.txt
+  else
+    problem platforms download "the hosting platforms could not be read, keeping the previous ones"
+  fi
+  rm -f "$src" "$tmp"
+}
+
+refresh_platforms
 for z in "${ZONES[@]}"; do refresh "$z"; done
 
 python3 -I dedupe.py zones/raw zones "${ZONES[@]}" || problem all dedupe "a list would lose too much to earlier ones, keeping its previous zone"

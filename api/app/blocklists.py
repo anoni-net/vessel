@@ -42,10 +42,13 @@ SOURCES = {
     "twmoda": "https://www-api.moda.gov.tw/OpenData/Files/16352",
     # Echap's stalkerware indicators, a name a line (CC BY 4.0)
     "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
-    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only)
+    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only); only those on hosting platforms are used
     "cti": "https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
+# the private section of this list is the hosting platforms, which CTI is cut down to as on the nodes
+PUBLIC_SUFFIXES = "https://raw.githubusercontent.com/publicsuffix/list/main/public_suffix_list.dat"
+MIN_PLATFORMS = 1000
 REFRESH_SECONDS = 8 * 3600
 # the MODA server refuses Python's default User-Agent; every download says what it is
 USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
@@ -65,6 +68,7 @@ def excluded_names(text: str) -> frozenset[str]:
 # a copy of node/exclude.txt, which the nodes leave out of every list; only the name itself, a name under it stays listed
 EXCLUDED = excluded_names(Path(__file__).with_name("blocklist_exclude.txt").read_text(encoding="utf-8"))
 
+_platforms: frozenset[str] = frozenset()
 _lists: dict[str, frozenset[str]] = {}
 _loaded_at: float | None = None
 _summary: dict = {}
@@ -115,6 +119,26 @@ def parse_hosts(text: str) -> frozenset[str]:
     """The names in a plain list, one a line; the node blocks each with its subdomains, like an RPZ zone's."""
     names = (normalize(line) for line in text.splitlines() if not line.lstrip().startswith("#"))
     return frozenset(name for name in names if name)
+
+
+def parse_platforms(text: str) -> frozenset[str]:
+    """The private section of the Public Suffix List: names whose subdomains belong to different people."""
+    names, private = set(), False
+    for line in text.splitlines():
+        line = line.strip()
+        if "BEGIN PRIVATE DOMAINS" in line:
+            private = True
+        elif "END PRIVATE DOMAINS" in line:
+            private = False
+        elif private and line and not line.startswith("//"):
+            names.add(line.split()[0].lower().removeprefix("!").removeprefix("*."))
+    return frozenset(names)
+
+
+def on_platform(name: str, platforms: frozenset[str]) -> bool:
+    """Is this name a subdomain of a hosting platform? The platform's own name is not."""
+    labels = name.split(".")
+    return any(".".join(labels[i:]) in platforms for i in range(1, len(labels)))
 
 
 PARSERS = {"tw165": parse_165, "twmoda": parse_moda, "stalkerware": parse_hosts, "cti": parse_hosts}
@@ -168,14 +192,27 @@ def set_lists(lists: dict[str, frozenset[str]], at: float | None = None) -> None
     _summary = summarize(_lists)
 
 
+def _read(url: str, name: str) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=120, context=tls_context(name)) as r:
+        return r.read().decode("utf-8", "replace")
+
+
 def _download() -> None:
+    global _platforms
+    try:
+        platforms = parse_platforms(_read(PUBLIC_SUFFIXES, "platforms"))
+    except (OSError, ValueError):
+        platforms = frozenset()
+    # a failed or cut-off download keeps the last copy; with none yet, CTI comes up short below and keeps what it had
+    if len(platforms) >= MIN_PLATFORMS:
+        _platforms = platforms
     fresh = {}
     for name, url in SOURCES.items():
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(request, timeout=120, context=tls_context(name)) as r:
-                text = r.read().decode("utf-8", "replace")
-            names = PARSERS.get(name, parse)(text) - EXCLUDED
+            names = PARSERS.get(name, parse)(_read(url, name)) - EXCLUDED
+            if name == "cti":
+                names = frozenset(n for n in names if on_platform(n, _platforms))
         except (OSError, ValueError):
             names = frozenset()
         # one failed list keeps its previous copy instead of emptying it

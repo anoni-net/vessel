@@ -52,14 +52,39 @@ for name in scam-shop.com.tw fake.github.io; do grep -qx "$name CNAME ." "$TMP/1
 if grep -qE '^(\*\.)?(com\.tw|github\.io) ' "$TMP/165.rpz"; then fail "a shared name was listed"; fi
 if grep -q 'rpz-' "$TMP/165.rpz"; then fail "an RPZ trigger was listed"; fi
 
-# DNSBunker's list: comments skipped, a name under a listed parent left out, a shared parent never listed, an excluded name
-# left out but a name under it kept
+# the hosting platforms are the private section, with wildcard rules and exceptions reduced to the name they are on
+cat > "$TMP/psl.dat" <<'PSL'
+// ===BEGIN ICANN DOMAINS===
+com
+co.uk
+// ===END ICANN DOMAINS===
+// ===BEGIN PRIVATE DOMAINS===
+// a platform
+pages.dev
+*.Compute.Example-Cloud.com
+!exception.other-cloud.com
+// ===END PRIVATE DOMAINS===
+PSL
+expected='pages.dev
+compute.example-cloud.com
+exception.other-cloud.com'
+[ "$(private_suffixes "$TMP/psl.dat")" = "$expected" ] || fail "private_suffixes read the wrong names: $(private_suffixes "$TMP/psl.dat")"
+
+# DNSBunker's list keeps only names on a hosting platform: comments skipped, a name on a platform under another listed
+# one left out, the platform itself never listed, an excluded name left out but a name under it kept
 EXCLUDE=$TMP/exclude.txt
-printf '# Title: CTI\nphish.example\nlogin.phish.example\nfake-bank.pages.dev\npages.dev\nkept-out.example\nuser.kept-out.example\n' > "$TMP/cti.txt"
+PLATFORMS=$TMP/platforms.txt
+printf 'pages.dev\nkept-out.example\n' > "$PLATFORMS"
+printf '# Title: CTI\nown-site.example\nfake-bank.pages.dev\nlogin.fake-bank.pages.dev\npages.dev\nkept-out.example\nuser.kept-out.example\n' > "$TMP/cti.txt"
 zone_from cti "$TMP/cti.txt" > "$TMP/cti.rpz"
-for name in phish.example fake-bank.pages.dev user.kept-out.example; do grep -qx "$name CNAME ." "$TMP/cti.rpz" || fail "$name is missing from cti"; done
-if grep -qE '^(\*\.)?(login\.phish\.example|pages\.dev|kept-out\.example) ' "$TMP/cti.rpz"; then fail "cti listed a name it should not"; fi
+for name in fake-bank.pages.dev user.kept-out.example; do grep -qx "$name CNAME ." "$TMP/cti.rpz" || fail "$name is missing from cti"; done
+if grep -qE '^(\*\.)?(own-site\.example|login\.fake-bank\.pages\.dev|pages\.dev|kept-out\.example) ' "$TMP/cti.rpz"; then fail "cti listed a name it should not"; fi
 grep -q 'GPL-2.0-only' "$TMP/cti.rpz" || fail "cti does not name its source and license"
+# without the platforms there is no list, and build-zones.sh keeps the previous one
+PLATFORMS=$TMP/none
+if zone_from cti "$TMP/cti.txt" > /dev/null 2>&1; then fail "cti was built without the hosting platforms"; fi
+# the other lists do not need them
+zone_from tw165 "$TMP/165.csv" > /dev/null || fail "tw165 needed the hosting platforms"
 
 # the size limits: too few lines or too many keep the previous list
 seq 1 100001 > "$TMP/n"

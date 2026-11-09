@@ -51,7 +51,7 @@ bash /opt/vessel-node/setup.sh
 - 開啟網卡的 `rx-udp-gro-forwarding`：VPN 的 UDP 封包經 Docker 轉送，合併之後每個封包的 CPU 負擔比較低
 - `vm.swappiness` 調到 10：解析器的名單佔約 1 GB 記憶體，換到 swap 的話，查詢會突然變慢
 
-容器設了記憶體 1,600 MB 與 256 個行程的上限（`run.sh`），加入 DNSBunker CTI 之前，解析器載入名單時的高峰約 1.25 GB，CTI 另外約佔 485 MB。裡面失控時不會連累容器外的 SSH、Tailscale 與 Beszel。現有的容器不必重建，用 `docker update --memory 1600m --memory-swap 1600m --pids-limit 256 vessel-node` 直接套用，不會斷線。
+容器設了記憶體 1,600 MB 與 256 個行程的上限（`run.sh`），加入 DNSBunker CTI 之前，解析器載入名單時的高峰約 1.25 GB，CTI 只留託管平台的部分之後約佔 190 MB。裡面失控時不會連累容器外的 SSH、Tailscale 與 Beszel。現有的容器不必重建，用 `docker update --memory 1600m --memory-swap 1600m --pids-limit 256 vessel-node` 直接套用，不會斷線。
 
 UDP 的 socket 緩衝不用調，`amneziawg-go` 有 `NET_ADMIN`，會自己強制取得它要的大小。
 
@@ -110,10 +110,10 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 | 位址 | 選項 | 名單 |
 |---|---|---|
 | `10.8.1.1` | 不過濾 | 無 |
-| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 與數位產業署停止解析的詐騙網站、Echap 收集的跟蹤軟體網域與 DNSBunker CTI，其他查詢轉給 Quad9 |
+| `10.8.1.253` | 擋惡意網站 | [HaGeZi](https://github.com/hagezi/dns-blocklists) Threat Intelligence Feeds（mini），加上 165 與數位產業署停止解析的詐騙網站、Echap 收集的跟蹤軟體網域與 DNSBunker CTI 裡託管平台的部分，其他查詢轉給 Quad9 |
 | `10.8.1.254` | 再擋廣告 | 上面五份，加上 HaGeZi Multi PRO，其他查詢轉給 Quad9 |
 
-兩個 unbound 都不記錄查詢，開 DNSSEC 驗證，只接受隧道內的查詢。不過濾的 unbound 自行遞迴查詢，開 QNAME 最小化。名單載入後約佔 1.1 GB 記憶體（DNSBunker CTI 約 485 MB），節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
+兩個 unbound 都不記錄查詢，開 DNSSEC 驗證，只接受隧道內的查詢。不過濾的 unbound 自行遞迴查詢，開 QNAME 最小化。名單載入後約佔 0.7 GB 記憶體（DNSBunker CTI 約 190 MB，依每個網域 1.3 KB 估算），節點至少要 2 GB，並準備 1 GB 以上的 swap，重新載入名單時用量會短暫升高。
 
 ### 一個 unbound 服務兩種過濾
 
@@ -173,6 +173,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 [DNSBunker/CTI](https://github.com/DNSBunker/CTI) 公開確認活躍的惡意網域，包括釣魚、惡意程式散布、詐騙與假店，託管平台只收個別主機名，授權是 GPL-2.0-only。Vessel 原有的名單對託管平台上的釣魚網站涵蓋不足，DNSBunker CTI 收錄了其中許多個別主機名。
 
+- 只使用託管平台上的子網域，也就是 Public Suffix List 私有區段底下的名稱。2026-11-09 整份約 41.5 萬個網域，這部分約 15 萬個。維護者預期整份會增長到 120 萬個網域（[DNSBunker/CTI#3](https://github.com/DNSBunker/CTI/issues/3)），節點放不下，託管平台又是其他名單最弱的地方。私有區段由主機每次產生名單時下載，下載失敗時沿用上一份
 - 維護者的主機（`deploy/rpz/`）下載 `domains.txt`，跟 165 的名單用同一段程式清理，產生區域檔，由 NSD 提供。節點的 unbound 跟其他名單一樣透過 Tailscale 訂閱（`unbound/rpz-zones.conf`，從 `rpz-zones.conf.example` 產生，主伺服器的位址放在 `node.env` 的 `RPZ_PRIMARY`）。兩個過濾選項都載入，開 `rpz-signal-nxdomain-ra`，算進詐騙與惡意網站
 - 主機在 UTC 04:30、10:30、16:30、22:30 產生名單，節點 7 分鐘後用 `auth_zone_transfer` 取得變動的部分（IXFR）。上游建議每 1 到 6 小時取用，這份名單一小時變動約一千筆。2026-11-08 在東京節點實測，3,336 個網域的變動讓有過濾的解析器暫停約 1.5 秒，查詢沒有失敗，整份重新載入要 12 秒。NOTIFY 被 unbound 拒絕，所以由節點主動取得
 - 主機無法連線時，節點繼續用手上的名單，unbound 把名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送
