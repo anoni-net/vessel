@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import psycopg
 import pytest
-from conftest import create, needs_db
+from conftest import HEADERS, create, make_invite, needs_db
 
 from app import admin, auth, jobs, policy, worker
 
@@ -154,3 +154,134 @@ def test_an_alias_names_one_account_in_a_group(signed_in, db):
             "INSERT INTO accounts (number_hash, group_code, group_role, group_label) "
             "VALUES ('\\x02', 'g1', 'member', 'A1')"
         )
+
+
+def create_group(code="g1", accounts=10, ends_on=ENDS_ON, *extra):
+    admin.main(["groups", "create", code, "--accounts", str(accounts), "--ends-on", ends_on.isoformat(), *extra])
+
+
+def leader_code(capsys, label="L1", group="g1") -> str:
+    capsys.readouterr()
+    admin.main(["groups", "leader-invite", group, "--label", label])
+    return capsys.readouterr().out.strip()
+
+
+def test_groups_create_and_list_show_settings_and_no_people(signed_in, node, db, capsys):
+    create_group("g1", 10, ENDS_ON, "--devices", "5", "--quota-gb", "20")
+    assert db.execute("SELECT account_limit, device_limit, monthly_quota_bytes, ends_on FROM groups").fetchone() == (
+        10, 5, 20 * GB, ENDS_ON)
+    create(signed_in, name="secret-phone")
+    db.execute("UPDATE accounts SET group_code = 'g1', group_role = 'member', group_label = 'secret-alias'")
+    capsys.readouterr()
+    admin.main(["groups"])
+    out = capsys.readouterr().out
+    assert "g1  members 1/10  leaders 0  devices 1 (5 each)  quota 20.0 GB" in out
+    assert "secret" not in out
+
+
+def test_groups_defaults_are_the_personal_limits(db):
+    create_group()
+    assert db.execute("SELECT device_limit, monthly_quota_bytes FROM groups").fetchone() == (
+        policy.DEVICE_LIMIT, policy.MONTHLY_QUOTA_BYTES)
+
+
+def test_groups_list_says_when_one_is_about_to_end(db, capsys):
+    create_group("g1", 1, date.today() + timedelta(days=5))
+    assert "ends in 5 days" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("argv", [
+    ["groups", "create", "Bad Code", "--accounts", "1", "--ends-on", "2030-01-01"],
+    ["groups", "create", "g2", "--accounts", "0", "--ends-on", "2030-01-01"],
+    ["groups", "create", "g1", "--accounts", "1", "--ends-on", "2030-01-01"],  # already there
+    ["groups", "set", "nope", "--accounts", "1"],
+    ["groups", "set", "g1", "--devices", "0"],
+    ["groups", "leader-invite", "nope", "--label", "L1"],
+    ["groups", "leader-invite", "g1", "--label", "   "],
+])
+def test_groups_refuses_what_makes_no_sense(db, argv):
+    create_group()
+    with pytest.raises(SystemExit):
+        admin.main(argv)
+
+
+def test_groups_set_changes_only_what_is_given(db):
+    create_group("g1", 10, ENDS_ON, "--devices", "5", "--quota-gb", "20")
+    admin.main(["groups", "set", "g1", "--devices", "7"])
+    assert db.execute("SELECT account_limit, device_limit, monthly_quota_bytes, ends_on FROM groups").fetchone() == (
+        10, 7, 20 * GB, ENDS_ON)
+
+
+def test_a_new_end_date_moves_the_groups_devices(signed_in, node, db):
+    create_group()
+    db.execute("UPDATE accounts SET group_code = 'g1', group_role = 'member', group_label = 'A1'")
+    device_id = create(signed_in).json()["id"]
+    later = ENDS_ON + timedelta(days=90)
+    admin.main(["groups", "set", "g1", "--ends-on", later.isoformat()])
+    assert expires_on(db, device_id) == later
+
+
+def redeem(client, code):
+    return client.post("/api/redeem", json={"code": code}, headers=HEADERS)
+
+
+def test_a_leader_invite_makes_an_account_in_the_group(client, db, capsys):
+    create_group("g1", 10, ENDS_ON, "--devices", "5", "--quota-gb", "20")
+    r = redeem(client, leader_code(capsys))
+    assert r.status_code == 200 and r.json()["account_number"]
+    assert db.execute("SELECT group_code, group_role, group_label FROM accounts").fetchone() == ("g1", "leader", "L1")
+    assert client.get("/api/me").json()["device_limit"] == 5
+    # used, and it says nothing about the account it made
+    assert db.execute("SELECT group_code, group_role, group_label, created_by FROM invites").fetchone() == (
+        None, None, None, None)
+    assert db.execute("SELECT count(*) FROM invites WHERE redeemed_at = date_trunc('day', redeemed_at)").fetchone()[0] == 1
+
+
+def test_a_leader_invite_works_only_once(client, db, capsys):
+    create_group()
+    code = leader_code(capsys)
+    assert redeem(client, code).status_code == 200
+    assert redeem(client, code).json() == {"error": "invalid_invite"}
+
+
+def test_issuing_the_same_alias_again_replaces_the_unused_code(client, db, capsys):
+    create_group()
+    old, new = leader_code(capsys), leader_code(capsys)
+    assert old != new
+    assert redeem(client, old).json() == {"error": "invalid_invite"}
+    assert redeem(client, new).status_code == 200
+
+
+def test_an_alias_already_in_use_cannot_be_issued(client, db, capsys):
+    create_group()
+    redeem(client, leader_code(capsys))
+    with pytest.raises(SystemExit):
+        admin.main(["groups", "leader-invite", "g1", "--label", "L1"])
+
+
+def test_an_alias_taken_meanwhile_refuses_the_invite(client, db, capsys):
+    create_group()
+    code = leader_code(capsys)
+    db.execute("INSERT INTO accounts (number_hash, group_code, group_role, group_label) VALUES ('\\x03', 'g1', 'member', 'L1')")
+    assert redeem(client, code).json() == {"error": "invalid_invite"}
+
+
+def test_a_groups_invite_is_outside_the_pause_and_the_cap(client, db, capsys):
+    create_group()
+    leader, plain = leader_code(capsys), make_invite(db)
+    db.execute("UPDATE settings SET value = 'true' WHERE key = 'redeem_paused'")
+    assert redeem(client, "AAAA-BBBB-CCCC-DDDD").json() == {"error": "redeem_paused"}
+    assert redeem(client, plain).json() == {"error": "redeem_paused"}
+    db.execute("UPDATE settings SET value = 'false' WHERE key = 'redeem_paused'")
+    db.execute("UPDATE settings SET value = '1' WHERE key = 'account_cap'")
+    assert redeem(client, leader).status_code == 200
+    # and its account does not take a place under the cap
+    assert redeem(client, plain).status_code == 200
+    assert redeem(client, make_invite(db)).json() == {"error": "full"}
+
+
+def test_an_account_in_a_group_cannot_invite_people(client, db, capsys):
+    create_group()
+    db.execute("UPDATE settings SET value = '3' WHERE key = 'user_invites'")
+    redeem(client, leader_code(capsys))
+    assert client.get("/api/invites").json()["reason"] == "off"

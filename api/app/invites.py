@@ -22,10 +22,11 @@ OPEN = "created_by = %s AND redeemed_at IS NULL AND expires_at > now()"
 
 
 def allowance(conn: psycopg.Connection, account_id: int) -> dict:
-    per = int(setting(conn, "user_invites") or 0)
-    created_on, used = conn.execute(
-        "SELECT created_on, invites_used FROM accounts WHERE id = %s", (account_id,)
+    created_on, used, group_code = conn.execute(
+        "SELECT created_on, invites_used, group_code FROM accounts WHERE id = %s", (account_id,)
     ).fetchone()
+    # an account in a group does not invite people from outside it (toomore/anoni-net-ws#464)
+    per = 0 if group_code else int(setting(conn, "user_invites") or 0)
     eligible_on = created_on + timedelta(days=policy.INVITE_AFTER_DAYS)
     connected = conn.execute(
         "SELECT EXISTS (SELECT 1 FROM devices WHERE account_id = %s AND connected)", (account_id,)
@@ -34,7 +35,7 @@ def allowance(conn: psycopg.Connection, account_id: int) -> dict:
         f"SELECT id, created_at, expires_at FROM invites WHERE {OPEN} ORDER BY created_at", (account_id,)
     ).fetchall()
     cap = int(setting(conn, "account_cap") or 0)
-    full = cap > 0 and conn.execute("SELECT count(*) FROM accounts").fetchone()[0] >= cap
+    full = cap > 0 and conn.execute("SELECT count(*) FROM accounts WHERE group_code IS NULL").fetchone()[0] >= cap
     # why none can be made now, the first that applies
     reason = (
         "off" if per == 0
