@@ -54,6 +54,12 @@ const blockedOf = (devices: Device[]) => devices.filter(countsBlocked).reduce((n
 /** What a read added to the numbers on screen, for the "+12 MB" on each card; `n` counts reads. */
 interface Read { n: number; used: number; blocked: number; devices: Map<string, { used: number; blocked: number }> }
 
+/** A leader revoked one of this account's devices in the last month: the person who finds it gone is told why. */
+function revokedLately(me: Me): boolean {
+  const day = me.group?.device_revoked_on;
+  return !!day && Date.now() - Date.parse(day) <= 30 * 86_400_000;
+}
+
 export function Devices() {
   const { t, href, locale } = useCtx();
   // what this tab saw last time, if anything, while the page asks again
@@ -218,6 +224,10 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
         <h1>{t["devices.title"]}</h1>
         <span class="muted strong">{fmt(t["devices.count"], { n: devices.length, max: me.device_limit })}</span>
       </div>
+
+      {revokedLately(me) && (
+        <p class="card card--flat" data-testid="revoked-note">{fmt(t["devices.revokedByLeader"], { date: formatDate(locale, me.group!.device_revoked_on!) })}</p>
+      )}
 
       <div class="card card--tint card--flat card--live">
         {added && <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.used, filtered.length > 0 ? added.blocked : 0)} />}

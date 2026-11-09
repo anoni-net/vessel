@@ -7,6 +7,7 @@ import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { Months, monthsSince } from "./months.tsx";
 import { Invites } from "./invites.tsx";
+import { GroupView } from "./group-view.tsx";
 import { Passkeys } from "./passkeys.tsx";
 import { AccountNumber } from "./redeem.tsx";
 import { Busy, SkLine, Spin } from "./skeleton.tsx";
@@ -126,6 +127,7 @@ export function Account() {
         <div class="account-col">
           <Months data={months} rows={monthsSince(me?.created_on)} guess={filterGuess()} />
           <Invites />
+          <GroupView me={me} />
         </div>
         <div class="account-col">
           <Passkeys initial={passkeys} guard={guard} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />

@@ -289,7 +289,7 @@ export function NewDevice() {
           <input id="device-name" class="nb-input" maxLength={40} required placeholder={t["name.placeholder"]}
             value={name} onInput={(e) => setName(e.currentTarget.value)} aria-labelledby="device-name-label"
             aria-invalid={err ? true : undefined} aria-describedby={err ? "device-name-error name-hint" : "name-hint"} />
-          <p id="name-hint" class="muted small">{t["name.hint"]}</p>
+          <p id="name-hint" class="muted small">{t[me?.group ? "name.hintGroup" : "name.hint"]}</p>
           {err && <p class="error" role="alert" id="device-name-error">{err}</p>}
           <button class="nb-button nb-button--ink" type="submit">{t["name.next"]}</button>
           <button class="link-button" type="button" onClick={() => go("region")}>{t["back"]}</button>
