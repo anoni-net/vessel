@@ -100,6 +100,13 @@ def match(name, lists):
     return next(((kind, entry) for kind in FLAGGED if (entry := entry_of(name, lists[kind]))), None)
 
 
+def lists_of(name, lists):
+    """Every list that covers a name, the ad list included: what the lists themselves say about a site, so that a report
+    can tell an ad network that is also on a malware list from a site only a malware list knows (toomore/anoni-net-ws#480).
+    Nothing about the device is learnt from it."""
+    return {kind for kind in SOURCES if listed(name, lists[kind])}
+
+
 def system_name(name):
     name = name.lower().rstrip(".")
     return "." not in name or any(name == s or name.endswith("." + s) for s in SYSTEM_SUFFIXES)
@@ -215,6 +222,8 @@ def load_state(node, address):
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
         hit.setdefault("counted", hit["last"])
+        # an older state did not say which other lists its names were on; nothing is guessed for it
+        hit.setdefault("lists", [hit["kind"]])
     return state
 
 
@@ -248,13 +257,15 @@ def merge(node, totals, logs, lists):
 
     def note_hit(row, name, how):
         if not system_name(name) and (matched := match(name, lists)):
-            candidates.append((row["ts"], row["id.orig_h"], *matched, how))
+            candidates.append((row["ts"], row["id.orig_h"], *matched, how, lists_of(name, lists)))
 
-    def count_hit(ts, address, kind, entry, how):
-        """A visit counts once: Zeek's rows come in no set order, so they are sorted before they get here."""
+    def count_hit(ts, address, kind, entry, how, on):
+        """A visit counts once: Zeek's rows come in no set order, so they are sorted before they get here. `on` is every
+        list the name seen covers; a hit is a list entry, so its lists are those of all the names it came from."""
         state = get(address)
         hit = state["hits"].setdefault(f"{kind}|{entry}", {"kind": kind, "name": entry, "how": how, "count": 0, "first": ts,
-                                                           "last": ts, "hours": [], "counted": None})
+                                                           "last": ts, "hours": [], "counted": None, "lists": [kind]})
+        hit["lists"] = sorted(set(hit["lists"]) | on | {kind})
         if hit["counted"] is None or abs(ts - hit["counted"]) >= VISIT_SECONDS:
             hit["count"] += 1
             hit["counted"] = max(hit["counted"] or ts, ts)
@@ -345,7 +356,7 @@ def report(node, address):
         entries[hit["kind"]] += 1
         if entries[hit["kind"]] <= MAX_FINDINGS:
             findings.append({"severity": "threat" if hit["kind"] in THREAT else "check",
-                             **{k: hit[k] for k in ("kind", "name", "how", "count", "first", "last", "hours")}})
+                             **{k: hit[k] for k in ("kind", "name", "how", "count", "first", "last", "hours", "lists")}})
     if state["bypass"]:
         findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"]})
     checks = [{"id": kind, "count": found[kind]} for kind in FLAGGED] + [{"id": "bypass_dns", "count": state["bypass"]}]

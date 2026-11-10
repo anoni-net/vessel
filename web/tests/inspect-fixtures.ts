@@ -103,3 +103,29 @@ export const MANY_REPORT = {
   checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 0 }, { id: "cti", count: 8 }, { id: "bypass_dns", count: 0 }],
   findings: Array.from({ length: 8 }, (_, i) => hit("cti", "check", `site${i + 1}.example`, 8 - i, [`2026-11-0${1 + (i % 3)}T0${i % 6}`])),
 };
+
+// Reports from analyze.py since it compares a site with every list: each site says the lists its names are on, its own
+// kind and the ad list included, sorted.
+type Finding = { kind: string; [k: string]: unknown };
+const onLists = (f: Finding, ...more: string[]) => ({ ...f, lists: [...new Set([f.kind, ...more])].sort() });
+
+/**
+ * The first day again, as the maintainer's own report was: most of the sites also on the ad list, one on three lists,
+ * one on its own list only.
+ */
+export const ONCE_LISTS_REPORT = {
+  ...ONCE_REPORT,
+  findings: ONCE_REPORT.findings.map((f, i) => (i === 1 ? onLists(f, "ads", "cti") : i === 6 ? onLists(f) : onLists(f, "ads"))),
+};
+
+/** The first day with every site also on the ad list. */
+export const ONCE_ADS_REPORT = { ...ONCE_REPORT, findings: ONCE_REPORT.findings.map((f) => onLists(f, "ads")) };
+
+/** The week, every site also on the ad list: seen day after day all the same. */
+export const WEEK_ADS_REPORT = { ...WEEK_REPORT, findings: WEEK_REPORT.findings.map((f) => onLists(f, "ads")) };
+
+/** Stalkerware that an ad network's list has too. */
+export const THREAT_ADS_REPORT = {
+  ...THREAT_REPORT,
+  findings: THREAT_REPORT.findings.map((f) => (f.kind === "stalkerware" ? onLists(f, "ads") : f)),
+};

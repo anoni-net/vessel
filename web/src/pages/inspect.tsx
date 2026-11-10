@@ -37,8 +37,10 @@ export interface Report {
   /**
    * A site on a list, or `bypass_dns` (no name, no hours). Reports made since 2026-11-10 count visits and add `hours`
    * (the UTC hours it was seen in, `YYYY-MM-DDTHH`, sorted) and `last`; older ones, still stored, have `first` instead.
+   * Reports made since the lists were compared one by one add `lists`: every list the site's names are on, its own `kind`
+   * and the ad list included (`stalkerware`, `malware`, `cti`, `ads`, sorted). Without it, nothing is said about other lists.
    */
-  findings?: { severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[] }[];
+  findings?: { severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[]; lists?: string[] }[];
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -638,6 +640,35 @@ export function seenWhen(f: NonNullable<Report["findings"]>[number]) {
   return { perDay, slots: f.hours?.length ?? 0, days: perDay.size, last: f.last ? new Date(f.last * 1000) : null };
 }
 
+/** The lists a report can name, in the order they are written out: analyze.py's SOURCES. */
+export const LISTS = ["stalkerware", "malware", "cti", "ads"] as const;
+type ListId = (typeof LISTS)[number];
+
+/** The other lists a site is on, besides the one it was found on; none for a report from before `lists`. */
+export function otherLists(f: NonNullable<Report["findings"]>[number]): ListId[] {
+  return LISTS.filter((id) => id !== f.kind && f.lists?.includes(id));
+}
+
+/** "Also on the ad and tracking list", or "On 3 lists: …": what the lists themselves say about a site. */
+export function alsoOn(f: NonNullable<Report["findings"]>[number], t: ReturnType<typeof useCtx>["t"]) {
+  const others = otherLists(f);
+  if (!others.length) return "";
+  const name = (id: ListId) => t[`inspect.list.${id}`];
+  if (others.length === 1) return fmt(t["inspect.lists.one"], { list: name(others[0]) });
+  const all = LISTS.filter((id) => id === f.kind || others.includes(id));
+  return fmt(t["inspect.lists.many"], { n: all.length, lists: all.map(name).join(t["inspect.lists.sep"]) });
+}
+
+/**
+ * Whether every site behind a "needs a check" is also on the ad list, so the reason can say so. Only where the report
+ * names them all: a report that leaves some out (more than it lists) or from before `lists` says nothing.
+ */
+function allOnAdList(report: Report) {
+  const named = (report.findings ?? []).filter((f) => f.name);
+  const left = Object.values(report.more ?? {}).some((n) => n > 0);
+  return !left && named.length > 0 && named.every((f) => f.severity === "check" && f.lists?.includes("ads"));
+}
+
 /** A day's cell for one site: how many of its hours it was seen in, as one of three steps. */
 const hitLevel = (n: number) => (n <= 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : 3);
 
@@ -647,9 +678,15 @@ type Verdict = "threat" | "check" | "clean";
  * What the report comes to, and why, in a sentence. Where the report says when each site was seen, the sentence tells a
  * one-off (most likely an ad or a redirect met while browsing) from sites seen day after day (more like an app that
  * keeps connecting). Older reports do not say when, and the sentence only gives what was found and how much.
+ *
+ * What the lists say about a site only adds to the sentence; it never lowers the state (toomore/anoni-net-ws#480). A
+ * site on a malicious site list that an ad network is also on still needs a check: the ad list is no proof that it is
+ * harmless, and an ad network has served malware before. So the state below comes from the severity of the findings
+ * alone, `lists` is not read until it is settled, and stalkerware stays a known threat whatever other lists it is on.
  */
 export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale: ReturnType<typeof useCtx>["locale"]) {
   const groups = findingGroups(report);
+  // decided here once, from the severities; nothing below changes it
   const state: Verdict = groups.some((g) => g.severity === "threat") ? "threat" : groups.length ? "check" : "clean";
   if (state === "clean") return { state, reason: t["inspect.report.clean"], next: false };
   const n = (x: number) => formatCount(locale, x);
@@ -695,7 +732,10 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
     : fmt(t["inspect.when.range"], { date, from: `${pad(Math.min(...clock))}:00`, to: `${pad(Math.max(...clock) + 1)}:00` });
   const lastHit = hours.at(-1)!.getTime();
   const after = (report.hours ?? []).filter((h) => atHour(h.hour).getTime() > lastHit && h.up + h.down > 0).length;
-  return { state, reason: join(fmt(t[after >= QUIET_HOURS ? "inspect.reason.onceQuiet" : "inspect.reason.onceLatest"], { when }), also), next: false };
+  // seen within a few hours of one day, and every one of them on the ad list too: one more sentence, the same state
+  const ads = allOnAdList(report) ? t[sites.reduce((s, g) => s + g.sites, 0) === 1 ? "inspect.reason.alsoAdsOne" : "inspect.reason.alsoAds"] : "";
+  const once = fmt(t[after >= QUIET_HOURS ? "inspect.reason.onceQuiet" : "inspect.reason.onceLatest"], { when });
+  return { state, reason: join(join(once, ads), also), next: false };
 }
 
 const period = (hour: number) => (hour < 6 ? "night" : hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening");
@@ -728,6 +768,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
         {fmt(t["inspect.seen"], { n: formatCount(locale, f.count) })}
         {f.first ? ` ${fmt(t["inspect.firstSeen"], { time: formatTime(locale, new Date(f.first * 1000).toISOString()) })}` : ""}
       </span>
+      {alsoOn(f, t) && <span class="small" data-testid="inspect-hit-lists">{alsoOn(f, t)}</span>}
     </li>
   );
   // "seen on 2 of the 5 days with traffic": a day the device was not connected, or one still to come, is not a day the
@@ -748,11 +789,15 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
   });
   const hitRow = (f: NonNullable<Report["findings"]>[number]) => {
     const { words, last, w } = seenText(f);
+    const lists = alsoOn(f, t);
     return (
       <li class="hit-row" data-testid="inspect-hit">
         <code class="hit-row__name">{f.name}</code>
         <span class="hit-row__cells hits__grid" aria-hidden="true">{hitCells(w.perDay)}</span>
-        <span class="hit-row__words small" data-testid="inspect-hit-words">{words}{last && <>{dot}<span class="muted">{last}</span></>}</span>
+        <span class="hit-row__words small">
+          <span data-testid="inspect-hit-words">{words}{last && <>{dot}<span class="muted">{last}</span></>}</span>
+          {lists && <span class="hit-row__lists" data-testid="inspect-hit-lists">{lists}</span>}
+        </span>
       </li>
     );
   };

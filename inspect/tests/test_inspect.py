@@ -212,7 +212,7 @@ class Visits(Base):
 
     def test_a_finding_has_exactly_the_reported_fields(self):
         r = self.merge_one(dns=[dns("api.tracker.example")], conn=[{"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "8.8.8.8", "id.resp_p": 53}])
-        self.assertEqual(set(self.hit(r)), {"severity", "kind", "name", "how", "count", "first", "last", "hours"})
+        self.assertEqual(set(self.hit(r)), {"severity", "kind", "name", "how", "count", "first", "last", "hours", "lists"})
         self.assertEqual(r["findings"][-1], {"severity": "check", "kind": "bypass_dns", "count": 1})
 
     def test_an_older_state_file_still_loads(self):
@@ -227,11 +227,74 @@ class Visits(Base):
         path.write_text(json.dumps(old))
         hit = self.hit(analyze.report("n1", "10.8.1.3"))
         self.assertEqual((hit["count"], hit["last"], hit["hours"]), (24, T0, [hour]))
+        # which other lists its names were on is not known: only its own
+        self.assertEqual(hit["lists"], ["stalkerware"])
         r = self.merge_one(dns=[dns("api.tracker.example", ts=T0 + 10), dns("api.tracker.example", ts=T0 + 4000)])
         self.assertEqual((self.hit(r)["count"], self.hit(r)["last"]), (25, T0 + 4000))
         self.assertNotIn("nx_names", r)
         self.assertNotIn("nx_names", path.read_text())
         self.assertNotIn("printer.lan", path.read_text())
+
+
+class HitLists(Base):
+    """Every list a hit's names are on, the ad list included (toomore/anoni-net-ws#480)."""
+
+    def setUp(self):
+        super().setUp()
+        (analyze.HOME / "lists" / "cti.txt").write_text("evil.example\nnet.example\n")
+        (analyze.HOME / "lists" / "malware.txt").write_text("bad.example CNAME .\nevil.example CNAME .\n")
+        (analyze.HOME / "lists" / "ads.txt").write_text("ad.example CNAME .\nevil.example CNAME .\ncdn.net.example CNAME .\n"
+                                                        "tracker.example CNAME .\n")
+        self.lists = analyze.load_lists()
+
+    def report(self, *batches):
+        for kw in batches:
+            analyze.merge("n1", {}, logs(**kw), self.lists)
+        return {f["name"]: f for f in analyze.report("n1", "10.8.1.3")["findings"] if f["kind"] != "bypass_dns"}
+
+    def test_a_name_on_a_flagged_list_and_the_ad_list_says_both(self):
+        (analyze.HOME / "lists" / "malware.txt").write_text("bad.example CNAME .\n")
+        self.lists = analyze.load_lists()
+        hit = self.report({"dns": [dns("x.evil.example")]})["evil.example"]
+        self.assertEqual((hit["kind"], hit["lists"]), ("cti", ["ads", "cti"]))
+
+    def test_every_list_is_named_once_in_order_with_its_own_kind(self):
+        hit = self.report({"dns": [dns("evil.example")], "ssl": [sni("evil.example", ts=T0 + 1)]})["evil.example"]
+        # malware comes first among the flagged lists, so the hit is a malware one, also on the other two
+        self.assertEqual((hit["kind"], hit["lists"]), ("malware", ["ads", "cti", "malware"]))
+
+    def test_a_name_on_one_list_only_has_only_that_one(self):
+        self.assertEqual(self.report({"dns": [dns("bad.example")]})["bad.example"]["lists"], ["malware"])
+
+    def test_the_subdomains_of_an_entry_add_up_to_their_lists(self):
+        # net.example is on the threat list; only cdn.net.example is also on the ad list
+        rows = [dns("www.net.example"), dns("img.cdn.net.example", ts=T0 + 120)]
+        hit = self.report({"dns": rows})["net.example"]
+        self.assertEqual((hit["count"], hit["lists"]), (2, ["ads", "cti"]))
+        self.assertEqual(self.report()["net.example"]["lists"], ["ads", "cti"])
+
+    def test_the_lists_add_up_across_captures(self):
+        first = self.report({"dns": [dns("www.net.example")]})["net.example"]
+        self.assertEqual(first["lists"], ["cti"])
+        later = self.report({"quic": [sni("a.cdn.net.example", ts=T0 + 3600)]})["net.example"]
+        self.assertEqual(later["lists"], ["ads", "cti"])
+        # seen again without the ad list's name, what it was on stays
+        again = self.report({"dns": [dns("www.net.example", ts=T0 + 7200)]})["net.example"]
+        self.assertEqual(again["lists"], ["ads", "cti"])
+
+    def test_stalkerware_says_its_other_lists_and_stays_a_threat(self):
+        hit = self.report({"dns": [dns("api.tracker.example")]})["tracker.example"]
+        self.assertEqual((hit["severity"], hit["lists"]), ("threat", ["ads", "stalkerware"]))
+        self.assertEqual(analyze.load_state("n1", "10.8.1.3")["marks"], {analyze.hour_of(T0): "x"})
+
+    def test_a_lookup_around_the_node_has_no_lists(self):
+        conn = [{"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "8.8.8.8", "id.resp_p": 53}]
+        analyze.merge("n1", {}, logs(conn=conn, dns=[dns("evil.example")]), self.lists)
+        bypass = analyze.report("n1", "10.8.1.3")["findings"][-1]
+        self.assertEqual(bypass, {"severity": "check", "kind": "bypass_dns", "count": 1})
+
+    def test_an_ad_name_alone_is_not_a_finding(self):
+        self.assertEqual(self.report({"dns": [dns("ad.example")]}), {})
 
 
 class SystemNames(Base):

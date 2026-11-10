@@ -1,5 +1,8 @@
 import { type Page, expect, test } from "@playwright/test";
-import { CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_REPORT, ONCE_START, THREAT_REPORT, WEEK_REPORT, WEEK_START, seal } from "./inspect-fixtures.ts";
+import {
+  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, THREAT_ADS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT,
+  WEEK_REPORT, WEEK_START, seal,
+} from "./inspect-fixtures.ts";
 
 // made with inspect/analyze.py's `seal`, so that the page and the analysis host are checked against each other
 const SEALED = {"epk": "ignJt+ZZHZd1te0IIZaPaP1DfczxkdNt4JRP7PZoHzU=", "iv": "tWYNp+Nl//rdFBJU", "ct": "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"};
@@ -682,6 +685,108 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await page.unrouteAll();
     await open(page, endedWith(report));
     await expect(page.getByTestId("inspect-cover").locator(".cover__day")).toHaveCount(8);
+  });
+
+  // What the lists say about each site (toomore/anoni-net-ws#480): written under the site, and in the reason only as one
+  // more sentence. It never lowers the state: a site an ad list also has still needs a check, stalkerware stays a threat.
+  const ONCE_REASON = "名單上的網站集中出現在 11/10 凌晨，之後沒有再出現，比較像瀏覽網頁時遇到的廣告或轉址。";
+  const ADS_NOTE = "命中的網站也都列在廣告與追蹤名單上。";
+  const running = (report: object) => ({ ...BASE, status: "active", started_at: ONCE_START, ends_at: plus(ONCE_START, 7), report: seal(report) });
+  const lists = (page: Page, name: string) => page.getByTestId("inspect-hit").filter({ hasText: name }).getByTestId("inspect-hit-lists");
+
+  test("each site says which other lists it is on, and a site on its own list says nothing more", async ({ page }) => {
+    await open(page, running(ONCE_LISTS_REPORT), "2026-11-10T07:10:00Z");
+    await expect(lists(page, "ads-redirect.example")).toHaveText("也列在廣告與追蹤名單上");
+    await expect(lists(page, "popunder.example")).toHaveText("同時列在 3 份名單上：惡意網站名單、資安威脅情報名單、廣告與追蹤名單");
+    await expect(lists(page, "promo.example")).toHaveCount(0);
+    // the words on when it was seen are as they were, the lists on a line of their own
+    await expect(page.getByTestId("inspect-hit").filter({ hasText: "ads-redirect.example" }).getByTestId("inspect-hit-words")).toHaveText("只出現在 1 個時段 · 最後一次在 02:03");
+    // one of them only on its own list: the reason says nothing about the ad list
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-reason")).toHaveText(ONCE_REASON);
+  });
+
+  test("every site of a one-off also on the ad list: one more sentence, and it still needs a check", async ({ page }) => {
+    await open(page, running(ONCE_ADS_REPORT), "2026-11-10T07:10:00Z");
+    await expect(page.getByTestId("inspect-reason")).toHaveText(ONCE_REASON + ADS_NOTE);
+    // the state as it was without the lists: needs a check, in the card, on each kind and in the checks
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await expect(verdict(page).getByRole("heading", { level: 2 })).toHaveText("需要檢查");
+    await expect(verdict(page).locator(".inspect-verdict__state .icon")).toHaveCount(1);
+    for (const kind of await page.getByTestId("inspect-kind").all()) await expect(kind.getByTestId("inspect-severity")).toContainText("需要檢查");
+    const checks = page.getByTestId("inspect-check");
+    await expect(checks.nth(1)).toHaveAttribute("data-state", "check");
+    await expect(checks.nth(2)).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-tiles").locator(".tile--check")).toHaveCount(1);
+    await expect(page.getByTestId("inspect-hit-lists")).toHaveCount(8);
+  });
+
+  test("a single site on the ad list too says so in the singular", async ({ page }) => {
+    const report = { ...ONCE_ADS_REPORT, findings: ONCE_ADS_REPORT.findings.slice(0, 1), checks: ONCE_REPORT.checks.map((c) => ({ ...c, count: c.id === "malware" ? 2 : 0 })) };
+    await open(page, running(report), "2026-11-10T07:10:00Z");
+    await expect(page.getByTestId("inspect-reason")).toHaveText(ONCE_REASON + "命中的網站也列在廣告與追蹤名單上。");
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+  });
+
+  test("on the ad list but seen day after day, or left out of the report: no sentence, and the steps stay", async ({ page }) => {
+    await open(page, endedWith(WEEK_ADS_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-reason")).toContainText("名單上的網站在 6 天出現，共 11 個時段");
+    await expect(page.getByTestId("inspect-reason")).not.toContainText("廣告與追蹤名單");
+    await expect(verdict(page).getByRole("heading", { name: "接下來可以做" })).toBeVisible();
+    await expect(lists(page, "beacon.example")).toHaveText("也列在廣告與追蹤名單上");
+    // sites the report does not list may not be on the ad list
+    await page.unrouteAll();
+    await open(page, running({ ...ONCE_ADS_REPORT, more: { cti: 2 } }), "2026-11-10T07:10:00Z");
+    await expect(page.getByTestId("inspect-reason")).toHaveText(ONCE_REASON);
+  });
+
+  test("stalkerware an ad list also has is still a known threat, with the same reason and steps", async ({ page }) => {
+    await open(page, endedWith(THREAT_ADS_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "threat");
+    await expect(verdict(page).getByRole("heading", { level: 2 })).toHaveText("已知威脅");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("跟蹤軟體名單上的網站出現在 3 天、4 個時段，最後一次在 11/06 11:13。一般瀏覽網頁很少連到這類網站，請照下面的步驟檢查。");
+    await expect(verdict(page).getByRole("heading", { name: "接下來可以做" })).toBeVisible();
+    await expect(page.getByTestId("inspect-check").first()).toHaveAttribute("data-state", "threat");
+    await expect(lists(page, "collect.example")).toHaveText("也列在廣告與追蹤名單上");
+  });
+
+  test("a report from before the lists were compared says nothing about them", async ({ page }) => {
+    await open(page, running(ONCE_REPORT), "2026-11-10T07:10:00Z");
+    await expect(page.getByTestId("inspect-hit")).toHaveCount(8);
+    await expect(page.getByTestId("inspect-hit-lists")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-reason")).toHaveText(ONCE_REASON);
+    await page.unrouteAll();
+    await open(page, endedWith(FULL_REPORT));
+    await expect(page.getByTestId("inspect-hit-lists")).toHaveCount(0);
+  });
+
+  test("in English, the lists are named and the sentence added", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-10T07:10:00Z"));
+    await backend(page, running(ONCE_LISTS_REPORT));
+    await withKey(page);
+    await page.goto(`/en/devices/inspect/?d=${ID}`);
+    await expect(lists(page, "ads-redirect.example")).toHaveText("Also on the ad and tracking list");
+    await expect(lists(page, "popunder.example")).toHaveText("On 3 lists: malicious site list, threat intelligence list, ad and tracking list");
+    await page.unrouteAll();
+    await backend(page, running(ONCE_ADS_REPORT));
+    await page.goto(`/en/devices/inspect/?d=${ID}`);
+    await expect(page.getByTestId("inspect-reason")).toContainText("browsing. Every one of these sites is also on the ad and tracking list.");
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+  });
+
+  test("the downloaded report has the lists and the sentence", async ({ page }) => {
+    await open(page, running(ONCE_ADS_REPORT), "2026-11-10T07:10:00Z");
+    let { html } = await downloaded(page);
+    expect(html).toContain(ADS_NOTE);
+    expect(html).toContain("也列在廣告與追蹤名單上");
+    expect(html).toContain('data-state="check"');
+    await page.unrouteAll();
+    await open(page, endedWith(ONCE_LISTS_REPORT));
+    ({ html } = await downloaded(page));
+    expect(html).toContain("同時列在 3 份名單上：惡意網站名單、資安威脅情報名單、廣告與追蹤名單");
+    // the folded rows are open in the file, with their lists
+    expect(html.match(/data-testid="inspect-hit-lists"/g)).toHaveLength(7);
   });
 });
 
