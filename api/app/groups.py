@@ -79,8 +79,9 @@ def inspection_of(asked, requested_on, until, status, started_at, ends_at, stopp
         # how long a request waits, a no stays, or a deleted report would have been kept
         "until": iso(until),
         "started_at": iso(started_at), "ends_at": iso(ends_at),
-        # ended before its days were up, by the member: the summary covers fewer days
+        # ended before its days were up, by the member: the summary covers fewer days, up to stopped_at
         "ended_early": bool(stopped_at and ends_at and stopped_at < ends_at),
+        "stopped_at": iso(stopped_at),
         "report_until": iso(report_until),
     }
 

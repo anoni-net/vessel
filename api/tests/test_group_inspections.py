@@ -139,6 +139,7 @@ def test_the_leaders_with_a_key_get_a_summary_and_the_member_the_report(client, 
     finish_it(db)
     shown = seen(leader, device_id)
     assert shown["status"] == "ended" and shown["ended_early"] is True and shown["report_until"]
+    assert shown["stopped_at"] < shown["ends_at"]
     assert analysis.summaries[refreshed:] == [leader_key]
 
 
