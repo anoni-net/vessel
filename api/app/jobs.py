@@ -296,9 +296,13 @@ def poll_usage(conn: psycopg.Connection) -> None:
                     d_rx, d_tx = rx, tx
                 # the blocked counter belongs to the address, so it carries on across a suspend and resume
                 d_blocked = blocked - prev[3] if same and blocked >= prev[3] else blocked
-                # counted against the node's previous counters only: after a restart everything is new and says nothing
+                # counted against the node's previous counters only: after a restart everything is new and says nothing.
+                # The device keeps the yes or no for its page (devices.failing) until it next connects.
                 if same and device[1] == region_id and device[3] == "active" and failing(handshake, d_rx, previous_read):
                     stuck += 1
+                    conn.execute("UPDATE devices SET failing = true WHERE id = %s AND NOT failing", (peer["name"],))
+                elif previous_read is not None and handshake >= previous_read:
+                    conn.execute("UPDATE devices SET failing = false WHERE id = %s AND failing", (peer["name"],))
                 d_ads = ads - prev[4] if same and ads >= prev[4] else ads
                 conn.execute(
                     "INSERT INTO device_counters (device_id, interface_started, rx_bytes, tx_bytes, blocked, blocked_ads) "

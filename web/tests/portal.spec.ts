@@ -578,6 +578,20 @@ test("a device that never connected says so and links to help", async ({ page })
   await expect(page.locator("#q-trouble")).toHaveAttribute("open", "");
 });
 
+test("a device whose connection requests reach the node without connecting says it may be the network", async ({ page }) => {
+  const stuck = { ...DEVICES[0], id: "d-ccc", name: "tablet", failing: true };
+  const never = { ...DEVICES[0], id: "d-ddd", name: "laptop", used_bytes: 0, blocked: 0, connected: false, failing: true };
+  await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], stuck, never]) });
+  await page.goto("/devices/");
+  const list = page.getByTestId("device-list");
+  await expect(list.getByTestId("failing")).toHaveCount(2);
+  const note = list.locator("li", { hasText: "tablet" }).getByTestId("failing");
+  await expect(note).toContainText("你目前的網路可能擋住了 Vessel 的回應");
+  await expect(note.getByRole("link", { name: "連線檢測" })).toHaveAttribute("href", "/check/");
+  // it says more than "not connected yet", which it replaces
+  await expect(list.locator("li", { hasText: "laptop" }).getByTestId("not-connected")).toHaveCount(0);
+});
+
 test("a device through a relay route shows its exit city and where it enters", async ({ page }) => {
   const relayed = { ...DEVICES[0], id: "d-ccc", name: "laptop", relay: "tw-sg" };
   await mockApi(page, { ...signedIn, "GET /api/devices": json([DEVICES[0], relayed]) });

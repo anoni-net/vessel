@@ -305,7 +305,16 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
               </dl>
               {d.status === "pending" && <p class="muted small">{t["status.pendingNote"]}</p>}
               {/* a few minutes is the usual wait; from the day after it was made, what to try */}
-              {d.status === "active" && !d.connected && (
+              {/* the node receives its handshakes, the connection is not made: say it is the network, and what to try */}
+              {d.status === "active" && d.failing && (
+                <p class="card card--warn card--flat small notice" data-testid="failing">
+                  <Icon name="warning" />
+                  <span>
+                    {t["devices.failing"]} <a href={href("/check/")}>{t["check.title"]}</a>
+                  </span>
+                </p>
+              )}
+              {d.status === "active" && !d.connected && !d.failing && (
                 <p class="muted small" data-testid="not-connected">
                   {d.created_on < today ? (
                     <>

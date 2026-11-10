@@ -143,6 +143,7 @@
   "devices.blockedNone": "Protection is on, nothing blocked yet",
   "devices.notConnected": "Not connected yet. Once you turn this tunnel on in AmneziaWG, this note goes away within a few minutes.",
   "devices.notConnectedLong": "Not connected in over a day. Update AmneziaWG to the latest version, turn this tunnel on, then run the connection check to see what is wrong.",
+  "devices.failing": "The node receives this device's connection requests, but the connection is never made: the network you are on may be blocking Vessel's replies. Try another network, such as mobile data instead of Wi-Fi, or add a device in another city or through a relay route.",
   "devices.moved": "The {city} node has moved to a new server, and this device's config stops working after {date}.",
   "devices.movedGone": "The {city} node has moved to a new server, and this device's config no longer works.",
   "devices.movedAdd": "Add a new device, import the new config, then delete this one.",

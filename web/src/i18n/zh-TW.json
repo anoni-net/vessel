@@ -143,6 +143,7 @@
   "devices.blockedNone": "防護已開啟，本月還沒有遇到惡意網站",
   "devices.notConnected": "還沒連上過。在 AmneziaWG 打開這個通道之後，幾分鐘內這行提示就會消失。",
   "devices.notConnectedLong": "建立超過一天還沒連上過。請先把 AmneziaWG 更新到最新版，打開這個通道之後，用連線檢測看看是哪裡出了問題。",
+  "devices.failing": "節點有收到這台裝置的連線請求，連線卻一直沒有建立，你目前的網路可能擋住了 Vessel 的回應。可以換一個網路試試，例如從 Wi-Fi 換成行動網路，也可以新增一台裝置，選擇其他城市或中繼路線。",
   "devices.moved": "{city}節點換了新的主機，這台裝置的設定檔 {date} 之後就不能連線。",
   "devices.movedGone": "{city}節點換了新的主機，這台裝置的設定檔已經不能連線。",
   "devices.movedAdd": "請新增一台裝置、匯入新的設定檔，再刪除這一台。",
