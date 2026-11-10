@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-10",
+  updated: "2026-11-11",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -19,7 +19,7 @@ export default {
           ["Jobs for the nodes: which device to add, remove, suspend, resume or slow down, and when it ran", "Sending changes to the nodes, and trying again while a node cannot be reached", "24 hours after the job finishes; a failed add is kept until its device is deleted"],
           ["The account's monthly traffic total, and how many lookups the scam and malware list and the ads and trackers list each blocked (counts only, no names or days)", "Counting the allowance, and the monthly record on the account page", "The last 12 months, or until the account is deleted"],
           ["Each device's traffic this month, and how many lookups each of its two lists blocked (counts only, no names)", "Helping you notice something wrong with a device", "Until the month ends or the device is deleted"],
-          ["Daily totals per city: how many devices connected that day, the traffic, and how many devices expired (totals only, not tied to any account or device)", "Understanding how the service is used and how much the nodes can take", "400 days"],
+          ["Daily totals per city: how many devices connected that day, the traffic, how many devices expired, and the most devices at once whose connection requests reached a node without a connection being made (totals only, not tied to any account or device)", "Understanding how the service is used and how much the nodes can take", "400 days"],
           ["Each passkey's public key, the name you gave it and the day it was added (day only), and a random identifier made for the account", "Signing you in with a passkey, or giving you a new account number", "Until the passkey or the account is deleted"],
           ["If you turn on a device inspection: the version and date of the explanation you agreed to, the inspection's status and start and end times, the public key your browser made, a hash of the confirmation code (deleted once used), and the encrypted report", "To run the inspection and give you the report", "The report until 7 days after the inspection ends; a request not confirmed is deleted 30 minutes after its latest confirmation link was made"],
           ["For an inspection a group's leader asks for: the request's status and dates (not which leader asked), the public key each leader's browser made, and summaries encrypted to those keys", "To let the member answer, and the leaders see the inspection's status and verdict", "Requests and refusals for 7 days; summaries are deleted with the report. If the member deletes the report, a “deleted” status stays until the report would have gone. A leader's public key until the account is deleted"],

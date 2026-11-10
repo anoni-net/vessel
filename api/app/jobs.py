@@ -24,6 +24,19 @@ RECONCILE_MAX = 5
 # how long a finished job stays (forget_finished_jobs)
 JOBS_KEEP_HOURS = 24
 DEVICE_ID = re.compile(r"^d-[a-z0-9]{12}$")
+# A session's keys stop working this long after its handshake (WireGuard's REJECT_AFTER_TIME, 180 s), plus a margin.
+# A device whose last handshake is older than that, counted from the reading before, could not have sent any data since:
+# whatever the node received from it is handshakes that did not complete (failing).
+SESSION_SECONDS = 210
+
+
+def failing(handshake: int, received: int, previous_read: float | None) -> bool:
+    """Whether a device keeps trying to connect without getting through: since the node was last read
+    (`previous_read`, epoch seconds), it received `received` bytes from the device, and the device's last handshake
+    (`handshake`, 0 for never) is too old for any of them to be data. Tested with AmneziaWG: when a network drops the
+    node's replies, the node still counts the device's handshakes and keeps its last handshake as it was. When the
+    device's own packets are dropped the node receives nothing, and this cannot tell."""
+    return previous_read is not None and received > 0 and handshake < previous_read - SESSION_SECONDS
 
 
 def run_job(conn: psycopg.Connection, job_id: int) -> str:
@@ -231,6 +244,9 @@ def poll_usage(conn: psycopg.Connection) -> None:
         except NodeError:
             continue
         started = data["interface_started"]
+        row = conn.execute("SELECT extract(epoch FROM at) FROM heartbeats WHERE name = %s", (f"usage:{region_id}",)).fetchone()
+        previous_read = float(row[0]) if row else None
+        stuck = 0
         # the node's own totals (node/awgctl, node_totals), replaced as a whole; older nodes send none
         if isinstance(data.get("totals"), dict):
             with conn.transaction():
@@ -280,6 +296,9 @@ def poll_usage(conn: psycopg.Connection) -> None:
                     d_rx, d_tx = rx, tx
                 # the blocked counter belongs to the address, so it carries on across a suspend and resume
                 d_blocked = blocked - prev[3] if same and blocked >= prev[3] else blocked
+                # counted against the node's previous counters only: after a restart everything is new and says nothing
+                if same and device[1] == region_id and device[3] == "active" and failing(handshake, d_rx, previous_read):
+                    stuck += 1
                 d_ads = ads - prev[4] if same and ads >= prev[4] else ads
                 conn.execute(
                     "INSERT INTO device_counters (device_id, interface_started, rx_bytes, tx_bytes, blocked, blocked_ads) "
@@ -314,13 +333,15 @@ def poll_usage(conn: psycopg.Connection) -> None:
                         (peer["name"], d_rx, d_tx, d_blocked, d_ads),
                     )
         # handshakes only move forward within a day, but a node restart forgets them: keep the day's highest count
+        # the same for the devices that keep failing to connect: the most at one reading
         conn.execute(
-            "INSERT INTO daily_stats (day, region_id, active_devices, rx_bytes, tx_bytes) "
-            "VALUES (current_date, %s, %s, %s, %s) "
+            "INSERT INTO daily_stats (day, region_id, active_devices, rx_bytes, tx_bytes, failing_devices) "
+            "VALUES (current_date, %s, %s, %s, %s, %s) "
             "ON CONFLICT (day, region_id) DO UPDATE SET "
             "active_devices = greatest(daily_stats.active_devices, EXCLUDED.active_devices), "
-            "rx_bytes = daily_stats.rx_bytes + EXCLUDED.rx_bytes, tx_bytes = daily_stats.tx_bytes + EXCLUDED.tx_bytes",
-            (region_id, active, day_rx, day_tx),
+            "rx_bytes = daily_stats.rx_bytes + EXCLUDED.rx_bytes, tx_bytes = daily_stats.tx_bytes + EXCLUDED.tx_bytes, "
+            "failing_devices = greatest(daily_stats.failing_devices, EXCLUDED.failing_devices)",
+            (region_id, active, day_rx, day_tx, stuck),
         )
         beat(conn, f"usage:{region_id}")
     # devices show this month only; earlier months are not kept. The account's monthly totals last a year.

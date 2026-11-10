@@ -26,6 +26,7 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 | `relay/` | 其他團體營運的入口：`vessel-relay` 用 nftables 把 UDP 轉送到節點，營運規範在 `relay/NORMS.md` | `sudo bash relay/test/netns-test.sh` |
 | `inspect/` | 裝置流量檢測的分析端：接收節點的封包、自動分析、產生結果，說明見 `inspect/README.md` | `python3 -m unittest discover -s inspect/tests` |
 | `tools/dpi-check/` | 在本機檢查 AmneziaWG 的偽裝在 DPI 工具眼中的樣子，改了混淆參數或升級 AmneziaWG 之後執行，說明見 `tools/dpi-check/README.md` | `tools/dpi-check/run.sh` |
+| `tools/handshake-check/` | 在本機確認節點看得出「連線請求到了、連線卻沒有建立」的裝置，worker 判斷連不上的依據，升級 AmneziaWG 之後執行，說明見 `tools/handshake-check/README.md` | `tools/handshake-check/run.sh` |
 
 首頁「Vessel 的做法」的四張圖（FIG. 02 到 05）由 `web/scripts/hero-figures.py` 產生，寫進 `web/src/hero-figures-data.ts`，要改圖時改腳本再執行 `python3 web/scripts/hero-figures.py`，不要手改資料檔。標籤的寬度取自三個語系的文字，改了圖上標籤的文字也要重新執行，CI 會用 `--check` 確認資料檔與腳本畫出的一致。
 

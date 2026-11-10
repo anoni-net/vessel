@@ -473,14 +473,15 @@ def report(conn: psycopg.Connection, days: int) -> None:
         (policy.personal_quota(conn),),
     )
     print(f"accounts at the monthly quota: {full}")
-    print(f"daily, UTC, last {days} days (active: devices with a handshake that day):")
-    print(f"  {'day':10}  {'region':6}  {'active':>6}  {'traffic':>9}  {'expired':>7}")
-    for day, region, active, rx, tx, expired in conn.execute(
-        "SELECT day, region_id, active_devices, rx_bytes, tx_bytes, expired_devices FROM daily_stats "
+    print(f"daily, UTC, last {days} days (active: devices with a handshake that day; failing: the most devices at once"
+          " whose handshakes reached the node without a connection being made):")
+    print(f"  {'day':10}  {'region':6}  {'active':>6}  {'traffic':>9}  {'expired':>7}  {'failing':>7}")
+    for day, region, active, rx, tx, expired, stuck in conn.execute(
+        "SELECT day, region_id, active_devices, rx_bytes, tx_bytes, expired_devices, failing_devices FROM daily_stats "
         "WHERE day > current_date - %s ORDER BY day, region_id",
         (days,),
     ):
-        print(f"  {day.isoformat():10}  {region:6}  {active:6}  {size(rx + tx):>9}  {expired:7}")
+        print(f"  {day.isoformat():10}  {region:6}  {active:6}  {size(rx + tx):>9}  {expired:7}  {stuck:7}")
 
 if __name__ == "__main__":
     main()

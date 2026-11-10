@@ -17,7 +17,8 @@ VESSEL_DNSBL_STATE。節點不記錄連線的目的地，有裝置寄垃圾信�
 黑名單是我們看得到的少數訊號之一。
 
 用量與節點計數也另外比對：本月上傳超過下載、照目前的速度月底前會用完額度、已經用完額度的帳號數，
-有任何一項變多時推播；節點的 BitTorrent 與連線數上限的計數從 0 變成大於 0 時推播。都只有總數，
+有任何一項變多時推播；節點的 BitTorrent 與連線數上限的計數從 0 變成大於 0 時推播；某個城市今天同時
+連不上的裝置達到 FAILING_ALERT 台，或比上次更多時推播。都只有總數，
 沒有帳號或裝置，上一次的結果記在 VESSEL_USAGE_STATE。
 
 只用標準函式庫，在部署主機上用系統的 python3 執行。
@@ -58,6 +59,9 @@ USAGE_FLAGS = {
     "pace": "照目前的速度月底前會用完額度的帳號",
     "quota": "已經用完額度、限速中的帳號",
 }
+# devices in one city at once that keep trying to connect and never get through (/internal/health failing): one may be a
+# single person on a network that blocks the city; from this many, the city may be interfered with
+FAILING_ALERT = 2
 NODE_SIGNALS = {
     "bt-dht": "BitTorrent DHT 查詢的封包",
     "bt-handshake": "BitTorrent 握手的封包",
@@ -292,6 +296,10 @@ def usage_counts(data: dict) -> dict[str, int]:
         for name, value in node.get("counts", {}).items():
             if name in NODE_SIGNALS and value > 0:
                 counts[f"{region}:{name}"] = 1
+    # today's most at once: told when it reaches FAILING_ALERT and each time it goes higher, back to none the next day
+    for region, value in data.get("failing", {}).items():
+        if value >= FAILING_ALERT:
+            counts[f"{region}:failing"] = int(value)
     return counts
 
 
@@ -306,6 +314,9 @@ def usage_body(data: dict, now: dict[str, int], before: dict[str, int]) -> str:
             if f"{region}:{name}" in now:
                 fresh = "，新出現" if f"{region}:{name}" not in before else ""
                 lines.append(f"- {region} 節點的{label}：{node['counts'][name]} 次（節點 {node['since'][:16]} UTC 啟動以來{fresh}）")
+    for region, value in sorted(data.get("failing", {}).items()):
+        if f"{region}:failing" in now:
+            lines.append(f"- {region} 節點：今天同時有 {value} 台裝置一直嘗試連線卻連不上（節點收得到，連線沒有建立）")
     return "\n".join(lines) + ("\n\n只有總數。帳號的細節在 m6 上查 account_usage，"
                                "處理方式見 deploy/README.md 的「濫用的跡象」。")
 

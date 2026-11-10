@@ -392,3 +392,60 @@ def test_a_quota_setting_that_is_not_a_positive_number_keeps_the_default(db):
     for value in ("", "0", "-5", "fifty"):
         db.execute("UPDATE settings SET value = %s WHERE key = 'monthly_quota_gb'", (value,))
         assert policy.personal_quota(db) == policy.MONTHLY_QUOTA_BYTES
+
+
+def test_failing_reads_handshakes_that_did_not_complete():
+    read = 1_800_000_000.0
+    # received something, and the last handshake is too old for it to be data: handshakes that went nowhere
+    assert jobs.failing(0, 148, read)
+    assert jobs.failing(int(read) - 1000, 148, read)
+    # a session made shortly before the last reading could still carry data
+    assert not jobs.failing(int(read) - 100, 148, read)
+    # nothing received: the device is off, or its own packets never reach the node
+    assert not jobs.failing(0, 0, read)
+    # no reading before this one to count from
+    assert not jobs.failing(0, 148, None)
+
+
+def failing_today(db) -> int:
+    return db.execute("SELECT failing_devices FROM daily_stats WHERE day = current_date AND region_id = 'sg'").fetchone()[0]
+
+
+def test_daily_stats_count_devices_that_keep_failing_to_connect(signed_in, node, db):
+    import time as clock
+
+    never = create(signed_in).json()["id"]
+    dropped = create(signed_in, name="laptop").json()["id"]
+    fine = create(signed_in, name="tablet").json()["id"]
+    node.handshakes[dropped] = int(clock.time()) - 1000
+    node.handshakes[fine] = int(clock.time()) - 60
+    for d in (never, dropped, fine):
+        node.counters[d] = (1000, 1000)
+    worker.tick(db)
+    # the first reading has nothing to count from
+    assert failing_today(db) == 0
+    # handshakes keep arriving from two of them; the third is connected and sending data
+    for d in (never, dropped, fine):
+        node.counters[d] = (1500, 2000)
+    worker.tick(db)
+    assert failing_today(db) == 2
+    # one gives up: the day keeps its most at once
+    node.counters[never] = (1700, 2400)
+    worker.tick(db)
+    assert failing_today(db) == 2
+    # after a node restart the counters start over and say nothing yet
+    node.started = "2026-10-28T00:00:00Z"
+    node.counters[never] = (100, 100)
+    db.execute("UPDATE daily_stats SET failing_devices = 0")
+    worker.tick(db)
+    assert failing_today(db) == 0
+
+
+def test_report_prints_the_failing_devices(signed_in, node, db, capsys):
+    from app import admin
+
+    create(signed_in)
+    worker.tick(db)
+    db.execute("UPDATE daily_stats SET failing_devices = 3")
+    admin.report(db, 2)
+    assert db.execute("SELECT current_date").fetchone()[0].isoformat() + "  sg" in capsys.readouterr().out

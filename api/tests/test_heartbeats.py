@@ -260,3 +260,28 @@ def test_an_older_backend_sends_no_usage_notice(tmp_path, monkeypatch):
     monkeypatch.setattr(health_warn, "notify", lambda *args: (_ for _ in ()).throw(AssertionError("sent")))
     health_warn.watch_usage({"worker_age": 3})
     assert not (tmp_path / "usage.state").exists()
+
+
+def test_health_reports_todays_failing_devices(signed_in, db):
+    db.execute("UPDATE regions SET is_open = true WHERE id = 'jp'")
+    db.execute("INSERT INTO daily_stats (day, region_id, failing_devices) VALUES "
+               "(current_date, 'sg', 3), (current_date - 1, 'jp', 5), (current_date, 'jp', 0)")
+    assert health(signed_in)["failing"] == {"jp": 0, "sg": 3}
+
+
+def test_failing_devices_are_notified_from_two_at_once(tmp_path, monkeypatch):
+    sent = []
+    monkeypatch.setattr(health_warn, "USAGE_STATE", tmp_path / "usage.state")
+    monkeypatch.setattr(health_warn, "notify", lambda title, body, priority, tags: sent.append(body))
+    flags = {"upload": 0, "pace": 0, "quota": 0}
+    health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 1}})
+    assert sent == []
+    health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 2}})
+    assert len(sent) == 1 and sent[0].startswith("- sg 節點：今天同時有 2 台裝置一直嘗試連線卻連不上")
+    health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 2}})
+    health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 3}})
+    assert len(sent) == 2
+    # a new day starts from none
+    health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 0}})
+    health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 2}})
+    assert len(sent) == 3
