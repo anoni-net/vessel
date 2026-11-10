@@ -15,7 +15,9 @@ MAX_ATTEMPTS = 10
 # Taking a device off the node is never given up: a deleted device that stays on the node keeps working, which matters
 # most when the phone was lost or taken. These retry every ten minutes at most until the node answers; while they
 # wait, /internal/health counts them as stuck.
-UNTIL_DONE = frozenset({"remove", "suspend"})
+# A speed limit is put on and taken off until the node answers, too: a device left slow after a new month, or left fast
+# over the quota, would be wrong for as long as nobody noticed. poll_usage also puts back what a node lost on a restart.
+UNTIL_DONE = frozenset({"remove", "suspend", "throttle", "unthrottle"})
 # how often the worker compares each node's peers with the devices table (reconcile_peers)
 RECONCILE_MINUTES = 60
 RECONCILE_MAX = 5
@@ -38,12 +40,16 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
         action, device_id, payload, attempts, host = row
         node = get_node()
         if action != "remove":
-            device = conn.execute("SELECT status FROM devices WHERE id = %s", (device_id,)).fetchone()
-            # an add for a device still waiting for it; a suspend or resume for a device still suspended. Anything else
-            # changed meanwhile: a deleted or expiring device has its remove job, and a suspend that waited past the
-            # device's resume must not take it offline again
-            wanted = "pending" if action == "add" else "suspended"
-            if device is None or device[0] != wanted:
+            device = conn.execute("SELECT status, throttled FROM devices WHERE id = %s", (device_id,)).fetchone()
+            # an add for a device still waiting for it; a suspend or resume for a device still suspended; a throttle or
+            # unthrottle for a device that still should be slow, or fast. Anything else changed meanwhile: a deleted or
+            # expiring device has its remove job, and a suspend that waited past the device's resume, or a throttle
+            # that waited past a new month, must not undo what came after it
+            if action in ("throttle", "unthrottle"):
+                stale = device is None or device[0] == "revoking" or device[1] != (action == "throttle")
+            else:
+                stale = device is None or device[0] != ("pending" if action == "add" else "suspended")
+            if stale:
                 conn.execute("UPDATE jobs SET status = 'done', payload = NULL, done_at = now(), updated_at = now() "
                              "WHERE id = %s", (job_id,))
                 return "done"
@@ -70,6 +76,12 @@ def run_job(conn: psycopg.Connection, job_id: int) -> str:
                 )
             elif action == "suspend":
                 node.suspend(host, device_id)
+                conn.execute("UPDATE jobs SET status = 'done', done_at = now(), updated_at = now() WHERE id = %s", (job_id,))
+            elif action in ("throttle", "unthrottle"):
+                if action == "throttle":
+                    node.throttle_on(host, device_id)
+                else:
+                    node.throttle_off(host, device_id)
                 conn.execute("UPDATE jobs SET status = 'done', done_at = now(), updated_at = now() WHERE id = %s", (job_id,))
             elif action == "resume":
                 node.resume(host, device_id)
@@ -225,13 +237,22 @@ def poll_usage(conn: psycopg.Connection) -> None:
         for peer in data["peers"]:
             with conn.transaction():
                 device = conn.execute(
-                    "SELECT account_id, region_id FROM devices WHERE id = %s FOR UPDATE", (peer["name"],)
+                    "SELECT account_id, region_id, throttled, status FROM devices WHERE id = %s FOR UPDATE", (peer["name"],)
                 ).fetchone()
                 if device is None:
                     continue  # peers created outside the portal, or already deleted here
                 handshake = peer.get("latest_handshake", 0)
                 if device[1] == region_id and handshake >= day_start:
                     active += 1
+                # a node that restarted has lost its speed limits, and one may have been left by hand: whatever the node
+                # says that the device row does not, and no job is on its way to change, is put right
+                if (isinstance(peer.get("throttled"), bool) and peer["throttled"] != device[2]
+                        and device[3] in ("active", "suspended")
+                        and not conn.execute(
+                            "SELECT 1 FROM jobs WHERE device_id = %s AND action IN ('throttle', 'unthrottle') "
+                            "AND status = 'queued'", (peer["name"],)).fetchone()):
+                    conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, %s)",
+                                 (region_id, peer["name"], "throttle" if device[2] else "unthrottle"))
                 if handshake > 0:
                     # yes or no only, for counting devices that never connected (admin report)
                     conn.execute("UPDATE devices SET connected = true WHERE id = %s AND NOT connected", (peer["name"],))
@@ -301,8 +322,10 @@ def poll_usage(conn: psycopg.Connection) -> None:
 
 
 def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
-    """Suspend the devices of accounts over this month's quota, and resume them once a new month starts. `quota` is
-    for personal accounts; an account in a group has its group's."""
+    """Slow down the devices of accounts over this month's quota, and bring them back to full speed once a new month
+    starts or the quota goes up. `quota` is for personal accounts; an account in a group has its group's. A device over
+    the quota stays online at a low speed (node/awgctl, throttle): messages and maps still work. Devices suspended
+    before this come back online, slowed down while still over."""
     with conn.transaction():
         usage = (
             "(SELECT coalesce(sum(rx_bytes + tx_bytes), 0) FROM account_usage u "
@@ -313,17 +336,22 @@ def enforce_quota(conn: psycopg.Connection, quota: int) -> None:
             "WHERE a.id = d.account_id), %s)"
         )
         for device_id, region_id in conn.execute(
-            f"UPDATE devices d SET status = 'suspended' WHERE status = 'active' AND {usage} >= {allowed} "
-            "RETURNING id, region_id",
+            f"UPDATE devices d SET throttled = true WHERE status IN ('active', 'suspended') AND NOT throttled "
+            f"AND {usage} >= {allowed} RETURNING id, region_id",
             (quota,),
         ).fetchall():
-            conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'suspend')",
+            conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'throttle')",
                          (region_id, device_id))
         for device_id, region_id in conn.execute(
-            f"SELECT id, region_id FROM devices d WHERE status = 'suspended' AND {usage} < {allowed} "
-            "AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.device_id = d.id AND j.action = 'resume' "
-            "AND j.status = 'queued')",
+            f"UPDATE devices d SET throttled = false WHERE throttled AND {usage} < {allowed} RETURNING id, region_id",
             (quota,),
+        ).fetchall():
+            conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'unthrottle')",
+                         (region_id, device_id))
+        # queued after the throttle above, so a device still over comes back already slow
+        for device_id, region_id in conn.execute(
+            "SELECT id, region_id FROM devices d WHERE status = 'suspended' AND NOT EXISTS "
+            "(SELECT 1 FROM jobs j WHERE j.device_id = d.id AND j.action = 'resume' AND j.status = 'queued')"
         ).fetchall():
             conn.execute("INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'resume')",
                          (region_id, device_id))

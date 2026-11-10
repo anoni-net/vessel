@@ -76,7 +76,8 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
         "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
-        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status FROM devices d JOIN regions r ON r.id = d.region_id "
+        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status, d.throttled "
+        "FROM devices d JOIN regions r ON r.id = d.region_id "
         "LEFT JOIN device_inspections i ON i.device_id = d.id "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
         "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
@@ -93,7 +94,9 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          # the relay route it connects through, or None for a direct connection
          "relay": r[12],
          # the device inspection, if there is one (app/inspections.py)
-         "inspection": r[13]}
+         "inspection": r[13],
+         # over this month's quota: online, at a low speed (app/jobs.py, enforce_quota)
+         "throttled": r[14]}
         for r in rows
     ]
 

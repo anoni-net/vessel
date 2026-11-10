@@ -37,7 +37,8 @@ def group_of_leader(conn, account_id: int) -> str:
     return row[0]
 
 
-def issues_of(status: str, not_connected: bool, moved: bool, ipv6: bool | None, blocked_many: bool) -> list[str]:
+def issues_of(status: str, not_connected: bool, moved: bool, ipv6: bool | None, blocked_many: bool,
+              throttled: bool = False) -> list[str]:
     """What needs checking on a device."""
     if status not in ("active", "suspended"):
         return []
@@ -46,6 +47,8 @@ def issues_of(status: str, not_connected: bool, moved: bool, ipv6: bool | None, 
         found.append("not_connected")
     if status == "suspended":
         found.append("suspended")
+    elif throttled:
+        found.append("throttled")
     if moved or ipv6 is False:
         found.append("new_config")
     if blocked_many:
@@ -59,7 +62,7 @@ def devices_by_account(conn, where: str, param) -> dict[int, list[dict]]:
         "SELECT d.account_id, d.id, d.name, d.region_id, d.dns_filter, d.status, d.expires_on, "
         # a device made today has not had the time to be a problem
         "d.status = 'active' AND NOT d.connected AND d.created_on < current_date, "
-        "d.moved AND r.previous_until IS NOT NULL, d.ipv6, coalesce(u.blocked, 0) >= %s "
+        "d.moved AND r.previous_until IS NOT NULL, d.ipv6, coalesce(u.blocked, 0) >= %s, d.throttled "
         "FROM devices d JOIN accounts a ON a.id = d.account_id JOIN regions r ON r.id = d.region_id "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
         f"WHERE {where} ORDER BY d.created_on, d.id",
@@ -67,7 +70,7 @@ def devices_by_account(conn, where: str, param) -> dict[int, list[dict]]:
     ):
         by_account.setdefault(row[0], []).append({
             "id": row[1], "name": row[2], "region": row[3], "dns_filter": row[4], "status": row[5],
-            "expires_on": row[6].isoformat(), "issues": issues_of(row[5], row[7], row[8], row[9], row[10]),
+            "expires_on": row[6].isoformat(), "issues": issues_of(row[5], row[7], row[8], row[9], row[10], row[11]),
         })
     return by_account
 
