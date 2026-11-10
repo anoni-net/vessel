@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ApiError, type Inspection, type Me, api, last } from "../api.ts";
+import { ApiError, type Device, type Inspection, type Me, api, last } from "../api.ts";
 import { announce } from "../announce.ts";
 import { useCtx } from "../context.ts";
 import { formatBytes, formatCount, formatDate, formatDay, formatStamp, formatTime } from "../format.ts";
@@ -7,11 +7,13 @@ import { focusLater } from "../focus.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { Icon } from "../icons.tsx";
 import { type Kept, type Sealed, forget, isKey, keep, kept, newKey, openReport } from "../inspection-key.ts";
+import { flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { saveFile } from "../save-file.ts";
 import { setSignedIn } from "../session.ts";
 import { qrSvg } from "../wgconfig.ts";
 import { AccountNav } from "./account.tsx";
+import { Layers } from "./layers.tsx";
 import { Busy, SkButton, SkCard, SkLine, Spin } from "./skeleton.tsx";
 
 const WAITING_EVERY = 10_000;
@@ -80,7 +82,8 @@ export function Inspect() {
   const [state, setState] = useState<Inspection | null>(null);
   // what this tab already knows from the devices page, so the name is there from the first frame
   const known = last.devices?.find((x) => x.id === id);
-  const [name, setName] = useState(known?.name ?? "");
+  const [device, setDevice] = useState<Device | undefined>(known);
+  const name = device?.name ?? "";
   const [me, setMe] = useState<Me | null>(last.me ?? null);
   // a new error is a new element, so the same words twice are read again
   const [err, setErr] = useState<{ text: string; n: number } | null>(null);
@@ -113,7 +116,7 @@ export function Inspect() {
     // all at once: a name arriving after the page is drawn would push everything down
     void Promise.all([api.inspection(id), api.me().catch(() => null), api.devices().catch(() => null)]).then(([s, m, d]) => {
       if (m) setMe(m);
-      if (d) setName(d.find((x) => x.id === id)?.name ?? "");
+      if (d) setDevice(d.find((x) => x.id === id));
       setState(s);
     }).catch(fail);
   }, []);
@@ -193,7 +196,7 @@ export function Inspect() {
     <section class="wrap narrow stack inspect-page">
       <AccountNav leader={me?.group?.role === "leader"} />
       <h1>{t["inspect.title"]}</h1>
-      {name && <p class="lead">{fmt(t["inspect.device"], { name })}</p>}
+      {device && <DeviceLabel device={device} />}
       {error}
       {status === "none" && expired && <p class="card card--warn card--flat" data-testid="inspect-expired">{t["inspect.expired"]}</p>}
       {status === "none" && <Consent id={id} state={state} grouped={!!me?.group} setKept={setKept} reload={load} fail={fail} />}
@@ -206,11 +209,42 @@ export function Inspect() {
   );
 }
 
+/**
+ * The device under inspection as a drawing's label: its name large, then the node it goes out through and its filter,
+ * the two that shape what the report can see. The words "device under inspection" are for screen readers, the frame
+ * says DEVICE to the eye.
+ */
+function DeviceLabel({ device }: { device: Device }) {
+  const { t } = useCtx();
+  const flag = flagOf(device.region);
+  return (
+    <div class="inspect-device" data-testid="inspect-device">
+      <p class="inspect-device__name"><span class="sr-only">{fmt(t["inspect.device"], { name: "" })}</span>{device.name}</p>
+      <dl class="inspect-device__facts small">
+        <div>
+          <dt>{t["devices.spec.node"]}</dt>
+          <dd class="spec__with-icon">
+            {flag && <img class="flag flag--small" src={flag} alt="" width="20" height="15" />}
+            <span>{t[`region.${device.region}` as keyof typeof t] ?? device.region}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>{t["devices.spec.filter"]}</dt>
+          <dd class="spec__with-icon"><Layers filter={device.dns_filter} small /><span>{t[`filter.${device.dns_filter}`]}</span></dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 /** The page while it loads, in the shape of the consent page unless this tab knows the device has an inspection. */
 function InspectSkeleton({ consent }: { consent: boolean }) {
   return (
     <div class="stack inspect-wide" aria-hidden="true">
-      <div class="sk-lead"><SkLine w="mid" big /></div>
+      <div class="inspect-device">
+        <p class="inspect-device__name"><SkLine w="mid" big /></p>
+        <div class="inspect-device__facts small"><SkLine w="long" /></div>
+      </div>
       {consent ? (
         <>
           <div class="sk-intro stack"><SkLine /><SkLine /><SkLine w="long" /></div>
@@ -454,9 +488,18 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
     const title = fmt(t["inspect.device"], { name });
     // the results so far: the file says so in its name, its title and its first lines, so it is not taken for the full report
     const heading = partial ? t["inspect.file.partialTitle"] : t["inspect.title"];
-    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading}</title><style>${css}</style><body><main class="wrap narrow stack inspect-page"><h1>${heading}</h1><p class="lead"></p>${partial ? '<p class="card card--warn card--flat" data-partial></p>' : ""}${body.outerHTML}</main></body></html>`;
+    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading}</title><style>${css}</style><body><main class="wrap narrow stack inspect-page"><h1>${heading}</h1><p class="lead" data-device></p>${partial ? '<p class="card card--warn card--flat" data-partial></p>' : ""}${body.outerHTML}</main></body></html>`;
     const doc = new DOMParser().parseFromString(html, "text/html");
-    doc.querySelector(".lead")!.textContent = title;
+    // the device's label as it is on the page, without the flag: the file opens offline and loads nothing from the site
+    const label = document.querySelector<HTMLElement>("[data-testid=inspect-device]");
+    const slot = doc.querySelector("[data-device]")!;
+    if (label) {
+      const copy = doc.importNode(label, true);
+      copy.querySelectorAll("img").forEach((img) => img.remove());
+      slot.replaceWith(copy);
+    } else {
+      slot.textContent = title;
+    }
     const now = new Date();
     if (partial) doc.querySelector("[data-partial]")!.textContent = fmt(t["inspect.file.partial"], { time: formatStamp(locale, now), ...progress(state) });
     const day = now.toLocaleDateString("sv");

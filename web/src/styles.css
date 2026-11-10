@@ -1039,6 +1039,18 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-verdict--clean { background: var(--tint); }
 /* cancelling, deleting: a link at the start of the line, under the "back to the devices" one, not centred in its column */
 .inspect-wide > .link-button { align-self: flex-start; text-align: start; }
+/* the device under inspection as a drawing's label: an ink frame with DEVICE written into its top edge, as NOTE is on a
+   warning, the name large, and under a hairline the node and the filter it goes through */
+.inspect-device { position: relative; margin-top: 4px; padding: 18px 18px 12px; border: var(--border); border-radius: var(--radius); background: var(--paper); }
+.inspect-device::before { content: "DEVICE" / ""; position: absolute; top: -.75em; left: 14px; padding: 0 6px; background: var(--paper);
+  color: var(--ink); font: 600 10px/1.5 var(--mono); letter-spacing: .18em; }
+.inspect-device__name { display: flex; align-items: center; min-height: 32px; margin: 0; color: var(--ink); font-size: 24px; font-weight: 700;
+  line-height: 1.3; overflow-wrap: anywhere; }
+.inspect-device__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; min-height: 26px; margin: 10px 0 0;
+  padding-top: 10px; border-top: 1px solid var(--line); }
+.inspect-device__facts > div { display: flex; align-items: center; gap: 10px; }
+.inspect-device__facts dt { color: var(--muted); }
+.inspect-device__facts dd { margin: 0; color: var(--text); }
 /* two cards that sit side by side on a wide screen (below); one above the other, as the page's other blocks, on a phone */
 .inspect-pair { display: flex; flex-direction: column; gap: 16px; }
 .inspect-verdict__main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }

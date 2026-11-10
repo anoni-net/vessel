@@ -655,6 +655,21 @@ test.describe("the report says what it comes to, and when each site was seen", (
     expect(html).toContain("tile--up");
   });
 
+  test("the device is a label: its name, the node it goes out through and its filter, in the file too without the flag", async ({ page }) => {
+    await open(page, endedWith(WEEK_REPORT));
+    const label = page.getByTestId("inspect-device");
+    await expect(label.locator(".inspect-device__name")).toHaveText("檢測的裝置：我的手機");
+    await expect(label.locator(".inspect-device__facts")).toContainText("新加坡");
+    await expect(label.locator(".inspect-device__facts")).toContainText("不過濾");
+    await expect(label.locator("img.flag")).toHaveCount(1);
+    // the frame's DEVICE is drawn, not read out
+    expect(await label.evaluate((el) => getComputedStyle(el, "::before").content)).toMatch(/^"DEVICE"/);
+    const { html } = await downloaded(page);
+    expect(html).toContain('data-testid="inspect-device"');
+    expect(html).toContain("新加坡");
+    expect(html.match(/<img[^>]*class="flag/g)).toBeNull();
+  });
+
   test("one ended early ends where copying stopped, and the days after it are not drawn", async ({ page }) => {
     // planned for 11/01 to 11/08, stopped on 11/05 in the evening
     const report = { ...WEEK_REPORT, hours: WEEK_REPORT.hours.filter((h) => h.hour < "2026-11-05T12"), findings: [], checks: WEEK_REPORT.checks.map((c) => ({ ...c, count: 0 })) };
