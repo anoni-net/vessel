@@ -12,7 +12,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
 | `pull-lists.sh` | 根目錄 | 向維護者的主機取得名單的變動。root 的 cron 在 UTC 04:37、10:37、16:37、22:37 執行，名單由主機在 7 分鐘前產生，見 `deploy/rpz/` |
 | `exclude.txt` | 維護者的主機（`deploy/rpz/`） | 不該擋的網域與理由，見「排除清單」 |
-| `unbound/*.conf` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾 |
+| `unbound/*.conf`、`unbound/vessel.zone` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾。`vessel.zone` 讓廣告名單的 CNAME 目標在本機回 NXDOMAIN，見「擋下次數」 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/vessel-inspect.conf` | `/etc/modules-load.d/` | 裝置檢測需要的核心模組，見「裝置檢測」 |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
@@ -37,7 +37,7 @@ systemctl daemon-reload && systemctl enable --now cve-2026-98432-ipopt.service
 
 ```bash
 mkdir -p /opt/vessel-node/build /opt/vessel-node/unbound
-# 把 Dockerfile、start.sh 放進 build/，unbound/*.conf 放進 unbound/，其他檔案放在根目錄
+# 把 Dockerfile、start.sh 放進 build/，unbound/*.conf 與 unbound/vessel.zone 放進 unbound/，其他檔案放在根目錄
 cp node.env.example /opt/vessel-node/node.env   # 填上 NODE_IP 與 LISTEN_PORT
 bash /opt/vessel-node/setup.sh
 ```
@@ -200,7 +200,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 兩份名單分開計數，每月的防護成績單（toomore/anoni-net-ws#445）要分別列出「詐騙與惡意網站」與「廣告與追蹤」：
 
 - 惡意網站的名單開了 `rpz-signal-nxdomain-ra`，擋下的回應是清掉 RA 旗標的 NXDOMAIN，一般的回應不會這樣。`start.sh` 的 `VESSEL-BLOCKED` 用 `u32` 比對 DNS 標頭
-- 廣告的名單用 `rpz-action-override: cname`，擋下的回應是指向 `blocked.vessel.` 的 CNAME，這個名稱由 `filter.conf` 的 `local-zone` 回 NXDOMAIN，不會往外查。`VESSEL-ADS` 從第 41 個位元組開始比對：有些裝置收到 CNAME 之後會再查一次 `blocked.vessel.` 本身，這時名稱在問題區段的開頭（第 40 個位元組），從第 41 個位元組開始比對就不會把同一次擋下算兩次。2026-10-31 的東京節點上，這類回應佔了 `VESSEL-ADS` 的三分之二。`VESSEL-ADS` 用 `string` 比對回應裡的這個名稱
+- 廣告的名單用 `rpz-action-override: cname`，擋下的回應是指向 `blocked.vessel.` 的 CNAME，這個名稱由 `filter.conf` 的 `auth-zone`（區域檔 `vessel.zone`）回 NXDOMAIN，不會往外查。2026-11-10 以前用 `local-zone`，它只回應裝置直接查詢的名稱，unbound 跟著 CNAME 解析時不會用到，每次快取過期就把 `blocked.vessel.` 送給 Quad9 查詢一次（#242）。`auth-zone` 在跟著 CNAME 解析時也會用到。`vessel.` 沒有簽章，`filter.conf` 另外設 `domain-insecure: "vessel."`，否則 DNSSEC 驗證會向根伺服器查 `vessel.` 的 DS，回應變成 SERVFAIL。`VESSEL-ADS` 從第 41 個位元組開始比對：有些裝置收到 CNAME 之後會再查一次 `blocked.vessel.` 本身，這時名稱在問題區段的開頭（第 40 個位元組），從第 41 個位元組開始比對就不會把同一次擋下算兩次。2026-10-31 的東京節點上，這類回應佔了 `VESSEL-ADS` 的三分之二。`VESSEL-ADS` 用 `string` 比對回應裡的這個名稱
 
 兩條 chain 都是每個隧道位址（`.2` 到 `.249`）一條規則，只累計封包數。兩份名單都有的網域，`.254` 先比對惡意網站的名單，只算在惡意網站那邊。
 
@@ -221,7 +221,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 有過濾的兩個位址另外對 `use-application-dns.net` 回 NXDOMAIN。這是 Firefox 的偵測網域，Firefox 每次啟動與切換網路時查詢它，查不到就關掉預設開啟的 DNS over HTTPS，查詢才會繼續經過 Vessel、讓過濾生效。不過濾的解析器不回應這個訊號，因為它的意思是「這個網路有過濾」。使用者手動指定其他安全 DNS 服務時不受影響，過濾仍然不會生效。
 
-改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
+改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，先用 `docker exec vessel-node unbound-checkconf /etc/unbound/conf.d/filter.conf` 檢查，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。`filter.conf` 引用的 `vessel.zone` 要一起複製。少了 `vessel.zone`，unbound 在 HUP 時會結束，`.253` 與 `.254` 都停止回應，`unbound-checkconf` 可以事先發現。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
 
 名單更新時不用 HUP。`pull-lists.sh` 先比對序號，主機比較新的名單才用 `unbound-control auth_zone_transfer` 取得變動的部分，這個指令會略過序號檢查，沒有變動的名單也照樣傳送，六份一起約中斷 10 秒。有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。傳送期間 `.253` 與 `.254` 會暫停一下，2026-11-09 在東京實測，廣告名單增減 2,500 個網域約 0.5 秒，CTI 的一般變動約 1.8 秒，不過濾的 `.1` 照常運作。主機無法連線時，節點繼續用手上的名單，unbound 把收到的名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送。
 

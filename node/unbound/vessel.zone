@@ -1,0 +1,3 @@
+; The target of the ad list's CNAME (rpz-zones.conf), blocked.vessel., does not exist in this zone: NXDOMAIN, answered
+; by the filter resolver itself (auth-zone in filter.conf). Only the SOA, for the NXDOMAIN's authority section.
+vessel. 3600 IN SOA localhost. nobody.invalid. 1 3600 600 86400 3600
