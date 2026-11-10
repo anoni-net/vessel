@@ -95,13 +95,12 @@ for (const scheme of ["light", "dark"] as const) {
       return res.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
     });
     expect(found).toEqual([]);
-    // every link to an inspection says which device it is for, starting with its shown words (WCAG 2.5.3): the state,
-    // then its date after a comma where the page draws a dot, then the device
+    // every link to an inspection says which device it is for, starting with its shown words (WCAG 2.5.3)
     const links = page.locator('a[href^="/devices/inspect/"]');
     await expect(links).toHaveCount(5);
     for (const link of await links.all()) {
-      const [shown, name] = [(await link.innerText()).split("\n").map((x) => x.trim()).filter(Boolean), (await link.getAttribute("aria-label"))!];
-      expect(name.startsWith(shown.join("，")), `${name} starts with ${shown.join("，")}`).toBe(true);
+      const [shown, name] = [(await link.innerText()).replace(/\s+/g, " ").trim(), (await link.getAttribute("aria-label"))!];
+      expect(name.startsWith(shown), `${name} starts with ${shown}`).toBe(true);
     }
   });
 }

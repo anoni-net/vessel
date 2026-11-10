@@ -391,26 +391,19 @@ const inspectHref = (href: (p: string) => string, d: Device) => `${href("/device
 function InspectLink({ d }: { d: Device }) {
   const { t, href, locale } = useCtx();
   const state = d.inspection!;
-  const label = t[`devices.inspect.${state}`];
-  // an older backend sends the state alone: then the state alone
-  const detail = state === "active" && d.inspection_ends_at && d.inspection_days
-    ? fmt(t["devices.inspectDetail.active"], progress({ ends_at: d.inspection_ends_at, days: d.inspection_days }))
+  // one sentence with its date where there is one; an older backend sends the state alone, and then the state alone
+  const words = state === "active" && d.inspection_ends_at && d.inspection_days
+    ? fmt(t["devices.inspectLink.active"], progress({ ends_at: d.inspection_ends_at, days: d.inspection_days }))
     : state === "ended" && d.inspection_report_until
-      ? fmt(t["devices.inspectDetail.ended"], { date: formatDate(locale, d.inspection_report_until) })
-      : "";
+      ? fmt(t["devices.inspectLink.ended"], { date: formatDate(locale, d.inspection_report_until) })
+      : t[`devices.inspect.${state}`];
   return (
     // which device, for a list of links all alike; starting with the shown words (WCAG 2.5.3). The mark is drawn, the
     // words say the state.
     <a class="foot-inspect strong" data-testid="device-inspect" data-state={state} href={inspectHref(href, d)}
-      aria-label={fmt(t["devices.inspectLinkNamed"], { label: detail ? `${label}${locale === "en" ? ", " : "，"}${detail}` : label, name: d.name })}>
+      aria-label={fmt(t["devices.inspectLinkNamed"], { label: words, name: d.name })}>
       <span class={`inspect-mark inspect-mark--${state}`} aria-hidden="true" />
-      {/* on two lines where one is too narrow: the date goes under the state, without the dot between them */}
-      <span class="foot-inspect__words">
-        <span class="foot-inspect__line">
-          <span>{label}</span>
-          {detail && <span class="foot-inspect__detail" data-testid="inspect-detail">{detail}</span>}
-        </span>
-      </span>
+      <span class="foot-inspect__words" data-testid="inspect-words">{words}</span>
     </a>
   );
 }

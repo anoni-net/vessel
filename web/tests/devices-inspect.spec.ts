@@ -31,11 +31,11 @@ async function backend(page: Page, devices: object[], inspection?: object) {
 
 const card = (page: Page, name: string) => page.getByTestId("device").filter({ has: page.getByRole("heading", { name }) });
 
-for (const [device, state, detail, name] of [
-  [CONFIRMING, "檢測待確認", null, "檢測待確認，「手機 A」"],
-  [ACTIVE, "檢測中", "第 3 天，共 7 天", "檢測中，第 3 天，共 7 天，「筆電 B」"],
-  [ENDING, "檢測結束中", null, "檢測結束中，「平板 E」"],
-  [ENDED, "檢測報告", "保存到 2026/11/15", "檢測報告，保存到 2026/11/15，「平板 C」"],
+for (const [device, words, name] of [
+  [CONFIRMING, "檢測待確認", "檢測待確認，「手機 A」"],
+  [ACTIVE, "檢測中，第 3 天，共 7 天", "檢測中，第 3 天，共 7 天，「筆電 B」"],
+  [ENDING, "檢測結束中", "檢測結束中，「平板 E」"],
+  [ENDED, "檢測報告保存到 2026/11/15", "檢測報告保存到 2026/11/15，「平板 C」"],
 ] as const) {
   test(`the card's corner says where the inspection stands: ${device.inspection}`, async ({ page }) => {
     await backend(page, [device]);
@@ -47,9 +47,9 @@ for (const [device, state, detail, name] of [
     await expect(c.locator(".device-foot > a")).toHaveCount(1);
     await expect(link).toHaveAttribute("href", `/devices/inspect/?d=${device.id}`);
     await expect(link).toHaveAttribute("data-state", device.inspection);
-    await expect(link.locator(".foot-inspect__line > span").first()).toHaveText(state);
-    if (detail) await expect(link.getByTestId("inspect-detail")).toHaveText(detail);
-    else await expect(link.getByTestId("inspect-detail")).toHaveCount(0);
+    // one sentence, the state and its date: one run of text under one underline
+    await expect(link).toHaveText(words);
+    await expect(link.getByTestId("inspect-words")).toHaveText(words);
     // named for its device, starting with the shown words (WCAG 2.5.3); the mark before them is not read
     await expect(c.getByRole("link", { name, exact: true })).toHaveCount(1);
     await expect(link.locator(".inspect-mark")).toHaveAttribute("aria-hidden", "true");
@@ -102,19 +102,22 @@ test("the marks differ in shape, not only in colour, in both schemes", async ({ 
   }
 });
 
-test("on a narrow phone the date goes under the state and the delete button stays on the right", async ({ page }) => {
+test("the mark stays out of the underline, and a long sentence wraps beside it with delete on the right", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await backend(page, [ENDED]);
   await page.goto("/en/devices/");
   const link = page.getByTestId("device-inspect");
   const del = page.getByRole("button", { name: "Delete “平板 C”" });
-  const [state, detail, button, foot] = await Promise.all([
-    link.locator(".foot-inspect__line > span").first().boundingBox(), link.getByTestId("inspect-detail").boundingBox(),
+  const [words, mark, button, foot] = await Promise.all([
+    link.getByTestId("inspect-words").boundingBox(), link.locator(".inspect-mark").boundingBox(),
     del.boundingBox(), page.locator(".device-foot").boundingBox(),
   ]);
-  expect(detail!.y).toBeGreaterThan(state!.y + 5);
+  // the mark before the words, the second line under the words and not under the mark
+  expect(mark!.x + mark!.width).toBeLessThanOrEqual(words!.x);
+  expect(words!.height).toBeGreaterThan(30);
   expect(button!.x + button!.width).toBeGreaterThan(foot!.x + foot!.width - 2);
-  expect(button!.y).toBeLessThan(state!.y + state!.height);
+  expect(button!.y).toBeLessThan(words!.y + 20);
+  expect(await link.locator(".inspect-mark").evaluate((e) => e.textContent)).toBe("");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
 
@@ -143,7 +146,7 @@ test("the card and the inspection's page count the same day", async ({ page }) =
     await page.unrouteAll();
     await backend(page, [{ ...ACTIVE, id: "d-1", inspection_ends_at: ends }], { consent_version: "x", days: 7, report_days: 7, status: "active", ends_at: ends, started_at: NOW.toISOString() });
     await page.goto("/devices/");
-    await expect(page.getByTestId("inspect-detail")).toHaveText(`第 ${day} 天，共 7 天`);
+    await expect(page.getByTestId("inspect-words")).toHaveText(`檢測中，第 ${day} 天，共 7 天`);
     await page.goto("/devices/inspect/?d=d-1");
     await expect(page.getByTestId("inspect-status")).toContainText(`檢測中，第 ${day} 天，共 7 天`);
   }
@@ -154,10 +157,9 @@ test("in English the links name their device too", async ({ page }) => {
   await page.goto("/en/devices/");
   for (const [name, shown] of [
     ["Continue the inspection of “手機 A”", "Continue"], ["Inspection pending, for “手機 A”", "Inspection pending"],
-    ["Inspecting, day 3 of 7, for “筆電 B”", "Inspectingday 3 of 7"], ["Inspection ending, for “平板 E”", "Inspection ending"],
-    ["Inspection report, kept until 11/15/2026, for “平板 C”", "Inspection reportkept until 11/15/2026"],
+    ["Inspecting, day 3 of 7, for “筆電 B”", "Inspecting, day 3 of 7"], ["Inspection ending, for “平板 E”", "Inspection ending"],
+    ["Report kept until 11/15/2026, for “平板 C”", "Report kept until 11/15/2026"],
     ["Inspect traffic on “桌機 D”", "Inspect traffic"],
-  // the dot between the state and its date is drawn by CSS, so it is not in the text
   ]) await expect(page.getByRole("link", { name, exact: true })).toHaveText(shown);
 });
 
@@ -168,7 +170,7 @@ test("a device slowed down for the month keeps its inspection, and can start one
   const running = card(page, "筆電 B");
   await expect(running.getByTestId("throttled")).toBeVisible();
   await expect(running.getByTestId("device-inspect")).toHaveAttribute("data-state", "active");
-  await expect(running.getByTestId("inspect-detail")).toHaveText("第 3 天，共 7 天");
+  await expect(running.getByTestId("inspect-words")).toHaveText("檢測中，第 3 天，共 7 天");
   const idle = card(page, "桌機 D");
   await expect(idle.getByTestId("throttled")).toBeVisible();
   await expect(idle.getByRole("link", { name: "檢測流量「桌機 D」" })).toHaveText("檢測流量");

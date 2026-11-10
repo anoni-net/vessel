@@ -724,14 +724,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .device-foot { justify-content: flex-end; flex-wrap: nowrap; align-items: baseline; }
 .device-foot > a { margin-inline-end: auto; }
 .device-foot > :not(a) { flex: none; }
-/* the inspection's state in the card's corner: a mark, the state and its date, one link. Where the line is too narrow
-   the date goes under the state, and the dot between them is cut off at the left edge (clip-path keeps the underline
-   and the rest of the line) */
+/* the inspection's state in the card's corner: a mark, then the state and its date as one sentence, one link. The mark
+   is not text, so the underline is under the words alone; where the line is too narrow they wrap as any text does */
 .foot-inspect { display: inline-flex; align-items: flex-start; gap: 8px; min-width: 0; }
-.foot-inspect__words { min-width: 0; clip-path: inset(-.5em -.5em -.5em 0); }
-.foot-inspect__line { display: flex; flex-wrap: wrap; margin-inline-start: -1.2em; }
-.foot-inspect__line > span { padding-inline-start: 1.2em; }
-.foot-inspect__detail::before { content: "·"; display: inline-block; width: 1.2em; margin-inline-start: -1.2em; text-align: center; }
+.foot-inspect__words { min-width: 0; text-wrap: pretty; }
 /* drawn, not read: the words say the state. A filled dot while it runs, a ring while it waits for the device, half
    filled while it is wrapped up, a square for the report; the shapes differ in both schemes, not only the colour */
 .inspect-mark { flex: none; width: 10px; height: 10px; margin-top: calc((1lh - 10px) / 2); border: 2px solid currentColor; border-radius: 50%; }
