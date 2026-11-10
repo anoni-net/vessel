@@ -1064,7 +1064,7 @@
   "inspect.handling.where": "Stored at",
   "inspect.handling.whereValue": "The community's analysis host in Tokyo, Japan",
   "inspect.handling.packets": "The copied data",
-  "inspect.handling.packetsValue": "Kept for about 20 minutes at most and deleted as soon as it is analysed. What remains is traffic totals, the names of sites on the malicious-site lists, and names that could not be found. No record is kept of the other sites you visited",
+  "inspect.handling.packetsValue": "Kept for about 20 minutes at most and deleted as soon as it is analysed. What remains is traffic totals, and the names of sites on the malicious-site lists with the hours they came up. No record is kept of the other sites you visited",
   "inspect.handling.report": "Report",
   "inspect.handling.reportValue": "Locked so that only this browser or the report key you saved can open it; we cannot read it either. Kept for {days} days after the end, so please download it. After that it is deleted, and the copy in backups, which cannot be opened, is gone within 14 days",
   "inspect.handling.stop": "Ending it",

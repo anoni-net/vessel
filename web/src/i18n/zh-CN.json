@@ -1064,7 +1064,7 @@
   "inspect.handling.where": "存放位置",
   "inspect.handling.whereValue": "社区的分析主机，位于日本东京",
   "inspect.handling.packets": "复制的数据",
-  "inspect.handling.packetsValue": "最多存放约 20 分钟，分析完立刻删除。留下的只有流量统计、符合恶意网站名单的网站名称，以及查询不到的网站名称，你连过的其他网站不会留下记录",
+  "inspect.handling.packetsValue": "最多存放约 20 分钟，分析完立刻删除。留下的只有流量统计，以及符合恶意网站名单的网站名称与出现的时段，你连过的其他网站不会留下记录",
   "inspect.handling.report": "报告",
   "inspect.handling.reportValue": "加锁保存，只有这个浏览器或你保存的报告密钥可以打开，我们也无法读取。检测结束后保存 {days} 天，请记得下载。到期后删除，备份里无法打开的副本在 14 天内消失",
   "inspect.handling.stop": "结束",

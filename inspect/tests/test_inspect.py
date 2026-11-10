@@ -93,7 +93,7 @@ class Checks(Base):
         self.assertEqual(r["hours"][0]["mark"], "x")
 
     def test_the_subdomains_of_a_listed_name_are_one_line(self):
-        r = self.run_one(dns=[dns(f"x{i}.cdn.tracker.example") for i in range(500)])
+        r = self.run_one(dns=[dns(f"x{i}.cdn.tracker.example", ts=T0 + 60 * i) for i in range(500)])
         self.assertEqual(len(r["findings"]), 1)
         self.assertEqual((r["findings"][0]["name"], r["findings"][0]["count"]), ("tracker.example", 500))
 
@@ -101,7 +101,7 @@ class Checks(Base):
         (analyze.HOME / "lists" / "cti.txt").write_text("".join(f"e{i}.example\n" for i in range(40)))
         (analyze.HOME / "lists" / "malware.txt").write_text("".join(f"m{i}.example\n" for i in range(3)))
         self.lists = analyze.load_lists()
-        queries = [dns(f"e{i}.example") for i in range(40) for _ in range(i + 1)] + [dns("m0.example")]
+        queries = [dns(f"e{i}.example", ts=T0 + 60 * j) for i in range(40) for j in range(i + 1)] + [dns("m0.example")]
         r = self.run_one(dns=queries)
         cti = [f for f in r["findings"] if f["kind"] == "cti"]
         self.assertEqual(len(cti), analyze.MAX_FINDINGS)
@@ -132,8 +132,7 @@ class Checks(Base):
         analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]},
                       {**logs(dns=rows), "blocked": {("10.8.1.3", "blocked.example")}}, self.lists)
         r = analyze.report("n1", "10.8.1.3")
-        self.assertEqual(r["nx_names"], [{"name": "gone.example", "count": 1}])
-        self.assertEqual(r["dns"]["total"], 3)
+        self.assertEqual((r["dns"]["total"], r["dns"]["nx_share"]), (3, 1 / 3))
 
     def test_a_name_on_a_list_still_counts_when_the_node_stopped_it(self):
         rows = [dns("api.tracker.example", rcode="NXDOMAIN")]
@@ -141,17 +140,16 @@ class Checks(Base):
                       {**logs(dns=rows), "blocked": {("10.8.1.3", "api.tracker.example")}}, self.lists)
         r = analyze.report("n1", "10.8.1.3")
         self.assertEqual(r["findings"][0]["name"], "tracker.example")
-        self.assertEqual(r["nx_names"], [])
+        self.assertEqual(r["dns"]["nx_share"], 0)
 
     def test_the_name_the_ad_list_points_to_is_not_counted(self):
         r = self.run_one(dns=[dns("blocked.vessel", rcode="NXDOMAIN"), dns("a.example")])
-        self.assertEqual(r["nx_names"], [])
+        self.assertEqual(r["dns"]["nx_share"], 0)
         self.assertEqual(r["dns"]["total"], 1)
 
     def test_shares(self):
         r = self.run_one(dns=[dns("ad.example"), dns("x.example", rcode="NXDOMAIN"), dns("a.example"), dns("b.example")])
         self.assertEqual((r["dns"]["ads_share"], r["dns"]["nx_share"]), (0.25, 0.25))
-        self.assertEqual(r["nx_names"], [{"name": "x.example", "count": 1}])
 
     def test_the_sites_visited_are_not_in_the_state_or_the_report(self):
         r = self.run_one(dns=[dns("private-site.example")], ssl=[{"ts": T0, "id.orig_h": "10.8.1.3", "server_name": "secret.example"}])
@@ -169,6 +167,104 @@ class Checks(Base):
         self.run_one(dns=[dns("api.tracker.example")])
         analyze.state_path("n1", "10.8.1.3").unlink()
         self.assertTrue(analyze.report("n1", "10.8.1.3")["empty"])
+
+
+def sni(name, ts=T0, who="10.8.1.3"):
+    return {"ts": ts, "id.orig_h": who, "server_name": name}
+
+
+class Visits(Base):
+    def merge_one(self, **kw):
+        analyze.merge("n1", {}, logs(**kw), self.lists)
+        return analyze.report("n1", "10.8.1.3")
+
+    def hit(self, r):
+        return next(f for f in r["findings"] if f["kind"] != "bypass_dns")
+
+    def test_one_visit_counts_once_across_lookups_and_sni(self):
+        rows = [dns("api.tracker.example", ts=T0 + i) for i in range(3)] + [dns("cdn.tracker.example", ts=T0 + 5)]
+        r = self.merge_one(dns=rows, ssl=[sni("api.tracker.example", ts=T0 + 2)], quic=[sni("api.tracker.example", ts=T0 + 59)])
+        self.assertEqual((self.hit(r)["count"], self.hit(r)["how"]), (1, "DNS"))
+        self.assertEqual({c["id"]: c["count"] for c in r["checks"]}["stalkerware"], 1)
+
+    def test_a_visit_a_minute_later_counts_again(self):
+        r = self.merge_one(dns=[dns("api.tracker.example", ts=T0), dns("api.tracker.example", ts=T0 + 30),
+                          dns("api.tracker.example", ts=T0 + 60), dns("api.tracker.example", ts=T0 + 3600)])
+        self.assertEqual(self.hit(r)["count"], 3)
+
+    def test_the_minute_runs_on_across_captures(self):
+        analyze.merge("n1", {}, logs(dns=[dns("api.tracker.example", ts=T0)]), self.lists)
+        analyze.merge("n1", {}, logs(ssl=[sni("api.tracker.example", ts=T0 + 20)]), self.lists)
+        r = self.merge_one(dns=[dns("api.tracker.example", ts=T0 + 80)])
+        self.assertEqual(self.hit(r)["count"], 2)
+
+    def test_hours_and_last_whatever_the_order_of_the_rows(self):
+        times = [T0 + 7200, T0, T0 + 30, T0 + 3600, T0 + 7230]
+        rows = [dns("api.tracker.example", ts=t) for t in times]
+        forward = self.merge_one(dns=rows)
+        analyze.state_path("n1", "10.8.1.3").unlink()
+        backward = self.merge_one(dns=rows[::-1])
+        for r in (forward, backward):
+            hit = self.hit(r)
+            self.assertEqual((hit["count"], hit["first"], hit["last"]), (3, T0, T0 + 7230))
+            self.assertEqual(hit["hours"], sorted({analyze.hour_of(t) for t in times}))
+            self.assertEqual(len(hit["hours"]), 3)
+
+    def test_a_finding_has_exactly_the_reported_fields(self):
+        r = self.merge_one(dns=[dns("api.tracker.example")], conn=[{"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "8.8.8.8", "id.resp_p": 53}])
+        self.assertEqual(set(self.hit(r)), {"severity", "kind", "name", "how", "count", "first", "last", "hours"})
+        self.assertEqual(r["findings"][-1], {"severity": "check", "kind": "bypass_dns", "count": 1})
+
+    def test_an_older_state_file_still_loads(self):
+        hour = analyze.hour_of(T0)
+        old = {"node": "n1", "address": "10.8.1.3", "hours": {hour: [1, 2]}, "marks": {hour: "x"},
+               "dns": {"total": 4, "nx": 2, "ads": 0}, "nx_names": {"printer.lan": 2},
+               "hits": {"stalkerware|tracker.example": {"kind": "stalkerware", "name": "tracker.example", "how": "DNS",
+                                                        "count": 24, "first": T0}},
+               "bypass": 0, "first": T0, "last": T0}
+        path = analyze.state_path("n1", "10.8.1.3")
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps(old))
+        hit = self.hit(analyze.report("n1", "10.8.1.3"))
+        self.assertEqual((hit["count"], hit["last"], hit["hours"]), (24, T0, [hour]))
+        r = self.merge_one(dns=[dns("api.tracker.example", ts=T0 + 10), dns("api.tracker.example", ts=T0 + 4000)])
+        self.assertEqual((self.hit(r)["count"], self.hit(r)["last"]), (25, T0 + 4000))
+        self.assertNotIn("nx_names", r)
+        self.assertNotIn("nx_names", path.read_text())
+        self.assertNotIn("printer.lan", path.read_text())
+
+
+class SystemNames(Base):
+    NAMES = ["lb._dns-sd._udp.0.1.168.192.in-addr.arpa", "_dns.resolver.arpa", "b.a.ip6.arpa", "router.home.arpa",
+             "iPhone.local", "nas.localdomain", "db.internal", "printer.lan", "box.home", "x.invalid", "a.test",
+             "abc.onion", "laptop.tail1234.ts.net", "wpad", "Router."]
+
+    def merge_one(self, rows):
+        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]}, logs(dns=rows), self.lists)
+        return analyze.report("n1", "10.8.1.3")
+
+    def test_system_and_private_names_are_left_out_of_the_counts(self):
+        rows = [dns(n, rcode="NXDOMAIN") for n in self.NAMES] + [dns("gone.example", rcode="NXDOMAIN"), dns("a.example")]
+        r = self.merge_one(rows)
+        self.assertEqual((r["dns"]["total"], r["dns"]["nx_share"]), (2, 0.5))
+        self.assertNotIn("nx_names", r)
+        text = json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text()
+        for name in ("in-addr", "ts.net", "printer", "gone.example"):
+            self.assertNotIn(name, text)
+
+    def test_only_whole_labels_count_as_system_names(self):
+        for name in ("example.com", "local.example", "tailnet.example", "arpa.example", "notlocal.com", "mytest.com"):
+            self.assertFalse(analyze.system_name(name), name)
+        for name in self.NAMES:
+            self.assertTrue(analyze.system_name(name), name)
+
+    def test_a_system_name_is_not_compared_with_the_lists(self):
+        (analyze.HOME / "lists" / "cti.txt").write_text("evil.example\nevil.lan\n")
+        (analyze.HOME / "lists" / "ads.txt").write_text("ads.local\n")
+        self.lists = analyze.load_lists()
+        analyze.merge("n1", {}, logs(dns=[dns("x.evil.lan"), dns("t.ads.local")], ssl=[sni("evil.lan")]), self.lists)
+        r = analyze.report("n1", "10.8.1.3")
+        self.assertEqual((r["findings"], r["dns"]["ads_share"], r["dns"]["total"]), ([], 0, 0))
 
 
 class Seal(Base):
