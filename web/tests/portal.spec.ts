@@ -280,7 +280,8 @@ test("terms and privacy drafts in three languages", async ({ page }) => {
   }
   // links inside the text keep the page's language
   await page.goto("/en/terms/");
-  await expect(page.locator("main").getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", "/en/privacy/");
+  await expect(page.locator("main").getByRole("link", { name: "privacy policy", exact: true })).toHaveAttribute("href", "/en/privacy/");
+  await expect(page.locator("main").getByRole("link", { name: "“Groups” in the privacy policy" })).toHaveAttribute("href", "/en/privacy/#groups");
 });
 
 test("invite codes and account numbers group themselves as you type", async ({ page }) => {
