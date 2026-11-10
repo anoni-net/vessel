@@ -30,6 +30,7 @@ class Node(Protocol):
 
 class Analysis(Protocol):
     def report(self, node: str, address: str, public_key: str) -> dict: ...
+    def summary(self, node: str, address: str, public_key: str) -> dict: ...
     def clear(self, node: str, address: str) -> None: ...
     def status(self) -> dict: ...
     def flush(self) -> None: ...
@@ -144,6 +145,9 @@ class SSHAnalysis:
 
     def report(self, node, address, public_key):
         return self._json("report", node, address, public_key)
+
+    def summary(self, node, address, public_key):
+        return self._json("summary", node, address, public_key)
 
     def clear(self, node, address):
         self.ssh._run(self.host, "clear", node, address)

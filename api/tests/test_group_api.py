@@ -79,7 +79,8 @@ def test_the_page_lists_the_group_and_no_counts(leader, db, node):
     assert body["code"] == "g1" and body["ends_on"] == ENDS_ON.isoformat() and body["places_left"] == 2
     a1 = next(a for a in body["accounts"] if a["label"] == "A1")
     assert a1["role"] == "member" and a1["joined_on"] == date.today().isoformat()
-    assert list(a1["devices"][0]) == ["id", "name", "region", "dns_filter", "status", "expires_on", "issues"]
+    assert list(a1["devices"][0]) == ["id", "name", "region", "dns_filter", "status", "expires_on", "issues", "inspection"]
+    assert a1["devices"][0]["inspection"] is None
     assert "123456789" not in str(body)
 
 
@@ -285,7 +286,9 @@ def test_the_leaders_are_not_told_of_an_inspection(leader, db, status):
     assert page(leader) == before
     mine = member.get("/api/group/mine").json()
     assert mine == account(leader, "A1")
-    assert "inspect" not in str(page(leader)) and "inspect" not in str(mine)
+    for view in (page(leader)["accounts"], [mine]):
+        assert all(d["inspection"] is None for a in view for d in a["devices"])
+    assert member.get("/api/devices").json()[0]["inspection_group"] is False
 
 
 def test_a_leader_can_read_their_own_view_too(leader):
