@@ -4,11 +4,11 @@ import { x25519 } from "@noble/curves/ed25519.js";
 /** The key the page keeps for a report, and which `seal` seals to. */
 export const KEY = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=";
 
-/** The same sealing as inspect/analyze.py's `seal`, for reports made up in the tests. */
-export function seal(report: object) {
+/** The same sealing as inspect/analyze.py's `seal`, for reports made up in the tests; a leader's summary has its own info. */
+export function seal(report: object, info = "vessel-inspection-report", to = KEY) {
   const secret = randomBytes(32);
-  const shared = x25519.getSharedSecret(secret, x25519.getPublicKey(Buffer.from(KEY, "base64")));
-  const key = Buffer.from(hkdfSync("sha256", shared, new Uint8Array(0), "vessel-inspection-report", 32));
+  const shared = x25519.getSharedSecret(secret, x25519.getPublicKey(Buffer.from(to, "base64")));
+  const key = Buffer.from(hkdfSync("sha256", shared, new Uint8Array(0), info, 32));
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const ct = Buffer.concat([cipher.update(JSON.stringify(report)), cipher.final(), cipher.getAuthTag()]);

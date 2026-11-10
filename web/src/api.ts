@@ -54,6 +54,34 @@ export interface Me {
 
 export type GroupIssue = "not_connected" | "suspended" | "throttled" | "new_config" | "blocked_many";
 
+/** A leader's summary of an inspection, once opened (inspect/analyze.py, `summary`). */
+export interface InspectionSummary {
+  empty?: boolean;
+  verdict?: "clean" | "check" | "threat";
+  kinds?: { kind: string; severity: "threat" | "check" }[];
+  first?: number | null;
+  last?: number | null;
+  coverage?: { active_hours: number; total_hours: number };
+}
+
+/** An inspection a leader asked for (toomore/anoni-net-ws#483): the same for every leader and for the member. */
+export interface GroupInspection {
+  status: "requested" | "declined" | "deleted" | "confirming" | "active" | "ending" | "ended";
+  requested_on: string | null;
+  /** how long a request waits, a no stays, or a deleted report would have been kept */
+  until: string | null;
+  started_at: string | null;
+  ends_at: string | null;
+  stopped_at?: string | null;
+  ended_early: boolean;
+  report_until: string | null;
+  /**
+   * The leader's own page only, once the member has agreed: the key it is sealed to and the ciphertext, which is null
+   * until the first one is made. null itself: this leader had no key when the member agreed.
+   */
+  summary?: { key: string; sealed: { epk: string; iv: string; ct: string } | null } | null;
+}
+
 export interface GroupDevice {
   id: string;
   name: string;
@@ -62,6 +90,8 @@ export interface GroupDevice {
   status: DeviceStatus;
   expires_on: string;
   issues: GroupIssue[];
+  /** an older backend does not send it */
+  inspection?: GroupInspection | null;
 }
 
 export interface GroupAccount {
@@ -90,6 +120,12 @@ export interface Group {
   invite_days: number;
   accounts: GroupAccount[];
   invites: GroupInvite[];
+  /** inspections the leaders can ask for at once; 0, or absent from an older backend, is none */
+  inspection_limit?: number;
+  inspections_in_use?: number;
+  inspection_days?: number;
+  /** this leader's public key for the summaries */
+  leader_key?: string | null;
 }
 
 export interface MadeGroupInvite {
@@ -343,6 +379,12 @@ export const api = {
     call<{ invites: MadeGroupInvite[]; days: number }>("POST", "/group/invites", { labels }).then((r) => r.data),
   withdrawGroupInvite: (id: number) => call("DELETE", `/group/invites/${id}`),
   revokeGroupDevice: (id: string) => call("DELETE", `/group/devices/${id}`),
+  /** the leader's public key for the summaries; needs a recent sign-in (pages/reverify.tsx) */
+  setGroupKey: (publicKey: string) => call("PUT", "/group/key", { public_key: publicKey }),
+  /** asks the member to inspect the device */
+  requestInspection: (deviceId: string) => call("POST", `/group/devices/${deviceId}/inspection`),
+  /** withdraws a request, or clears a no or a deletion */
+  withdrawInspection: (deviceId: string) => call("DELETE", `/group/devices/${deviceId}/inspection`),
   /** deletes the member's account; needs a recent sign-in (pages/reverify.tsx) */
   removeGroupMember: (label: string) => call("POST", "/group/members/remove", { label }),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
