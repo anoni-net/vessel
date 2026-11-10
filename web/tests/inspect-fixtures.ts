@@ -103,3 +103,50 @@ export const MANY_REPORT = {
   checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 0 }, { id: "cti", count: 8 }, { id: "bypass_dns", count: 0 }],
   findings: Array.from({ length: 8 }, (_, i) => hit("cti", "check", `site${i + 1}.example`, 8 - i, [`2026-11-0${1 + (i % 3)}T0${i % 6}`])),
 };
+
+// Reports from analyze.py since it compares a site with every list: each site says the lists its names are on, its own
+// kind and the ad list included, sorted.
+type Finding = { kind: string; [k: string]: unknown };
+const onLists = (f: Finding, ...more: string[]) => ({ ...f, lists: [...new Set([f.kind, ...more])].sort() });
+
+/**
+ * The first day again, as the maintainer's own report was: most of the sites also on the ad list, one on three lists,
+ * one on its own list only.
+ */
+export const ONCE_LISTS_REPORT = {
+  ...ONCE_REPORT,
+  findings: ONCE_REPORT.findings.map((f, i) => (i === 1 ? onLists(f, "ads", "cti") : i === 6 ? onLists(f) : onLists(f, "ads"))),
+};
+
+/** The first day with every site also on the ad list. */
+export const ONCE_ADS_REPORT = { ...ONCE_REPORT, findings: ONCE_REPORT.findings.map((f) => onLists(f, "ads")) };
+
+/** The week, every site also on the ad list: seen day after day all the same. */
+export const WEEK_ADS_REPORT = { ...WEEK_REPORT, findings: WEEK_REPORT.findings.map((f) => onLists(f, "ads")) };
+
+/** Stalkerware that an ad network's list has too. */
+export const THREAT_ADS_REPORT = {
+  ...THREAT_REPORT,
+  findings: THREAT_REPORT.findings.map((f) => (f.kind === "stalkerware" ? onLists(f, "ads") : f)),
+};
+
+/** Stalkerware with the name of the app it belongs to, from Echap's table: a made-up name. */
+export const THREAT_APP_REPORT = {
+  ...THREAT_REPORT,
+  findings: THREAT_REPORT.findings.map((f) => (f.kind === "stalkerware" ? { ...onLists(f), app: "FakeSpy" } : f)),
+};
+
+/** Two sites of two apps, one of them with markup in its name, which the page shows as it is. */
+export const THREAT_APPS_REPORT = {
+  ...THREAT_REPORT,
+  checks: [{ id: "stalkerware", count: 11 }, ...THREAT_REPORT.checks.slice(1)],
+  findings: [{ ...onLists(THREAT_REPORT.findings[0]), app: "FakeSpy" },
+    { ...hit("stalkerware", "threat", "upload.example", 2, ["2026-11-02T03"]), lists: ["stalkerware"], app: "<b>Spy</b> & Co" },
+    THREAT_REPORT.findings[1]],
+};
+
+/** The first day, the sites seen across four hours of it, every one also on the ad list. */
+export const ONE_DAY_ADS_REPORT = {
+  ...ONCE_ADS_REPORT,
+  findings: ONCE_ADS_REPORT.findings.map((f, i) => ({ ...f, hours: [`2026-11-09T${18 + (i % 4)}`], last: Date.parse(`2026-11-09T${18 + (i % 4)}:10:00Z`) / 1000 })),
+};

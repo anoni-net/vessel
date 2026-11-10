@@ -1082,6 +1082,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .hits__day { font: 11px/1 var(--mono); color: var(--muted); text-align: center; }
 .hit-row { display: grid; gap: 4px; }
 .hit-row__name { overflow-wrap: anywhere; font-size: 14px; }
+/* the other lists a site is on, a line of its own under when it was seen */
+.hit-row__lists { display: block; margin-top: 2px; }
 .hit { display: block; height: 16px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
 .hit--off { border-style: dashed; border-color: var(--placeholder); background: transparent; }
 .hit--0 { background: var(--tile-0); }

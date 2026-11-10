@@ -20,10 +20,10 @@
 |---|---|
 | 每小時的上傳與下載量 | 封包（分析後刪除，失敗的 1 天後刪除） |
 | DNS 查詢的總數、查無此網域（節點的名單擋下的不算）與廣告追蹤的比例 | 造訪過的網站與查詢過的網域 |
-| 命中名單的網域、造訪次數、第一次與最後一次的時間、出現過的小時 | 查無此網域的名稱 |
+| 命中名單的網域、造訪次數、第一次與最後一次的時間、出現過的小時、它同時列在哪幾份名單上，以及跟蹤軟體命中所屬的 App 名稱 | 查無此網域的名稱 |
 | 繞過節點 DNS 的次數 | Zeek 的紀錄 |
 
-命中名單的網域以名單上的項目為單位，同一個項目底下的子網域併成一筆。次數以造訪計算，一次造訪會用 A、AAAA、HTTPS 查詢同一個名字，再用 SNI 連線，所以同一個項目距離上一次計入不到 60 秒的紀錄不再計入，不分 DNS、SNI 或 HTTP。出現過的小時以 UTC 記錄，用來分辨只出現一次與反覆出現。報告每種類別列出次數最多的 30 筆，其餘只留下數量，總次數仍然完整。
+命中名單的網域以名單上的項目為單位，同一個項目底下的子網域併成一筆。次數以造訪計算，一次造訪會用 A、AAAA、HTTPS 查詢同一個名字，再用 SNI 連線，所以同一個項目距離上一次計入不到 60 秒的紀錄不再計入，不分 DNS、SNI 或 HTTP。出現過的小時以 UTC 記錄，用來分辨只出現一次與反覆出現。每筆命中另外記下它列在哪幾份名單上（`stalkerware`、`malware`、`cti`、`ads`，一定包含自己那份），用實際查詢或連線的名稱逐一比對四份名單，同一個項目底下的子網域與不同批次取聯集。報告用它寫出「也列在廣告與追蹤名單上」，資訊取自名單本身，不另外蒐集資料。跟蹤軟體的命中另外記下它屬於哪個 App（`app`），取自 Echap 的 [stalkerware-indicators](https://github.com/AssoEchap/stalkerware-indicators) 的 `generated/network.csv`，只用 `type` 是網域的列，以比對到的最具體的網域為準，表裡沒有就不記。這份表以 CC BY 4.0 授權，報告頁附上出處。報告每種類別列出次數最多的 30 筆，其餘只留下數量，總次數仍然完整。
 
 系統與私有網路的查詢不計入 DNS 的統計，也不比對名單：`.arpa`（反查、iOS 的 Bonjour 與 DDR）、`.local`、`.localdomain`、`.internal`、`.lan`、`.home`、`.invalid`、`.test`、`.onion`、Tailscale 的 `.ts.net`，以及沒有點的名稱。這些查詢跟裝置連往的網站無關，多半本來就查不到，名稱又會透露使用者自己的網路，留著只會把查無此網域的比例拉高。
 
@@ -59,4 +59,4 @@ cp node/host/vessel-inspect-stream.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now vessel-inspect-stream.service
 ```
 
-名單用排程執行 `analyze.py update-lists` 更新，下載失敗時保留上一份。
+名單用排程執行 `analyze.py update-lists` 更新，四份名單之外也下載跟蹤軟體的 App 名稱表（`lists/stalkerware-apps.csv`），下載失敗時保留上一份。沒有這份表時照常分析，只是報告不寫 App 名稱。
