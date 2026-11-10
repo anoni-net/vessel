@@ -14,6 +14,7 @@ if [ "${VESSEL_DEPLOY_PULLED:-}" != 1 ]; then
 fi
 # build in a container, so the host needs no particular Node.js version
 # (the container has no git, so pass the commit for the footer's REV cell)
+# the build leaves web/.lastmod-*.json in this checkout, the sitemap's dates for the next deploy; keep it
 docker run --rm -u "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -e VESSEL_REV="$(git rev-parse HEAD)" -v "$PWD/web:/web" -w /web node:22.20-alpine \
   sh -c 'npm ci --no-audit --no-fund && npm run build && npm run build:onion'
 rsync -a --delete web/dist/ "$WEB_ROOT/"

@@ -7,6 +7,7 @@ import { LOCALES, PREFIX, type Locale } from "./i18n/index.ts";
 
 export { HTML_LANG, messagesOf } from "./i18n/index.ts";
 export { PRIVATE_PAGES, PUBLIC_PAGES, SITE, headTags, titleOf, urlOf } from "./seo.ts";
+export { BUILT, REV, REV_URL } from "./rev.ts";
 export { LOCALES, PREFIX };
 
 export async function renderPage(locale: Locale, path: string): Promise<string> {

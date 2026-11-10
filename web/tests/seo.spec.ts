@@ -17,7 +17,8 @@ test("each page has its own head in its own language", async ({ request }) => {
 
   const home = await (await request.get("/zh-cn/")).text();
   expect(home).toContain('<html lang="zh-Hans-CN">');
-  expect(home).toContain("<title>Vessel</title>");
+  expect(home).toContain("<title>Vessel · 匿名网络社区 anoni.net 架设的 VPN</title>");
+  expect(home).toContain('<meta property="og:title" content="Vessel · 匿名网络社区 anoni.net 架设的 VPN">');
   expect(home).toContain('<meta property="og:locale" content="zh_CN">');
 });
 
@@ -35,6 +36,8 @@ test("robots.txt and sitemap.xml", async ({ request }) => {
   expect(robots).toContain("Sitemap: https://vessel.anoni.net/sitemap.xml");
   const sitemap = await (await request.get("/sitemap.xml")).text();
   expect(sitemap.match(/<loc>/g)).toHaveLength(36); // twelve public pages in three languages
+  // the day each page last changed, kept across builds by scripts/prerender.mjs
+  expect(sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g)).toHaveLength(36);
   expect(sitemap).toContain("<loc>https://vessel.anoni.net/en/privacy/</loc>");
   expect(sitemap).not.toContain("/devices/");
 });

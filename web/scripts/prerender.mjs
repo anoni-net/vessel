@@ -1,6 +1,7 @@
 // After `vite build` and the SSR build of src/prerender.tsx: write every page's HTML with its own <head> and
 // content, so search engines and link previews see more than an empty <div>. Also writes 404.html,
 // robots.txt and sitemap.xml. nginx serves these files and answers other paths with 404.html (deploy/nginx/).
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,7 +11,7 @@ const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = process.env.VESSEL_TARGET === "onion" ? "dist-onion" : "dist";
 const dist = join(web, out);
 const ssr = await import(join(web, `${out}-ssr`, "prerender.js"));
-const { HTML_LANG, LOCALES, PREFIX, PRIVATE_PAGES, PUBLIC_PAGES, ROUTE_PATHS, SITE, headTags, messagesOf, renderPage, titleOf, urlOf } = ssr;
+const { BUILT, HTML_LANG, LOCALES, PREFIX, PRIVATE_PAGES, PUBLIC_PAGES, REV, REV_URL, ROUTE_PATHS, SITE, headTags, messagesOf, renderPage, titleOf, urlOf } = ssr;
 
 // a page the app has but seo.ts does not list would not be prerendered, and nginx would answer it with 404
 const listed = new Set([...PUBLIC_PAGES, ...PRIVATE_PAGES]);
@@ -42,11 +43,29 @@ async function write(file, text) {
   await writeFile(join(dist, file), text);
 }
 
+// The sitemap's <lastmod> is the day a page last changed, not the day of the build: every deploy would otherwise
+// mark every page as new, and search engines stop trusting the dates. Each build keeps a hash of what a page
+// says in a file next to the build, which stays in the checkout on the host between deploys (deploy/deploy.sh);
+// a page whose hash differs from the last build's gets today's date. The footer's commit and build day change
+// on every build, so they are left out of the hash.
+const stateFile = join(web, `.lastmod-${out}.json`);
+const previous = JSON.parse(await readFile(stateFile, "utf8").catch(() => "{}"));
+const today = new Date().toISOString().slice(0, 10);
+const lastmod = {};
+const fingerprint = (text) => createHash("sha256").update([REV_URL, REV, BUILT].filter(Boolean).reduce((t, v) => t.replaceAll(v, ""), text)).digest("hex");
+
 let count = 0;
 for (const locale of LOCALES) {
   for (const path of [...PUBLIC_PAGES, ...PRIVATE_PAGES]) {
     const body = await renderPage(locale, path);
-    await write(`${PREFIX[locale]}${path}index.html`.replace(/^\//, ""), page(locale, titleOf(locale, path), headTags(locale, path), body, PREFIX[locale] + path));
+    const title = titleOf(locale, path);
+    const head = headTags(locale, path);
+    await write(`${PREFIX[locale]}${path}index.html`.replace(/^\//, ""), page(locale, title, head, body, PREFIX[locale] + path));
+    if (PUBLIC_PAGES.includes(path)) {
+      const url = urlOf(locale, path);
+      const hash = fingerprint(title + head + body);
+      lastmod[url] = { hash, date: previous[url]?.hash === hash ? previous[url].date : today };
+    }
     count++;
   }
 }
@@ -60,6 +79,7 @@ await write("robots.txt", ["User-agent: *", "Disallow: /api/", "Disallow: /inter
 const entries = PUBLIC_PAGES.flatMap((path) => LOCALES.map((locale) => [
   "  <url>",
   `    <loc>${urlOf(locale, path)}</loc>`,
+  `    <lastmod>${lastmod[urlOf(locale, path)].date}</lastmod>`,
   ...LOCALES.map((l) => `    <xhtml:link rel="alternate" hreflang="${HTML_LANG[l]}" href="${urlOf(l, path)}"/>`),
   `    <xhtml:link rel="alternate" hreflang="x-default" href="${urlOf("zh-TW", path)}"/>`,
   "  </url>",
@@ -71,5 +91,7 @@ await write("sitemap.xml", [
   "</urlset>",
   "",
 ].join("\n"));
+
+await writeFile(stateFile, `${JSON.stringify(lastmod, null, 2)}\n`);
 
 console.log(`prerendered ${count} pages, 404.html, robots.txt and sitemap.xml`);
