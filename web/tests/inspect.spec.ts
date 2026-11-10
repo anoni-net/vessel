@@ -239,9 +239,24 @@ test("a running inspection shows the end date and the results so far, and can be
   const [report, delay] = await Promise.all([page.getByTestId("inspect-report").boundingBox(), page.getByTestId("inspect-delay").boundingBox()]);
   expect(delay!.y).toBeGreaterThan(report!.y + report!.height - 1);
   page.on("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "結束檢測" }).click();
+  await page.getByRole("button", { name: "提早結束" }).click();
   await expect(page.getByText("正在結束檢測")).toBeVisible();
   expect(sent).toEqual([{ method: "DELETE", body: null }]);
+});
+
+test("a running inspection says how far along it is in one small card, with ending it as a link", async ({ page }) => {
+  const ends = new Date(Date.now() + 4.5 * 86_400_000).toISOString();
+  await backend(page, { ...BASE, status: "active", report: SEALED, ends_at: ends });
+  await withKey(page);
+  await goto(page);
+  const status = page.getByTestId("inspect-status");
+  await expect(status).toContainText("第 3 天，共 7 天");
+  await expect(status).toContainText("自動結束");
+  await expect(status.getByRole("button", { name: "提早結束" })).toHaveClass("link-button");
+  await expect(page.getByTestId("inspect-running").locator(".nb-button")).toHaveCount(1); // the key's copy button
+  const [card, report] = await Promise.all([status.boundingBox(), page.getByTestId("inspect-report").boundingBox()]);
+  expect(card!.y + card!.height).toBeLessThanOrEqual(report!.y);
+  expect(card!.height).toBeLessThan(120);
 });
 
 test("a device with nothing recorded says so", async ({ page }) => {

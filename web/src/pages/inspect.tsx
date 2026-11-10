@@ -238,10 +238,17 @@ function Confirming({ local, stop }: { local: Kept | null; stop: () => void }) {
 function Running({ state, local, setKept, name, stop }: { state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: () => void }) {
   const { t, locale } = useCtx();
   const end = () => window.confirm(fmt(t["inspect.endConfirm"], { days: state.report_days })) && stop();
+  const left = Math.ceil((new Date(state.ends_at!).getTime() - Date.now()) / 86_400_000);
+  const day = Math.min(state.days, Math.max(1, state.days - left + 1));
   return (
     <div class="stack" data-testid="inspect-running">
-      <p class="card card--tint card--flat">{fmt(t["inspect.running"], { date: formatDay(locale, state.ends_at!) })}</p>
-      <button class="nb-button" type="button" onClick={end}>{t["inspect.end"]}</button>
+      <div class="card card--tint card--flat inspect-status" data-testid="inspect-status">
+        <p class="strong">{fmt(t["inspect.runningDay"], { day, days: state.days })}</p>
+        <div class="inspect-status__row">
+          <span>{fmt(t["inspect.running"], { date: formatDay(locale, state.ends_at!) })}</span>
+          <button class="link-button" type="button" onClick={end}>{t["inspect.end"]}</button>
+        </div>
+      </div>
       {state.report ? <Opened state={state} local={local} setKept={setKept} name={name} partial /> : <p class="muted">{t["inspect.noneYet"]}</p>}
       {local && <CopyKey value={local.key} />}
     </div>
