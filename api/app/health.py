@@ -31,6 +31,16 @@ def internal_health(conn: Conn) -> dict:
         reach_age[region] = age
         if age < REACH_STALE_HOURS * 3600:
             states.setdefault(region, {})[site] = state
+    # each open region's exit address, and the old host's while configs made before a move still use it, for
+    # health_warn.py to look up in DNS blocklists; the endpoint is reachable from the host alone
+    exits = [
+        {"region": region, "ip": str(ip), "previous": previous}
+        for region, ip, previous in conn.execute(
+            "SELECT id, exit_ip, false FROM regions WHERE is_open AND exit_ip IS NOT NULL "
+            "UNION ALL SELECT id, previous_exit_ip, true FROM regions "
+            "WHERE is_open AND previous_exit_ip IS NOT NULL AND previous_until >= current_date ORDER BY 1, 3"
+        )
+    ]
     return {
         # seconds since the worker last finished a round, or since it last read each region's node
         "worker_age": ages.get("worker"),
@@ -52,4 +62,5 @@ def internal_health(conn: Conn) -> dict:
                            if state == "blocked" and any(o.get(s) == "ok" for r, o in states.items() if r != region))
             for region, sites in sorted(states.items())
         },
+        "exits": exits,
     }

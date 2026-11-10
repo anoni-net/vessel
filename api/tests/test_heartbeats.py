@@ -103,3 +103,84 @@ def test_a_failed_notice_is_tried_again(tmp_path, monkeypatch):
     monkeypatch.setattr(health_warn, "notify", fail)
     health_warn.watch_reach({"reach_blocked": {"jp": []}})
     assert (tmp_path / "reach.state").read_text() == "jp:mvdis\n"
+
+
+def test_health_lists_the_exit_addresses(signed_in, db):
+    db.execute("UPDATE regions SET is_open = true, exit_ip = '192.0.2.10' WHERE id = 'jp'")
+    db.execute("UPDATE regions SET is_open = true, exit_ip = '192.0.2.20', previous_exit_ip = '198.51.100.7', "
+               "previous_until = current_date + 3 WHERE id = 'sg'")
+    assert health(signed_in)["exits"] == [
+        {"region": "jp", "ip": "192.0.2.10", "previous": False},
+        {"region": "sg", "ip": "192.0.2.20", "previous": False},
+        {"region": "sg", "ip": "198.51.100.7", "previous": True},
+    ]
+    # the old host is gone, and a closed region is left out
+    db.execute("UPDATE regions SET previous_until = current_date - 1 WHERE id = 'sg'")
+    db.execute("UPDATE regions SET is_open = false WHERE id = 'jp'")
+    assert health(signed_in)["exits"] == [{"region": "sg", "ip": "192.0.2.20", "previous": False}]
+
+
+def fake_dns(answers):
+    """getaddrinfo's stand-in: a name in answers resolves to its address; one mapped to an int raises that code."""
+    def lookup(name):
+        answer = answers.get(name, health_warn.socket.EAI_NONAME)
+        if isinstance(answer, int):
+            raise health_warn.socket.gaierror(answer, "lookup failed")
+        return answer
+    return lookup
+
+
+def test_dnsbl_answers(monkeypatch):
+    monkeypatch.setattr(health_warn.socket, "gethostbyname", fake_dns({
+        "10.2.0.192.listed.example": "127.0.0.2",
+        "10.2.0.192.refused.example": "127.255.255.254",
+        "10.2.0.192.rewritten.example": "203.0.113.1",
+        "10.2.0.192.flaky.example": health_warn.socket.EAI_AGAIN,
+    }))
+    answer = health_warn.dnsbl_answer
+    assert answer("192.0.2.10", "listed.example") == "listed"
+    assert answer("192.0.2.10", "clean.example") == "clear"
+    assert answer("192.0.2.10", "refused.example") == "unknown"
+    assert answer("192.0.2.10", "rewritten.example") == "unknown"
+    assert answer("192.0.2.10", "flaky.example") == "unknown"
+
+
+def test_dnsbl_results_label_the_old_host_and_skip_ipv6(monkeypatch):
+    monkeypatch.setattr(health_warn, "DNSBL", ["bl.example"])
+    monkeypatch.setattr(health_warn.socket, "gethostbyname", fake_dns({"7.100.51.198.bl.example": "127.0.0.2"}))
+    data = {"exits": [{"region": "sg", "ip": "192.0.2.20", "previous": False},
+                      {"region": "sg", "ip": "198.51.100.7", "previous": True},
+                      {"region": "jp", "ip": "2001:db8::1", "previous": False}]}
+    assert health_warn.dnsbl_results(data) == {"sg:bl.example": "clear", "sg(舊):bl.example": "listed"}
+
+
+def test_a_listed_exit_is_notified_on_change_and_a_failed_lookup_keeps_it(tmp_path, monkeypatch):
+    sent, answers = [], {}
+    monkeypatch.setattr(health_warn, "DNSBL_STATE", tmp_path / "dnsbl.state")
+    monkeypatch.setattr(health_warn, "DNSBL", ["bl.example"])
+    monkeypatch.setattr(health_warn.socket, "gethostbyname", fake_dns(answers))
+    monkeypatch.setattr(health_warn, "notify", lambda title, body, priority, tags: sent.append((title, body, priority)))
+    data = {"exits": [{"region": "sg", "ip": "192.0.2.20", "previous": False}]}
+    # the first run with nothing listed only remembers
+    health_warn.watch_dnsbl(data)
+    assert sent == [] and (tmp_path / "dnsbl.state").read_text() == ""
+    answers["20.2.0.192.bl.example"] = "127.0.0.2"
+    health_warn.watch_dnsbl(data)
+    assert len(sent) == 1 and sent[0][2] == "high" and sent[0][1].startswith("- sg 節點的出口 IP 列入 bl.example")
+    # the resolver fails: still listed, nothing sent
+    answers["20.2.0.192.bl.example"] = health_warn.socket.EAI_AGAIN
+    health_warn.watch_dnsbl(data)
+    assert len(sent) == 1 and (tmp_path / "dnsbl.state").read_text() == "sg:bl.example\n"
+    del answers["20.2.0.192.bl.example"]
+    health_warn.watch_dnsbl(data)
+    assert len(sent) == 2 and sent[1][2] == "default" and sent[1][1] == "- sg 節點的出口 IP 移出 bl.example"
+
+
+def test_an_exit_already_listed_on_the_first_run_is_notified(tmp_path, monkeypatch):
+    sent = []
+    monkeypatch.setattr(health_warn, "DNSBL_STATE", tmp_path / "dnsbl.state")
+    monkeypatch.setattr(health_warn, "DNSBL", ["bl.example"])
+    monkeypatch.setattr(health_warn.socket, "gethostbyname", fake_dns({"20.2.0.192.bl.example": "127.0.0.2"}))
+    monkeypatch.setattr(health_warn, "notify", lambda *args: sent.append(args))
+    health_warn.watch_dnsbl({"exits": [{"region": "sg", "ip": "192.0.2.20", "previous": False}]})
+    assert len(sent) == 1
