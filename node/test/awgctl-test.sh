@@ -1,6 +1,7 @@
 #!/bin/bash
 # awgctl against a stand-in docker, in a temporary node directory: changes made at once get their own addresses, a
-# remove or suspend whose apply failed applies again when tried again, and a removed address has its flows dropped.
+# remove or suspend whose apply failed applies again when tried again, a removed address has its flows dropped, and
+# neither an inspection nor a speed limit follows an address to its next device.
 # Run by CI (.github/workflows).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -8,7 +9,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 N=$TMP/node
 mkdir -p "$TMP/bin" "$N/server" "$N/peers" "$N/conf" "$N/clients"
-: > "$TMP/mangle"
+: > "$TMP/mangle"; : > "$TMP/filter"
 sed "s|^D=/opt/vessel-node|D=$N|" awgctl > "$TMP/awgctl"
 chmod +x "$TMP/awgctl"
 printf 'NODE_IP=192.0.2.1\nLISTEN_PORT=443\n' > "$N/node.env"
@@ -22,6 +23,13 @@ case "\$*" in
   *"iptables -t mangle -S"*) [ ! -e "$TMP/ipt-fail" ] || exit 1; sed -E 's/--comment (vessel-inspect:[0-9.]+)/--comment "\\1"/' "$TMP/mangle" ;;
   *"iptables -t mangle -A"*) a="\$*"; r="\${a#*mangle }"; [ ! -e "$TMP/ipt-add-fail" ] || exit 1; echo "\$r" >> "$TMP/mangle" ;;
   *"iptables -t mangle -D"*) a="\$*"; r="\${a#*mangle }"; [ ! -e "$TMP/ipt-fail" ] || exit 1; grep -vxF -- "-A \${r#-D }" "$TMP/mangle" > "$TMP/mangle.new" || true; mv "$TMP/mangle.new" "$TMP/mangle" ;;
+  *"iptables -t filter -S VESSEL-THROTTLE"*) [ ! -e "$TMP/ipt-fail" ] && [ -e "$TMP/chain" ] || exit 1; echo "-N VESSEL-THROTTLE"; sed -E 's/--comment (vessel-throttle:[0-9.]+)/--comment "\\1"/' "$TMP/filter" ;;
+  *"iptables -t filter -N VESSEL-THROTTLE"*) touch "$TMP/chain" ;;
+  *"iptables -t filter -C FORWARD -j VESSEL-THROTTLE"*) [ -e "$TMP/jump" ] ;;
+  *"iptables -t filter -I FORWARD 1 -j VESSEL-THROTTLE"*) echo jump >> "$TMP/jump" ;;
+  *"iptables -t filter -A"*) a="\$*"; r="\${a#*filter }"; [ ! -e "$TMP/ipt-add-fail" ] || exit 1; echo "\$r" >> "$TMP/filter" ;;
+  *"iptables -t filter -D"*) a="\$*"; r="\${a#*filter }"; [ ! -e "$TMP/ipt-fail" ] || exit 1; grep -vxF -- "-A \${r#-D }" "$TMP/filter" > "$TMP/filter.new" || true; mv "$TMP/filter.new" "$TMP/filter" ;;
+  *"awg show awg0 dump"*) echo "x	x	443	off"; for f in "$N"/peers/*.conf; do [ -e "\$f" ] || continue; printf '%s\t(none)\t(none)\t%s\t0\t0\t0\toff\n' "\$(awk '/^PublicKey/ {print \$3}' "\$f")" "\$(awk '/^AllowedIPs/ {print \$3 \$4}' "\$f")"; done ;;
   *public-key*) echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= ;;
   *syncconf*) sleep 0.3; [ ! -e "$TMP/fail" ] ;;
 esac
@@ -124,5 +132,44 @@ awgctl inspect ack ABCDEFGH23456789
 touch -d "2 hours ago" "$N/inspect-confirm/OLDOLDOLDOLD2345"
 awgctl inspect confirms --json > /dev/null
 [ ! -e "$N/inspect-confirm/OLDOLDOLDOLD2345" ] || fail "an old confirmation stayed"
+
+# over the quota: both directions of the device's address are held to a rate, and only while it has the address
+trules() { grep -c "vessel-throttle:$1 " "$TMP/filter" || true; }
+awgctl add-pubkey t-1 "$(key)" "$(key)" none > /dev/null
+ip=$(addr t-1)
+awgctl throttle on t-1 > /dev/null
+[ "$(trules "$ip")" = 2 ] || fail "throttle on did not add two rules for $ip"
+grep -q -- "-i awg0 -s $ip/32 .*--hashlimit-above 256kb/s .*-j DROP" "$TMP/filter" || fail "no limit on what the device sends"
+grep -q -- "-o awg0 -d $ip/32 .*--hashlimit-above 256kb/s .*-j DROP" "$TMP/filter" || fail "no limit on what the device receives"
+awgctl throttle on t-1 > /dev/null
+[ "$(trules "$ip")" = 2 ] || fail "throttling twice doubled the rules"
+[ "$(wc -l < "$TMP/jump")" = 1 ] || fail "FORWARD jumps to the chain other than once"
+awgctl usage --json | python3 -c '
+import json, sys
+p = {r["name"]: r["throttled"] for r in json.load(sys.stdin)["peers"]}
+assert p.pop("t-1") is True and not any(p.values()), p' || fail "usage does not say which peers are throttled"
+awgctl throttle off t-1 > /dev/null
+[ "$(trules "$ip")" = 0 ] || fail "throttle off left rules"
+awgctl throttle on nobody 2> /dev/null && fail "throttled a device that does not exist"
+awgctl throttle on "t-1;reboot" 2> /dev/null && fail "accepted a malformed name"
+# a suspended peer keeps its address and can be throttled before it comes back
+awgctl suspend t-1 > /dev/null
+awgctl throttle on t-1 > /dev/null
+[ "$(trules "$ip")" = 2 ] || fail "a suspended peer could not be throttled"
+awgctl resume t-1 > /dev/null
+awgctl throttle off t-1 > /dev/null
+# one direction alone is not a speed limit: a failed add leaves nothing
+touch "$TMP/ipt-add-fail"
+awgctl throttle on t-1 2> /dev/null && fail "throttle on passed although adding failed"
+rm "$TMP/ipt-add-fail"
+[ "$(trules "$ip")" = 0 ] || fail "a failed throttle on left rules"
+# removing clears it, and a rule left behind some other way does not slow down the next holder
+awgctl throttle on t-1 > /dev/null
+awgctl remove t-1 > /dev/null
+[ "$(trules "$ip")" = 0 ] || fail "remove left the speed limit of $ip"
+echo "-A VESSEL-THROTTLE -o awg0 -d $ip/32 -m comment --comment vessel-throttle:$ip -m hashlimit --hashlimit-above 256kb/s -j DROP" >> "$TMP/filter"
+awgctl add-pubkey t-2 "$(key)" "$(key)" none > /dev/null
+[ "$(addr t-2)" = "$ip" ] || fail "the test expected the address to be reused"
+[ "$(trules "$ip")" = 0 ] || fail "a new device got the previous holder's speed limit"
 
 echo "awgctl: all checks passed"

@@ -5,6 +5,8 @@
 #   remove <id>
 #   suspend <id>
 #   resume <id>
+#   throttle on <id>
+#   throttle off <id>
 #   list --json
 #   usage --json
 #   reach --json   the sites this node can open (host/vessel-reach.py), not an awgctl call
@@ -24,6 +26,8 @@ case "${a[0]:-}:${#a[@]}" in
   remove:2)     exec /usr/local/sbin/awgctl remove "${a[1]}" ;;
   suspend:2)    exec /usr/local/sbin/awgctl suspend "${a[1]}" ;;
   resume:2)     exec /usr/local/sbin/awgctl resume "${a[1]}" ;;
+  throttle:3)   [ "${a[1]}" = on ] && exec /usr/local/sbin/awgctl throttle on "${a[2]}"
+                [ "${a[1]}" = off ] && exec /usr/local/sbin/awgctl throttle off "${a[2]}" ;;
   list:2)       [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl list --json ;;
   usage:2)      [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl usage --json ;;
   reach:2)      [ "${a[1]}" = --json ] && exec cat /opt/vessel-node/reach.json ;;

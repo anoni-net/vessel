@@ -10,6 +10,8 @@
 #   awgctl remove <name>                        revoke a peer immediately (suspended ones too)
 #   awgctl suspend <name>                       take a peer offline but keep its keys on the node (quota used up)
 #   awgctl resume <name>                        bring a suspended peer back
+#   awgctl throttle on <name>                   hold a peer to about 2 Mbit/s each way (quota used up)
+#   awgctl throttle off <name>                  back to full speed
 #   awgctl show <name>                          print a client config created by `add`
 #   awgctl usage --json                         transfer and blocked-lookup counters, when the interface came up
 #   awgctl apply                                rebuild awg0.conf and sync it to the running interface
@@ -59,6 +61,66 @@ INSPECT_GROUP=42
 INSPECT_WHOLE=12    # packets of a connection copied whole
 INSPECT_SNAP=128    # bytes copied of the packets after those
 INSPECT_MAX_SECONDS=$(( 8 * 86400 ))
+
+# Over its monthly quota a device is slowed down rather than taken offline (the portal's worker, enforce_quota). Each
+# direction of its tunnel address is held to THROTTLE_RATE in VESSEL-THROTTLE, which FORWARD checks first; packets over
+# the rate are dropped, and TCP and QUIC slow down to fit. A container restart loses the rules: `usage --json` says which
+# addresses are throttled, and the worker puts back what is missing.
+THROTTLE_RATE=256kb/s   # bytes, about 2 Mbit/s
+THROTTLE_BURST=512kb
+
+# VESSEL-THROTTLE, and FORWARD's jump to it as the first rule; made by the first call that needs them
+throttle_chain() {
+  docker exec $C iptables -t filter -S VESSEL-THROTTLE >/dev/null 2>&1 || docker exec $C iptables -t filter -N VESSEL-THROTTLE || return 1
+  docker exec $C iptables -t filter -C FORWARD -j VESSEL-THROTTLE 2>/dev/null || docker exec $C iptables -t filter -I FORWARD 1 -j VESSEL-THROTTLE
+}
+
+# Remove the speed limit of a tunnel address. Like inspection, it must not carry over to the next device given the
+# address, so callers stop when this fails.
+throttle_clear() { # ipv4
+  local rules line
+  throttle_chain || return 1
+  rules=$(docker exec $C iptables -t filter -S VESSEL-THROTTLE) || return 1
+  { grep -E -- "--comment \"?vessel-throttle:${1//./\\.}\"?( |\$)" <<<"$rules" || true; } | sed -E 's/^-A /-D /' |
+    while read -r line; do
+      line=${line//\"/}
+      # shellcheck disable=SC2086  # the rule's own words
+      docker exec $C iptables -t filter $line || exit 1
+    done
+}
+
+# the throttled tunnel addresses, one a line; none when the chain is not there yet
+throttle_list() {
+  docker exec $C iptables -t filter -S VESSEL-THROTTLE 2>/dev/null | grep -oE 'vessel-throttle:[0-9.]+' | cut -d: -f2 | sort -u || true
+}
+
+# a peer's file, online or suspended
+peer_file() { local f=$D/peers/$1.conf; [ -e "$f" ] || f=$D/suspended/$1.conf; [ -e "$f" ] && echo "$f"; }
+
+throttle_on() { # name
+  local f ip n
+  f=$(peer_file "$1") || die "$1 not found"
+  ip=$(peer_ip "$f"); n=${ip##*.}
+  throttle_clear "$ip" || die "could not clear the speed limit of $1"
+  # shellcheck disable=SC2206  # words
+  local limit=(-m hashlimit --hashlimit-above $THROTTLE_RATE --hashlimit-burst $THROTTLE_BURST)
+  if ! { docker exec $C iptables -t filter -A VESSEL-THROTTLE -i awg0 -s "$ip/32" -m comment --comment "vessel-throttle:$ip" \
+           "${limit[@]}" --hashlimit-name "vt$n-up" -j DROP &&
+         docker exec $C iptables -t filter -A VESSEL-THROTTLE -o awg0 -d "$ip/32" -m comment --comment "vessel-throttle:$ip" \
+           "${limit[@]}" --hashlimit-name "vt$n-down" -j DROP; }; then
+    # never one direction alone
+    throttle_clear "$ip" || true
+    die "could not add the speed limit"
+  fi
+  echo "throttled $1"
+}
+
+throttle_off() { # name
+  local f
+  f=$(peer_file "$1") || die "$1 not found"
+  throttle_clear "$(peer_ip "$f")" || die "could not clear the speed limit of $1"
+  echo "full speed for $1"
+}
 
 # Remove every inspection rule of a tunnel address. The next device given the address must not be copied, so callers
 # stop when this fails.
@@ -219,6 +281,8 @@ new_peer() { # name filter pubkey psk
   forget_flows "$ip"
   # nor may the previous holder's inspection carry over to whoever gets the address next
   inspect_clear "$ip" || die "could not clear the inspection rules of $ip"
+  # and a speed limit belongs to the device that used up its quota, not to the address
+  throttle_clear "$ip" || die "could not clear the speed limit of $ip"
   umask 077
   printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32, %s/128\n' \
     "$1" "$2" "$3" "$4" "$ip" "$(ip6_of "$ip")" > $D/peers/$1.conf
@@ -239,7 +303,7 @@ peer_table() { # name<TAB>filter<TAB>pubkey for every peer file
 
 cmd=${1:-}; name=${2:-}
 case $cmd in
-  add|add-pubkey|remove|suspend|resume|apply|inspect)
+  add|add-pubkey|remove|suspend|resume|apply|inspect|throttle)
     # one change at a time: the portal and its worker can call at once, and two changes together could give two
     # peers the same address or sync a config the other is still writing
     exec 9>$D/.awgctl.lock
@@ -253,7 +317,8 @@ case $cmd in
     started=$(docker inspect -f '{{.State.StartedAt}}' $C)
     { peer_table; echo "--"; docker exec $C awg show awg0 dump | tail -n +2
       echo "--"; docker exec $C iptables -nvxL VESSEL-BLOCKED 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'
-      echo "--"; docker exec $C iptables -nvxL VESSEL-ADS 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'; } |
+      echo "--"; docker exec $C iptables -nvxL VESSEL-ADS 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'
+      echo "--"; throttle_list; } |
       CMD=$cmd JSON=$json STARTED=$started python3 -c '
 import json, os, sys, time
 peers, dump = {}, {}
@@ -261,6 +326,7 @@ lines = sys.stdin.read().splitlines()
 sep = lines.index("--")
 sep2 = lines.index("--", sep + 1)
 sep3 = lines.index("--", sep2 + 1)
+sep4 = lines.index("--", sep3 + 1)
 for l in lines[:sep]:
     name, flt, pub = l.split("\t")
     peers[pub] = (name, flt)
@@ -272,17 +338,19 @@ for l in lines[sep + 1:sep2]:
 # blocked lookups per tunnel address: the malware list (VESSEL-BLOCKED) and the ad list (VESSEL-ADS); a chain
 # a node does not have yet reads as zero
 blocked = dict(l.split("\t") for l in lines[sep2 + 1:sep3] if "\t" in l)
-ads = dict(l.split("\t") for l in lines[sep3 + 1:] if "\t" in l)
+ads = dict(l.split("\t") for l in lines[sep3 + 1:sep4] if "\t" in l)
+throttled = set(lines[sep4 + 1:])
 for d in dump.values():
     d["blocked"] = int(blocked.get(d["address"], 0))
     d["blocked_ads"] = int(ads.get(d["address"], 0))
+    d["throttled"] = d["address"] in throttled
 rows = []
 for pub, (name, flt) in sorted(peers.items(), key=lambda kv: kv[1][0]):
-    d = dump.get(pub, {"address": None, "latest_handshake": 0, "rx": 0, "tx": 0, "blocked": 0, "blocked_ads": 0})
+    d = dump.get(pub, {"address": None, "latest_handshake": 0, "rx": 0, "tx": 0, "blocked": 0, "blocked_ads": 0, "throttled": False})
     rows.append({"name": name, "filter": flt, "public_key": pub, **d})
 if os.environ["JSON"] == "1":
     if os.environ["CMD"] == "usage":
-        rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake", "blocked", "blocked_ads")} for r in rows]
+        rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake", "blocked", "blocked_ads", "throttled")} for r in rows]
         print(json.dumps({"interface_started": os.environ["STARTED"], "peers": rows}))
     else:
         print(json.dumps(rows))
@@ -345,7 +413,10 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     done
     found=0; exists "$name" && found=1
     # before the files go: a try that fails here finds the address again the next time
-    if [ -n "$ip" ]; then inspect_clear "$ip" || die "could not clear the inspection rules of $name"; fi
+    if [ -n "$ip" ]; then
+      inspect_clear "$ip" || die "could not clear the inspection rules of $name"
+      throttle_clear "$ip" || die "could not clear the speed limit of $name"
+    fi
     rm -f $D/peers/$name.conf $D/clients/$name.conf $D/suspended/$name.conf
     # apply even when the files are already gone: a try that deleted them and then failed to apply left the peer on
     # the interface, and the portal tries again
@@ -390,6 +461,13 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     { docker exec $C iptables -nvxL VESSEL-NEW 2>/dev/null; docker exec $C iptables -nvxL VESSEL-P2P 2>/dev/null; docker exec $C iptables -nvxL VESSEL-LIMIT 2>/dev/null || true; } |
       awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
     ;;
+  throttle)
+    case $name in
+      on) valid_name "${3:-}"; throttle_on "$3" ;;
+      off) valid_name "${3:-}"; throttle_off "$3" ;;
+      *) die "throttle on <name> | off <name>" ;;
+    esac
+    ;;
   inspect)
     case $name in
       on) valid_name "${3:-}"; inspect_on "$3" "${4:-}" ;;
@@ -404,7 +482,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     esac
     ;;
   *)
-    sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
