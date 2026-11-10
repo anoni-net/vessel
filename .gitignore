@@ -13,3 +13,6 @@ playwright-report/
 .ruff_cache/
 dist-onion/
 dist-onion-ssr/
+
+# the sitemap dates of the last build (web/scripts/prerender.mjs)
+web/.lastmod-*.json
