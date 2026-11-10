@@ -35,7 +35,10 @@ export function focusLater(find: () => Element | null, ifLost = false): void {
  */
 export function focusHeading(id?: string): void {
   requestAnimationFrame(() => {
-    if (id && focusOn(document.getElementById(id))) return;
+    // the part a link points to: brought into view too, as the router's own scroll may have run before the page
+    // rendered it (a page loaded on demand)
+    if (id && focusOn(document.getElementById(id), true)) return;
+    if (id) awaitTarget(id);
     if (focusOn(document.querySelector("main h1"))) return;
     const main = document.querySelector("main");
     if (!focusOn(main)) return;
@@ -47,4 +50,21 @@ export function focusHeading(id?: string): void {
     };
     requestAnimationFrame(wait);
   });
+}
+
+/** A link's target that is not there yet: once it renders, focus and show it, unless the person has moved on. */
+function awaitTarget(id: string): void {
+  let frames = 60;
+  const wait = () => {
+    const el = document.getElementById(id);
+    const active = document.activeElement;
+    const waiting = !active || active === document.body || active === document.querySelector("main") || active === document.querySelector("main h1");
+    if (!waiting) return;
+    if (el) {
+      focusOn(el, true);
+      return;
+    }
+    if (--frames > 0) requestAnimationFrame(wait);
+  };
+  requestAnimationFrame(wait);
 }

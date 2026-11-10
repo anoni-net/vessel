@@ -40,6 +40,15 @@ test("WCAG 1.3.1: on a phone a policy's table stays a table with its column name
   await expect(page.getByRole("cell").first()).toBeAttached();
 });
 
+test("the terms link to what a group's leaders see, and the policy says it", async ({ page }) => {
+  await page.goto("/terms/");
+  await page.getByRole("link", { name: "隱私權政策的「團體」" }).click();
+  await expect(page).toHaveURL(/\/privacy\/#groups$/);
+  await expect(page.locator("#groups")).toHaveText("團體");
+  await expect(page.locator("#groups")).toBeInViewport();
+  await expect(page.getByText("負責人可以請成員檢測團體裡的某台裝置")).toContainText("負責人看不到網站名稱、次數、出現的時段、流量與你的報告");
+});
+
 test("the consent page can link to the device inspection section of the policy", async ({ page }) => {
   await page.goto("/privacy/#inspection");
   await expect(page.locator("#inspection")).toHaveText("裝置檢測");

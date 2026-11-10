@@ -22,7 +22,7 @@ INSPECT_CONFIRM_MINUTES = 30  # to open the confirmation link on the device
 INSPECT_CONSENT_VERSION = "2026-11-10c"
 INSPECT_CONFIRM_HOST = "confirm.vessel.anoni.net"
 # The consent for an inspection a group's leader asked for: it also says what the leaders see (toomore/anoni-net-ws#483).
-# The pages for it come in a later change; until then nothing asks with this version.
+# A change to what the leaders see changes this, the group consent page (pages/inspect.tsx) and the privacy policy.
 GROUP_INSPECT_CONSENT_VERSION = "2026-11-10g"
 GROUP_INSPECT_REQUEST_DAYS = 7  # a leader's request waits this long for the member, and a no stays on the page as long
 GROUP_CLOSE_DAYS = 30        # how long a closing group goes on, unless the maintainer gives another day
