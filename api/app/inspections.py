@@ -52,10 +52,11 @@ def owned(conn, device_id: str, account_id: int, lock: str = ""):
 
 
 def summary(row) -> dict:
-    status, started_at, ends_at, report, report_until = row
+    status, started_at, ends_at, stopped_at, report, report_until = row
+    # when copying stopped: before ends_at for one ended early, so the report's days end there and not at the planned end
     return {"status": status, "started_at": started_at.isoformat() if started_at else None,
-            "ends_at": ends_at.isoformat() if ends_at else None, "report": report,
-            "report_until": report_until.isoformat() if report_until else None}
+            "ends_at": ends_at.isoformat() if ends_at else None, "stopped_at": stopped_at.isoformat() if stopped_at else None,
+            "report": report, "report_until": report_until.isoformat() if report_until else None}
 
 
 @router.post("/devices/{device_id}/inspection", dependencies=[Depends(require_app_header)])
@@ -104,17 +105,17 @@ def renew(device_id: str, account_id: Account, conn: Conn) -> dict:
 def read(device_id: str, account_id: Account, conn: Conn) -> dict:
     owned(conn, device_id, account_id)
     row = conn.execute(
-        "SELECT status, started_at, ends_at, report, report_until, "
+        "SELECT status, started_at, ends_at, stopped_at, report, report_until, "
         "ceil(extract(epoch FROM code_at + make_interval(mins => %s) - now()))::int FROM device_inspections WHERE device_id = %s",
         (policy.INSPECT_CONFIRM_MINUTES, device_id),
     ).fetchone()
     base = {"consent_version": policy.INSPECT_CONSENT_VERSION, "days": policy.INSPECT_DAYS, "report_days": policy.INSPECT_REPORT_DAYS}
     # a link past its time confirms nothing, even before the worker deletes it
-    if row is None or (row[0] == "confirming" and row[5] <= 0):
+    if row is None or (row[0] == "confirming" and row[6] <= 0):
         return {**base, "status": "none"}
     # how long the link is still good for, so the page can say so before it runs out
-    left = {"confirm_seconds": row[5]} if row[0] == "confirming" else {}
-    return {**base, **summary(row[:5]), **left}
+    left = {"confirm_seconds": row[6]} if row[0] == "confirming" else {}
+    return {**base, **summary(row[:6]), **left}
 
 
 @router.delete("/devices/{device_id}/inspection", dependencies=[Depends(require_app_header)])
