@@ -336,6 +336,7 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
                 </p>
               )}
               {d.inspection === "confirming" && d.status !== "revoking" && !deleting.has(d.id) && <InspectNote d={d} />}
+              {d.inspection_request && !d.inspection && d.status === "active" && !deleting.has(d.id) && <RequestNote d={d} />}
               <div class="row small device-foot">
                 {inspecting(d) && !deleting.has(d.id) ? <InspectLink d={d} /> : d.status === "active" && !d.inspection && !deleting.has(d.id) && (
                   <a data-testid="device-inspect" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectNamed"], { name: d.name })}>
@@ -420,6 +421,23 @@ function InspectNote({ d }: { d: Device }) {
       {/* which device, for a list of links all named alike; starting with the shown words (WCAG 2.5.3) */}
       <a class="strong" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectGo.confirmingNamed"], { name: d.name })}>
         {t["devices.inspectGo.confirming"]}
+      </a>
+    </p>
+  );
+}
+
+/**
+ * A group's leader asked for an inspection of this device (toomore/anoni-net-ws#483): it asks something of the person,
+ * so it is a note in the card, with the link to the request. The answer, yes or no, is given on the inspection's page.
+ */
+function RequestNote({ d }: { d: Device }) {
+  const { t, href, locale } = useCtx();
+  return (
+    <p class="card card--flat card--warn small device-inspect" data-testid="inspect-request">
+      <span>{fmt(t["devices.inspectRequest"], { date: formatDate(locale, d.inspection_request!.until) })}</span>
+      {/* which device, for a list of links all named alike; starting with the shown words (WCAG 2.5.3) */}
+      <a class="strong" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectRequestGoNamed"], { name: d.name })}>
+        {t["devices.inspectRequestGo"]}
       </a>
     </p>
   );

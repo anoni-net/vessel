@@ -1,8 +1,35 @@
 import { useEffect, useState } from "preact/hooks";
-import { type GroupAccount, type Me, api } from "../api.ts";
+import { type GroupAccount, type GroupDevice, type Me, api } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate } from "../format.ts";
 import { type MessageKey, fmt } from "../i18n/index.ts";
+import { progress } from "../inspection-progress.ts";
+
+/**
+ * An inspection a leader asked for, in the leaders' own words (toomore/anoni-net-ws#483): the member sees the state
+ * the leaders see. Not the summary, which is sealed to the leaders' keys; the member's own report has all of it.
+ */
+function InspectionLine({ d }: { d: GroupDevice }) {
+  // how many days it was set to run: the member's view of the group does not carry the setting
+  const daysOf = (x: NonNullable<GroupDevice["inspection"]>) =>
+    x.started_at && x.ends_at ? Math.round((Date.parse(x.ends_at) - Date.parse(x.started_at)) / 86_400_000) : 7;
+  const { t, locale, href } = useCtx();
+  const it = d.inspection!;
+  const day = (iso: string) => formatDate(locale, iso);
+  const line = it.status === "requested" ? fmt(t["group.inspect.status.requested"], { date: day(it.until!) })
+    : it.status === "active" && it.ends_at ? fmt(t["group.inspect.status.active"], progress({ ends_at: it.ends_at, days: daysOf(it) }))
+    : it.status === "ended" && it.report_until ? fmt(t["group.inspect.status.ended"], { date: day(it.report_until) })
+    : t[`group.inspect.status.${it.status}` as MessageKey];
+  return (
+    <span class="small block group-view__issue" data-testid={`group-view-inspection-${d.id}`}>
+      <span class="strong">{t["group.inspect.label"]}</span>{t["group.inspect.sep"]}{line}{" "}
+      {it.status !== "declined" && it.status !== "deleted" && (
+        <a href={`${href("/devices/inspect/")}?d=${encodeURIComponent(d.id)}`}
+          aria-label={fmt(t["group.view.inspectNamed"], { name: d.name })}>{t["group.view.inspect"]}</a>
+      )}
+    </span>
+  );
+}
 
 /** On an account in a group: what its leaders see about it, the same words and states as their own page. */
 export function GroupView({ me }: { me: Me | null }) {
@@ -39,6 +66,7 @@ export function GroupView({ me }: { me: Me | null }) {
                       <span class="strong">{t[`group.issue.${issue}`]}</span> {t[`group.help.${issue}`]}
                     </span>
                   ))}
+                  {d.inspection && <InspectionLine d={d} />}
                 </span>
               </li>
             ))}
