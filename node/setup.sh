@@ -11,7 +11,7 @@ D=/opt/vessel-node
 umask 077
 mkdir -p $D/server $D/peers $D/clients $D/conf
 sed "s/RPZ_PRIMARY/$RPZ_PRIMARY/" $D/unbound/rpz-zones.conf.example > $D/unbound/rpz-zones.conf
-chmod 755 $D/unbound; chmod 644 $D/unbound/*.conf
+chmod 755 $D/unbound; chmod 644 $D/unbound/*.conf $D/unbound/vessel.zone
 chmod 700 $D/awgctl $D/run.sh $D/pull-lists.sh
 chmod 600 $D/node.env
 
