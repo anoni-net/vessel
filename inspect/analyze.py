@@ -4,6 +4,7 @@
   analyze.py update-lists              download the lists to compare against
   analyze.py batch                     process finished captures; nothing of them stays but the counts below
   analyze.py report --node N --address A [--seal PUBLIC_KEY]
+  analyze.py summary --node N --address A [--seal PUBLIC_KEY]
   analyze.py status
   analyze.py clear --node N --address A
   analyze.py purge --days D
@@ -59,6 +60,7 @@ VISIT_SECONDS = 60
 SYSTEM_SUFFIXES = ("arpa", "local", "localdomain", "internal", "lan", "home", "invalid", "test", "onion", "ts.net")
 THREAT = {"stalkerware"}
 FLAGGED = ("stalkerware", "malware", "cti")
+SUMMARY_INFO = b"vessel-inspection-summary"  # the HKDF info a leader's summary is sealed with
 
 
 def words(path):
@@ -402,9 +404,27 @@ def report(node, address):
     }
 
 
-def seal(payload: bytes, public_key: str) -> dict:
+def summary(node, address):
+    """What a group's leaders see of an inspection they asked for and the member agreed to (toomore/anoni-net-ws#483):
+    the verdict, and the kinds of finding with their severity. The sites, how often and in which hours are the member's
+    alone, as are the traffic and the DNS shares: #464 keeps a leader to states, without the sites or the times.
+    The verdict is the report page's: a known threat if any finding is one, a check if there is any finding at all."""
+    full = report(node, address)
+    if full.get("empty"):
+        return {"empty": True}
+    kinds = {}
+    # threats first, as the report lists them; a kind has one severity
+    for f in sorted(full["findings"], key=lambda f: f["severity"] != "threat"):
+        kinds.setdefault(f["kind"], f["severity"])
+    verdict = "threat" if "threat" in kinds.values() else "check" if kinds else "clean"
+    return {"verdict": verdict, "kinds": [{"kind": k, "severity": s} for k, s in kinds.items()],
+            "first": full["first"], "last": full["last"], "coverage": full["coverage"]}
+
+
+def seal(payload: bytes, public_key: str, info: bytes = b"vessel-inspection-report") -> dict:
     """Encrypt to the X25519 key the person's browser made, so that what the portal stores it cannot read: an ephemeral
-    key, HKDF-SHA256 and AES-256-GCM, which the browser undoes with Web Crypto."""
+    key, HKDF-SHA256 and AES-256-GCM, which the browser undoes with Web Crypto. A leader's summary has its own `info`,
+    so that one cannot be passed off as the other."""
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -412,7 +432,7 @@ def seal(payload: bytes, public_key: str) -> dict:
 
     ephemeral = X25519PrivateKey.generate()
     shared = ephemeral.exchange(X25519PublicKey.from_public_bytes(base64.b64decode(public_key)))
-    key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"vessel-inspection-report").derive(shared)
+    key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=info).derive(shared)
     iv = os.urandom(12)
     raw = ephemeral.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
     return {"epk": base64.b64encode(raw).decode(), "iv": base64.b64encode(iv).decode(),
@@ -464,11 +484,11 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("update-lists")
     sub.add_parser("batch")
-    for name in ("report", "clear"):
+    for name in ("report", "summary", "clear"):
         p = sub.add_parser(name)
         p.add_argument("--node", required=True)
         p.add_argument("--address", required=True)
-        if name == "report":
+        if name != "clear":
             p.add_argument("--seal")
     sub.add_parser("status")
     sub.add_parser("purge").add_argument("--days", type=int, required=True)
@@ -480,6 +500,9 @@ def main():
     elif args.cmd == "report":
         text = json.dumps(report(args.node, args.address), ensure_ascii=False)
         print(json.dumps(seal(text.encode(), args.seal)) if args.seal else text)
+    elif args.cmd == "summary":
+        text = json.dumps(summary(args.node, args.address), ensure_ascii=False)
+        print(json.dumps(seal(text.encode(), args.seal, SUMMARY_INFO)) if args.seal else text)
     elif args.cmd == "status":
         print(json.dumps(status()))
     elif args.cmd == "clear":

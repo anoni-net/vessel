@@ -409,6 +409,38 @@ class SystemNames(Base):
         self.assertEqual((r["findings"], r["dns"]["ads_share"], r["dns"]["total"]), ([], 0, 0))
 
 
+class Summary(Base):
+    def run_one(self, **kw):
+        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]}, logs(**kw), self.lists)
+        return analyze.summary("n1", "10.8.1.3")
+
+    def test_nothing_seen_is_empty(self):
+        self.assertEqual(analyze.summary("n1", "10.8.1.3"), {"empty": True})
+
+    def test_nothing_found_is_clean(self):
+        r = self.run_one(dns=[dns("example.org")])
+        self.assertEqual((r["verdict"], r["kinds"]), ("clean", []))
+        self.assertEqual(r["coverage"], {"active_hours": 1, "total_hours": 1})
+
+    def test_a_threat_comes_first_and_decides_the_verdict(self):
+        r = self.run_one(dns=[dns("bad.example"), dns("bad.example", ts=T0 + 120), dns("tracker.example")],
+                         conn=[{"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "9.9.9.9", "id.resp_p": 53}])
+        self.assertEqual(r["verdict"], "threat")
+        self.assertEqual(r["kinds"][0], {"kind": "stalkerware", "severity": "threat"})
+        self.assertEqual({k["kind"] for k in r["kinds"]}, {"stalkerware", "malware", "bypass_dns"})
+
+    def test_a_check_alone_is_a_check(self):
+        r = self.run_one(dns=[dns("evil.example")])
+        self.assertEqual((r["verdict"], r["kinds"]), ("check", [{"kind": "cti", "severity": "check"}]))
+
+    def test_no_sites_counts_hours_or_traffic(self):
+        r = self.run_one(dns=[dns("api.tracker.example")])
+        self.assertEqual(set(r), {"verdict", "kinds", "first", "last", "coverage"})
+        text = json.dumps(r)
+        for leak in ("tracker", "10.8.1.3", "n1", "count", "\"hours\"", "\"app\"", "\"up\""):
+            self.assertNotIn(leak, text)
+
+
 class Seal(Base):
     def test_only_the_private_key_opens_it(self):
         from cryptography.exceptions import InvalidTag
@@ -429,6 +461,25 @@ class Seal(Base):
         self.assertNotIn("report", json.dumps(box))
         with self.assertRaises(InvalidTag):
             opened(X25519PrivateKey.generate(), box)
+
+    def test_a_summary_does_not_open_as_a_report(self):
+        from cryptography.exceptions import InvalidTag
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+        def opened(private, box, info):
+            shared = private.exchange(X25519PublicKey.from_public_bytes(base64.b64decode(box["epk"])))
+            key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=info).derive(shared)
+            return AESGCM(key).decrypt(base64.b64decode(box["iv"]), base64.b64decode(box["ct"]), None)
+
+        mine = X25519PrivateKey.generate()
+        public = base64.b64encode(mine.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()
+        box = analyze.seal(b'{"verdict": "clean"}', public, analyze.SUMMARY_INFO)
+        self.assertEqual(opened(mine, box, b"vessel-inspection-summary"), b'{"verdict": "clean"}')
+        with self.assertRaises(InvalidTag):
+            opened(mine, box, b"vessel-inspection-report")
 
 
 def wire(name):
