@@ -231,6 +231,14 @@ def poll_usage(conn: psycopg.Connection) -> None:
         except NodeError:
             continue
         started = data["interface_started"]
+        # the node's own totals (node/awgctl, node_totals), replaced as a whole; older nodes send none
+        if isinstance(data.get("totals"), dict):
+            with conn.transaction():
+                conn.execute("DELETE FROM node_totals WHERE region_id = %s", (region_id,))
+                for name, value in data["totals"].items():
+                    if isinstance(value, int):
+                        conn.execute("INSERT INTO node_totals (region_id, name, value, since) VALUES (%s, %s, %s, %s)",
+                                     (region_id, name, value, started))
         # for daily_stats: today's traffic on this node, and the devices whose last handshake is today
         day_start = datetime.combine(datetime.now(UTC).date(), time.min, tzinfo=UTC).timestamp()
         day_rx = day_tx = active = 0

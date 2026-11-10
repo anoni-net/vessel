@@ -241,7 +241,7 @@ test("a running inspection shows the end date and the results so far, and can be
   const sent = await backend(page, { ...BASE, status: "active", report: SEALED, ends_at: "2026-11-16T00:00:00Z" }, { after: { ...BASE, status: "ending" } });
   await withKey(page);
   await goto(page);
-  await expect(page.getByTestId("inspect-running")).toContainText("自動結束");
+  await expect(page.getByTestId("inspect-status")).toContainText("自動結束");
   await expect(page.getByTestId("inspect-report")).toBeVisible();
   // readable at any time, and it says how far behind it is, below the report
   await expect(page.getByTestId("inspect-delay")).toContainText("延遲 30 分鐘，最久約 1 小時");
@@ -291,6 +291,9 @@ test("a running inspection's results so far can be downloaded, from a link below
   expect(html).toMatch(/檢測進行中，結果產生於 \d{4}\/\d{2}\/\d{2} \d{2}:\d{2} UTC[+-]\d+(:\d{2})?（第 3 天，共 7 天）/);
   expect(html).toContain("延遲 30 分鐘，最久約 1 小時");
   expect(html).toContain("檢測結束後可以下載完整報告");
+  // what a report cannot tell: beside the key on the page, once, and at the report's end in the file
+  await expect(page.getByText("報告只涵蓋檢測期間的連線")).toHaveCount(1);
+  expect(html.match(/報告只涵蓋檢測期間的連線/g)).toHaveLength(1);
   expect(html).toContain("我的手機");
   expect(html).toContain("tracker.example");
   expect(html).not.toContain(KEY);
@@ -667,6 +670,7 @@ test.describe("the report says what it comes to, and when each site was seen", (
     expect(html).toMatch(/class="cover__fill" style="height: [\d.]+%;?"/);
     expect(html).toContain("tile--night");
     expect(html).toContain(".hit--3");
+    expect(html.match(/報告只涵蓋檢測期間的連線/g)).toHaveLength(1);
     // the folded rows are open in the file
     expect(html.match(/<details[^>]*>/g)!.every((tag) => /\bopen\b/.test(tag))).toBe(true);
 
@@ -968,6 +972,57 @@ test.describe("on a wide screen", () => {
     expect(checks.x).toBeGreaterThan(hours.x + hours.width);
     expect((await box(page, "inspect-report")).width).toBeGreaterThan(900);
     expect(await sideways(page)).toBe(0);
+  });
+
+  const running = { ...BASE, status: "active", report: SEALED, ends_at: new Date(Date.now() + 4.5 * 86_400_000).toISOString() };
+
+  test("a running inspection's status is a label like the device's, beside it, and below it on a phone", async ({ page }) => {
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.unrouteAll();
+      await backend(page, running);
+      await withKey(page);
+      await goto(page);
+      const status = page.getByTestId("inspect-status");
+      await expect(status).toContainText("檢測中，第 3 天，共 7 天");
+      const [device, card] = await Promise.all([box(page, "inspect-device"), box(page, "inspect-status")]);
+      const facts = await Promise.all(["inspect-device", "inspect-status"].map(async (id) => (await page.getByTestId(id).locator(".inspect-device__facts").boundingBox())!));
+      expect(await status.evaluate((e) => getComputedStyle(e, "::before").content), `${width}`).toContain("STATUS");
+      if (width > 960) {
+        expect(Math.abs(card.y - device.y)).toBeLessThan(1);
+        expect(card.x).toBeGreaterThan(device.x + device.width);
+        expect(Math.abs(card.height - device.height)).toBeLessThan(1);
+        // the lines under the hairline at the same height, the link to end it early not making its row taller
+        expect(Math.abs(facts[0]!.y - facts[1]!.y)).toBeLessThan(1);
+        expect(facts[1]!.height).toBeLessThan(facts[0]!.height + 4);
+      } else {
+        expect(card.y).toBeGreaterThan(device.y + device.height + 8);
+        expect(Math.abs(card.x - device.x)).toBeLessThan(1);
+      }
+      expect(await sideways(page), `${width}`).toBe(0);
+    }
+  });
+
+  test("under the results so far, the key on the left and what they cannot tell on the right; one above the other on a phone", async ({ page }) => {
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.unrouteAll();
+      await backend(page, running);
+      await withKey(page);
+      await goto(page);
+      await expect(page.getByTestId("inspect-report")).toBeVisible();
+      const [report, key, notes] = await Promise.all([box(page, "inspect-report"), box(page, "inspect-key"), box(page, "inspect-notes")]);
+      expect(key.y, `${width}`).toBeGreaterThan(report.y + report.height);
+      if (width > 960) {
+        expect(notes.x).toBeGreaterThan(key.x + key.width);
+        expect(Math.abs(notes.y - key.y)).toBeLessThan(2);
+      } else {
+        expect(notes.y).toBeGreaterThan(key.y + key.height);
+      }
+      // the key first, as it is seen
+      expect(await order(page, ["inspect-key", "inspect-notes"]), `${width}`).toBe(true);
+      expect(await sideways(page), `${width}`).toBe(0);
+    }
   });
 
   test("the consent page puts its two cards side by side, and keeps its text and button at the narrow width", async ({ page }) => {
