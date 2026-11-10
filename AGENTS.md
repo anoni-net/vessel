@@ -29,6 +29,8 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 
 首頁「Vessel 的做法」的四張圖（FIG. 02 到 05）由 `web/scripts/hero-figures.py` 產生，寫進 `web/src/hero-figures-data.ts`，要改圖時改腳本再執行 `python3 web/scripts/hero-figures.py`，不要手改資料檔。標籤的寬度取自三個語系的文字，改了圖上標籤的文字也要重新執行，CI 會用 `--check` 確認資料檔與腳本畫出的一致。
 
+檢測報告的網站說明在 `web/src/data/site-notes.json`，跟著前端打包，報告在使用者的瀏覽器裡比對命中的網站，不逐一查詢伺服器。說明只補充，不影響報告的判斷，名單頁（`/dns/lists/#site-notes`）公開整份資料。新增一筆時寫上網域、類別、營運者（選填）、至少一個 `https://` 來源與審查日期，新的類別要在三個語系補上 `notes.<類別>.name` 與 `.about`。說明有增減時，在名單頁的變動紀錄（`web/src/pages/dns-lists.tsx` 的 `LOG`）加一行。CI 用 `node web/scripts/site-notes.mjs` 檢查格式，審查日期超過一年會失敗，重新確認來源後更新日期。
+
 `npm run build` 建置之後會預先渲染每一頁（`web/scripts/prerender.mjs`），每個語系、每個頁面各有一份帶著自己標題、描述與連結預覽的 HTML，另外產生 `404.html`、`robots.txt` 與 `sitemap.xml`。正式網站的 nginx 只回應這些檔案，其他路徑回 404，所以新增頁面時要加進 `web/src/seo.ts` 的 `PUBLIC_PAGES`（可以被搜尋到）或 `PRIVATE_PAGES`（要登入，標成 `noindex`），清單跟 App 的路由對不上時建置會失敗。
 
 開發時前端用 `npm run dev`，`/api/` 會轉到 `127.0.0.1:8090` 的後端。前端的 Playwright 測試用 `page.route` 模擬後端，只需要建置好的前端，在桌機與手機兩種尺寸各執行一次。改了畫面之後，在手機尺寸實際截圖看過再送出。
