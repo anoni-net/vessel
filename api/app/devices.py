@@ -76,13 +76,20 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
         "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
-        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status, d.throttled "
+        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status, d.throttled, i.ends_at, i.report_until "
         "FROM devices d JOIN regions r ON r.id = d.region_id "
+        # a request whose confirmation link has run out confirms nothing, as on the inspection's own page; the worker
+        # deletes it later
         "LEFT JOIN device_inspections i ON i.device_id = d.id "
+        "AND NOT (i.status = 'confirming' AND i.code_at <= now() - make_interval(mins => %s)) "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
         "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
-        (account_id,),
+        (policy.INSPECT_CONFIRM_MINUTES, account_id),
     )
+    # The inspection is told as where it stands and its dates, for the card to say what to do next. Never what the
+    # report found: the device list is the page most often seen over someone's shoulder, and a stalker who reads
+    # "known threat" there can act before the person does (toomore/anoni-net-ws#461). The report is sealed to the
+    # person's browser and opened on the inspection's page only.
     return [
         {"id": r[0], "name": r[1], "region": r[2], "dns_filter": r[3], "status": r[4],
          "created_on": r[5].isoformat(), "expires_on": r[6].isoformat(), "used_bytes": r[7], "blocked": r[8],
@@ -96,7 +103,13 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          # the device inspection, if there is one (app/inspections.py)
          "inspection": r[13],
          # over this month's quota: online, at a low speed (app/jobs.py, enforce_quota)
-         "throttled": r[14]}
+         "throttled": r[14],
+         # when it ends, while it runs (from confirmation on), and how many days it runs in all: the card counts the
+         # day as the inspection's page does
+         "inspection_ends_at": r[15].isoformat() if r[15] else None,
+         "inspection_days": policy.INSPECT_DAYS if r[13] else None,
+         # the last day its report is kept, once it has ended
+         "inspection_report_until": r[16].isoformat() if r[16] else None}
         for r in rows
     ]
 

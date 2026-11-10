@@ -709,7 +709,14 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the status badge stays on the right of the device's name, however long the name */
 .device-head { flex-wrap: nowrap; align-items: flex-start; }
 .device-head__name { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 20px; color: inherit; overflow-wrap: anywhere; }
-.device-head > .badge { flex: none; }
+.device-head__badges { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* the inspection's state beside the device's: the same blue outline on the card's paper, not a warning colour */
+.badge--inspect { background: var(--paper); font-weight: 600; }
+/* where the inspection stands, under the spec sheet: one sentence, and the link to it on a line of its own, at the
+   same place in every state */
+.device-inspect { gap: 4px; align-items: flex-start; margin: 0; padding: 10px 14px; }
+.device-inspect.card--warn { padding-left: 24px; }
+.device-inspect > span { text-wrap: pretty; }
 /* a device as a spec sheet: the name of each fact on the left, a hairline between the lines */
 .spec { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; border-top: 1px solid var(--line); }
 .spec > dt, .spec > dd { margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); }

@@ -166,6 +166,12 @@ export interface Device {
   inspection?: "confirming" | "active" | "ending" | "ended" | null;
   /** over this month's quota: online at about 2 Mbps until the next month (missing from an older backend) */
   throttled?: boolean;
+  /** when the inspection ends, once confirmed; the days it runs in all. Where it stands only, never what the report
+   * found (missing from an older backend) */
+  inspection_ends_at?: string | null;
+  inspection_days?: number | null;
+  /** the last day the report is kept, once it has ended (missing from an older backend) */
+  inspection_report_until?: string | null;
 }
 
 export interface Inspection {

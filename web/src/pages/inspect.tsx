@@ -7,6 +7,7 @@ import { focusLater } from "../focus.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { Icon } from "../icons.tsx";
 import { type Kept, type Sealed, forget, isKey, keep, kept, newKey, openReport } from "../inspection-key.ts";
+import { progress } from "../inspection-progress.ts";
 import { flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { saveFile } from "../save-file.ts";
@@ -74,11 +75,6 @@ export function spanOf(state: Inspection, partial = false): Span {
   return { start, end, days: state.days, ...(partial && end ? { now: new Date(), day: progress(state).day } : {}) };
 }
 
-/** Which day of the inspection it is, on the visitor's clock: the third of seven. */
-export function progress(state: Inspection) {
-  const left = Math.ceil((new Date(state.ends_at!).getTime() - Date.now()) / 86_400_000);
-  return { day: Math.min(state.days, Math.max(1, state.days - left + 1)), days: state.days };
-}
 
 const deviceId = () => (typeof location === "undefined" ? "" : new URLSearchParams(location.search).get("d") ?? "");
 

@@ -71,6 +71,38 @@ for (const scheme of ["light", "dark"] as const) {
   }
 }
 
+// the devices page with an inspection in each of its states: the badges, the lines under the spec sheets and their links
+const INSPECTED = [
+  { ...DEVICES[0], inspection: "confirming", inspection_days: 7, inspection_ends_at: null, inspection_report_until: null },
+  { ...DEVICES[1], inspection: "active", inspection_days: 7, inspection_ends_at: "2026-11-14T04:00:00Z", inspection_report_until: null },
+  { ...DEVICES[0], id: "d-c", name: "tablet", inspection: "ending", inspection_days: 7, inspection_ends_at: "2026-11-09T04:00:00Z", inspection_report_until: null },
+  { ...DEVICES[1], id: "d-d", name: "desktop", inspection: "ended", inspection_days: 7, inspection_ends_at: "2026-11-08T04:00:00Z", inspection_report_until: "2026-11-15" },
+];
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`axe finds nothing on /devices/ with inspections, ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await backend(page, true);
+    await page.route("**/api/devices", (route) => route.fulfill({ json: INSPECTED }));
+    await page.route("**/api/me", (route) => route.fulfill({ json: { ...ME, device_limit: 4 } }));
+    await page.goto("/devices/");
+    await expect(page.getByTestId("inspect-note")).toHaveCount(4);
+    await page.evaluate(axe.source);
+    const found = await page.evaluate(async () => {
+      const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {
+        runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
+      });
+      return res.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
+    });
+    expect(found).toEqual([]);
+    // every link to an inspection says which device it is for, starting with its shown words (WCAG 2.5.3)
+    for (const link of await page.locator('a[href^="/devices/inspect/"]').all()) {
+      const [shown, name] = [(await link.innerText()).trim(), await link.getAttribute("aria-label")];
+      expect(name?.startsWith(shown), `${name} starts with ${shown}`).toBe(true);
+    }
+  });
+}
+
 for (const scheme of ["light", "dark"] as const) {
   test(`axe finds nothing in the network measurements and the UDP check on /check/, ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });

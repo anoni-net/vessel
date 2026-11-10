@@ -64,6 +64,18 @@ for (const path of ["/", "/en/", "/devices/", "/account/", "/faq/", "/dns/", "/d
   });
 }
 
+test("dark: the inspection's badges and lines on /devices/ stay readable", async ({ page }) => {
+  await signedIn(page);
+  const day = { inspection_days: 7, inspection_ends_at: "2026-11-14T04:00:00Z", inspection_report_until: "2026-11-15" };
+  await page.route("**/api/devices", (route) => route.fulfill({ json: [
+    { ...DEVICE, ...day, inspection: "confirming" }, { ...DEVICE, ...day, id: "d-b", name: "laptop", inspection: "active" },
+    { ...DEVICE, ...day, id: "d-c", name: "tablet", inspection: "ended" },
+  ] }));
+  await page.goto("/devices/");
+  await expect(page.getByTestId("inspect-note")).toHaveCount(3);
+  expect(await lowContrast(page, 7)).toEqual([]);
+});
+
 test("dark: the header shows the logo with light words", async ({ page }) => {
   await page.goto("/");
   const src = await page.locator(".brand__logo").evaluate((img: HTMLImageElement) => img.currentSrc);

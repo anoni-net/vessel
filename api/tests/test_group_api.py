@@ -269,6 +269,25 @@ def test_a_member_sees_what_the_leaders_see(leader, db):
     assert mine["devices"][0]["issues"] == ["not_connected"]
 
 
+@pytest.mark.parametrize("status", ["confirming", "active", "ending", "ended"])
+def test_the_leaders_are_not_told_of_an_inspection(leader, db, status):
+    """The privacy policy says so: leaders cannot see the report and are not told that a member turned one on. The
+    member's own device list has its inspection; the group's page and the member's view of it have nothing of it."""
+    member = join(leader)
+    device_id = create(member, name="phone").json()["id"]
+    before = page(leader)
+    db.execute(
+        "INSERT INTO device_inspections (device_id, status, public_key, consent_version, started_at, ends_at, report, report_until) "
+        "VALUES (%s, %s, 'k', 'v', now(), now() + interval '7 days', %s, current_date + 7)",
+        (device_id, status, '{"epk": "e", "iv": "i", "ct": "c"}' if status == "ended" else None),
+    )
+    assert member.get("/api/devices").json()[0]["inspection"] == status
+    assert page(leader) == before
+    mine = member.get("/api/group/mine").json()
+    assert mine == account(leader, "A1")
+    assert "inspect" not in str(page(leader)) and "inspect" not in str(mine)
+
+
 def test_a_leader_can_read_their_own_view_too(leader):
     assert leader.get("/api/group/mine").json()["role"] == "leader"
 

@@ -326,7 +326,11 @@ test("the key is forgotten once the report is gone", async ({ page }) => {
   await expect.poll(() => page.evaluate((id) => localStorage.getItem(`vessel-inspection:${id}`), ID)).toBeNull();
 });
 
-for (const [status, words] of [[null, "檢測流量"], ["active", "檢測中"], ["ended", "檢測報告"]] as const) {
+// a backend from before the inspection's dates were in the device list sends its state alone: the card says it without them
+for (const [status, words, note] of [
+  [null, "檢測流量", null], ["confirming", "繼續", "請在這台裝置上打開檢測的確認連結，連結產生後 30 分鐘內有效。"],
+  ["active", "查看目前的結果", "檢測進行中。"], ["ended", "查看報告", "檢測已結束，請記得下載報告。"],
+] as const) {
   test(`the device card links to it: ${status}`, async ({ page }) => {
     await page.route("**/api/**", (route) => {
       const path = new URL(route.request().url()).pathname;
@@ -337,6 +341,8 @@ for (const [status, words] of [[null, "檢測流量"], ["active", "檢測中"], 
     const link = page.getByTestId("device-inspect");
     await expect(link).toHaveText(words);
     await expect(link).toHaveAttribute("href", `/devices/inspect/?d=${ID}`);
+    if (note) await expect(page.getByTestId("inspect-note").locator("span")).toHaveText(note);
+    else await expect(page.getByTestId("inspect-note")).toHaveCount(0);
   });
 }
 
