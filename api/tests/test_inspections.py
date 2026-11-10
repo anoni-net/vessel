@@ -218,6 +218,19 @@ def test_turning_it_off_stops_the_node_and_keeps_a_report_for_seven_days(signed_
     assert analysis.cleared.count(("sg", "10.8.1.2")) == 2
 
 
+def test_an_inspection_ended_early_says_when_it_stopped(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    # running: nothing has stopped yet
+    assert read(signed_in, device)["stopped_at"] is None
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    finish_it(db)
+    after = read(signed_in, device)
+    stopped, ends = (dt.datetime.fromisoformat(after[k]) for k in ("stopped_at", "ends_at"))
+    # the report's days end where copying stopped, days before the planned end
+    assert after["status"] == "ended" and stopped < ends - dt.timedelta(days=policy.INSPECT_DAYS - 1)
+    assert abs(stopped - dt.datetime.now(dt.UTC)) < dt.timedelta(minutes=5)
+
+
 def test_it_ends_by_itself_on_the_day(signed_in, node, db, device):
     confirm(signed_in, device, node, db)
     db.execute("UPDATE device_inspections SET ends_at = now() - interval '1 minute'")
