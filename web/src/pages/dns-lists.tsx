@@ -5,6 +5,8 @@ import { formatCount, formatTime } from "../format.ts";
 import { type MessageKey, fmt } from "../i18n/index.ts";
 import { faqAnchor } from "./faq.tsx";
 import { FILTERS, Layers } from "./layers.tsx";
+import { NOTE_CATEGORIES, SITE_NOTES } from "../site-notes.ts";
+import { NoteSources, noteAbout, noteName } from "./site-note.tsx";
 import { SkLine } from "./skeleton.tsx";
 
 const HAGEZI = "https://github.com/hagezi/dns-blocklists";
@@ -78,6 +80,10 @@ const LOG = [
   ["2026-10-31", "20261031"],
   ["2026-10-27", "20261027"],
 ] as const;
+
+// the notes on sites, by category in the order of the file, then by domain
+const NOTES_BY_CATEGORY = [...SITE_NOTES].sort((a, b) =>
+  NOTE_CATEGORIES.indexOf(a.category) - NOTE_CATEGORIES.indexOf(b.category) || a.domain.localeCompare(b.domain));
 
 const pct = (n: number, of: number) => `${(n / Math.max(of, 1)) * 100}%`;
 const HATCH = "lists-hatch";
@@ -286,6 +292,50 @@ export function DnsLists() {
       <p class="lists-prose">
         {t["lists.coverage.risky"]}<a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["lists.coverage.riskyLink"]}</a>{locale === "en" ? "." : "。"}
       </p>
+
+      {/* The notes inspection reports show beside a site, all of them: the reports match against this same data in the
+          reader's browser, and anyone can see what a note rests on. */}
+      <section class="lists-notes stack" data-testid="lists-notes" aria-labelledby="site-notes">
+        <h2 id="site-notes">{t["lists.notes.title"]}</h2>
+        <p class="lists-prose">{t["lists.notes.lead"]}</p>
+        <p class="lists-prose">{t["lists.notes.how"]}</p>
+        <h3>{t["lists.notes.categories"]}</h3>
+        <dl class="lists-notes__categories" data-testid="lists-notes-categories">
+          {NOTE_CATEGORIES.map((c) => (
+            <div data-category={c}>
+              <dt>{noteName(t, c)}</dt>
+              <dd>{noteAbout(t, c)}</dd>
+            </div>
+          ))}
+        </dl>
+        <h3>{t["lists.notes.sites"]}</h3>
+        <div class="table-wrap legal">
+          {/* explicit roles: on phones the CSS makes the rows blocks, and browsers then drop the table's semantics */}
+          <table role="table" data-testid="lists-notes-table">
+            <thead role="rowgroup">
+              <tr role="row">
+                {(["domain", "category", "operator", "sources", "reviewed"] as const).map((c) => (
+                  <th role="columnheader" scope="col">{t[`lists.notes.col.${c}`]}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              {NOTES_BY_CATEGORY.map((note) => (
+                <tr role="row" data-domain={note.domain}>
+                  <td role="cell" data-label={t["lists.notes.col.domain"]}><code>{note.domain}</code></td>
+                  <td role="cell" data-label={t["lists.notes.col.category"]}>{noteName(t, note.category)}</td>
+                  <td role="cell" data-label={t["lists.notes.col.operator"]}>{note.operator ?? t["lists.notes.noOperator"]}</td>
+                  <td role="cell" data-label={t["lists.notes.col.sources"]} class="lists-notes__sources"><NoteSources note={note} t={t} bare /></td>
+                  <td role="cell" data-label={t["lists.notes.col.reviewed"]}>{note.reviewed}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="lists-prose" data-testid="lists-notes-report">
+          {t["lists.notes.report"]}<a href={href("/feedback/")}>{t["feedback.title"]}</a>{t["lists.notes.reportAfter"]}
+        </p>
+      </section>
 
       <details class="lists-more" data-testid="lists-more">
         <summary>{t["lists.more.title"]}</summary>

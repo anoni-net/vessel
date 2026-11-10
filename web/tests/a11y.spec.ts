@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import axe from "axe-core";
-import { FULL_REPORT, KEY, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, THREAT_APP_REPORT, THREAT_REPORT, WEEK_START, seal } from "./inspect-fixtures.ts";
+import { FULL_REPORT, KEY, NOTES_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, THREAT_APP_REPORT, THREAT_REPORT, WEEK_START, seal } from "./inspect-fixtures.ts";
 
 // WCAG 2.2 AA. axe-core checks what a tool can (names, roles, labels, contrast where it can tell the background);
 // the tests after it cover what it cannot: the focus ring on the footer's dark blue, the narrowest phone, and
@@ -343,6 +343,8 @@ const INSPECT: Record<string, InspectState> = {
   // each site with the other lists it is on, and the reason's sentence when all of them are on the ad list too
   "report, sites on other lists": { inspection: { ...ENDED, report: seal(ONCE_LISTS_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-hit-lists"]' },
   "report, every site on the ad list too": { inspection: { ...ENDED, report: seal(ONCE_ADS_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-hit-lists"]' },
+  // the notes on sites, with their sources and the line on who wrote them up
+  "report, sites with notes": { inspection: { ...ENDED, report: seal(NOTES_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-notes-by"]' },
   "report, stalkerware over days": {
     inspection: { ...ENDED, started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report: seal(THREAT_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-hits"]',
   },

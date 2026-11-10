@@ -24,6 +24,8 @@ jobs:
       - run: npm ci
       # the pictures under 使用情境 are drawn by this script; the data file has to be what it draws
       - run: python3 scripts/hero-figures.py --check
+      # the notes on sites in inspection reports: their format, categories, domains, sources, and a review within the year
+      - run: node scripts/site-notes.mjs
       - run: npm run typecheck
       - run: npm run build
       - run: npm run build:onion

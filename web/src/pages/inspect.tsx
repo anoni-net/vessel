@@ -12,9 +12,11 @@ import { flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { saveFile } from "../save-file.ts";
 import { setSignedIn } from "../session.ts";
+import { noteFor } from "../site-notes.ts";
 import { qrSvg } from "../wgconfig.ts";
 import { AccountNav } from "./account.tsx";
 import { Layers } from "./layers.tsx";
+import { NoteLine } from "./site-note.tsx";
 import { Busy, SkButton, SkCard, SkLine, Spin } from "./skeleton.tsx";
 
 const WAITING_EVERY = 10_000;
@@ -487,6 +489,8 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
     const css = [...document.styleSheets].flatMap((s) => [...s.cssRules].map((r) => r.cssText)).join("\n");
     const body = area.current!.cloneNode(true) as HTMLElement;
     body.querySelectorAll("details").forEach((d) => d.setAttribute("open", ""));
+    // the file opens from the disk: a link to a page of the site keeps the site's address
+    body.querySelectorAll<HTMLAnchorElement>('a[href^="/"]').forEach((a) => a.setAttribute("href", a.href));
     const title = fmt(t["inspect.device"], { name });
     // the results so far: the file says so in its name, its title and its first lines, so it is not taken for the full report
     const heading = partial ? t["inspect.file.partialTitle"] : t["inspect.title"];
@@ -701,6 +705,8 @@ type Verdict = "threat" | "check" | "clean";
  * site on a malicious site list that an ad network is also on still needs a check: the ad list is no proof that it is
  * harmless, and an ad network has served malware before. So the state below comes from the severity of the findings
  * alone, `lists` is not read until it is settled, and stalkerware stays a known threat whatever other lists it is on.
+ * The notes on sites (site-notes.ts) are not read here at all: they are drawn beside each finding once the report is
+ * judged, so an ad network's note cannot turn "needs a check" into anything else.
  */
 export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale: ReturnType<typeof useCtx>["locale"]) {
   const groups = findingGroups(report);
@@ -764,7 +770,7 @@ const period = (hour: number) => (hour < 6 ? "night" : hour < 12 ? "morning" : h
 const join = (a: string, b: string) => (b ? `${a}${/[.!?]$/.test(a) ? " " : ""}${b}` : a);
 
 function ReportView({ report, locale, span }: { report: Report; locale: ReturnType<typeof useCtx>["locale"]; span: Span }) {
-  const { t } = useCtx();
+  const { t, href } = useCtx();
   const [picked, setPicked] = useState("");
   const { cells, level } = hourGrid(report.hours ?? []);
   const groups = findingGroups(report);
@@ -791,6 +797,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
       </span>
       {f.app && <span class="small" data-testid="inspect-hit-app">{fmt(t["inspect.app"], { app: f.app })}</span>}
       {alsoOn(f, t) && <span class="small" data-testid="inspect-hit-lists">{alsoOn(f, t)}</span>}
+      {noteFor(f.name) && <NoteLine note={noteFor(f.name)!} t={t} class="small" />}
     </li>
   );
   // "seen on 2 of the 5 days with traffic": a day the device was not connected, or one still to come, is not a day the
@@ -812,6 +819,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
   const hitRow = (f: NonNullable<Report["findings"]>[number]) => {
     const { words, last, w } = seenText(f);
     const lists = alsoOn(f, t);
+    const note = noteFor(f.name);
     return (
       <li class="hit-row" data-testid="inspect-hit">
         <code class="hit-row__name">{f.name}</code>
@@ -821,11 +829,14 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
           {/* a name from outside: a text node, never markup */}
           {f.app && <span class="hit-row__lists" data-testid="inspect-hit-app">{fmt(t["inspect.app"], { app: f.app })}</span>}
           {lists && <span class="hit-row__lists" data-testid="inspect-hit-lists">{lists}</span>}
+          {/* what the site is, from the notes bundled with the page: matched here, in the browser */}
+          {note && <NoteLine note={note} t={t} class="hit-row__lists" />}
         </span>
       </li>
     );
   };
   const datedGroups = groups.filter((g) => g.dated);
+  const noted = groups.some((g) => g.listed.some((f) => noteFor(f.name)));
   // the hours a day a row, on the same days as the bars at the top: a day without a connection keeps its row, and the
   // days still to come are left out
   const hourDays = week.days.filter((d) => !week.future(d));
@@ -929,6 +940,11 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
               </li>
             ))}
           </ul>
+          {noted && (
+            <p class="muted small" data-testid="inspect-notes-by">
+              {t["inspect.notes.by"]}<a href={href("/dns/lists/#site-notes")}>{t["inspect.notes.byLink"]}</a>{t["inspect.notes.byAfter"]}
+            </p>
+          )}
           {datedGroups.length > 0 && (
             <>
               <p class="inspect-legend small muted" data-testid="inspect-hits-legend">
@@ -943,14 +959,17 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
                   <thead><tr><th>{t["inspect.hits.tableSite"]}</th><th class="inspect-table__when">{t["inspect.hits.tableWhen"]}</th><th class="inspect-table__when">{t["inspect.hits.tableLast"]}</th></tr></thead>
                   <tbody>{datedGroups.flatMap((g) => [
                     <tr><th colSpan={3} scope="colgroup">{kind(g.kind)}</th></tr>,
-                    ...g.listed.map((f) => {
+                    ...g.listed.flatMap((f) => {
                       const w = seenWhen(f);
-                      return (
+                      const row = (
                         <tr><td class="inspect-table__site"><code>{f.name}</code></td>
                           {/* a day to a line, each kept whole, so the site's name is what wraps on a phone */}
                           <td class="inspect-table__when">{[...w.perDay].map(([day, n]) => <span>{`${dayLabel(day)} (${n})`}</span>)}</td>
                           <td class="inspect-table__when">{w.last && <span>{withDay(locale, w.last.toISOString())}</span>}</td></tr>
                       );
+                      const note = noteFor(f.name);
+                      // what the site is, on a row of its own the width of the table, so a phone does not squeeze it
+                      return note ? [row, <tr class="inspect-table__noterow"><td colSpan={3}><NoteLine note={note} t={t} class="inspect-table__note" /></td></tr>] : [row];
                     }),
                   ])}</tbody>
                 </table>
