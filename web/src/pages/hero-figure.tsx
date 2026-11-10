@@ -5,7 +5,7 @@ import type { MessageKey } from "../i18n/index.ts";
 import { useInView } from "./in-view.ts";
 
 // short English names under the Chinese ones: an aid in the drawing's own vernacular, left out on the English pages
-const EN = { device: "YOUR DEVICE", tokyo: "NODE · TYO", sg: "NODE · SIN", internet: "INTERNET", encrypted: "ENCRYPTED" } as const;
+const EN = { device: "YOUR DEVICE", tokyo: "NODE · TYO", taipei: "NODE · TPE", sg: "NODE · SIN", internet: "INTERNET", encrypted: "ENCRYPTED" } as const;
 type Part = keyof typeof EN;
 
 /** A label: the name in the page's language, and under it, except on the English pages, the short English one.
@@ -30,7 +30,7 @@ function Figure({ n, viewBox, label, caption, children }: {
   return (
     <figure ref={ref} class={`hero-fig${seen ? " hero-fig--live" : ""}`}>
       <svg viewBox={viewBox} role="img" aria-label={label}>{children}</svg>
-      <figcaption><span class="eyebrow">FIG. 0{n}</span><span>{caption}</span></figcaption>
+      <figcaption><span class="eyebrow" lang="en">FIG. 0{n}</span><span>{caption}</span></figcaption>
     </figure>
   );
 }
@@ -65,7 +65,7 @@ function Connection() {
       {(Object.keys(EN) as Part[]).map((part) => {
         const [x, y, anchor] = LABELS[part] as [number, number, "start" | "middle" | "end"];
         // the English pages name the cities alone, "node" on the line under them, like the other languages' labels
-        const enLine = part === "tokyo" || part === "sg" ? "NODE" : undefined;
+        const enLine = part === "tokyo" || part === "taipei" || part === "sg" ? "NODE" : undefined;
         return <Label x={x} y={y} anchor={anchor} name={t[`hero.fig.${part}`]} en={EN[part]} enLine={enLine} note={part === "encrypted"} />;
       })}
     </Figure>
@@ -78,7 +78,7 @@ const WORDS: Record<string, MessageKey> = {
   malware: "hero.fig2.malware", phishing: "hero.fig2.phishing", scam: "hero.fig2.scam",
   inspection: "hero.fig3.inspection", plain: "hero.fig3.plain", vessel: "hero.fig3.vessel", fixed: "hero.fig3.fixed",
   ordinary: "hero.fig3.ordinary",
-  tokyo: "hero.fig4.tokyo", sg: "hero.fig4.sg", exit: "hero.fig4.exit", entry: "hero.fig4.entry",
+  tokyo: "hero.fig4.tokyo", taipei: "hero.fig4.taipei", sg: "hero.fig4.sg", exit: "hero.fig4.exit", entry: "hero.fig4.entry",
   forward: "hero.fig4.forward",
   private: "hero.fig5.private", public: "hero.fig5.public", portal: "hero.fig5.portal", noemail: "hero.fig5.noemail",
   nodek: "hero.fig5.node",

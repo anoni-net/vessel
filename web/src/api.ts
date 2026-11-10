@@ -1,4 +1,5 @@
 /** Calls to the portal backend. Errors come back as short codes that the pages translate. */
+import type { Reach, ReachHistory } from "./reach.ts";
 
 export class ApiError extends Error {
   constructor(public code: string, public status: number) {
@@ -15,6 +16,7 @@ export const last: { me?: Me; devices?: Device[]; passkeys?: Passkey[]; months?:
 export function forgetAccount(): void {
   delete last.me;
   delete last.devices;
+  delete last.passkeys;
   delete last.months;
   delete last.invites;
 }
@@ -46,22 +48,134 @@ export interface Me {
   used_bytes: number;
   /** when the worker last read the nodes this account's devices are on; null before the first read */
   usage_as_of: string | null;
+  /** null for a personal account; an older backend does not send it */
+  group?: { role: "leader" | "member"; label: string; device_revoked_on: string | null; closing_on?: string | null } | null;
+}
+
+export type GroupIssue = "not_connected" | "suspended" | "throttled" | "new_config" | "blocked_many";
+
+/** A leader's summary of an inspection, once opened (inspect/analyze.py, `summary`). */
+export interface InspectionSummary {
+  empty?: boolean;
+  verdict?: "clean" | "check" | "threat";
+  kinds?: { kind: string; severity: "threat" | "check" }[];
+  first?: number | null;
+  last?: number | null;
+  coverage?: { active_hours: number; total_hours: number };
+}
+
+/** An inspection a leader asked for (toomore/anoni-net-ws#483): the same for every leader and for the member. */
+export interface GroupInspection {
+  status: "requested" | "declined" | "deleted" | "confirming" | "active" | "ending" | "ended";
+  requested_on: string | null;
+  /** how long a request waits, a no stays, or a deleted report would have been kept */
+  until: string | null;
+  started_at: string | null;
+  ends_at: string | null;
+  stopped_at?: string | null;
+  ended_early: boolean;
+  report_until: string | null;
+  /**
+   * The leader's own page only, once the member has agreed: the key it is sealed to and the ciphertext, which is null
+   * until the first one is made. null itself: this leader had no key when the member agreed.
+   */
+  summary?: { key: string; sealed: { epk: string; iv: string; ct: string } | null } | null;
+}
+
+export interface GroupDevice {
+  id: string;
+  name: string;
+  region: string;
+  dns_filter: DnsFilter;
+  status: DeviceStatus;
+  expires_on: string;
+  issues: GroupIssue[];
+  /** an older backend does not send it */
+  inspection?: GroupInspection | null;
+}
+
+export interface GroupAccount {
+  label: string;
+  role: "leader" | "member";
+  joined_on: string;
+  devices: GroupDevice[];
+}
+
+export interface GroupInvite {
+  id: number;
+  label: string;
+  created_at: string;
+  expires_at: string;
+  expired: boolean;
+}
+
+export interface Group {
+  code: string;
+  ends_on: string;
+  /** the day the group and its accounts are deleted; null while it is not closing */
+  closing_on: string | null;
+  account_limit: number;
+  device_limit: number;
+  places_left: number;
+  invite_days: number;
+  accounts: GroupAccount[];
+  invites: GroupInvite[];
+  /** inspections the leaders can ask for at once; 0, or absent from an older backend, is none */
+  inspection_limit?: number;
+  inspections_in_use?: number;
+  inspection_days?: number;
+  /** this leader's public key for the summaries */
+  leader_key?: string | null;
+}
+
+export interface MadeGroupInvite {
+  id: number;
+  label: string;
+  code: string;
+  expires_at: string;
 }
 
 export type DnsFilter = "none" | "malware" | "ads";
 export type DeviceStatus = "pending" | "active" | "suspended" | "revoking";
 
+/** What OONI's public measurements say about the visitor's network, from /api/network */
+export interface NetworkReport {
+  asn: number | null;
+  name: string | null;
+  days: number;
+  tests: { id: NetworkTest; level: "ok" | "some" | "most" | "few" | "unknown"; measurements: number; anomaly_pct: number; confirmed: number }[];
+  /** "host:port" of the STUN server for the UDP check, Cloudflare's public one unless the backend names another; null when it is turned off */
+  stun: string | null;
+}
+export type NetworkTest = "web_connectivity" | "signal" | "telegram" | "whatsapp" | "tor";
+
 export interface BlocklistAnswer {
   /** the host name the backend read from what was typed */
   domain: string;
+  /** Quad9 blocks it, which both filters forward to; null when Quad9 did not answer */
+  quad9: boolean | null;
   /** on the malware list: blocked by both filters */
   malware: boolean;
   /** on the 165 list of scam sites Taiwan's ISPs stop resolving: blocked by both filters */
   tw165: boolean;
   /** on MODA's list of fake shops Taiwan's ISPs stop resolving: blocked by both filters */
   twmoda: boolean;
+  /** on Echap's list of stalkerware domains: blocked by both filters */
+  stalkerware: boolean;
+  /** on DNSBunker's CTI list of active malicious domains: blocked by both filters */
+  cti: boolean;
   /** on the ad list: blocked by the ads filter */
   ads: boolean;
+}
+
+export interface BlocklistSummary {
+  lists: { id: "malware" | "tw165" | "twmoda" | "stalkerware" | "cti" | "ads"; domains: number; only_here: number }[];
+  /** the names the malware filter blocks, all its lists together */
+  malware_filter: number;
+  ads_filter: number;
+  /** the names on the two HaGeZi lists together */
+  hagezi: number;
+  as_of: string;
 }
 
 export interface Device {
@@ -84,6 +198,44 @@ export interface Device {
   ipv6: boolean;
   /** the relay route it connects through, or null for a direct connection (missing from an older backend) */
   relay?: string | null;
+  /** the device inspection, if there is one (missing from an older backend) */
+  inspection?: "confirming" | "active" | "ending" | "ended" | null;
+  /** over this month's quota: online at about 2 Mbps until the next month (missing from an older backend) */
+  throttled?: boolean;
+  /** when the inspection ends, once confirmed; the days it runs in all. Where it stands only, never what the report
+   * found (missing from an older backend) */
+  inspection_ends_at?: string | null;
+  inspection_days?: number | null;
+  /** the last day the report is kept, once it has ended (missing from an older backend) */
+  inspection_report_until?: string | null;
+  /** while it waits for the device: how long a confirmation link is good for (missing from an older backend) */
+  inspection_confirm_minutes?: number | null;
+  /** the group's leaders asked for an inspection of this device, and wait for an answer until `until` */
+  inspection_request?: { requested_on: string; until: string } | null;
+  /** the inspection is the one a leader asked for */
+  inspection_group?: boolean;
+}
+
+export interface Inspection {
+  status: "none" | "confirming" | "active" | "ending" | "ended";
+  consent_version: string;
+  days: number;
+  report_days: number;
+  started_at?: string | null;
+  ends_at?: string | null;
+  /** when copying stopped, once it has: before ends_at for one ended early (absent from portals before anoni-net/vessel#247) */
+  stopped_at?: string | null;
+  /** ciphertext, for the key this browser made */
+  report?: { epk: string; iv: string; ct: string } | null;
+  report_until?: string | null;
+  /** while it waits for the device: how long the confirmation link is still good for */
+  confirm_seconds?: number;
+  /** a group's leader asked for an inspection of this device and waits for an answer (toomore/anoni-net-ws#483) */
+  requested?: boolean;
+  /** this inspection is the one a leader asked for: the leaders get its summary */
+  group?: boolean;
+  /** the consent for a leader's request, which also says what the leaders see */
+  group_consent_version?: string;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */
@@ -95,6 +247,8 @@ export interface NodeConfig {
 export interface Region {
   id: string;
   open: boolean;
+  /** the node has no address left; an older backend does not send it */
+  full?: boolean;
 }
 
 /** A relay route (anoni-net/vessel#136): an entry that forwards to `region`'s node, which stays the exit. */
@@ -111,6 +265,11 @@ export interface Status {
   regions: { id: string; state: NodeState }[];
   /** newest first, the last 30 days; region null means every city, ends_at null means still going on */
   notices: { region: string | null; kind: NoticeKind; starts_at: string; ends_at: string | null }[];
+  /** which common sites each city's node can open, checked by the node every hour; cities without a recent check are
+   *  left out (see reach.ts) */
+  reach?: Reach[];
+  /** the last day of each site that some node had trouble with, an hour to a slot (see reach.ts) */
+  reach_history?: ReachHistory;
 }
 
 export interface Passkey {
@@ -168,7 +327,7 @@ export interface NewDevice {
 }
 
 export const api = {
-  redeem: (code: string) => call<{ account_number: string }>("POST", "/redeem", { code }).then((r) => r.data),
+  redeem: (code: string) => call<{ account_number: string; group_role?: string | null }>("POST", "/redeem", { code }).then((r) => r.data),
   login: (accountNumber: string) => call("POST", "/login", { account_number: accountNumber }),
   logout: () => call("POST", "/logout"),
   me: () =>
@@ -183,6 +342,14 @@ export const api = {
       return r.data;
     }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
+  inspection: (id: string) => call<Inspection>("GET", `/devices/${encodeURIComponent(id)}/inspection`).then((r) => r.data),
+  startInspection: (id: string, body: { consent_version: string; public_key: string; group?: boolean }) =>
+    call<{ code: string; url: string; minutes: number }>("POST", `/devices/${encodeURIComponent(id)}/inspection`, body).then((r) => r.data),
+  stopInspection: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}/inspection`),
+  /** says no to a leader's request; using Vessel goes on as before */
+  declineInspection: (id: string) => call("POST", `/devices/${encodeURIComponent(id)}/inspection/decline`),
+  renewInspection: (id: string) =>
+    call<{ code: string; url: string; minutes: number }>("POST", `/devices/${encodeURIComponent(id)}/inspection/code`).then((r) => r.data),
   deleteAccount: () => call("DELETE", "/account"),
   usageMonths: () =>
     call<UsageMonths>("GET", "/usage/months").then((r) => {
@@ -205,6 +372,9 @@ export const api = {
   rotateOptions: () => call<WebAuthnJson>("POST", "/account/number/options").then((r) => r.data),
   rotateNumber: (credential: WebAuthnJson) =>
     call<{ account_number: string }>("POST", "/account/number", { credential }).then((r) => r.data),
+  /** confirming it is the person, before a step that needs a recent sign-in (pages/reverify.tsx) */
+  verifyOptions: () => call<WebAuthnJson>("POST", "/account/verify/options").then((r) => r.data),
+  verify: (proof: { account_number: string } | { credential: WebAuthnJson }) => call("POST", "/account/verify", proof),
   invites: () =>
     call<Invites>("GET", "/invites").then((r) => {
       if (Array.isArray(r.data?.open)) last.invites = r.data;
@@ -213,16 +383,35 @@ export const api = {
   /** a new invite; its code comes back this once */
   makeInvite: () => call<{ code: string; id: number; created_at: string; expires_at: string }>("POST", "/invites").then((r) => r.data),
   withdrawInvite: (id: number) => call<Invites>("DELETE", `/invites/${id}`).then((r) => r.data),
+  group: () => call<Group>("GET", "/group").then((r) => r.data),
+  /** what the leaders see about this account */
+  myGroupView: () => call<GroupAccount>("GET", "/group/mine").then((r) => r.data),
+  /** one invite per alias; the codes come back this once */
+  makeGroupInvites: (labels: string[]) =>
+    call<{ invites: MadeGroupInvite[]; days: number }>("POST", "/group/invites", { labels }).then((r) => r.data),
+  withdrawGroupInvite: (id: number) => call("DELETE", `/group/invites/${id}`),
+  revokeGroupDevice: (id: string) => call("DELETE", `/group/devices/${id}`),
+  /** the leader's public key for the summaries; needs a recent sign-in (pages/reverify.tsx) */
+  setGroupKey: (publicKey: string) => call("PUT", "/group/key", { public_key: publicKey }),
+  /** asks the member to inspect the device */
+  requestInspection: (deviceId: string) => call("POST", `/group/devices/${deviceId}/inspection`),
+  /** withdraws a request, or clears a no or a deletion */
+  withdrawInspection: (deviceId: string) => call("DELETE", `/group/devices/${deviceId}/inspection`),
+  /** deletes the member's account; needs a recent sign-in (pages/reverify.tsx) */
+  removeGroupMember: (label: string) => call("POST", "/group/members/remove", { label }),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** the open relay routes, without their addresses */
   relays: () => call<Relay[]>("GET", "/relays").then((r) => r.data),
   /** whether this request came through a Vessel node; needs no session */
   exit: () => call<{ region: string | null; ipv6: boolean; previous?: boolean }>("GET", "/exit").then((r) => r.data),
+  /** the visitor's network and OONI's measurements of it; needs no session */
+  network: () => call<NetworkReport>("GET", "/network").then((r) => r.data),
   /** which DNS filters block a site; needs no session, and the domain is not kept */
   blocklist: (domain: string) =>
     call<BlocklistAnswer>("POST", "/blocklist", { domain }).then((r) => r.data),
   /** public, no session */
   status: () => call<Status>("GET", "/status").then((r) => r.data),
+  blocklistSummary: () => call<BlocklistSummary>("GET", "/blocklist/lists").then((r) => r.data),
   createDevice: (body: NewDevice) =>
     call<{ id: string; status: "active" | "pending"; config?: NodeConfig }>("POST", "/devices", body).then((r) => r.data),
   /** 200 with the config, or 202 while the node is still adding the device */

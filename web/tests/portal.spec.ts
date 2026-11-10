@@ -37,8 +37,8 @@ test("home page in three languages", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Vessel");
   await expect(page.getByRole("link", { name: "我有邀請碼" })).toBeVisible();
   // the closed-test tag opens the line under the buttons, next to who can join; nothing above the name
-  await expect(page.locator(".hero__status")).toHaveText("封閉測試中目前只透過社群成員邀請。");
-  await expect(page.locator(".hero__status .pill")).toHaveText("封閉測試中");
+  await expect(page.locator(".hero__status")).toHaveText("邀請制目前以邀請碼分批開放。");
+  await expect(page.locator(".hero__status .pill")).toHaveText("邀請制");
   expect(await page.locator(".hero__text > :first-child").evaluate((e) => e.tagName)).toBe("H1");
   // six cards under 使用情境 on a wide screen, the first three on a phone; each with a symbol beside its
   // title, hidden from screen readers
@@ -64,19 +64,25 @@ test("home page in three languages", async ({ page }) => {
 test("frequently asked questions", async ({ page }) => {
   await page.goto("/");
   const faq = page.locator("#faq");
-  await expect(faq.locator("details")).toHaveCount(10);
-  const answer = faq.getByText("服務沒有你的 email，也只保存號碼的雜湊值");
+  await expect(faq.locator("details")).toHaveCount(4);
+  const answer = faq.getByText("節點無法取得 HTTPS 連線的內容");
   await expect(answer).toBeHidden();
-  await faq.getByText("帳號號碼弄丟了怎麼辦？").click();
+  await faq.getByText("服務看得到我在做什麼嗎？").click();
   await expect(answer).toBeVisible();
   await faq.getByRole("link", { name: "所有常見問題" }).click();
   await expect(page).toHaveURL(/\/faq\/$/);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(["申請與帳號", "安裝與連線", "額度與規則", "隱私"]);
-  await expect(page.locator("details")).toHaveCount(32);
+  await expect(page.locator("details")).toHaveCount(36);
   // opened straight from a link elsewhere, the page loads fresh with the question open
   await page.goto("/dns/");
   await page.goto("/faq/#q-noTraffic");
   await expect(page.locator("#q-noTraffic")).toHaveAttribute("open", "");
+  // where VPNs are restricted: the answer points to the docs' page on each place
+  await page.goto("/redeem/");
+  await page.getByRole("link", { name: "所在地限制 VPN 時，使用 Vessel 安全嗎？" }).click();
+  await expect(page).toHaveURL(/\/faq\/#q-risky$/);
+  await expect(page.locator("#q-risky")).toHaveAttribute("open", "");
+  await expect(page.locator("#q-risky").getByRole("link")).toHaveAttribute("href", "https://anoni.net/docs/scenarios/asia-travel/");
   await noSideways(page);
   await page.locator("footer").getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en\/faq\/$/);
@@ -99,6 +105,23 @@ test("redeem shows the number once and gates continue", async ({ page }) => {
   await page.getByRole("button", { name: "先略過，之後在帳號頁加" }).click();
   await expect(page).toHaveURL(/\/devices\/$/);
   await expect(page.getByRole("heading", { name: "我的裝置" })).toBeVisible();
+});
+
+test("redeeming a group's invite says what its leaders can see", async ({ page }) => {
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018", group_role: "member" }), ...signedIn });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("ABCD-EFGH-JKMN-PQRS");
+  await page.getByRole("button", { name: "兌換" }).click();
+  await expect(page.getByTestId("redeem-group-note")).toContainText("負責人看得到");
+});
+
+test("redeeming a personal invite says nothing about groups", async ({ page }) => {
+  await mockApi(page, { "POST /api/redeem": json({ account_number: "4821 0937 5564 2018", group_role: null }), ...signedIn });
+  await page.goto("/redeem/");
+  await page.getByLabel("邀請碼").fill("ABCD-EFGH-JKMN-PQRS");
+  await page.getByRole("button", { name: "兌換" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByTestId("redeem-group-note")).toHaveCount(0);
 });
 
 test("redeem errors are translated", async ({ page }) => {
@@ -167,6 +190,48 @@ test("delete the account needs the checkbox", async ({ page }) => {
   expect(seen).toContain("DELETE /api/account");
 });
 
+test("deleting the account a while after signing in asks for the number first", async ({ page }) => {
+  let confirmed = false;
+  const tried: string[] = [];
+  await mockApi(page, {
+    ...signedIn,
+    "GET /api/passkeys": json([]),
+    "DELETE /api/account": (route) => {
+      tried.push(confirmed ? "confirmed" : "asked");
+      return confirmed ? route.fulfill({ json: { ok: true } }) : route.fulfill({ status: 403, json: { error: "verify_required" } });
+    },
+    "POST /api/account/verify": (route) => {
+      const number = route.request().postDataJSON().account_number;
+      confirmed = number === "4821 0937 5564 2018";
+      return confirmed ? route.fulfill({ json: { ok: true } }) : route.fulfill({ status: 401, json: { error: "invalid_number" } });
+    },
+  });
+  await page.goto("/account/");
+  await page.getByLabel("我了解，帳號刪除之後無法復原").check();
+  const del = page.getByRole("button", { name: "刪除帳號" });
+
+  // cancelling changes nothing and says so
+  await del.click();
+  const dialog = page.getByRole("dialog", { name: "先確認是你本人" });
+  await expect(dialog).toBeVisible();
+  // no passkey on this account: only the number
+  await expect(dialog.getByRole("button", { name: "用 passkey 確認" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "取消" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveText("沒有完成確認，所以沒有變更。");
+
+  // a wrong number keeps the dialog open; the right one confirms, and the deletion goes ahead by itself
+  await del.click();
+  await dialog.getByLabel("帳號號碼").fill("1111222233334444");
+  await dialog.getByRole("button", { name: "用號碼確認" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("帳號號碼不正確。");
+  await dialog.getByLabel("帳號號碼").fill("4821093755642018");
+  await dialog.getByRole("button", { name: "用號碼確認" }).click();
+  // /\/$/ would match /account/ as well
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+  expect(tried).toEqual(["asked", "asked", "confirmed"]);
+});
+
 test("unknown pages", async ({ page }) => {
   await page.goto("/nope/");
   await expect(page.getByRole("heading", { name: "找不到這一頁" })).toBeVisible();
@@ -192,7 +257,9 @@ test("the header links to the same page in the other languages", async ({ page, 
     await page.goto("/devices/");
   }
   await expect(langs.getByRole("link")).toHaveText(["简体", "EN"]);
-  await langs.getByRole("link", { name: "English" }).click();
+  // named by what it shows (WCAG 2.5.3), the full name in its title
+  await expect(langs.getByRole("link", { name: "EN", exact: true })).toHaveAttribute("title", "English");
+  await langs.getByRole("link", { name: "EN", exact: true }).click();
   await expect(page).toHaveURL(isMobile ? /\/en\/devices\/$/ : /\/en\/faq\/$/);
   await expect(page.getByRole("group", { name: "Other languages" }).getByRole("link")).toHaveText(["正體", "简体"]);
   await expect(page.locator("footer nav", { hasText: "Also in" }).getByRole("link")).toHaveText(["正體中文", "简体中文"]);
@@ -213,7 +280,8 @@ test("terms and privacy drafts in three languages", async ({ page }) => {
   }
   // links inside the text keep the page's language
   await page.goto("/en/terms/");
-  await expect(page.locator("main").getByRole("link", { name: "privacy policy" })).toHaveAttribute("href", "/en/privacy/");
+  await expect(page.locator("main").getByRole("link", { name: "privacy policy", exact: true })).toHaveAttribute("href", "/en/privacy/");
+  await expect(page.locator("main").getByRole("link", { name: "“Groups” in the privacy policy" })).toHaveAttribute("href", "/en/privacy/#groups");
 });
 
 test("invite codes and account numbers group themselves as you type", async ({ page }) => {
@@ -294,6 +362,46 @@ test("a signed-in visitor is not offered sign-in again", async ({ page }) => {
   await expect(page.locator(".hero").getByRole("link", { name: "我有邀請碼" })).toBeVisible();
 });
 
+test("a sign-out the server did not take keeps this browser signed in and says so", async ({ page }) => {
+  let answer: "drop" | "error" | "ok" = "drop";
+  await mockApi(page, {
+    ...signedIn,
+    "GET /api/passkeys": json([]),
+    "POST /api/logout": (route) => answer === "drop" ? route.abort() : answer === "error"
+      ? route.fulfill({ status: 500, json: { error: "unknown" } }) : route.fulfill({ json: { ok: true } }),
+  });
+  await page.goto("/account/");
+  for (const next of ["error", "ok"] as const) {
+    await page.getByRole("button", { name: "登出" }).click();
+    await expect(page.getByRole("alert")).toHaveText("登出沒有完成，這個瀏覽器仍然是登入狀態，請再按一次登出。");
+    await expect(page).toHaveURL(/\/account\/$/);
+    await expect(page.getByRole("button", { name: "登出" })).toBeEnabled();
+    answer = next;
+  }
+  await page.getByRole("button", { name: "登出" }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+});
+
+test("after signing out, going back shows none of the account's passkeys", async ({ page }) => {
+  let inside = true;
+  const never = () => new Promise<void>(() => {});
+  await mockApi(page, {
+    "GET /api/me": (route) => inside ? route.fulfill({ json: ME }) : never(),
+    "GET /api/devices": json(DEVICES),
+    "GET /api/passkeys": (route) => inside ? route.fulfill({ json: [{ id: 1, label: "我的 iPhone", created_on: "2026-10-31" }] }) : never(),
+    "POST /api/logout": (route) => { inside = false; return route.fulfill({ json: { ok: true } }); },
+  });
+  await page.goto("/account/");
+  await expect(page.getByText("我的 iPhone")).toBeVisible();
+  await page.getByRole("button", { name: "登出" }).click();
+  // /\/$/ would match /account/ as well, and going back from there leaves the site
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+  await page.goBack();
+  await expect(page).toHaveURL(/\/account\/$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("帳號");
+  await expect(page.getByText("我的 iPhone")).toHaveCount(0);
+});
+
 test("usage shows MB below 1 GB and GB from there on", async ({ page }) => {
   let used = 0;
   await mockApi(page, { "GET /api/me": (route) => route.fulfill({ json: { ...ME, used_bytes: used } }), "GET /api/devices": json(DEVICES) });
@@ -341,7 +449,7 @@ test("signed-in pages keep their shape while loading and reuse what they saw", a
   const main = page.locator("main");
   await expect(main.locator(".sk").first()).toBeVisible();
   await expect(main.locator("section")).toHaveAttribute("aria-busy", "true");
-  await expect(main.getByRole("status")).toHaveText("載入中");
+  await expect(page.locator("#announce")).toHaveText("載入中");
   releaseDevices();
   await expect(page.getByTestId("device-list").getByText("phone")).toBeVisible();
   await expect(main.locator(".sk")).toHaveCount(0);
@@ -491,7 +599,7 @@ test("a device made today that has not connected yet: the usual few minutes", as
 });
 
 test("the usage card says what is left from four fifths of the allowance, until it runs out", async ({ page }) => {
-  for (const [used, text] of [[39e9, null], [40e9, "本月剩下約 10 GB，用完之後裝置會暫停，到下個月 1 日（UTC）恢復。"], [50e9, null]] as const) {
+  for (const [used, text] of [[39e9, null], [40e9, "本月剩下約 10 GB，用完之後每台裝置會限速到約 2 Mbps，到下個月 1 日（UTC）恢復全速。"], [50e9, null]] as const) {
     await mockApi(page, { ...signedIn, "GET /api/me": json({ ...ME, used_bytes: used }) });
     await page.goto("/devices/");
     await expect(page.getByTestId("usage-percent")).toBeVisible();
@@ -577,6 +685,25 @@ test("a browser that was signed in shows its links at once", async ({ page }) =>
   await expect(page.locator(".hero").getByRole("link", { name: "我的裝置" })).toBeVisible();
 });
 
+// a Pixel with a larger display size or font is about 360 px wide; the header button once wrapped to two lines there
+for (const [width, path, name] of [[360, "/", "我的裝置"], [320, "/", "我的裝置"], [320, "/en/", "My devices"]] as const) {
+  test(`the header keeps one row and a one-line button at ${width} px: ${name}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await hinted(page);
+    await mockApi(page, { ...signedIn, "GET /api/me": slow(ME) });
+    await page.goto(path);
+    const header = page.locator(".site-header");
+    const button = header.getByRole("link", { name });
+    await expect(button).toBeVisible({ timeout: 500 });
+    const [box, brand] = await Promise.all([button.boundingBox(), header.locator(".brand").boundingBox()]);
+    const line = await button.evaluate((e) => parseFloat(getComputedStyle(e).lineHeight));
+    // one line of text inside the button, beside the wordmark, nothing past the screen's edge
+    expect(box!.height).toBeLessThan(line * 2);
+    expect(Math.abs(box!.y + box!.height / 2 - (brand!.y + brand!.height / 2))).toBeLessThan(4);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
 test("an unknown session shows no sign-in link until /api/me answers", async ({ page }) => {
   await mockApi(page, { "GET /api/me": slow({ error: "signed_out" }, 401) });
   await page.goto("/");
@@ -615,7 +742,8 @@ test("waiting for the server shows what is happening", async ({ page }) => {
   await page.goto("/devices/");
   const phone = page.getByTestId("device-list").locator("li", { hasText: "phone" });
   await phone.getByRole("button", { name: "刪除" }).click();
-  await expect(phone.getByRole("status")).toHaveText("刪除中");
+  await expect(phone.getByText("刪除中")).toBeVisible();
+  await expect(page.locator("#announce")).toHaveText("刪除中");
   await expect(phone).toHaveAttribute("aria-busy", "true");
   release();
   await expect(page.getByTestId("device-list").getByTestId("device")).toHaveCount(1);
@@ -738,8 +866,8 @@ test("the monthly record shows only the counts a filter made", async ({ page }) 
 
 test("the footer: three groups of links, in the same order in every language, nothing wider than the screen", async ({ page }) => {
   for (const [path, groups] of [
-    ["/faq/", { 使用說明: ["VPN 入門", "常見問題", "網域過濾"], 檢查與回報: ["連線檢測", "服務狀態", "意見回覆"], 關於: ["anoni.net 社群", "原始碼", "使用條款", "隱私權政策"] }],
-    ["/en/faq/", { Help: ["VPN basics", "FAQ", "DNS filtering"], "Check and report": ["Connection check", "Service status", "Feedback"], About: ["anoni.net community", "Source code", "Terms of use", "Privacy policy"] }],
+    ["/faq/", { 使用說明: ["VPN 入門", "常見問題", "網域過濾", "網域過濾的名單"], 檢查與回報: ["連線檢測", "服務狀態", "意見回覆"], 關於: ["anoni.net 社群", "原始碼", "使用條款", "隱私權政策"] }],
+    ["/en/faq/", { Help: ["VPN basics", "FAQ", "DNS filtering", "The lists behind the DNS filter"], "Check and report": ["Connection check", "Service status", "Feedback"], About: ["anoni.net community", "Source code", "Terms of use", "Privacy policy"] }],
   ] as const) {
     await page.goto(path);
     for (const [name, links] of Object.entries(groups)) {
@@ -797,9 +925,9 @@ test("beside 社群架設的原因, a map on a wide screen only, its grid fetche
   await page.goto("/");
   const map = page.locator("#why .region-map");
   if (page.viewportSize()!.width >= 960) {
-    // Taiwan, two lines and two cities; no words
+    // Taiwan, a lighthouse at each of the three cities, a line to the two abroad; no words
     await expect(map.locator(".region-map__line")).toHaveCount(2);
-    await expect(map.locator(".region-map__node")).toHaveCount(2);
+    await expect(map.locator(".region-map__node")).toHaveCount(3);
     await expect(map).toHaveAttribute("aria-hidden", "true");
     expect(await map.locator("svg").evaluate((e) => e.querySelectorAll("text").length)).toBe(0);
   } else {
@@ -807,4 +935,27 @@ test("beside 社群架設的原因, a map on a wide screen only, its grid fetche
     await page.waitForLoadState("networkidle");
     expect(fetched).toHaveLength(0);
   }
+});
+
+test("on wide screens the home page's questions stay in their column, with nothing beside them", async ({ page, isMobile }) => {
+  test.skip(isMobile, "wide screens only");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.locator(".faq-art")).toHaveCount(0);
+  const questions = (await page.locator(".faq-layout > div").first().boundingBox())!;
+  expect(questions.width).toBeLessThanOrEqual(760);
+  const section = (await page.locator("#faq").boundingBox())!;
+  expect(section.height).toBeLessThan(questions.height + 260);
+});
+
+test("a device over the quota says it is slowed down, not cut off", async ({ page }) => {
+  const over = { ...ME, used_bytes: 51e9 };
+  const slow = [{ ...DEVICES[0], throttled: true }];
+  await mockApi(page, { "GET /api/me": json(over), "GET /api/devices": json(slow) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("throttled")).toHaveText("本月額度已經用完，這台裝置限速到約 2 Mbps，傳訊息、查地圖與瀏覽網頁仍可使用，下個月 1 日（UTC）恢復全速。");
+  await mockApi(page, { "GET /api/me": json(ME), "GET /api/devices": json(DEVICES) });
+  await page.goto("/devices/");
+  await expect(page.getByRole("listitem").filter({ hasText: "phone" })).toBeVisible();
+  await expect(page.getByTestId("throttled")).toHaveCount(0);
 });

@@ -1,0 +1,12 @@
+[Unit]
+Description=Vessel inspection: receive the streams from the nodes
+After=network-online.target tailscaled.service
+
+[Service]
+EnvironmentFile=/etc/vessel-inspect.env
+ExecStart=/usr/bin/python3 -I /opt/vessel-inspect-app/recv.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

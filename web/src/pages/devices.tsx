@@ -7,11 +7,14 @@ import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { flagOf, relayEntry } from "../regions.ts";
+import { progress } from "../inspection-progress.ts";
 import { AccountNav } from "./account.tsx";
 import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
 import { Added, NextRead, useTween } from "./live.tsx";
 import { Busy, SkButton, SkCard, Spin } from "./skeleton.tsx";
+import { focusLater } from "../focus.ts";
+import { announce } from "../announce.ts";
 
 // The worker reads the nodes' counters every 5 minutes, so refreshing more often shows nothing new. The page asks
 // a little after each read is due, so the new numbers have landed; when a read is late, it asks again after 1, 2
@@ -51,6 +54,12 @@ const blockedOf = (devices: Device[]) => devices.filter(countsBlocked).reduce((n
 
 /** What a read added to the numbers on screen, for the "+12 MB" on each card; `n` counts reads. */
 interface Read { n: number; used: number; blocked: number; devices: Map<string, { used: number; blocked: number }> }
+
+/** A leader revoked one of this account's devices in the last month: the person who finds it gone is told why. */
+function revokedLately(me: Me): boolean {
+  const day = me.group?.device_revoked_on;
+  return !!day && Date.now() - Date.parse(day) <= 30 * 86_400_000;
+}
 
 export function Devices() {
   const { t, href, locale } = useCtx();
@@ -139,13 +148,18 @@ export function Devices() {
 
   // devices being deleted: the node removes the peer before the answer comes back, which takes a few seconds
   const [deleting, setDeleting] = useState<ReadonlySet<string>>(new Set());
+  // a failed delete, shown above the list: the page's own error would replace the list, and the reload clears it
+  const [deleteErr, setDeleteErr] = useState("");
   const remove = async (d: Device) => {
     if (!window.confirm(fmt(t["devices.confirmDelete"], { name: d.name }))) return;
     setDeleting((s) => new Set(s).add(d.id));
+    setDeleteErr("");
+    announce(t["busy.delete"]);
     try {
       await api.deleteDevice(d.id);
+      announce(fmt(t["devices.deleted"], { name: d.name }));
     } catch (x) {
-      setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+      setDeleteErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
     }
     await load();
     setDeleting((s) => {
@@ -153,6 +167,8 @@ export function Devices() {
       next.delete(d.id);
       return next;
     });
+    // the device's button went with it
+    focusLater(() => document.querySelector("main h1"), true);
   };
 
   if (err) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
@@ -176,11 +192,11 @@ export function Devices() {
     );
   }
 
-  return <DeviceList me={me} devices={devices} added={added} deleting={deleting} remove={remove} />;
+  return <DeviceList me={me} devices={devices} added={added} deleting={deleting} remove={remove} deleteErr={deleteErr} />;
 }
 
-function DeviceList({ me, devices, added, deleting, remove }: {
-  me: Me; devices: Device[]; added: Read | null; deleting: ReadonlySet<string>; remove: (d: Device) => void;
+function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
+  me: Me; devices: Device[]; added: Read | null; deleting: ReadonlySet<string>; remove: (d: Device) => void; deleteErr: string;
 }) {
   const { t, href, locale } = useCtx();
   // the numbers count up to a new read; the bar and the ARIA values take the read as it is
@@ -204,11 +220,18 @@ function DeviceList({ me, devices, added, deleting, remove }: {
 
   return (
     <section class="wrap narrow stack devices-page">
-      <AccountNav />
+      <AccountNav leader={me.group?.role === "leader"} />
       <div class="row">
         <h1>{t["devices.title"]}</h1>
         <span class="muted strong">{fmt(t["devices.count"], { n: devices.length, max: me.device_limit })}</span>
       </div>
+
+      {me.group?.closing_on && (
+        <p class="card card--warn card--flat" data-testid="group-closing-note">{fmt(t["group.closingMember"], { date: formatDate(locale, me.group.closing_on) })}</p>
+      )}
+      {revokedLately(me) && (
+        <p class="card card--flat" data-testid="revoked-note">{fmt(t["devices.revokedByLeader"], { date: formatDate(locale, me.group!.device_revoked_on!) })}</p>
+      )}
 
       <div class="card card--tint card--flat card--live">
         {added && <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.used, filtered.length > 0 ? added.blocked : 0)} />}
@@ -247,6 +270,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
         )}
       </div>
 
+      {deleteErr && <p class="error" role="alert" data-testid="delete-error">{deleteErr}</p>}
       {devices.length === 0 ? (
         <div class="card card--dashed">
           <p class="strong">{t["devices.empty"]}</p>
@@ -261,7 +285,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                 <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.devices.get(d.id)!.used, d.dns_filter === "none" ? 0 : added.devices.get(d.id)!.blocked)} />
               )}
               <div class="row device-head">
-                <p class="strong big device-head__name"><LiveDot d={d} />{d.name}</p>
+                <h2 class="big device-head__name">{d.name}</h2>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
               {/* the device as a spec sheet: one line per fact, the name of each on the left */}
@@ -294,6 +318,7 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                 </p>
               )}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
+              {d.status === "active" && d.throttled && <p class="muted small" data-testid="throttled">{t["status.throttledNote"]}</p>}
               {d.moved_until && (
                 <p class="card card--warn card--flat small notice" data-testid="moved">
                   <Icon name="warning" />
@@ -310,11 +335,21 @@ function DeviceList({ me, devices, added, deleting, remove }: {
                   <span>{t["devices.oldConfig"]}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
                 </p>
               )}
+              {d.inspection === "confirming" && d.status !== "revoking" && !deleting.has(d.id) && <InspectNote d={d} />}
+              {d.inspection_request && !d.inspection && d.status === "active" && !deleting.has(d.id) && <RequestNote d={d} />}
               <div class="row small device-foot">
+                {inspecting(d) && !deleting.has(d.id) ? <InspectLink d={d} /> : d.status === "active" && !d.inspection && !deleting.has(d.id) && (
+                  <a data-testid="device-inspect" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectNamed"], { name: d.name })}>
+                    {t["devices.inspect"]}
+                  </a>
+                )}
                 {deleting.has(d.id) ? (
-                  <span class="muted strong" role="status"><Spin />{t["busy.delete"]}</span>
+                  <span class="muted strong"><Spin />{t["busy.delete"]}</span>
                 ) : d.status !== "revoking" && (
-                  <button class="link-button" type="button" onClick={() => remove(d)}>{t["devices.delete"]}</button>
+                  // which one, for a list of buttons all named "Delete"; starting with the shown word (WCAG 2.5.3)
+                  <button class="link-button" type="button" onClick={() => remove(d)} aria-label={fmt(t["devices.deleteNamed"], { name: d.name })}>
+                    {t["devices.delete"]}
+                  </button>
                 )}
               </div>
             </li>
@@ -344,13 +379,88 @@ function DeviceList({ me, devices, added, deleting, remove }: {
   );
 }
 
+const inspecting = (d: Device) => !!d.inspection && d.status !== "revoking";
+const inspectHref = (href: (p: string) => string, d: Device) => `${href("/devices/inspect/")}?d=${encodeURIComponent(d.id)}`;
+
+/**
+ * Where the device's inspection stands, at the bottom left of its card where "Inspect traffic" is otherwise: a mark,
+ * the state and its date, all one link to the inspection's page. Only where it stands and its dates: never what the
+ * report found ("needs a look", "known threat"), and the report is not opened on this page. The device list is what is
+ * most often seen over someone's shoulder, and a stalker who reads there that their app was found can act before the
+ * person does (toomore/anoni-net-ws#461). The report is opened on the inspection's own page, with the key in this browser.
+ */
+function InspectLink({ d }: { d: Device }) {
+  const { t, href, locale } = useCtx();
+  const state = d.inspection!;
+  // one sentence with its date where there is one; an older backend sends the state alone, and then the state alone
+  const words = state === "active" && d.inspection_ends_at && d.inspection_days
+    ? fmt(t["devices.inspectLink.active"], progress({ ends_at: d.inspection_ends_at, days: d.inspection_days }))
+    : state === "ended" && d.inspection_report_until
+      ? fmt(t["devices.inspectLink.ended"], { date: formatDate(locale, d.inspection_report_until) })
+      : t[`devices.inspect.${state}`];
+  return (
+    // which device, for a list of links all alike; starting with the shown words (WCAG 2.5.3). The mark is drawn, the
+    // words say the state.
+    <a class="foot-inspect strong" data-testid="device-inspect" data-state={state} href={inspectHref(href, d)}
+      aria-label={fmt(t["devices.inspectLinkNamed"], { label: words, name: d.name })}>
+      <span class={`inspect-mark inspect-mark--${state}`} aria-hidden="true" />
+      <span class="foot-inspect__words" data-testid="inspect-words">{words}</span>
+    </a>
+  );
+}
+
+/** Waiting for the person to open the confirmation link on the device: the one state that asks something of them, so
+ * it is a note in the card, with the link to go on. */
+function InspectNote({ d }: { d: Device }) {
+  const { t, href } = useCtx();
+  // an older backend does not send the link's time: 30 minutes, policy.INSPECT_CONFIRM_MINUTES when this was written
+  const minutes = d.inspection_confirm_minutes ?? 30;
+  return (
+    <p class="card card--flat card--warn small device-inspect" data-testid="inspect-note" data-state="confirming">
+      <span>{fmt(t["devices.inspectNote.confirming"], { minutes })}</span>
+      {/* which device, for a list of links all named alike; starting with the shown words (WCAG 2.5.3) */}
+      <a class="strong" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectGo.confirmingNamed"], { name: d.name })}>
+        {t["devices.inspectGo.confirming"]}
+      </a>
+    </p>
+  );
+}
+
+/**
+ * A group's leader asked for an inspection of this device (toomore/anoni-net-ws#483): it asks something of the person,
+ * so it is a note in the card, with the link to the request. The answer, yes or no, is given on the inspection's page.
+ */
+function RequestNote({ d }: { d: Device }) {
+  const { t, href, locale } = useCtx();
+  return (
+    <p class="card card--flat card--warn small device-inspect" data-testid="inspect-request">
+      <span>{fmt(t["devices.inspectRequest"], { date: formatDate(locale, d.inspection_request!.until) })}</span>
+      {/* which device, for a list of links all named alike; starting with the shown words (WCAG 2.5.3) */}
+      <a class="strong" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectRequestGoNamed"], { name: d.name })}>
+        {t["devices.inspectRequestGo"]}
+      </a>
+    </p>
+  );
+}
+
 /** A dot before the device's name for whether it was in use in the last read; nothing until the tab has seen two. */
-function LiveDot({ d }: { d: Device }) {
+/**
+ * Whether the device had traffic between the last two reads, in words on the spec sheet: the dot beside them only
+ * repeats it, so it is not told by colour alone or by a tooltip (WCAG 1.4.1). Nothing until two reads have been seen.
+ */
+function Recent({ d }: { d: Device }) {
   const { t } = useCtx();
   const active = d.status === "active" ? inUse.get(d.id) : undefined;
   if (active === undefined) return null;
-  const words = t[active ? "devices.inUse" : "devices.idle"];
-  return <span class={`live-dot${active ? " live-dot--on" : ""}`} title={words}><span class="sr-only">{words}</span></span>;
+  return (
+    <>
+      <dt>{t["devices.spec.recent"]}</dt>
+      <dd class="spec__with-icon" data-testid="device-recent" data-state={active ? "on" : "off"}>
+        <span class={`live-dot${active ? " live-dot--on" : ""}`} aria-hidden="true" />
+        <span>{t[active ? "devices.recent.on" : "devices.recent.off"]}</span>
+      </dd>
+    </>
+  );
 }
 
 /** This month's traffic and, with a filter, the lookups its lists blocked: two lines of the spec sheet. */
@@ -362,6 +472,7 @@ function DeviceNumbers({ d }: { d: Device }) {
     <>
       <dt>{t["devices.spec.month"]}</dt>
       <dd class="spec__figure" data-testid="device-usage">{formatBytes(locale, used)}</dd>
+      <Recent d={d} />
       {d.dns_filter !== "none" && (
         <>
           <dt>{t["devices.spec.blocked"]}</dt>

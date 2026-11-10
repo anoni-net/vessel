@@ -1,27 +1,26 @@
 import { useEffect, useRef } from "preact/hooks";
 import { useCtx } from "../context.ts";
 import type { MessageKey } from "../i18n/index.ts";
+import { DOCS_SITE, LOCALE_PATH } from "../site.ts";
 import { SectionHead } from "./section-head.tsx";
 
 const GROUPS = {
   start: ["invite", "cost", "lost", "number", "passkey", "share"],
-  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "splitTunnel", "noTraffic", "trouble", "speed", "cities"],
+  setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "phishing", "splitTunnel", "noTraffic", "trouble", "blockedSite", "speed", "cities", "taipeiGeo"],
   rules: ["expire", "expired", "quota", "p2p"],
-  privacy: ["see", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
+  privacy: ["see", "risky", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
 } as const;
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
 
-// the home page shows these, for someone deciding whether to use Vessel or setting up a first device; the rest are on
-// /faq/. Not here: protocols (the install step links to it, and "app" says what matters on the home page) and newPhone
-// (it comes up only after the first device)
-const ON_HOME: Question[] = ["invite", "cost", "app", "ios", "lost", "twoDevices", "noTraffic", "expire", "quota", "see"];
+// the home page shows what someone deciding whether to use Vessel asks first; everything else is on /faq/, one link away
+const ON_HOME: Question[] = ["invite", "cost", "see", "risky"];
 
 // /faq/#q-protocols opens that answer; the device setup links to it
 export const faqAnchor = (id: Question) => `q-${id}`;
 
 function Questions({ ids }: { ids: readonly Question[] }) {
-  const { t } = useCtx();
+  const { href, t, locale } = useCtx();
   const target = typeof location === "undefined" ? "" : location.hash.slice(1);
   return (
     <div class="faq">
@@ -29,11 +28,19 @@ function Questions({ ids }: { ids: readonly Question[] }) {
         <details class="faq__item" id={faqAnchor(id)} open={target === faqAnchor(id)}>
           <summary>{t[`faq.${id}.q` as MessageKey]}</summary>
           <p>{t[`faq.${id}.a` as MessageKey]}</p>
+          {id === "filter" && <p><a href={href("/dns/lists/")}>{t["lists.title"]}</a></p>}
+          {id === "blockedSite" && <p><a href={href("/dns/lists/#trouble")}>{t["lists.trouble.title"]}</a></p>}
+          {id === "phishing" && <p><a href={href("/dns/lists/#beyond-the-lists")}>{t["faq.phishing.link"]}</a></p>}
+          {id === "risky" && <p><a href={`${DOCS_SITE}${LOCALE_PATH[locale]}/scenarios/asia-travel/`} target="_blank" rel="noopener">{t["faq.risky.link"]}</a></p>}
         </details>
       ))}
     </div>
   );
 }
+
+// FIG. 06 is off for now: with the few questions on the home page it towers over them. Its code and tests stay, and
+// tests/faq-art.spec.ts skips while this is false.
+const SHOW_ART = false as boolean;
 
 export function HomeFaq() {
   const { t, href } = useCtx();
@@ -46,7 +53,7 @@ export function HomeFaq() {
             <Questions ids={ON_HOME} />
             <p class="faq__more"><a class="strong" href={href("/faq/")}>{t["faq.all"]}</a></p>
           </div>
-          <FaqArt />
+          {SHOW_ART && <FaqArt />}
         </div>
       </div>
     </section>
@@ -63,13 +70,18 @@ export function Faq() {
   return (
     <section class="wrap faq-page">
       <h1>{t["faq.title"]}</h1>
-      {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => (
-        <section>
-          <h2>{t[`faq.group.${g}`]}</h2>
-          <Questions ids={GROUPS[g]} />
-        </section>
-      ))}
-      <p class="faq__more"><a class="strong" href={href("/feedback/?from=faq")}>{t["feedback.notAnswered"]}</a></p>
+      <div class="faq-layout">
+        <div>
+          {(Object.keys(GROUPS) as (keyof typeof GROUPS)[]).map((g) => (
+            <section>
+              <h2>{t[`faq.group.${g}`]}</h2>
+              <Questions ids={GROUPS[g]} />
+            </section>
+          ))}
+          <p class="faq__more"><a class="strong" href={href("/feedback/?from=faq")}>{t["feedback.notAnswered"]}</a></p>
+        </div>
+        <FaqArt />
+      </div>
     </section>
   );
 }

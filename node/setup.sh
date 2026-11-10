@@ -1,17 +1,18 @@
 #!/bin/bash
-# One-time setup of a Vessel node. Expects build/ (Dockerfile, start.sh), unbound/, awgctl, run.sh, update-lists.sh
+# One-time setup of a Vessel node. Expects build/ (Dockerfile, start.sh), unbound/, awgctl, run.sh, pull-lists.sh
 # and node.env (copy node.env.example) beside it in /opt/vessel-node.
 # Server params mirror AmneziaVPN 5.0.4.2's AWG 3.1 defaults (awgInstaller.cpp).
 set -euo pipefail
 D=/opt/vessel-node
 # shellcheck source=/dev/null
 . $D/node.env
-: "${NODE_IP:?}" "${LISTEN_PORT:?}"
+: "${NODE_IP:?}" "${LISTEN_PORT:?}" "${RPZ_PRIMARY:?}"
 [ -e $D/server/interface.conf ] && { echo "$D/server/interface.conf exists, abort"; exit 1; }
 umask 077
-mkdir -p $D/server $D/peers $D/clients $D/conf $D/rpz
-chmod 755 $D/rpz $D/unbound; chmod 644 $D/unbound/*.conf
-chmod 700 $D/awgctl $D/run.sh $D/update-lists.sh
+mkdir -p $D/server $D/peers $D/clients $D/conf
+sed "s/RPZ_PRIMARY/$RPZ_PRIMARY/" $D/unbound/rpz-zones.conf.example > $D/unbound/rpz-zones.conf
+chmod 755 $D/unbound; chmod 644 $D/unbound/*.conf $D/unbound/vessel.zone
+chmod 700 $D/awgctl $D/run.sh $D/pull-lists.sh
 chmod 600 $D/node.env
 
 docker build -q -t vessel-node:latest $D/build
@@ -49,10 +50,9 @@ C
 printf '%s\n' "$SHARED" > $D/server/client-params.conf
 cp $D/server/interface.conf $D/conf/awg0.conf
 
-$D/update-lists.sh
 ln -sf $D/awgctl /usr/local/sbin/awgctl
-# the malware and the two Taiwanese lists every 8 hours, everything (the ad list too) once a day at 04:37 in Taiwan
-{ crontab -l 2>/dev/null | grep -v vessel-node/update-lists.sh || true
-  echo "37 4,12 * * * /opt/vessel-node/update-lists.sh malware tw165 twmoda >> /var/log/vessel-update-lists.log 2>&1"
-  echo "37 20 * * * /opt/vessel-node/update-lists.sh >> /var/log/vessel-update-lists.log 2>&1"; } | crontab -
+# every 6 hours, at 00:37, 06:37, 12:37 and 18:37 in Taiwan: 7 minutes after the host builds the lists
+{ crontab -l 2>/dev/null | grep -v vessel-node/pull-lists.sh || true
+  echo "37 4,10,16,22 * * * /opt/vessel-node/pull-lists.sh >> /var/log/vessel-update-lists.log 2>&1"
+} | crontab -
 $D/run.sh

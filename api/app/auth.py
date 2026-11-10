@@ -74,11 +74,21 @@ def clear_session_cookie(request: Request, response: Response) -> None:
 
 def start_session(conn: psycopg.Connection, request: Request, response: Response, account_id: int) -> None:
     token = crypto.new_session_token()
+    # signing in is a confirmation too, for VERIFY_MINUTES
     conn.execute(
-        "INSERT INTO sessions (id_hmac, account_id, expires_at) VALUES (%s, %s, now() + make_interval(days => %s))",
-        (crypto.keyed_hash(load().hmac_key, token), account_id, policy.SESSION_DAYS),
+        "INSERT INTO sessions (id_hmac, account_id, expires_at, verified_until) "
+        "VALUES (%s, %s, now() + make_interval(days => %s), now() + make_interval(mins => %s))",
+        (crypto.keyed_hash(load().hmac_key, token), account_id, policy.SESSION_DAYS, policy.VERIFY_MINUTES),
     )
     set_session_cookie(request, response, token)
+
+
+def mark_verified(conn: psycopg.Connection, request: Request) -> None:
+    """The person at this browser just confirmed it is them (app/passkeys.py, /api/account/verify)."""
+    conn.execute(
+        "UPDATE sessions SET verified_until = now() + make_interval(mins => %s) WHERE id_hmac = %s",
+        (policy.VERIFY_MINUTES, crypto.keyed_hash(load().hmac_key, session_token(request) or "")),
+    )
 
 
 def extend_session(conn: psycopg.Connection, request: Request, response: Response) -> None:
@@ -110,6 +120,22 @@ def current_account(request: Request, conn: Conn) -> int:
 Account = Annotated[int, Depends(current_account)]
 
 
+def require_recent(request: Request, account_id: Account, conn: Conn) -> int:
+    """For what someone holding a signed-in browser for a minute must not do on their own: adding or removing a
+    passkey, and deleting the account. A new passkey would let them replace the number and lock the person out.
+    Signing in counts for VERIFY_MINUTES; after that the person confirms again with a passkey or the number."""
+    row = conn.execute(
+        "SELECT verified_until > now() FROM sessions WHERE id_hmac = %s",
+        (crypto.keyed_hash(load().hmac_key, session_token(request) or ""),),
+    ).fetchone()
+    if row is None or not row[0]:
+        raise error(403, "verify_required")
+    return account_id
+
+
+Recent = Annotated[int, Depends(require_recent)]
+
+
 class RedeemBody(BaseModel):
     code: str
 
@@ -124,7 +150,7 @@ def setting(conn: psycopg.Connection, key: str) -> str:
 
 
 @router.post("/redeem", dependencies=[Depends(require_app_header), Depends(limit)])
-def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -> dict[str, str]:
+def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -> dict[str, str | None]:
     code = crypto.normalize_invite_code(body.code)
     if code is None:
         raise error(400, "invalid_invite")
@@ -132,47 +158,60 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
     with conn.transaction():
         # one redemption at a time, so the account cap holds under concurrent requests
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('vessel-redeem'))")
-        if setting(conn, "redeem_paused") == "true":
-            raise error(503, "redeem_paused")
-        cap = int(setting(conn, "account_cap") or 0)
-        if cap > 0 and conn.execute("SELECT count(*) FROM accounts").fetchone()[0] >= cap:
-            raise error(409, "full")
         invite = conn.execute(
-            "SELECT id, from_account, created_by FROM invites "
+            "SELECT id, from_account, created_by, group_code, group_role, group_label FROM invites "
             "WHERE code_hmac = %s AND redeemed_at IS NULL AND expires_at > now() FOR UPDATE",
             (crypto.keyed_hash(settings.hmac_key, code),),
         ).fetchone()
+        # a group's places are its own (toomore/anoni-net-ws#464): the pause and the cap are about everyone else
+        if invite is None or invite[3] is None:
+            if setting(conn, "redeem_paused") == "true":
+                raise error(503, "redeem_paused")
+            cap = int(setting(conn, "account_cap") or 0)
+            if cap > 0 and conn.execute("SELECT count(*) FROM accounts WHERE group_code IS NULL").fetchone()[0] >= cap:
+                raise error(409, "full")
         if invite is None:
+            raise error(400, "invalid_invite")
+        group_code, group_role, group_label = invite[3:]
+        # checked here, under the lock, because a duplicate alias would look like a taken number to the loop below
+        if group_code and conn.execute(
+            "SELECT 1 FROM accounts WHERE group_code = %s AND group_label = %s", (group_code, group_label)
+        ).fetchone():
             raise error(400, "invalid_invite")
         while True:
             number = crypto.new_account_number()
             try:
                 with conn.transaction():
                     account_id = conn.execute(
-                        "INSERT INTO accounts (number_hash) VALUES (%s) RETURNING id",
-                        (crypto.hash_account_number(number, settings.account_pepper),),
+                        "INSERT INTO accounts (number_hash, group_code, group_role, group_label) "
+                        "VALUES (%s, %s, %s, %s) RETURNING id",
+                        (crypto.hash_account_number(number, settings.account_pepper), group_code, group_role, group_label),
                     ).fetchone()[0]
                 break
             except psycopg.errors.UniqueViolation:
                 continue
         if invite[1]:
-            # an account's invite: count it for the account that made it, and forget which account that was, so
-            # the database never says who invited whom (app/invites.py)
+            # an account's invite: count it for the account that made it (app/invites.py)
             conn.execute("UPDATE accounts SET invites_used = invites_used + 1 WHERE id = %s", (invite[2],))
-            conn.execute("UPDATE invites SET redeemed_at = now(), created_by = NULL WHERE id = %s", (invite[0],))
-        else:
-            conn.execute(
-                "UPDATE invites SET redeemed_at = now(), redeemed_account = %s WHERE id = %s", (account_id, invite[0])
-            )
+        # Used, and nothing more: not which account made it, not which account it made. Only the day, so the order the
+        # codes were used in does not line up with the order the accounts were made (one at a time, the lock above).
+        # Whoever handed out a code and kept a note of whom it went to cannot find that person's account by it.
+        conn.execute(
+            "UPDATE invites SET redeemed_at = date_trunc('day', now()), created_by = NULL, "
+            "group_code = NULL, group_role = NULL, group_label = NULL WHERE id = %s",
+            (invite[0],),
+        )
         start_session(conn, request, response, account_id)
-    return {"account_number": crypto.format_account_number(number)}
+    return {"account_number": crypto.format_account_number(number), "group_role": group_role}
 
 
 def keep_alive(conn: psycopg.Connection, account_id: int) -> None:
-    """Signing in, or coming back while still signed in, keeps the account's devices for another DEVICE_DAYS."""
+    """Signing in, or coming back while still signed in, keeps the account's devices for another DEVICE_DAYS. A group's
+    devices last until the group ends instead."""
     conn.execute("UPDATE accounts SET last_login_on = current_date WHERE id = %s", (account_id,))
     conn.execute(
-        "UPDATE devices SET expires_on = current_date + %s WHERE account_id = %s AND status <> 'revoking'",
+        "UPDATE devices SET expires_on = current_date + %s WHERE account_id = %s AND status <> 'revoking' "
+        "AND account_id IN (SELECT id FROM accounts WHERE group_code IS NULL)",
         (policy.DEVICE_DAYS, account_id),
     )
 
@@ -230,13 +269,23 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
         "(SELECT 'usage:' || region_id FROM devices WHERE account_id = %s)",
         (account_id,),
     ).fetchone()[0]
+    limits = policy.limits_of(conn, account_id)
+    group = conn.execute(
+        "SELECT a.group_role, a.group_label, a.device_revoked_on, g.closing_on FROM accounts a "
+        "JOIN groups g ON g.code = a.group_code WHERE a.id = %s",
+        (account_id,),
+    ).fetchone()
     return {
         "created_on": created_on.isoformat(),
         "last_login_on": last_login_on.isoformat() if last_login_on else None,
-        "device_limit": policy.DEVICE_LIMIT,
-        "monthly_quota_bytes": policy.MONTHLY_QUOTA_BYTES,
+        "device_limit": limits.devices,
+        "monthly_quota_bytes": limits.monthly_quota_bytes,
         "used_bytes": usage[0] if usage else 0,
         "usage_as_of": as_of.isoformat() if as_of else None,
+        "group": group and {
+            "role": group[0], "label": group[1], "device_revoked_on": group[2].isoformat() if group[2] else None,
+            "closing_on": group[3].isoformat() if group[3] else None,
+        },
     }
 
 
@@ -268,15 +317,32 @@ def usage_months(account_id: Account, conn: Conn) -> dict:
     return {"filter": ("none", "malware", "ads")[strongest or 0], "months": months}
 
 
+def remove_account(conn: psycopg.Connection, account_id: int) -> None:
+    """Delete an account and queue its peers' removal, inside the caller's transaction."""
+    # waits for a device being created right now, so its add is either queued below or already on the node
+    conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))
+    devices = "SELECT id FROM devices WHERE account_id = %s"
+    # adds still waiting to reach a node are dropped, and configs nobody fetched go with them
+    conn.execute(
+        f"UPDATE jobs SET status = 'done', payload = NULL, result = NULL, done_at = now(), updated_at = now() "
+        f"WHERE device_id IN ({devices}) AND status = 'queued' AND action <> 'remove'",
+        (account_id,),
+    )
+    conn.execute(f"UPDATE jobs SET result = NULL WHERE device_id IN ({devices}) AND result IS NOT NULL",
+                 (account_id,))
+    # the nodes still hold these peers; the worker removes them after the rows are gone. A device already
+    # revoking has its remove job.
+    conn.execute(
+        "INSERT INTO jobs (region_id, device_id, action) "
+        "SELECT region_id, id, 'remove' FROM devices WHERE account_id = %s AND status <> 'revoking'",
+        (account_id,),
+    )
+    conn.execute("DELETE FROM accounts WHERE id = %s", (account_id,))
+
+
 @router.delete("/account", dependencies=[Depends(require_app_header)])
-def delete_account(account_id: Account, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
+def delete_account(account_id: Recent, request: Request, response: Response, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
-        # the nodes still hold these peers; the worker removes them after the rows are gone
-        conn.execute(
-            "INSERT INTO jobs (region_id, device_id, action) "
-            "SELECT region_id, id, 'remove' FROM devices WHERE account_id = %s",
-            (account_id,),
-        )
-        conn.execute("DELETE FROM accounts WHERE id = %s", (account_id,))
+        remove_account(conn, account_id)
     clear_session_cookie(request, response)
     return {"ok": True}

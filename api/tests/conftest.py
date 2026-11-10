@@ -12,7 +12,7 @@ os.environ.setdefault("VESSEL_DATABASE_URL", DB_URL or "postgresql:///unused")
 os.environ.setdefault("VESSEL_ACCOUNT_PEPPER", "test-pepper")
 os.environ.setdefault("VESSEL_HMAC_KEY", "test-hmac-key")
 
-from app import auth, blocklists, check, crypto, migrate
+from app import auth, blocklists, check, crypto, migrate, network
 from app.config import load
 from app.main import app
 from app.nodes import NodeError, set_node
@@ -24,6 +24,8 @@ HEADERS = {"X-Vessel-Request": "1"}
 @pytest.fixture(autouse=True)
 def no_blocklist_downloads(monkeypatch):
     # the app fetches the DNS blocklists from HaGeZi when it starts; tests never reach the network
+    monkeypatch.setattr(blocklists, "_rcode", lambda host, server, port=53: 0)
+    monkeypatch.setattr(network, "refresh_in_background", lambda: None)
     monkeypatch.setattr(blocklists, "refresh_in_background", lambda force=False: None)
 
 
@@ -41,11 +43,12 @@ def schema():
 def db(schema):
     with psycopg.connect(DB_URL, autocommit=True) as conn:
         conn.execute(
-            "TRUNCATE accounts, invites, sessions, regions, relays, devices, account_usage, device_counters, jobs, heartbeats CASCADE"
+            "TRUNCATE groups, accounts, invites, sessions, regions, relays, devices, account_usage, device_counters, jobs, heartbeats, node_totals CASCADE"
         )
         conn.execute("UPDATE settings SET value = '0' WHERE key = 'account_cap'")
         conn.execute("UPDATE settings SET value = 'false' WHERE key = 'redeem_paused'")
         conn.execute("UPDATE settings SET value = '0' WHERE key = 'user_invites'")
+        conn.execute("UPDATE settings SET value = '50' WHERE key = 'monthly_quota_gb'")
         yield conn
 
 
@@ -83,6 +86,16 @@ class FakeNode:
         self.handshakes: dict[str, int] = {}
         self.started = "2026-10-27T00:00:00Z"
         self.down = False
+        # what node/host/vessel-reach.py last wrote, or None before its first run
+        self.reach_result: dict | None = None
+        self.reach_calls = 0
+        self.totals = None  # the node's own counts in usage; None like a node from before they were added
+        # device inspection
+        self.inspecting: dict[str, int] = {}
+        self.confirms: list[dict] = []
+        self.acked: list[str] = []
+        # devices held to a low speed (awgctl throttle)
+        self.throttled: set[str] = set()
 
     def add_pubkey(self, host, device_id, public_key, psk, dns_filter):
         if self.down:
@@ -100,6 +113,7 @@ class FakeNode:
             raise NodeError("timeout")
         self.peers.pop(device_id, None)
         self.suspended.pop(device_id, None)
+        self.throttled.discard(device_id)
 
     def suspend(self, host, device_id):
         if self.down:
@@ -114,13 +128,55 @@ class FakeNode:
             self.peers[device_id] = self.suspended.pop(device_id)
             self.counters[device_id] = (0, 0)
 
+    def throttle_on(self, host, device_id):
+        if self.down:
+            raise NodeError("timeout")
+        if device_id in self.peers or device_id in self.suspended:
+            self.throttled.add(device_id)
+
+    def throttle_off(self, host, device_id):
+        if self.down:
+            raise NodeError("timeout")
+        self.throttled.discard(device_id)
+
+    def inspect_on(self, host, device_id, until):
+        if self.down:
+            raise NodeError("timeout")
+        self.inspecting[device_id] = until
+
+    def inspect_off(self, host, device_id):
+        if self.down:
+            raise NodeError("timeout")
+        self.inspecting.pop(device_id, None)
+
+    def inspect_confirms(self, host):
+        if self.down:
+            raise NodeError("timeout")
+        return list(self.confirms)
+
+    def inspect_ack(self, host, code):
+        self.acked.append(code)
+        self.confirms = [c for c in self.confirms if c["code"] != code]
+
+    def list_peers(self, host):
+        if self.down:
+            raise NodeError("timeout")
+        return [{"name": n} for n in self.peers]
+
+    def reach(self, host):
+        self.reach_calls += 1
+        if self.down or self.reach_result is None:
+            raise NodeError("cat: /opt/vessel-node/reach.json: No such file or directory")
+        return self.reach_result
+
     def usage(self, host):
         if self.down:
             raise NodeError("timeout")
         return {"interface_started": self.started,
                 "peers": [{"name": n, "rx": self.counters.get(n, (0, 0))[0], "tx": self.counters.get(n, (0, 0))[1],
                            "latest_handshake": self.handshakes.get(n, 0), "blocked": self.blocked.get(n, 0),
-                           "blocked_ads": self.blocked_ads.get(n, 0)} for n in self.peers]}
+                           "blocked_ads": self.blocked_ads.get(n, 0), "throttled": n in self.throttled}
+                          for n in self.peers], **({} if self.totals is None else {"totals": self.totals})}
 
 
 @pytest.fixture

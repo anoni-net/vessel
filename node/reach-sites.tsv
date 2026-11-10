@@ -1,0 +1,49 @@
+# Sites each node checks every hour (host/vessel-reach.py): id, the region the site serves (global, tw, hk, mo, jp,
+# sg; the status page groups by it, see web/src/reach.ts), address, and text only the real page has, so a challenge or a
+# block page that answers 200 is not taken for the site. The ids are the names in web/src/i18n/*.json (reach.site.<id>).
+# Left out: sites that challenge curl from anywhere (Cloudflare's "Just a moment": 健保署, 博客來, Dcard, Claude) and
+# pages a script builds (TVer, ABEMA), which a check without a browser cannot tell apart from a block. WhatsApp's home
+# page answers 400 to anything but a browser, so its robots.txt stands in for the site.
+signal	global	https://signal.org/	Signal
+telegram	global	https://telegram.org/	Telegram
+whatsapp	global	https://www.whatsapp.com/robots.txt	User-agent
+torproject	global	https://www.torproject.org/	Tor Project
+wikipedia	global	https://zh.wikipedia.org/wiki/Wikipedia:首页	維基百科
+proton	global	https://account.proton.me/login	Proton
+google	global	https://www.google.com/search?q=weather	Google
+youtube	global	https://www.youtube.com/	YouTube
+chatgpt	global	https://chatgpt.com/	ChatGPT
+reddit	global	https://www.reddit.com/r/taiwan/	Reddit
+instagram	global	https://www.instagram.com/	Instagram
+x	global	https://x.com/	x.com
+spotify	global	https://open.spotify.com/	Spotify
+cathaybk	tw	https://www.cathaybk.com.tw/cathaybk/	國泰世華
+ctbc	tw	https://www.ctbcbank.com/twrbo/zh_tw/index.html	中國信託
+esun	tw	https://www.esunbank.com/zh-tw/personal	玉山銀行
+taishin	tw	https://www.taishinbank.com.tw/	台新銀行
+bot	tw	https://www.bot.com.tw/tw/personal	臺灣銀行
+post	tw	https://www.post.gov.tw/post/internet/index.jsp	中華郵政
+etax	tw	https://www.etax.nat.gov.tw/etwmain/	稅務入口網
+mvdis	tw	https://www.mvdis.gov.tw/	監理服務網
+ris	tw	https://www.ris.gov.tw/app/portal	戶政司
+govtw	tw	https://www.gov.tw/	我的E政府
+cdc	tw	https://www.cdc.gov.tw/	疾病管制署
+cec	tw	https://www.cec.gov.tw/	中央選舉委員會
+momo	tw	https://www.momoshop.com.tw/main/Main.jsp	momo購物網
+pchome	tw	https://24h.pchome.com.tw/	PChome
+ptt	tw	https://www.ptt.cc/bbs/Gossiping/index.html	批踢踢
+104	tw	https://www.104.com.tw/	104人力銀行
+litv	tw	https://www.litv.tv/	LiTV
+anigamer	tw	https://ani.gamer.com.tw/	動畫瘋
+hsbchk	hk	https://www.hsbc.com.hk/	HSBC
+hangseng	hk	https://www.hangseng.com/zh-hk/personal/	恒生銀行
+bochk	hk	https://www.bochk.com/tc/home.html	中國銀行(香港)
+govhk	hk	https://www.gov.hk/tc/residents/	GovHK
+ird	hk	https://www.ird.gov.hk/chi/welcome.htm	税務局
+hkpost	hk	https://www.hongkongpost.hk/tc/home/index.html	香港郵政
+govmo	mo	https://www.gov.mo/zh-hant/	澳門特別行政區政府
+nhk	jp	https://www3.nhk.or.jp/news/	NHK
+rakuten	jp	https://www.rakuten.co.jp/	楽天市場
+mufg	jp	https://www.bk.mufg.jp/	三菱ＵＦＪ銀行
+singpass	sg	https://www.singpass.gov.sg/main/	Singpass
+dbs	sg	https://www.dbs.com.sg/personal/default.page	DBS

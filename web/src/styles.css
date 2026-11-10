@@ -1,6 +1,12 @@
 /* Blueprint look (toomore/anoni-net-ws#433): one cobalt ink on white paper, thin rules and square corners, IBM Plex
    Mono for the wordmark, labels and figures, the system's sans-serif for Chinese and running text. Orange marks what
    needs the reader's attention and red what went wrong; nothing else adds a colour. */
+/* iOS zooms to the block tapped twice, so text narrower than the page (a card, a footer cell) jumped. Pinching to zoom
+   still works. WebKit only honours this for a tap on something that responds to clicks, so main.tsx listens on #app, and
+   #app itself gets no tap highlight or the whole page would flash on every tap. */
+html { touch-action: manipulation; }
+#app { -webkit-tap-highlight-color: transparent; }
+#app * { -webkit-tap-highlight-color: initial; }
 :root {
   --ink: #0b3ca8;
   --text: #17295e;
@@ -34,6 +40,11 @@
   --placeholder: #8796bf;
   --skeleton: #e1e8f8;
   /* FIG. 04's colours, shared with its canvas (faq-art.ts) */
+  --chart-first: #1540b8;
+  --chart-rest: #5f85ea;
+  /* the status page's last day of sites (pages/status.tsx): checked with the dataviz palette validator, 3:1 on the paper */
+  --reach-ok: #5f85ea;
+  --reach-blocked: #d97706;
   --fig-dest: #2f6bff;
   --fig-you: #0b3ca8;
   --fig-node: #a5bcf2;
@@ -81,6 +92,10 @@
     --press: #d4e2ff;
     --placeholder: #8fa5d6;
     --skeleton: #1b3064;
+    --chart-first: #6390f5;
+    --chart-rest: #2f5ec9;
+    --reach-ok: #6390f5;
+    --reach-blocked: #d06f00;
     --fig-dest: #6f9bff;
     --fig-you: #c2d4ff;
     --fig-node: #4f71bd;
@@ -97,6 +112,8 @@ a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3p
    keeps this as weak as a plain a:hover, so the footer's white links stay white */
 @media (hover: hover) { a:where(:not(.brand, .nb-button)):hover { color: var(--muted); } }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+/* headings and sections focused after a page or a step changes (focus.ts): a place to start from, not a control */
+main:focus, main [tabindex="-1"]:focus { outline: none; }
 h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); line-height: 1.2; font-weight: 700; color: var(--ink); }
 h2 { margin: 0 0 24px; font-size: clamp(24px, 4.6vw, 32px); font-weight: 700; color: var(--ink); }
 h3 { margin: 0; font-size: 19px; font-weight: 700; color: var(--ink); }
@@ -118,6 +135,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* a small English label beside a Chinese heading or above a figure: an aid, never the only name of a thing */
 .eyebrow { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .center { text-align: center; }
+.skip-link { position: absolute; z-index: 10; top: 8px; left: 8px; padding: 10px 16px; border: var(--border); border-radius: var(--radius);
+  background: var(--paper); color: var(--ink); font-weight: 700; transform: translateY(-200%); }
+.skip-link:focus { transform: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .mono { font-family: var(--mono); }
 .error { color: var(--danger); font-weight: 700; }
@@ -126,7 +146,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-header { border-bottom: var(--border); background: var(--paper); }
 /* the header's button (sign in, my devices) at the wordmark's 48px: with the usual padding it was 49.2px, so the
    header grew by a pixel on the pages that show it and the rule under it moved on the way to the devices page */
-.site-header .nb-button { padding-block: 6px; }
+.site-header .nb-button { padding-block: 6px; white-space: nowrap; }
 .site-header__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding-block: 14px; }
 .brand { display: inline-flex; align-items: center; gap: 14px; min-height: 48px; text-decoration: none; color: var(--ink); }
 .brand__logo { display: block; height: 26px; width: auto; }
@@ -196,8 +216,26 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .site-footer__langs { font-weight: 400; }
 .site-footer__langs .icon { margin-inline-end: 4px; }
 
-.legal > * + * { margin-top: 16px; }
-.legal > h2 { margin: 36px 0 0; font-size: 22px; }
+.legal > * + *, .legal-body > * + * { margin-top: 16px; }
+.legal > h2, .legal-body > h2 { margin: 36px 0 0; font-size: 22px; scroll-margin-top: 16px; }
+/* the policies: a table of contents beside the text where there is room. The tables take the full width, the
+   text keeps a line length that is easy to read */
+.legal-toc { display: none; }
+.legal-body > :first-child { margin-top: 0; }
+@media (min-width: 641px) {
+  .legal-page { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .legal-page { max-width: 1120px; }
+  .legal-page > h1 ~ .card { max-width: 760px; }
+  .legal-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 48px; align-items: start; }
+  .legal-toc { display: block; position: sticky; top: 24px; padding-inline-end: 16px; border-inline-end: 1px solid var(--line); }
+  .legal-toc__title { margin: 0 0 8px; font-weight: 700; color: var(--text); }
+  .legal-toc ul { margin: 0; padding: 0; }
+  .legal-toc li + li { margin-top: 8px; }
+  .legal-toc a { font-size: 14px; }
+  .legal-body > p, .legal-body > ul { max-width: 720px; }
+}
 .legal > h1 + * { margin-top: 20px; }
 .legal p, .legal ul { margin-bottom: 0; }
 .legal ul { padding-inline-start: 1.4em; }
@@ -335,9 +373,26 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* links that depend on the session, before the page knows it (session.ts): keep the space, show nothing */
 .is-pending { visibility: hidden; }
 /* VPN basics: a heading sits with what follows it, apart from what came before */
-.learn > h2 { margin: 24px 0 0; }
-.learn > h3 { margin-top: 8px; }
-.learn > h3 + * { margin-top: -8px; }
+.learn > h2, .learn-body > h2 { margin: 24px 0 0; scroll-margin-top: 16px; }
+.learn > h3, .learn-body > h3 { margin-top: 8px; }
+.learn > h3 + *, .learn-body > h3 + * { margin-top: -8px; }
+/* VPN basics: a table of contents beside the text on a wide screen; below that the wrappers vanish */
+.learn-layout, .learn-body { display: contents; }
+.learn-toc { display: none; }
+@media (min-width: 641px) {
+  .learn { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .learn { max-width: 1120px; }
+  .learn > .lead { max-width: 760px; }
+  .learn-layout { display: grid; grid-template-columns: 240px minmax(0, 720px); gap: 48px; align-items: start; }
+  .learn-body { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .learn-body > h2:first-child { margin-top: 0; }
+  .learn-toc { display: block; position: sticky; top: 24px; padding-inline-end: 16px; border-inline-end: 1px solid var(--line); }
+  .learn-toc__title { margin: 0 0 8px; font-weight: 700; color: var(--text); }
+  .learn-toc li + li { margin-top: 8px; }
+  .learn-toc a { font-size: 14px; }
+}
 .learn ol { padding-inline-start: 1.4em; }
 .learn li + li { margin-top: 6px; }
 .lang-hint { background: var(--tint); border-bottom: 1px solid var(--ink); font-size: 15px; }
@@ -369,23 +424,53 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .card > p { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
 .card--tint { background: var(--tint); }
-.check-results { display: grid; gap: 12px; margin: 0; }
+/* the connection check: the tool beside what to do next on a wide screen */
+.check-cols, .check-next { display: contents; }
+.check-next > h2 { margin: 24px 0 0; }
+.check-next > h3 { margin-top: 8px; }
+.check-next > h3 + * { margin-top: -8px; }
+@media (min-width: 641px) {
+  .check-page { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .check-page { max-width: 1120px; }
+  .check-page > .lead { max-width: 760px; }
+  .check-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; }
+  .check-next { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .check-next > h2:first-child { margin-top: 0; }
+}
 .check-verdict { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 14px 16px; border: var(--border); border-radius: var(--radius); color: var(--ink); font-size: 18px; font-weight: 700; }
 /* centred on the first line of words: half of what the line is taller than the icon (icons are 1.25em, see icons.tsx) */
 .check-verdict > .icon { font-size: 18px; margin-top: calc((1lh - 1.25em) / 2); }
 .check-verdict--ok { background: var(--accent); }
+/* not connected yet: nothing to fix, so no warning frame */
+.check-verdict--off { background: var(--paper); }
+.check-verdict__more { display: block; margin-top: 4px; font-size: 15px; font-weight: 400; color: var(--text); }
 /* a drawing's note: white, an orange frame, a hatched strip down the left and NOTE written into the top of the frame
-   (the strip and the label are drawn here, so every warning gets them without its own markup) */
+   (the strip and the label are drawn here, so every warning gets them without its own markup). The frame and the strip
+   are lines, the orange is enough for them; NOTE is small text, in the warning's ink, which the orange is not (WCAG 1.4.3) */
 .card--warn, .check-verdict--bad, .lookup-answer--hit { position: relative; border-color: var(--caution); color: var(--text);
   background: var(--hatch) left top / 10px 100% no-repeat, var(--paper); padding-left: 28px; }
-.card--warn::before, .check-verdict--bad::before, .lookup-answer--hit::before { content: "NOTE"; position: absolute; top: -.75em; left: 18px;
-  padding: 0 6px; background: var(--paper); color: var(--caution); font: 600 10px/1.5 var(--mono); letter-spacing: .18em; }
+.card--warn::before, .check-verdict--bad::before, .lookup-answer--hit::before { content: "NOTE" / ""; position: absolute; top: -.75em; left: 18px;
+  padding: 0 6px; background: var(--paper); color: var(--warn-ink); font: 600 10px/1.5 var(--mono); letter-spacing: .18em; }
 .card--warn .icon, .check-verdict--bad > .icon { color: var(--caution); }
-.check-results dt { font-weight: 700; }
-.check-results dd { margin: 4px 0 0; }
+.check-network { padding-top: 16px; border-top: 1px solid var(--line); }
+.check-network h2 { margin: 0; font-size: 20px; }
+.check-network p { margin: 0; }
+.check-network__tests { display: grid; gap: 10px; }
+/* the status in a column of its own at the right edge, so it does not move with the length of the name */
+.check-rows { display: grid; gap: 10px; margin: 0; }
+.check-rows > li, .check-rows > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.check-rows dd { margin: 0; }
+.check-rows .badge { justify-self: end; }
+.check-rows__detail { grid-column: 1 / -1; }
 
 /* a passkey on the account page: its name and date on the left, delete on the right */
 .passkey-item { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; }
+/* pages/reverify.tsx: confirming it is the person, over the account page; .card would show it before showModal() */
+.verify-dialog { width: min(100% - 32px, 440px); max-height: calc(100% - 32px); overflow: auto; margin: auto; color: var(--text); }
+.verify-dialog:not([open]) { display: none; }
+.verify-dialog::backdrop { background: rgb(0 0 0 / .45); }
 .passkey-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
 /* the passkey icon in a round tinted badge, beside each passkey's name */
 .passkey-badge { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--tint); color: var(--ink); font-size: 20px; }
@@ -396,6 +481,23 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .login-form { margin-top: 20px; }
 .passkey-login { margin: 16px 0 24px; }
 /* the answer of the blocklist lookup on the DNS page: yellow when a list blocks the site */
+/* the DNS filter page: the two tools and the three options side by side where there is room */
+.dns-tools, .dns-options { display: grid; gap: 16px; }
+.dns-options .card h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.dns-cols, .dns-col { display: contents; }
+.dns-col > h2 { margin: 24px 0 0; }
+@media (min-width: 641px) {
+  .dns-page { max-width: 800px; }
+}
+@media (min-width: 960px) {
+  .dns-page { max-width: 1120px; }
+  .dns-page > .lead { max-width: 760px; }
+  .dns-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dns-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dns-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; }
+  .dns-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .dns-col > h2:first-child { margin-top: 0; }
+}
 .lookup-answer { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--tint); }
 
 .card--dashed { border-style: dashed; box-shadow: none; text-align: center; }
@@ -417,10 +519,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .nb-input {
   box-sizing: border-box; width: 100%; min-height: 56px; padding: 0 16px; border: var(--border); border-radius: var(--radius);
   font: inherit; font-size: 18px; font-weight: 600; color: var(--ink); background: var(--paper);
-  transition: background .08s ease, box-shadow .08s ease;
+  transition: background .08s ease;
 }
 .nb-input::placeholder { color: var(--placeholder); font-weight: 400; }
-.nb-input:focus { outline: none; background: var(--tint); box-shadow: 0 0 0 3px var(--accent); }
+/* the same ring as every other control (:focus-visible above), at 3:1 or more against the page; a faint halo was not */
+.nb-input:focus { background: var(--tint); }
 /* invite codes and account numbers: big, monospaced, the groups of four easy to read back */
 .nb-input--code { min-height: 68px; font-family: var(--mono); font-size: clamp(19px, 5.4vw, 26px); font-weight: 600; letter-spacing: 0.06em; text-align: center; }
 .nb-input--code::placeholder { font-weight: 500; letter-spacing: 0.06em; }
@@ -473,16 +576,20 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @keyframes added-out { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .added { animation-name: added-fade-in, added-out; } }
 @keyframes added-fade-in { from { opacity: 0; } }
-.usage-as-of { display: inline-flex; align-items: center; gap: 6px; }
-.next-read { display: inline-flex; flex: none; }
+.usage-as-of { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.next-read { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .next-read svg { transform: rotate(-90deg); }
 .next-read circle { fill: none; stroke-width: 3; }
 .next-read__track { stroke: var(--accent); }
 .next-read__fill { stroke: var(--accent-strong); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation-name: next-read; animation-timing-function: linear; animation-fill-mode: forwards; }
+/* a ring filling for minutes moves on its own: with less motion asked for, the track alone, the time stays in its title */
+@media (prefers-reduced-motion: reduce) { .next-read__fill { animation: none; } }
 @keyframes next-read { to { stroke-dashoffset: 0; } }
 /* the dot before a device's name, on the name's first line */
 .live-dot { display: inline-block; width: 10px; height: 10px; margin-inline-end: 10px; vertical-align: .12em; border: 2px solid var(--line); border-radius: 50%; }
 .live-dot--on { border-color: var(--accent-strong); background: var(--accent-strong); }
+/* on the spec sheet, beside the words it repeats */
+.spec .live-dot { margin-inline-end: 0; vertical-align: baseline; }
 /* two pulses when a device turns out to be in use; the filled dot then says it on its own */
 @media (prefers-reduced-motion: no-preference) { .live-dot--on { animation: live-pulse 2.4s ease-out 2; } }
 @keyframes live-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 8px transparent; } }
@@ -496,6 +603,53 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .badge--state-down { background: var(--paper); border-color: var(--caution); color: var(--warn-ink); }
 .badge--state-unknown { border-style: dashed; }
 .status-city { display: flex; align-items: center; gap: 12px; }
+/* the cities side by side and the notices in columns where there is room; one column on phones */
+.status-regions, .status-notices { display: grid; gap: 12px; }
+.status-regions .row { flex-wrap: wrap; gap: 8px; }
+.status-reach { display: grid; gap: 12px; }
+.status-reach .card { display: grid; gap: 6px; align-content: start; }
+.status-reach p { margin: 0; }
+.status-reach__group { margin: 0; font-size: 16px; }
+.status-reach-how p { margin: 8px 0 0; }
+.status-reach-how summary { width: fit-content; min-height: 24px; cursor: pointer; }
+.reach-defs { position: absolute; }
+.reach-cell--ok { fill: var(--reach-ok); }
+.reach-cell--blocked { fill: var(--reach-blocked); }
+.reach-cell--challenge { stroke: var(--reach-blocked); stroke-width: 1; }
+.reach-cell--none { fill: none; stroke: var(--muted); stroke-width: 1; }
+.reach-hatch__base { fill: var(--paper); }
+.reach-hatch__line { fill: var(--reach-blocked); }
+.reach-legend { display: grid; gap: 4px; }
+.reach-legend > ul.plain { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; }
+.reach-legend li { display: flex; align-items: center; gap: 6px; }
+.reach-legend p { margin: 0; }
+.reach-site { display: grid; gap: 4px; }
+.reach-site + .reach-site { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.reach-site__name { margin: 0; font-size: inherit; font-weight: 700; color: var(--text); }
+.reach-rows { display: grid; gap: 6px; }
+/* a phone: the node and its state on a line, the strip under them across the card */
+.reach-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "node now" "strip strip"; gap: 2px 8px; align-items: center; }
+.reach-row__node { grid-area: node; }
+.reach-row__now { grid-area: now; text-align: end; }
+.reach-strip { grid-area: strip; width: 100%; height: 16px; display: block; }
+@media (min-width: 641px) {
+  .reach-row { grid-template-columns: 7em minmax(0, 1fr) 7.5em; grid-template-areas: "node strip now"; }
+}
+/* on the check page, the sites a node cannot open start a line of their own under the node's state */
+.check-reach { display: block; margin-top: 4px; }
+@media (min-width: 641px) {
+  .status-page { max-width: 800px; }
+  .status-regions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  /* columns, not a grid: one region's card can be much longer than the next, and a grid row would leave a gap beside it */
+  .status-reach { display: block; columns: 2; column-gap: 12px; }
+  .status-reach > li { break-inside: avoid; margin-bottom: 12px; }
+  .status-notices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 960px) {
+  .status-page { max-width: 1120px; }
+  .status-page > .lead { max-width: 760px; }
+  .status-notices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 /* home page, 社群架設的原因: the region as a tabletop seen from above at a slant, beside the text on a wide screen */
 .region-map { display: none; }
 @media (min-width: 960px) {
@@ -508,11 +662,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .region-map__home .region-map__south { fill: var(--ink); }
 .region-map__home .region-map__east { fill: var(--solid-side); }
 .region-map__home polygon { stroke: var(--seam); stroke-width: 1; stroke-linejoin: round; }
-.region-map__node polygon { stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
-.region-map__node .region-map__top { fill: var(--face-lit); }
-.region-map__node .region-map__south { fill: var(--face-front); }
-.region-map__node .region-map__east { fill: var(--face-side); }
-.region-map__slot { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.region-map__tower { fill: var(--face-lit); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.region-map__band { fill: var(--ink); }
+.region-map__rock { fill: var(--face-side); stroke: var(--ink); stroke-width: 2.4; }
+.region-map__lantern { fill: var(--caution); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.region-map__roof { fill: var(--ink); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.region-map__beam { fill: var(--caution); opacity: .28; }
 .region-map__line { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 3 11; }
 @media (prefers-reduced-motion: no-preference) {
   .region-map--live .region-map__line { animation: region-map-flow 1.2s linear 4; }
@@ -531,7 +686,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .todo__title { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 18px; line-height: 1.4; }
 .todo__title::before { content: counter(todo, decimal-leading-zero); flex: none; display: grid; place-items: center; width: 30px; height: 30px;
   border: var(--border); border-radius: var(--radius); background: var(--paper); color: var(--ink); font: 600 13px/1 var(--mono); }
-.todo__more summary { width: fit-content; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.todo__more summary { width: fit-content; min-height: 24px; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
 .todo__more p { margin: 6px 0 0; }
 /* the other ways inside a step (the QR code, the text) read as links under it, not as buttons */
 .todo__links { display: flex; flex-direction: column; align-items: flex-start; }
@@ -556,8 +711,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .layers--small > span { width: 7px; height: 12px; border-width: 1px; }
 /* the status badge stays on the right of the device's name, however long the name */
 .device-head { flex-wrap: nowrap; align-items: flex-start; }
-.device-head__name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.device-head__name { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 20px; color: inherit; overflow-wrap: anywhere; }
 .device-head > .badge { flex: none; }
+/* waiting for the inspection to be confirmed on the device, under the spec sheet: the sentence, and the link on a line
+   of its own */
+.device-inspect { gap: 4px; align-items: flex-start; margin: 0; padding: 10px 14px 10px 24px; }
+.device-inspect > span { text-wrap: pretty; }
 /* a device as a spec sheet: the name of each fact on the left, a hairline between the lines */
 .spec { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; border-top: 1px solid var(--line); }
 .spec > dt, .spec > dd { margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); }
@@ -565,7 +724,20 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .spec > dd { color: var(--text); }
 .spec__with-icon { display: flex; align-items: center; gap: 8px; }
 .spec__figure { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.device-foot { justify-content: flex-end; }
+.device-foot { justify-content: flex-end; flex-wrap: nowrap; align-items: baseline; }
+.device-foot > a { margin-inline-end: auto; }
+.device-foot > :not(a) { flex: none; }
+/* the inspection's state in the card's corner: a mark, then the state and its date as one sentence, one link. The mark
+   is not text, so the underline is under the words alone; where the line is too narrow they wrap as any text does */
+.foot-inspect { display: inline-flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.foot-inspect__words { min-width: 0; text-wrap: pretty; }
+/* drawn, not read: the words say the state. A filled dot while it runs, a ring while it waits for the device, half
+   filled while it is wrapped up, a square for the report; the shapes differ in both schemes, not only the colour */
+.inspect-mark { flex: none; width: 10px; height: 10px; margin-top: calc((1lh - 10px) / 2); border: 2px solid currentColor; border-radius: 50%; }
+.inspect-mark--active { background: currentColor; box-shadow: 0 0 0 3px var(--accent); }
+.inspect-mark--confirming { border-color: var(--caution); }
+.inspect-mark--ending { background: linear-gradient(90deg, currentColor 50%, transparent 50%); }
+.inspect-mark--ended { border-radius: 1px; }
 /* Centre the icons on the letters rather than on the line box. Fonts leave different space above and below their
    glyphs: a fixed offset that lined the icons up with Noto Sans put them 1.5 px too high with PingFang on iPhone.
    Trimming the text to its cap height and baseline makes the box hug the letters in any font. */
@@ -625,6 +797,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .faq-art__swatch--node { background: var(--fig-node); }
 .faq-art__swatch--account { background: var(--fig-account); }
 .faq-page { max-width: 760px; padding-block: 32px 56px; }
+/* room for the cross-section beside the questions, as on the home page */
+@media (min-width: 1100px) { .faq-page { max-width: 1120px; } }
 .faq-page h2 { margin: 40px 0 16px; font-size: 24px; }
 
 /* on phones the header keeps only the wordmark and the button; the anchors repeat what the home page shows */
@@ -640,15 +814,30 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 }
 /* on phones each row of a legal table becomes a card, with the column name above each value */
 @media (max-width: 640px) {
-  .legal thead { display: none; }
+  /* screen readers still get the column names, which display: none would take away */
+  .legal thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .legal table, .legal tbody, .legal tr, .legal td { display: block; }
   .legal tr { margin-bottom: 12px; padding-block: 6px; border: 1px solid var(--ink); border-radius: var(--radius); }
   .legal td { padding: 6px 14px; border: 0; }
   .legal td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
+  /* screen readers still get the column names, which display: none would take away */
+  .lists-page .legal thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 /* phones narrower than this cannot fit the wordmark, the languages and the sign-in button on one row; the footer still lists the languages */
 @media (max-width: 420px) {
   .site-nav:has(> .nb-button) .site-header__langs { display: none; }
+  /* a phone with a larger display size or font (a Pixel set above default is about 360 px wide) still keeps the button's
+     label on one line: tighter padding and gaps instead of a two-line button */
+  .site-header__inner { gap: 12px; }
+  .site-header .nb-button { padding-inline: 12px; }
+}
+/* narrower still (320 px), with room to spare for a wider fallback font than a phone's: "My devices" is the longest label */
+@media (max-width: 370px) {
+  .site-header__inner { gap: 10px; padding-inline: 16px; }
+  .site-header .nb-button { padding-inline: 10px; }
+  .brand { gap: 6px; }
+  .brand__logo { height: 18px; }
+  .brand__product { padding-inline-start: 6px; font-size: 15px; letter-spacing: .06em; }
 }
 @media (prefers-reduced-motion: reduce) { .nb-button, .nb-input { transition: none; } }
 
@@ -681,11 +870,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* a still ring reads as the letter C; the words alone say it is working */
 @media (prefers-reduced-motion: reduce) { .spin { display: none; } }
 [aria-busy="true"] { cursor: progress; }
-.nb-button[aria-busy="true"]:disabled { border-style: solid; border-color: var(--ink); background: var(--paper); color: var(--ink); }
-.nb-button--primary[aria-busy="true"]:disabled { background: var(--ink); color: var(--paper); }
-.nb-button--ink[aria-busy="true"]:disabled { background: var(--ink); color: var(--paper); }
-.nb-button--danger[aria-busy="true"]:disabled { background: var(--danger); color: var(--paper); }
-.link-button[aria-busy="true"]:disabled { color: var(--muted); }
+.nb-button[aria-busy="true"] { border-style: solid; border-color: var(--ink); background: var(--paper); color: var(--ink); }
+.nb-button--primary[aria-busy="true"] { background: var(--ink); color: var(--paper); }
+.nb-button--ink[aria-busy="true"] { background: var(--ink); color: var(--paper); }
+.nb-button--danger[aria-busy="true"] { background: var(--danger); color: var(--paper); }
+.link-button[aria-busy="true"] { color: var(--muted); }
+.nb-button[aria-busy="true"]:active { transform: none; }
 @media print {
   body * { visibility: hidden; }
   .printable, .printable * { visibility: visible; }
@@ -710,6 +900,89 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .invite-made .number { font-size: clamp(20px, 6vw, 26px); }
 .invite-link { color: var(--muted); overflow-wrap: anywhere; }
 .invite-tools { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+/* the page on the DNS lists (pages/dns-lists.tsx): the table of lists needs room, so the page widens with the screen.
+   From 960 px the rest is two columns; below that the columns' frames vanish and the sections stack */
+.lists-cols, .lists-col { display: contents; }
+.lists-groups { display: grid; gap: 24px 16px; }
+/* a dimension line over each group, like the drawings on the home page */
+.lists-group__title { margin: 0 0 12px; padding-top: 8px; border-top: 2px solid var(--ink); font-size: 14px; font-weight: 700; color: var(--text); }
+.lists-cards { display: grid; gap: 12px; }
+.lists-card { display: flex; flex-direction: column; gap: 8px; height: 100%; box-sizing: border-box; }
+.lists-card p { margin: 0; }
+.lists-card .lists-card__name { font-size: 17px; font-weight: 700; color: var(--ink); }
+.lists-card .lists-card__count { display: flex; align-items: baseline; gap: 6px; margin-top: auto; padding-top: 8px; }
+.lists-card__number { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lists-card__number .sk { width: 5em; height: 24px; }
+.lists-choices { display: grid; gap: 12px; }
+.lists-choice__name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 17px; }
+.lists-steps { margin: 0; padding-inline-start: 1.4em; display: flex; flex-direction: column; gap: 10px; }
+.lists-col .faq { max-width: none; }
+.lists-more { margin-top: 16px; border-top: 2px solid var(--ink); }
+.lists-more > summary { width: fit-content; min-height: 24px; padding-block: 16px 8px; color: var(--ink); font-size: 20px; font-weight: 700; cursor: pointer; }
+.lists-compare-wrap { margin-top: 4px; }
+.lists-compare { width: 100%; border-collapse: collapse; font-size: 15px; }
+.lists-compare th, .lists-compare td { padding: 12px; text-align: end; vertical-align: top; border-bottom: 1px solid var(--line); }
+.lists-compare thead th { font-size: 14px; color: var(--text); border-bottom: 2px solid var(--ink); }
+.lists-compare th:first-child { text-align: start; }
+.lists-compare tbody th { font-weight: 700; color: var(--text); }
+.lists-compare td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lists-compare__vessel { background: var(--tint); font-weight: 700; }
+@media (max-width: 640px) {
+  /* on phones each row becomes a block, with the column name beside each value; the column names stay for screen readers */
+  .lists-compare thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .lists-compare, .lists-compare tbody, .lists-compare tr { display: block; }
+  .lists-compare tr { margin-bottom: 12px; border: 1px solid var(--ink); border-radius: var(--radius); }
+  .lists-compare tbody th { display: block; padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: start; }
+  .lists-compare td { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border: 0; white-space: normal; }
+  .lists-compare td::before { content: attr(data-label); font-weight: 400; color: var(--text); text-align: start; }
+}
+.lists-panels { display: grid; gap: 24px; }
+@media (min-width: 960px) {
+  .lists-prose { max-width: 760px; }
+  .lists-panels { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+}
+.lists-more > h2 { margin: 16px 0 8px; }
+.lists-more > .lists-prose, .lists-more > .lists-chart__legend { margin-block: 12px; }
+.lists-chart { margin: 8px 0; }
+.lists-chart__title { font-weight: 700; color: var(--text); }
+.lists-page .lists-chart__legend { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 14px; color: var(--muted); }
+.lists-chart__legend li { display: flex; align-items: center; gap: 6px; }
+.lists-key { display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 2px; }
+.lists-key--first { background: var(--chart-first); }
+.lists-chart__bars { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.lists-bar__head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; font-size: 14px; color: var(--text); }
+.lists-bar__head > span:first-child { min-width: 0; }
+.lists-bar__value { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 4em; text-align: end; }
+.lists-bar__value .sk { margin-inline-start: auto; width: 4em; }
+.lists-bar__plot { display: block; }
+.lists-bar__first { fill: var(--chart-first); }
+.lists-hatch__base { fill: var(--chart-rest); }
+.lists-hatch__line { fill: var(--page); }
+.lists-hatch-defs { position: absolute; }
+.lists-bar__gap { fill: var(--page); }
+.lists-col > h2 { margin: 24px 0 0; }
+.lists-page .legal { margin-top: 0; }
+/* long host names in the table of excluded domains break anywhere instead of running off a phone */
+.lists-page td code { overflow-wrap: anywhere; }
+@media (min-width: 641px) {
+  .lists-page { max-width: 800px; }
+  .lists-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lists-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 960px) {
+  .lists-page { max-width: 1120px; }
+  .lists-page > .lead { max-width: 760px; }
+  /* the two groups share their rows, so a title on two lines does not push one group's cards lower */
+  .lists-groups { grid-template-columns: minmax(0, 5fr) minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .lists-group { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
+  .lists-group--both .lists-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .lists-group--ads .lists-cards { grid-template-columns: minmax(0, 1fr); }
+  /* five cards to a row leave no room beside a six-digit number: the unit goes under it, on every card so the numbers line up */
+  .lists-card .lists-card__count { flex-direction: column; align-items: flex-start; gap: 0; }
+  .lists-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; margin-top: 16px; }
+  .lists-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .lists-col > h2:first-child { margin-top: 0; }
+}
 .account-section { margin-top: 16px; padding-top: 32px; border-top: 2px dashed var(--line); }
 .account-section > h2, .account-section > .card > h2 { margin-bottom: 0; }
 /* Wide screens: the account page in two columns, the monthly record and the invites beside the passkeys; deleting the
@@ -722,4 +995,221 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .account-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   /* as wide as a column, so its red button is not a bar across the page */
   .account-delete > .card { max-width: calc((100% - 48px) / 2); box-sizing: border-box; }
+}
+
+/* the group page (pages/group.tsx): what something is and what can be done about it, on one row */
+.group-issue, .group-device { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.group-issue > span, .group-device > span { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.group-device + .group-device { padding-top: 10px; border-top: 1px dashed var(--line); }
+.group-invite-row { flex-wrap: nowrap; }
+.group-invite-row .nb-input { flex: 1; min-width: 0; }
+.group-message { width: 100%; box-sizing: border-box; }
+.group-view__issue { margin-top: 6px; }
+/* a device's inspection on the leader's page (pages/group-inspect.tsx): its own line under the device */
+.group-device > .group-inspection { flex: 1 1 100%; }
+.group-inspection p { margin: 0; }
+.group-inspection__actions { gap: 4px 16px; flex-wrap: wrap; justify-content: flex-start; }
+.group-summary { padding: 8px 10px; border-left: 4px solid var(--line); background: var(--grey); }
+.group-summary--check { border-left-color: var(--caution); }
+.group-summary--threat { border-left-color: var(--danger); }
+
+/* The device inspection (pages/inspect.tsx). Its hours, one cobalt from light to dark; orange and red keep their
+   meaning from the rest of the site, and carry a mark so they do not depend on colour. */
+:root { --tile-0: var(--grey); --tile-1: #d6e2fb; --tile-2: #a5bcf2; --tile-3: #5f85ea; --tile-4: #2f5fd4; --tile-5: #0b3ca8;
+  /* the night hours' band: a warm grey, apart from the cobalt steps so an empty night hour does not read as a quiet one */
+  --night: #ebe6dc; }
+@media (prefers-color-scheme: dark) {
+  :root { --tile-1: #2a4478; --tile-2: #3f64ad; --tile-3: #6088da; --tile-4: #93b0ef; --tile-5: #d6e2fb; --night: #3a3550; }
+}
+.inspect-list { margin: 0; padding-inline-start: 1.3em; display: grid; gap: 6px; }
+.inspect-key { display: block; padding: 8px 10px; background: var(--grey); overflow-wrap: anywhere; user-select: all; }
+.inspect-link { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: 15px; }
+.inspect-partial { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.inspect-partial p { margin: 0; }
+.inspect-qr { max-width: 220px; padding: 8px; background: #fff; }
+.tiles { display: grid; }
+/* the night hours (1 to 6 am) on a band behind their columns: from the gap before the 1 am square to the gap after the
+   5 am one. The day's label takes 3.2em, then 24 squares with 2px between them */
+.tiles__row { --sq: calc((100% - 3.2em - 48px) / 24); display: grid; grid-template-columns: 3.2em repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center;
+  padding-block: 1.5px; font-family: var(--mono); font-size: 11px; color: var(--muted);
+  background: linear-gradient(to right, transparent calc(3.2em + 2px + var(--sq) + 1px), var(--night) 0,
+    var(--night) calc(3.2em + 2px + 6 * (var(--sq) + 2px) - 1px), transparent 0); }
+.tiles__axis { background: none; }
+/* a day without a connection: one empty box across the hours, as its bar at the top is empty */
+.tiles__off { grid-column: 2 / -1; padding-inline: 6px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper);
+  font: 11px/1.4 var(--mono); color: var(--muted); }
+.tiles__axis > span { white-space: nowrap; }
+.tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 2px; background: var(--tile-0); font: 700 10px/1 var(--mono); color: #fff; }
+.tile--1 { background: var(--tile-1); } .tile--2 { background: var(--tile-2); } .tile--3 { background: var(--tile-3); }
+.tile--4 { background: var(--tile-4); } .tile--5 { background: var(--tile-5); }
+/* the "!" is dark on the orange, which white does not stand out from (WCAG 1.4.3) */
+.tile--check { background: var(--caution); color: #000; } .tile--threat { background: #b3261e; }
+/* an hour that sent more than it received: the arrow dark on the light steps and light on the dark ones (WCAG 1.4.3) */
+.tile--up { color: #000; } .tile--up.tile--4, .tile--up.tile--5 { color: #fff; }
+@media (prefers-color-scheme: dark) { .tile--up.tile--4, .tile--up.tile--5 { color: #000; } .tile--up.tile--1, .tile--up.tile--2 { color: #fff; } }
+/* an hour without traffic at night shows the band, so the night stays one band from top to bottom */
+.tile--0.tile--night { background: transparent; }
+.tile--night-key { background: var(--night); }
+.inspect-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0; }
+.inspect-legend .tile, .inspect-legend .hit { width: 14px; height: 14px; flex: none; }
+.inspect-legend__item { display: inline-flex; align-items: center; gap: 5px; margin-inline-end: 10px; }
+
+/* what the report comes to, first: the colour of the edge and of the icon go with the word beside them (WCAG 1.4.1) */
+.inspect-verdict { border-inline-start-width: 6px; }
+.inspect-verdict p { margin: 0; }
+.inspect-verdict--threat { border-color: var(--danger); background: var(--bad-fill); }
+.inspect-verdict--check { border-color: var(--caution); }
+.inspect-verdict--clean { background: var(--tint); }
+/* cancelling, deleting: a link at the start of the line, under the "back to the devices" one, not centred in its column */
+.inspect-wide > .link-button { align-self: flex-start; text-align: start; }
+/* the device under inspection as a drawing's label: an ink frame with DEVICE written into its top edge, as NOTE is on a
+   warning, the name large, and under a hairline the node and the filter it goes through */
+.inspect-device { position: relative; margin-top: 4px; padding: 18px 18px 12px; border: var(--border); border-radius: var(--radius); background: var(--paper); }
+.inspect-device::before { content: "DEVICE" / ""; position: absolute; top: -.75em; left: 14px; padding: 0 6px; background: var(--paper);
+  color: var(--ink); font: 600 10px/1.5 var(--mono); letter-spacing: .18em; }
+.inspect-device__name { display: flex; align-items: center; min-height: 32px; margin: 0; color: var(--ink); font-size: 24px; font-weight: 700;
+  line-height: 1.3; overflow-wrap: anywhere; }
+.inspect-device__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; min-height: 26px; margin: 10px 0 0;
+  padding-top: 10px; border-top: 1px solid var(--line); }
+.inspect-device__facts > div { display: flex; align-items: center; gap: 10px; }
+.inspect-device__facts dt { color: var(--muted); }
+.inspect-device__facts dd { margin: 0; color: var(--text); }
+/* how far along a running inspection is, in the same frame, with STATUS written into its top edge */
+.inspect-status::before { content: "STATUS" / ""; }
+.inspect-status__row { justify-content: space-between; column-gap: 16px; }
+/* the link keeps its 44px target, reaching into the padding around the row, so the row is as tall as the device's */
+.inspect-status__row .link-button { margin-block: -9px; }
+/* two cards that sit side by side on a wide screen (below); one above the other, as the page's other blocks, on a phone */
+.inspect-pair { display: flex; flex-direction: column; gap: 16px; }
+.inspect-verdict__main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.inspect-verdict__state { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 24px; line-height: 1.3; color: var(--text); }
+.inspect-verdict__state .icon { flex: none; }
+.inspect-verdict--threat .inspect-verdict__state .icon { color: var(--danger); }
+.inspect-verdict--check .inspect-verdict__state .icon { color: var(--caution); }
+.inspect-verdict--clean .inspect-verdict__state .icon { color: var(--ink); }
+/* the days of the inspection: a bar a day, filled to the hours it had traffic, dashed for the days still to come */
+.inspect-cover { display: grid; gap: 8px; margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+.cover { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; max-width: 420px; }
+.cover__day { display: grid; gap: 2px; justify-items: stretch; text-align: center; }
+.cover__meter { display: flex; align-items: flex-end; height: 36px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
+.cover__fill { display: block; width: 100%; background: var(--tile-4); }
+.cover__day--future .cover__meter { border-style: dashed; border-color: var(--placeholder); background: transparent; }
+.cover__day--today .cover__meter { outline: 2px solid var(--ink); outline-offset: 1px; }
+.cover__label { font: 11px/1.4 var(--mono); color: var(--muted); white-space: nowrap; }
+.cover__day--today .cover__label { font-weight: 700; color: var(--text); }
+/* the day under a bar or a column of squares: its number on a phone, the full date on a wide screen */
+.day-full { display: none; }
+/* when each site was seen: a square a day, darker for more hours in it; dashed where the device was not connected */
+.inspect-kind { gap: 6px; }
+.inspect-kind__name { font-size: 17px; }
+.hits { display: grid; gap: 6px; margin-top: 4px; }
+.hits__rows { display: grid; gap: 12px; }
+.hits__more > summary { width: fit-content; min-height: 24px; cursor: pointer; }
+.hits__more > ul { margin-top: 10px; }
+.hits__grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; width: min(100%, 248px); }
+.hits__day { font: 11px/1 var(--mono); color: var(--muted); text-align: center; }
+.hit-row { display: grid; gap: 4px; }
+.hit-row__name { overflow-wrap: anywhere; font-size: 14px; }
+/* the other lists a site is on, a line of its own under when it was seen */
+.hit-row__lists { display: block; margin-top: 2px; }
+.hit { display: block; height: 16px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
+.hit--off { border-style: dashed; border-color: var(--placeholder); background: transparent; }
+.hit--0 { background: var(--tile-0); }
+.hit--1 { background: var(--tile-3); border-color: var(--tile-3); }
+.hit--2 { background: var(--tile-4); border-color: var(--tile-4); }
+.hit--3 { background: var(--tile-5); border-color: var(--tile-5); }
+@media (min-width: 641px) {
+  .hit-row { grid-template-columns: minmax(0, 1fr) 248px; column-gap: 16px; align-items: center; }
+  .hit-row__cells { grid-column: 2; grid-row: 1; }
+  .hit-row__words { grid-column: 1 / -1; }
+}
+/* A wide screen (toomore/anoni-net-ws#480): the page takes the width, in every state, so its heading does not move when the
+   status does. Blocks that read best at the narrow width keep it, left-aligned: anything in the page or in a container
+   marked .inspect-wide that is not itself wide. The two cards of the consent page and of the confirmation sit side by side.
+   The report reads in rows, in the order of the page (and of the keyboard and screen readers): what it comes to across
+   the top with the days beside it, the sites the full width, then the hours beside the checks. */
+@media (min-width: 960px) {
+  .inspect-page { max-width: 1120px; }
+  .inspect-page > :not(nav, h1, .inspect-wide), .inspect-wide:not(.inspect-pair, .inspect-report) > :not(.inspect-wide, .inspect-report) { max-width: 520px; }
+  .inspect-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+  /* the key beside the link is a short card: as tall as it is, not as the one with the QR code */
+  .inspect-pair--top { align-items: start; }
+  .inspect-report { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .inspect-report > * { grid-column: 1 / -1; }
+  .inspect-report > .inspect-hours { grid-column: 1; }
+  .inspect-report > .inspect-checkcard { grid-column: 2; }
+  .inspect-report > p { max-width: 720px; }
+  .inspect-verdict { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px 40px; align-items: start; }
+  .inspect-verdict .inspect-cover { margin-top: 0; padding-top: 0; padding-inline-start: 40px; border-top: 0; border-inline-start: 1px solid var(--line);
+    margin-inline-start: -40px; }
+  .inspect-verdict__main > p, .inspect-verdict__main > ol { max-width: 640px; }
+  /* the sites: the name, the week and the words on one line */
+  .hit-row { grid-template-columns: minmax(0, 1fr) 336px minmax(0, 1.2fr); }
+  .hit-row__words { grid-column: 3; grid-row: 1; }
+  .hits__grid { width: 100%; gap: 4px; }
+  .day-short { display: none; }
+  .day-full { display: inline; }
+  .hit { height: 20px; }
+  .tile { font-size: 12px; }
+  .tiles__row { font-size: 12px; }
+}
+
+/* what was checked, a line each: the icon and the sentence say the same, the figures are folded below */
+.inspect-checks { display: grid; gap: 8px; }
+.inspect-check { display: flex; align-items: flex-start; gap: 8px; }
+.inspect-check .icon { flex: none; margin-top: calc((1lh - 1.25em) / 2); }
+.inspect-check--ok .icon { color: var(--ink); }
+.inspect-check--check .icon { color: var(--caution); }
+.inspect-check--threat .icon { color: var(--danger); }
+.inspect-finding { display: grid; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--caution); }
+.inspect-finding--threat { border-color: var(--danger); }
+.inspect-finding code { overflow-wrap: anywhere; }
+.inspect-group summary { width: fit-content; min-height: 24px; cursor: pointer; }
+.inspect-group ul, .inspect-group p { margin-top: 8px; }
+.inspect-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+.inspect-table th, .inspect-table td { padding: 3px 6px 3px 0; text-align: start; border-bottom: 1px solid var(--line); }
+/* the sites' table: a long name breaks anywhere, the days and times stay whole, so on a phone the name column is the one
+   that gives, not the headings */
+.inspect-table thead th { vertical-align: bottom; }
+.inspect-table td { vertical-align: top; }
+.inspect-table__site { overflow-wrap: anywhere; }
+.inspect-table__site, .inspect-table__when:not(:last-child) { padding-inline-end: 14px; }
+.inspect-table__when { white-space: nowrap; }
+.inspect-table__when > span { display: block; }
+.spec--figures { grid-template-columns: minmax(0, 1fr) max-content; }
+/* the consent page while it loads (pages/inspect.tsx): each block as tall as the one it stands for */
+.sk-lead { display: flex; align-items: center; height: 34px; }
+.sk-intro { min-height: 109px; }
+.sk-card--collect { min-height: 525px; }
+.sk-card--handling { min-height: 536px; }
+:lang(en) .sk-intro { min-height: 218px; }
+:lang(en) .sk-card--collect { min-height: 756px; }
+:lang(en) .sk-card--handling { min-height: 798px; }
+@media (min-width: 641px) {
+  .sk-intro { min-height: 82px; }
+  .sk-card--collect { min-height: 433px; }
+  .sk-card--handling { min-height: 478px; }
+  :lang(en) .sk-intro { min-height: 163px; }
+  :lang(en) .sk-card--collect { min-height: 593px; }
+  :lang(en) .sk-card--handling { min-height: 573px; }
+}
+
+/* What a site in an inspection report is (site-notes.ts): a short line, the category's sentence once under its kind. */
+.site-note { display: block; }
+.site-note a { overflow-wrap: anywhere; }
+.site-note-categories { margin-top: 4px; }
+.site-note-categories > ul { display: grid; gap: 4px; margin-top: 4px; }
+/* on a row of its own under the site's row in the table, in the page's own letters like the rest of the words */
+.inspect-table tr:has(+ .inspect-table__noterow) > td { border-bottom: 0; padding-bottom: 0; }
+.inspect-table__note { padding-bottom: 4px; font-family: var(--font); }
+/* the same notes in full on the lists page */
+.lists-notes > h3 { margin: 8px 0 0; }
+.lists-notes__categories { display: grid; gap: 12px; margin: 0; }
+.lists-notes__categories dt { font-weight: 700; }
+.lists-notes__categories dd { margin: 2px 0 0; }
+@media (min-width: 641px) {
+  .lists-notes__categories { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+}
+@media (min-width: 960px) {
+  .lists-notes__categories { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

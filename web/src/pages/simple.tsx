@@ -33,13 +33,23 @@ export function Legal({ doc, titleKey }: { doc: "terms" | "privacy"; titleKey: M
     });
   }, [doc, locale]);
   return (
-    <section class="wrap narrow legal">
+    <section class="wrap narrow legal legal-page">
       <h1>{t[titleKey]}</h1>
       <p class="card card--warn card--flat small">{t["legal.draft"]}</p>
       {content ? (
         <>
           <p class="muted small">{fmt(t["legal.updated"], { date: content.updated })}</p>
-          {content.blocks.map((b) => <LegalBlock block={b} />)}
+          <div class="legal-layout">
+            <nav class="legal-toc" aria-label={t["legal.toc"]} data-testid="legal-toc">
+              <p class="legal-toc__title">{t["legal.toc"]}</p>
+              <ul class="plain">
+                {content.blocks.map((b, i) => "h" in b && <li><a href={`#${b.id ?? `section-${i}`}`}>{b.h}</a></li>)}
+              </ul>
+            </nav>
+            <div class="legal-body">
+              {content.blocks.map((b, i) => <LegalBlock block={b} index={i} />)}
+            </div>
+          </div>
         </>
       ) : (
         <div class="stack" aria-busy="true">
@@ -60,15 +70,16 @@ export function Legal({ doc, titleKey }: { doc: "terms" | "privacy"; titleKey: M
   );
 }
 
-function LegalBlock({ block }: { block: Block }) {
-  if ("h" in block) return <h2>{block.h}</h2>;
+function LegalBlock({ block, index }: { block: Block; index: number }) {
+  if ("h" in block) return <h2 id={block.id ?? `section-${index}`}>{block.h}</h2>;
   if ("p" in block) return <p><Inline text={block.p} /></p>;
   if ("ul" in block) return <ul>{block.ul.map((li) => <li><Inline text={li} /></li>)}</ul>;
   return (
     <div class="table-wrap">
-      <table>
-        <thead><tr>{block.table.head.map((h) => <th scope="col">{h}</th>)}</tr></thead>
-        <tbody>{block.table.rows.map((r) => <tr>{r.map((c, i) => <td data-label={block.table.head[i]}><Inline text={c} /></td>)}</tr>)}</tbody>
+      {/* explicit roles: on phones the CSS makes the rows blocks, and browsers then drop the table's semantics */}
+      <table role="table">
+        <thead role="rowgroup"><tr role="row">{block.table.head.map((h) => <th role="columnheader" scope="col">{h}</th>)}</tr></thead>
+        <tbody role="rowgroup">{block.table.rows.map((r) => <tr role="row">{r.map((c, i) => <td role="cell" data-label={block.table.head[i]}><Inline text={c} /></td>)}</tr>)}</tbody>
       </table>
     </div>
   );

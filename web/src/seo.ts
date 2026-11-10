@@ -7,17 +7,20 @@ import { IS_ONION } from "./site.ts";
 export const SITE = "https://vessel.anoni.net";
 
 // pages worth finding; the rest need a session and are marked noindex
-export const PUBLIC_PAGES = ["/", "/learn/", "/faq/", "/dns/", "/check/", "/feedback/", "/status/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
-export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/account/"] as const;
+export const PUBLIC_PAGES = ["/", "/learn/", "/faq/", "/dns/", "/dns/lists/", "/check/", "/feedback/", "/status/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
+export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/devices/inspect/", "/account/", "/group/"] as const;
 
 const TITLES: Record<string, MessageKey> = {
   "/redeem/": "redeem.title",
   "/login/": "login.title",
   "/devices/": "devices.title",
   "/devices/new/": "new.title",
+  "/devices/inspect/": "inspect.title",
   "/account/": "account.title",
+  "/group/": "group.title",
   "/faq/": "faq.title",
   "/dns/": "dns.title",
+  "/dns/lists/": "lists.title",
   "/check/": "check.title",
   "/learn/": "learn.title",
   "/feedback/": "feedback.title",
@@ -29,6 +32,7 @@ const TITLES: Record<string, MessageKey> = {
 const DESCRIPTIONS: Record<string, MessageKey> = {
   "/faq/": "meta.faq",
   "/dns/": "meta.dns",
+  "/dns/lists/": "meta.lists",
   "/check/": "meta.check",
   "/learn/": "meta.learn",
   "/feedback/": "meta.feedback",
@@ -40,11 +44,11 @@ const DESCRIPTIONS: Record<string, MessageKey> = {
 };
 
 // 1200 × 630, one for every page of a language: the home page's blocks and FIG. 01 in a drawing's frame, rendered
-// from the built site so they match it; hosted on assets.anoni.net, not in the repo
+// from the built site by scripts/og-cards.mjs, so they match it; hosted on assets.anoni.net, not in the repo
 const OG_IMAGE: Record<Locale, string> = {
-  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-655d7733.png",
-  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-7ef5e5a8.png",
-  en: "https://assets.anoni.net/vessel/og-en-9fd2abd3.png",
+  "zh-TW": "https://assets.anoni.net/vessel/og-zh-tw-d6c00920.png",
+  "zh-CN": "https://assets.anoni.net/vessel/og-zh-cn-bdeedae3.png",
+  en: "https://assets.anoni.net/vessel/og-en-c04f9fa6.png",
 };
 
 const OG_LOCALE: Record<Locale, string> = { "zh-TW": "zh_TW", "zh-CN": "zh_CN", en: "en_US" };

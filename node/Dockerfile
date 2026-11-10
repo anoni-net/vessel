@@ -6,7 +6,7 @@
 FROM amneziavpn/amneziawg-go:3.1.20260828 AS awg
 
 FROM alpine:3.24
-RUN apk add --no-cache bash iproute2 iptables unbound ca-certificates \
+RUN apk add --no-cache bash iproute2 iptables conntrack-tools unbound ca-certificates \
  && mkdir -p /var/lib/unbound && chown unbound:unbound /var/lib/unbound
 COPY --from=awg /usr/bin/amneziawg-go /usr/bin/awg /usr/bin/awg-quick /usr/bin/
 COPY start.sh /start.sh

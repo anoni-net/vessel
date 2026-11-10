@@ -102,7 +102,7 @@ test("redeeming and creating a device send each step and its result", async () =
   await page.getByRole("link", { name: "新增裝置" }).first().click();
   await page.getByRole("button", { name: "已經安裝，下一步" }).click();
   await page.getByRole("button", { name: /新加坡/ }).click();
-  await page.getByLabel("裝置名稱").fill("我的手機");
+  await page.getByLabel("替裝置取個名稱").fill("我的手機");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await page.getByRole("button", { name: "下載設定檔" }).click();

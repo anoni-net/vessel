@@ -1,0 +1,145 @@
+#!/bin/bash
+# A Vessel entry (relay): forwards UDP from a port on this host to a Vessel node, as is. It does not open the tunnel,
+# which stays end to end between the device and the node: this host sees who connects and how much, never where to or
+# what. Nothing is logged. Everything lives in its own nftables table (inet vessel_relay), so the host's other rules
+# are left alone and `remove` takes it all away. See README.md.
+#
+#   vessel-relay install    write the table from the config, turn on forwarding, apply it now and at every boot
+#   vessel-relay apply      apply the config again after editing it
+#   vessel-relay status     flows, packets and bytes per route, and how many flows are open; no addresses
+#   vessel-relay remove     delete the table, the boot unit and the sysctl file; the config file stays
+#
+# Config (VESSEL_RELAY_CONF, default /etc/vessel-relay.conf), a route a line:
+#   <port on this host>  <node address>:<node port>
+set -euo pipefail
+# a bad config caught inside $(...) must stop the script, not apply half a table
+shopt -s inherit_errexit
+
+CONF=${VESSEL_RELAY_CONF:-/etc/vessel-relay.conf}
+TABLE=vessel_relay
+UNIT=/etc/systemd/system/vessel-relay.service
+SYSCTL=/etc/sysctl.d/99-vessel-relay.conf
+SELF=/usr/local/sbin/vessel-relay
+
+die() { echo "vessel-relay: $*" >&2; exit 1; }
+
+# the routes in the config, checked: "port address port" a line
+routes() {
+  [ -r "$CONF" ] || die "no config at $CONF (a line per route: <port> <node address>:<node port>)"
+  local n=0 seen=" "
+  while read -r port target rest; do
+    [ -z "${port:-}" ] || [ "${port:0:1}" = "#" ] && continue
+    [ -z "${rest:-}" ] || die "$CONF: more than two fields: $port $target $rest"
+    local addr=${target%:*} dport=${target##*:}
+    [[ $port =~ ^[0-9]+$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || die "$CONF: not a port: $port"
+    [[ $dport =~ ^[0-9]+$ ]] && [ "$dport" -ge 1 ] && [ "$dport" -le 65535 ] || die "$CONF: not a port: $target"
+    [[ $addr =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || die "$CONF: not an IPv4 address: $target (the nodes have IPv4 only)"
+    [[ $seen == *" $port "* ]] && die "$CONF: port $port is used twice"
+    seen+="$port "
+    echo "$port $addr $dport"
+    n=$((n + 1))
+  done < "$CONF"
+  [ "$n" -gt 0 ] || die "$CONF has no route"
+}
+
+# The table, from the routes. A device's packet to <port> goes to the node; the node's answers come back through the
+# same flow (conntrack). masquerade puts this host's address on what goes to the node, so the node answers here and
+# never learns the device's address. Each route counts its packets; there is no log rule.
+table() {
+  local lines
+  lines=$(routes)
+  echo "table inet $TABLE {"
+  echo "  chain prerouting {"
+  echo "    type nat hook prerouting priority dstnat; policy accept;"
+  while read -r port addr dport; do
+    echo "    udp dport $port counter dnat ip to $addr:$dport comment \"route $port\""
+  done <<< "$lines"
+  echo "  }"
+  echo "  chain postrouting {"
+  echo "    type nat hook postrouting priority srcnat; policy accept;"
+  echo "    ct status dnat ct original proto-dst { $(cut -d' ' -f1 <<< "$lines" | paste -sd, | sed 's/,/, /g') } counter masquerade"
+  echo "  }"
+  # every packet of a route, both ways, counted here: the nat chains above see only the first packet of a flow
+  echo "  chain forward {"
+  echo "    type filter hook forward priority filter; policy accept;"
+  while read -r port _ _; do
+    echo "    ct status dnat ct original proto-dst $port counter accept comment \"route $port\""
+  done <<< "$lines"
+  echo "  }"
+  echo "}"
+}
+
+apply() {
+  local rules
+  rules=$(table)
+  # replace the table in one go: delete it if it is there, then add it, in a single transaction
+  { nft list table inet "$TABLE" >/dev/null 2>&1 && echo "delete table inet $TABLE"; echo "$rules"; } | nft -f -
+  echo "vessel-relay: $(routes | wc -l) route(s) applied"
+}
+
+need_root() { [ "$(id -u)" -eq 0 ] || die "run as root"; }
+need_nft() { command -v nft >/dev/null || die "nftables (nft) is not installed"; }
+
+case "${1:-}" in
+  install)
+    need_root; need_nft
+    routes >/dev/null
+    echo "net.ipv4.ip_forward = 1" > "$SYSCTL"
+    sysctl -q -p "$SYSCTL"
+    [ "$(readlink -f "$0")" = "$SELF" ] || install -m 755 "$0" "$SELF"
+    cat > "$UNIT" <<UNIT
+[Unit]
+Description=Vessel entry: forward UDP to Vessel nodes (vessel-relay)
+After=network-online.target nftables.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=VESSEL_RELAY_CONF=$CONF
+ExecStart=$SELF apply
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl daemon-reload
+    systemctl enable --now vessel-relay.service >/dev/null
+    systemctl restart vessel-relay.service
+    "$SELF" status
+    ;;
+  apply)
+    need_root; need_nft
+    [ "$(sysctl -n net.ipv4.ip_forward)" = 1 ] || echo "vessel-relay: net.ipv4.ip_forward is off; run install, or turn it on" >&2
+    apply
+    ;;
+  status)
+    need_root; need_nft
+    nft list table inet "$TABLE" >/dev/null 2>&1 || die "not applied (run install)"
+    # the counters only: the table holds no addresses but the nodes', and those are not printed either
+    nft list chain inet "$TABLE" prerouting | sed -n 's/.*udp dport \([0-9]*\) counter packets \([0-9]*\) .*/route \1: \2 flows started/p'
+    nft list chain inet "$TABLE" forward | sed -n 's/.*proto-dst \([0-9]*\) counter packets \([0-9]*\) bytes \([0-9]*\).*/route \1: \2 packets, \3 bytes forwarded both ways/p'
+    if [ -r /proc/sys/net/netfilter/nf_conntrack_count ]; then
+      echo "open flows on this host (all of them, not only Vessel's): $(cat /proc/sys/net/netfilter/nf_conntrack_count)"
+    fi
+    echo "ip_forward: $(sysctl -n net.ipv4.ip_forward)"
+    ;;
+  remove)
+    need_root; need_nft
+    nft list table inet "$TABLE" >/dev/null 2>&1 && nft delete table inet "$TABLE"
+    if [ -e "$UNIT" ]; then
+      systemctl disable --now vessel-relay.service >/dev/null 2>&1 || true
+      rm -f "$UNIT"; systemctl daemon-reload
+    fi
+    # forwarding stays on until the next boot: other services on the host may need it; the file that turns it on goes
+    rm -f "$SYSCTL"
+    echo "vessel-relay: removed (the config at $CONF is kept; net.ipv4.ip_forward is left as it is until the next boot)"
+    ;;
+  print)
+    # the table it would apply, for checking a config without touching anything
+    table
+    ;;
+  *)
+    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    exit 2
+    ;;
+esac

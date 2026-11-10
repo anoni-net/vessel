@@ -31,7 +31,18 @@ from webauthn.helpers.structs import (
 )
 
 from app import crypto, policy
-from app.auth import Account, Conn, error, keep_alive, limit, require_app_header, session_token, start_session
+from app.auth import (
+    Account,
+    Conn,
+    Recent,
+    error,
+    keep_alive,
+    limit,
+    mark_verified,
+    require_app_header,
+    session_token,
+    start_session,
+)
 from app.config import load
 
 router = APIRouter(prefix="/api")
@@ -48,6 +59,12 @@ class Credential(BaseModel):
 
 class NewPasskey(Credential):
     label: Annotated[str, Field(max_length=40)] = ""
+
+
+class Confirmation(BaseModel):
+    # one of the two: this account's number, or an answer signed by one of its passkeys
+    account_number: str | None = None
+    credential: dict[str, Any] | None = None
 
 
 def options(opts) -> dict:
@@ -128,7 +145,7 @@ def list_passkeys(account_id: Account, conn: Conn) -> list[dict]:
 
 
 @router.post("/passkeys/options", dependencies=[Depends(require_app_header)])
-def register_options(account_id: Account, conn: Conn) -> dict:
+def register_options(account_id: Recent, conn: Conn) -> dict:
     with conn.transaction():
         count = conn.execute("SELECT count(*) FROM passkeys WHERE account_id = %s", (account_id,)).fetchone()[0]
         if count >= policy.PASSKEY_LIMIT:
@@ -154,6 +171,8 @@ def register_options(account_id: Account, conn: Conn) -> dict:
 
 @router.post("/passkeys", dependencies=[Depends(require_app_header)])
 def add_passkey(body: NewPasskey, account_id: Account, conn: Conn) -> list[dict]:
+    # the register challenge, from register_options, already needed a recent confirmation; asking again here could
+    # turn down a passkey the password manager has just saved
     challenge = take_challenge(conn, body.credential, "register", account_id)
     with conn.transaction():
         try:
@@ -180,7 +199,7 @@ def add_passkey(body: NewPasskey, account_id: Account, conn: Conn) -> list[dict]
 
 
 @router.delete("/passkeys/{passkey_id}", dependencies=[Depends(require_app_header)])
-def delete_passkey(passkey_id: int, account_id: Account, conn: Conn) -> list[dict]:
+def delete_passkey(passkey_id: int, account_id: Recent, conn: Conn) -> list[dict]:
     if conn.execute(
         "DELETE FROM passkeys WHERE id = %s AND account_id = %s RETURNING id", (passkey_id, account_id)
     ).fetchone() is None:
@@ -246,3 +265,37 @@ def rotate_number(body: Credential, request: Request, account_id: Account, conn:
             (account_id, crypto.keyed_hash(settings.hmac_key, session_token(request) or "")),
         )
     return {"account_number": crypto.format_account_number(number)}
+
+
+@router.post("/account/verify/options", dependencies=[Depends(require_app_header)])
+def verify_options(account_id: Account, conn: Conn) -> dict:
+    with conn.transaction():
+        allow = descriptors(conn, account_id)
+        if not allow:
+            raise error(409, "no_passkey")
+        challenge = new_challenge(conn, "verify", account_id)
+    return options(generate_authentication_options(
+        rp_id=RP_ID, challenge=challenge, timeout=CHALLENGE_SECONDS * 1000, allow_credentials=allow,
+        user_verification=UserVerificationRequirement.PREFERRED,
+    ))
+
+
+@router.post("/account/verify", dependencies=[Depends(require_app_header), Depends(limit)])
+def verify(body: Confirmation, request: Request, account_id: Account, conn: Conn) -> dict[str, bool]:
+    """Confirm it is the person, for require_recent: one of this account's passkeys, or its number."""
+    if body.credential is not None:
+        challenge = take_challenge(conn, body.credential, "verify", account_id)
+        with conn.transaction():
+            check(conn, body.credential, challenge, account_id)
+            mark_verified(conn, request)
+        return {"ok": True}
+    number = crypto.normalize_account_number(body.account_number or "")
+    if number is None:
+        raise error(400, "invalid_number")
+    number_hash = crypto.hash_account_number(number, load().account_pepper)
+    if conn.execute(
+        "SELECT 1 FROM accounts WHERE id = %s AND number_hash = %s", (account_id, number_hash)
+    ).fetchone() is None:
+        raise error(401, "invalid_number")
+    mark_verified(conn, request)
+    return {"ok": True}

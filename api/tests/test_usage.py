@@ -60,38 +60,38 @@ def test_unknown_peers_and_down_nodes_are_skipped(signed_in, node, db):
     worker.tick(db)
 
 
-def test_quota_suspends_and_next_month_resumes(signed_in, node, db):
+def test_over_the_quota_a_device_is_slowed_down_until_next_month(signed_in, node, db):
     device_id = create(signed_in).json()["id"]
     node.counters[device_id] = (policy.MONTHLY_QUOTA_BYTES, 0)
     worker.tick(db)
-    assert device_id in node.suspended and device_id not in node.peers
-    assert signed_in.get("/api/devices").json()[0]["status"] == "suspended"
+    # still online, at a low speed
+    assert device_id in node.peers and device_id in node.throttled
+    d = signed_in.get("/api/devices").json()[0]
+    assert (d["status"], d["throttled"]) == ("active", True)
+    # no new device while over
+    assert create(signed_in, name="laptop").json() == {"error": "quota_exceeded"}
     # a new month: this month's usage starts at zero
     db.execute("UPDATE account_usage SET period = period - interval '1 month'")
     worker.tick(db)
-    assert device_id in node.peers
-    assert signed_in.get("/api/devices").json()[0]["status"] == "active"
-    # the resumed peer's counters start over and count as new traffic
-    node.counters[device_id] = (GB, 0)
-    worker.tick(db)
-    assert used(signed_in) == GB
+    assert device_id in node.peers and device_id not in node.throttled
+    assert signed_in.get("/api/devices").json()[0]["throttled"] is False
 
 
-def test_suspended_devices_can_be_deleted_and_expire(signed_in, node, db):
+def test_slowed_devices_can_be_deleted_and_expire(signed_in, node, db):
     a = create(signed_in, name="a").json()["id"]
     b = create(signed_in, name="b").json()["id"]
     node.counters[a] = (policy.MONTHLY_QUOTA_BYTES, 0)
     worker.tick(db)
-    assert {a, b} <= set(node.suspended)
+    assert {a, b} <= node.throttled
     signed_in.delete(f"/api/devices/{a}", headers=HEADERS)
-    assert a not in node.suspended
+    assert a not in node.throttled and a not in node.peers
     db.execute("UPDATE devices SET expires_on = current_date - 1")
     worker.tick(db)
-    assert node.suspended == {} and node.peers == {}
+    assert node.throttled == set() and node.peers == {}
     assert db.execute("SELECT count(*) FROM devices").fetchone()[0] == 0
 
 
-def test_resume_of_a_deleted_device_is_dropped(signed_in, node, db):
+def test_an_unthrottle_of_a_deleted_device_is_dropped(signed_in, node, db):
     device_id = create(signed_in).json()["id"]
     node.counters[device_id] = (policy.MONTHLY_QUOTA_BYTES, 0)
     worker.tick(db)
@@ -99,7 +99,69 @@ def test_resume_of_a_deleted_device_is_dropped(signed_in, node, db):
     jobs.enforce_quota(db, policy.MONTHLY_QUOTA_BYTES)
     db.execute("UPDATE devices SET status = 'revoking'")
     jobs.run_due_jobs(db)
-    assert db.execute("SELECT status FROM jobs WHERE action = 'resume'").fetchone()[0] == "done"
+    assert db.execute("SELECT status FROM jobs WHERE action = 'unthrottle'").fetchone()[0] == "done"
+
+
+def over_the_quota(db, device_id: str) -> None:
+    db.execute(
+        "INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes) "
+        "SELECT account_id, date_trunc('month', current_date), %s, 0 FROM devices WHERE id = %s",
+        (policy.MONTHLY_QUOTA_BYTES, device_id),
+    )
+
+
+def test_a_throttle_that_waited_past_a_new_month_is_dropped(signed_in, node, db):
+    device_id = create(signed_in).json()["id"]
+    over_the_quota(db, device_id)
+    node.down = True
+    jobs.enforce_quota(db, policy.MONTHLY_QUOTA_BYTES)
+    jobs.run_due_jobs(db)
+    # the node did not answer, and the throttle waits; then the month is over
+    assert db.execute("SELECT status FROM jobs WHERE action = 'throttle'").fetchone()[0] == "queued"
+    db.execute("UPDATE account_usage SET period = period - interval '1 month'")
+    jobs.enforce_quota(db, policy.MONTHLY_QUOTA_BYTES)
+    node.down = False
+    db.execute("UPDATE jobs SET next_try_at = now()")
+    jobs.run_due_jobs(db)
+    assert device_id not in node.throttled
+    assert {r[0] for r in db.execute("SELECT status FROM jobs WHERE action IN ('throttle', 'unthrottle')")} == {"done"}
+
+
+def test_a_device_suspended_before_comes_back_online_slowed_down(signed_in, node, db):
+    device_id = create(signed_in).json()["id"]
+    over_the_quota(db, device_id)
+    # how the worker used to leave it
+    db.execute("UPDATE devices SET status = 'suspended'")
+    node.suspend("node-sg", device_id)
+    worker.tick(db)
+    assert device_id in node.peers and device_id in node.throttled
+    assert signed_in.get("/api/devices").json()[0]["status"] == "active"
+
+
+def test_a_device_suspended_before_and_now_under_the_quota_comes_back_at_full_speed(signed_in, node, db):
+    device_id = create(signed_in).json()["id"]
+    db.execute("UPDATE devices SET status = 'suspended'")
+    node.suspend("node-sg", device_id)
+    worker.tick(db)
+    assert device_id in node.peers and device_id not in node.throttled
+
+
+def test_a_node_that_restarted_gets_its_speed_limits_back(signed_in, node, db):
+    device_id = create(signed_in).json()["id"]
+    node.counters[device_id] = (policy.MONTHLY_QUOTA_BYTES, 0)
+    worker.tick(db)
+    # the container restarted: the rules are gone and the counters start over
+    node.throttled.clear()
+    node.started = "2026-10-28T00:00:00Z"
+    node.counters[device_id] = (0, 0)
+    worker.tick(db)
+    assert device_id in node.throttled
+    # and a limit the device should not have is taken off
+    db.execute("UPDATE account_usage SET period = period - interval '1 month'")
+    worker.tick(db)
+    node.throttled.add(device_id)
+    worker.tick(db)
+    assert device_id not in node.throttled
 
 
 def devices(client) -> dict:
@@ -310,3 +372,23 @@ def test_monthly_record_keeps_twelve_months_and_names_the_strongest_filter(signe
     assert signed_in.get("/api/usage/months").json()["filter"] == "ads"
     signed_in.post("/api/logout", headers=HEADERS)
     assert signed_in.get("/api/usage/months").status_code == 401
+
+
+def test_the_quota_follows_the_setting(signed_in, node, db):
+    db.execute("UPDATE settings SET value = '100' WHERE key = 'monthly_quota_gb'")
+    device_id = create(signed_in).json()["id"]
+    node.counters[device_id] = (policy.MONTHLY_QUOTA_BYTES, 0)
+    worker.tick(db)
+    # 50 GB is under a quota of 100
+    assert device_id in node.peers
+    assert signed_in.get("/api/me").json()["monthly_quota_bytes"] == 100 * GB
+    # lowered below what was used: slowed down on the next tick
+    db.execute("UPDATE settings SET value = '40' WHERE key = 'monthly_quota_gb'")
+    worker.tick(db)
+    assert device_id in node.throttled
+
+
+def test_a_quota_setting_that_is_not_a_positive_number_keeps_the_default(db):
+    for value in ("", "0", "-5", "fifty"):
+        db.execute("UPDATE settings SET value = %s WHERE key = 'monthly_quota_gb'", (value,))
+        assert policy.personal_quota(db) == policy.MONTHLY_QUOTA_BYTES

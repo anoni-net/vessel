@@ -9,7 +9,7 @@ const NODE = {
 const KEY = /^[A-Za-z0-9+/]{43}=$/;
 const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object; relays?: unknown[] } = {}) {
+async function mock(page: Page, opts: { pending?: boolean; createError?: string; devices?: unknown[]; me?: object; relays?: unknown[]; regions?: unknown[]; node?: typeof NODE } = {}) {
   const posted: Record<string, string>[] = [];
   let polls = 0;
   await page.route("**/api/**", async (route) => {
@@ -17,7 +17,7 @@ async function mock(page: Page, opts: { pending?: boolean; createError?: string;
     const path = new URL(req.url()).pathname;
     if (path === "/api/me") return route.fulfill({ json: { ...ME, ...opts.me } });
     if (path === "/api/devices" && req.method() === "GET") return route.fulfill({ json: opts.devices ?? [] });
-    if (path === "/api/regions") return route.fulfill({ json: [{ id: "jp", open: false }, { id: "sg", open: true }] });
+    if (path === "/api/regions") return route.fulfill({ json: opts.regions ?? [{ id: "jp", open: false }, { id: "sg", open: true }] });
     if (path === "/api/relays") return route.fulfill({ json: opts.relays ?? [] });
     if (path === "/api/devices" && req.method() === "POST") {
       expect(req.headers()["x-vessel-request"]).toBe("1");
@@ -27,7 +27,7 @@ async function mock(page: Page, opts: { pending?: boolean; createError?: string;
         ? route.fulfill({ status: 202, json: { id: "d-abcdef123456", status: "pending" } })
         // a relay device's config comes back with the relay's address as its Endpoint (the backend rewrites it)
         : route.fulfill({ json: { id: "d-abcdef123456", status: "active", config: req.postDataJSON().relay
-          ? { ...NODE, peer: { ...NODE.peer, Endpoint: "203.0.113.20:51820" } } : NODE } });
+          ? { ...NODE, peer: { ...NODE.peer, Endpoint: "203.0.113.20:51820" } } : opts.node ?? NODE } });
     }
     if (path === "/api/devices/d-abcdef123456/config") {
       polls++;
@@ -43,7 +43,7 @@ async function throughToFilter(page: Page) {
   await page.getByRole("button", { name: "已經安裝，下一步" }).click();
   await expect(page.getByRole("button", { name: /東京/ })).toBeDisabled();
   await page.getByRole("button", { name: /新加坡/ }).click();
-  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByLabel("替裝置取個名稱").fill("手機");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
 }
 
@@ -55,8 +55,12 @@ test("create a device with keys made in the browser", async ({ page }) => {
   // the protection step: new devices start with the malware list, marked as the recommended choice
   await expect(page.getByRole("heading", { name: "額外的防護" })).toBeVisible();
   await expect(page.getByText("新增裝置 4/5")).toBeVisible();
-  await expect(page.getByLabel(/＋擋惡意網站建議/)).toBeChecked();
-  await page.getByLabel(/＋再擋廣告與追蹤/).check();
+  await expect(page.getByLabel(/^擋惡意網站建議/)).toBeChecked();
+  // a new tab, so the device being set up is not lost
+  const how = page.getByRole("link", { name: "不知道怎麼選？" });
+  await expect(how).toHaveAttribute("href", "/dns/lists/");
+  await expect(how).toHaveAttribute("target", "_blank");
+  await page.getByLabel(/^擋惡意網站、廣告與追蹤/).check();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
 
@@ -106,10 +110,10 @@ test("a device through a relay route: the cities first, the routes under them, t
   const routes = page.getByTestId("relay-routes");
   await expect(routes.getByRole("heading", { name: "中繼路線" })).toBeVisible();
   // below every city
-  const lastCity = await page.locator("button.choice--city").filter({ hasText: "洽談中" }).boundingBox();
+  const lastCity = await page.locator("button.choice--city").filter({ hasText: "準備中" }).boundingBox();
   expect((await routes.boundingBox())!.y).toBeGreaterThan(lastCity!.y);
   await routes.getByRole("button", { name: /台北入口 → 新加坡/ }).click();
-  await page.getByLabel("裝置名稱").fill("筆電");
+  await page.getByLabel("替裝置取個名稱").fill("筆電");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
@@ -125,6 +129,21 @@ test("a device through a relay route: the cities first, the routes under them, t
   expect(file.replace(/\.conf$/, "")).toMatch(/^[a-zA-Z0-9_=+.-]{1,15}$/);
 });
 
+test("a relay route to the node in the same city as its entry", async ({ page }) => {
+  const posted = await mock(page, {
+    regions: [{ id: "sg", open: true }, { id: "tw", open: true }],
+    relays: [{ id: "tw-tw", region: "tw", open: true }],
+  });
+  await page.goto("/devices/new/");
+  await page.getByRole("button", { name: "已經安裝，下一步" }).click();
+  await page.getByTestId("relay-routes").getByRole("button", { name: /台北入口 → 台北/ }).click();
+  await page.getByLabel("替裝置取個名稱").fill("手機");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
+  expect(posted[0]).toMatchObject({ region: "tw", relay: "tw-tw" });
+});
+
 test("a direct city sends no relay, and no routes show when there are none", async ({ page }) => {
   const posted = await mock(page);
   await page.goto("/devices/new/");
@@ -132,7 +151,7 @@ test("a direct city sends no relay, and no routes show when there are none", asy
   await expect(page.getByRole("button", { name: /新加坡/ })).toBeVisible();
   await expect(page.getByTestId("relay-routes")).toHaveCount(0);
   await page.getByRole("button", { name: /新加坡/ }).click();
-  await page.getByLabel("裝置名稱").fill("手機");
+  await page.getByLabel("替裝置取個名稱").fill("手機");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
@@ -146,7 +165,7 @@ test("every back button goes one step back", async ({ page }) => {
   await page.getByRole("button", { name: "上一步" }).click();
   await expect(page.getByRole("heading", { name: "替裝置取個名稱" })).toBeVisible();
   // the name is still there
-  await expect(page.getByLabel("裝置名稱")).toHaveValue("手機");
+  await expect(page.getByLabel("替裝置取個名稱")).toHaveValue("手機");
   await page.getByRole("button", { name: "上一步" }).click();
   await expect(page.getByRole("heading", { name: "選擇城市" })).toBeVisible();
   await page.getByRole("button", { name: "上一步" }).click();
@@ -157,7 +176,8 @@ test("waits for a slow node", async ({ page }) => {
   await mock(page, { pending: true });
   await throughToFilter(page);
   await page.getByRole("button", { name: "產生設定檔" }).click();
-  await expect(page.getByRole("status")).toHaveText("節點正在加入這台裝置，請稍候，不要離開這一頁。");
+  await expect(page.getByText("節點正在加入這台裝置，請稍候，不要離開這一頁。")).toBeVisible();
+  await expect(page.locator("#announce")).toHaveText("節點正在加入這台裝置，請稍候，不要離開這一頁。");
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible({ timeout: 10_000 });
 });
 
@@ -166,6 +186,20 @@ test("errors on create are shown", async ({ page }) => {
   await throughToFilter(page);
   await page.getByRole("button", { name: "產生設定檔" }).click();
   await expect(page.getByRole("alert")).toHaveText("這個帳號的裝置已經到上限。");
+});
+
+test("a config with fields a node may not add is refused", async ({ page }) => {
+  for (const node of [
+    { ...NODE, interface: { ...NODE.interface, PostUp: "id" } },
+    { ...NODE, peer: { ...NODE.peer, Endpoint: "198.51.100.1:443\n[Interface]\nPrivateKey = x" } },
+  ]) {
+    await page.unrouteAll();
+    await mock(page, { node });
+    await throughToFilter(page);
+    await page.getByRole("button", { name: "產生設定檔" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toHaveCount(0);
+  }
 });
 
 test("install step switches platforms", async ({ page }) => {
@@ -243,19 +277,19 @@ test("the install step explains AmneziaWG through the FAQ", async ({ page }) => 
   await expect(page.locator("#q-maker")).not.toHaveAttribute("open", "");
 });
 
-test("cities come with flags, open first, then being set up, then in talks", async ({ page }) => {
-  await mock(page);
+test("cities come with flags, open first, then being set up", async ({ page }) => {
+  await mock(page, { regions: [{ id: "jp", open: false }, { id: "sg", open: true }, { id: "tw", open: true }] });
   await page.goto("/devices/new/");
   await page.getByRole("button", { name: "已經安裝，下一步" }).click();
   const cities = page.locator("button.choice--city");
-  await expect(cities).toHaveText([/新加坡.*開放中/, /東京.*準備中/, /台北.*洽談中/]);
+  await expect(cities).toHaveText([/新加坡.*開放中/, /台北.*開放中/, /東京.*準備中/]);
   await expect(cities.nth(0)).toBeEnabled();
-  await expect(cities.nth(1)).toBeDisabled();
+  await expect(cities.nth(1)).toBeEnabled();
   await expect(cities.nth(2)).toBeDisabled();
   // images on assets.anoni.net, not emoji, decorative next to the city name
   const flags = cities.locator("img.flag");
   await expect(flags).toHaveCount(3);
-  for (const [i, c] of ["sg", "jp", "tw"].entries()) {
+  for (const [i, c] of ["sg", "tw", "jp"].entries()) {
     await expect(flags.nth(i)).toHaveAttribute("src", new RegExp(`^https://assets\\.anoni\\.net/vessel/flag-${c}-[0-9a-f]{8}\\.svg$`));
     await expect(flags.nth(i)).toHaveAttribute("alt", "");
   }
@@ -276,4 +310,30 @@ test("a browser that cannot download is told before the config replaces the page
   await page.getByRole("button", { name: "下載設定檔" }).click();
   expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual([expect.stringMatching(/^blob:/)]);
   await expect(page.getByRole("heading", { name: "匯入 AmneziaWG" })).toBeVisible();
+});
+
+test("a full city cannot be picked, and its relay routes neither", async ({ page }) => {
+  await mock(page, {
+    regions: [{ id: "jp", open: true, full: true }, { id: "sg", open: true, full: false }],
+    relays: [{ id: "tw-jp", region: "jp", open: true }, { id: "tw-sg", region: "sg", open: true }],
+  });
+  await page.goto("/devices/new/");
+  await page.getByRole("button", { name: "已經安裝，下一步" }).click();
+  const tokyo = page.getByRole("button", { name: /^東京/ });
+  await expect(tokyo).toBeDisabled();
+  await expect(tokyo).toContainText("額滿");
+  await expect(page.getByRole("button", { name: /新加坡/ }).first()).toBeEnabled();
+  // open cities first, then the full one
+  await expect(page.locator(".choice--city").first()).toContainText("新加坡");
+  const routes = page.getByTestId("relay-routes").getByRole("button");
+  await expect(routes.filter({ hasText: "東京" })).toBeDisabled();
+  await expect(routes.filter({ hasText: "東京" })).toContainText("額滿");
+  await expect(routes.filter({ hasText: "新加坡" })).toBeEnabled();
+});
+
+test("a city that fills up while the device is being set up says so", async ({ page }) => {
+  await mock(page, { createError: "region_full" });
+  await throughToFilter(page);
+  await page.getByRole("button", { name: "產生設定檔" }).click();
+  await expect(page.getByRole("alert")).toHaveText("這個城市目前額滿，請選擇其他城市。");
 });

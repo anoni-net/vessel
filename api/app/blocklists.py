@@ -1,17 +1,21 @@
-"""Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists and the 165 list of scam sites
-Taiwan's ISPs stop resolving (node/update-lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
+"""Is a site on the DNS blocklists? The nodes' resolvers block with two HaGeZi lists, the two lists of scam sites
+Taiwan's ISPs stop resolving, Echap's stalkerware domains and DNSBunker's CTI list (deploy/rpz/lists.sh); the portal keeps its own copy of the same lists in memory, refreshed every 8 hours like the nodes, so the DNS page
 can tell a visitor whether a site that will not open was blocked, and which filters block it. The domain asked
-about is only compared in memory: it is not logged or stored."""
+about is only compared in memory and asked of Quad9, which the nodes' filter also forwards to: it is not logged or stored."""
 
 import csv
 import io
 import json
 import re
+import secrets
+import socket
 import ssl
+import struct
 import threading
 import time
 import urllib.request
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -21,11 +25,14 @@ from pydantic import BaseModel, Field
 from app.auth import client_key, error, require_app_header
 from app.ratelimit import Limiter
 
+QUAD9_TIMEOUT = 1.5
+NXDOMAIN = 3
+
 router = APIRouter(prefix="/api")
 
-# the same files node/update-lists.sh downloads. Both filters load the malware list and the two Taiwanese lists,
-# and the ads filter the ads list too, so a site on any of the first three is blocked by both filters, one only on
-# the ads list by the ads filter alone
+# the same files deploy/rpz/lists.sh downloads. Both filters load every list but the last, and the ads filter the
+# ads list too, so a site on any of the others is blocked by both filters, one only on the ads list by the ads filter
+# alone
 SOURCES = {
     "malware": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt",
     # 165反詐騙諮詢專線_遭停止解析涉詐網站 (data.gov.tw dataset 176455), a CSV
@@ -33,18 +40,38 @@ SOURCES = {
     "/resource/D7839A03-8491-490E-BAF7-2ED2D98C5157/download",
     # 數位發展部數位產業署聲請詐騙網域名稱停止解析網址清單 (data.gov.tw dataset 165027), JSON
     "twmoda": "https://www-api.moda.gov.tw/OpenData/Files/16352",
+    # Echap's stalkerware indicators, a name a line (CC BY 4.0)
+    "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
+    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only); only those on hosting platforms are used
+    "cti": "https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
+# the private section of this list is the hosting platforms, which CTI is cut down to as on the nodes
+PUBLIC_SUFFIXES = "https://raw.githubusercontent.com/publicsuffix/list/main/public_suffix_list.dat"
+MIN_PLATFORMS = 1000
 REFRESH_SECONDS = 8 * 3600
 # the MODA server refuses Python's default User-Agent; every download says what it is
 USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
-# a list this short means the download went wrong; keep the copy already loaded
+# a list this short means the download went wrong; keep the copy already loaded. Echap's has about 900 names
 MIN_ENTRIES = 1000
+MIN_ENTRIES_BY_LIST = {"stalkerware": 500, "cti": 50000}
 
 LABEL = re.compile(r"^(?!-)[a-z0-9_-]{1,63}(?<!-)$")
 
+
+def excluded_names(text: str) -> frozenset[str]:
+    """The names in the exclude file: one a line, anything after a # is the reason."""
+    names = (line.split("#")[0].strip().lower() for line in text.splitlines())
+    return frozenset(name for name in names if name)
+
+
+# a copy of node/exclude.txt, which the nodes leave out of every list; only the name itself, a name under it stays listed
+EXCLUDED = excluded_names(Path(__file__).with_name("blocklist_exclude.txt").read_text(encoding="utf-8"))
+
+_platforms: frozenset[str] = frozenset()
 _lists: dict[str, frozenset[str]] = {}
 _loaded_at: float | None = None
+_summary: dict = {}
 _loading = threading.Lock()
 
 lookup_limiter = Limiter(limit=20, window_seconds=60)
@@ -88,7 +115,33 @@ def parse_moda(text: str) -> frozenset[str]:
     return frozenset(names)
 
 
-PARSERS = {"tw165": parse_165, "twmoda": parse_moda}
+def parse_hosts(text: str) -> frozenset[str]:
+    """The names in a plain list, one a line; the node blocks each with its subdomains, like an RPZ zone's."""
+    names = (normalize(line) for line in text.splitlines() if not line.lstrip().startswith("#"))
+    return frozenset(name for name in names if name)
+
+
+def parse_platforms(text: str) -> frozenset[str]:
+    """The private section of the Public Suffix List: names whose subdomains belong to different people."""
+    names, private = set(), False
+    for line in text.splitlines():
+        line = line.strip()
+        if "BEGIN PRIVATE DOMAINS" in line:
+            private = True
+        elif "END PRIVATE DOMAINS" in line:
+            private = False
+        elif private and line and not line.startswith("//"):
+            names.add(line.split()[0].lower().removeprefix("!").removeprefix("*."))
+    return frozenset(names)
+
+
+def on_platform(name: str, platforms: frozenset[str]) -> bool:
+    """Is this name a subdomain of a hosting platform? The platform's own name is not."""
+    labels = name.split(".")
+    return any(".".join(labels[i:]) in platforms for i in range(1, len(labels)))
+
+
+PARSERS = {"tw165": parse_165, "twmoda": parse_moda, "stalkerware": parse_hosts, "cti": parse_hosts}
 
 
 def tls_context(name: str) -> ssl.SSLContext:
@@ -101,24 +154,70 @@ def tls_context(name: str) -> ssl.SSLContext:
     return context
 
 
+def _on_any(name: str, lists: list[frozenset[str]]) -> bool:
+    """A list also blocks what is under its names, so a name counts as listed when it or a parent is on a list."""
+    labels = name.split(".")
+    return any(".".join(labels[i:]) in names for names in lists for i in range(len(labels) - 1))
+
+
+def _count_all(lists: list[frozenset[str]]) -> int:
+    """How many names the lists have together, a name that a list before it already blocks counting once."""
+    return sum(1 for i, names in enumerate(lists) for name in names if not _on_any(name, lists[:i]))
+
+
+def summarize(lists: dict[str, frozenset[str]]) -> dict:
+    """What the page on the lists shows: their sizes and how much of each no other list has. Only the lists are
+    counted, nobody's queries."""
+    def get(*names: str) -> list[frozenset[str]]:
+        return [lists.get(name, frozenset()) for name in names]
+
+    rows = [
+        {"id": name,
+         "domains": len(lists.get(name, frozenset())),
+         "only_here": sum(1 for n in lists.get(name, frozenset()) if not _on_any(n, get(*(set(SOURCES) - {name}))))}
+        for name in SOURCES
+    ]
+    return {
+        "lists": rows,
+        "malware_filter": _count_all(get(*(name for name in SOURCES if name != "ads"))),
+        "ads_filter": _count_all(get(*SOURCES)),
+        "hagezi": _count_all(get("malware", "ads")),
+    }
+
+
 def set_lists(lists: dict[str, frozenset[str]], at: float | None = None) -> None:
     """Replace the lists; the background refresh calls this, and tests use it instead of the network."""
-    global _lists, _loaded_at
+    global _lists, _loaded_at, _summary
     _lists, _loaded_at = dict(lists), time.time() if at is None else at
+    _summary = summarize(_lists)
+
+
+def _read(url: str, name: str) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=120, context=tls_context(name)) as r:
+        return r.read().decode("utf-8", "replace")
 
 
 def _download() -> None:
+    global _platforms
+    try:
+        platforms = parse_platforms(_read(PUBLIC_SUFFIXES, "platforms"))
+    except (OSError, ValueError):
+        platforms = frozenset()
+    # a failed or cut-off download keeps the last copy; with none yet, CTI comes up short below and keeps what it had
+    if len(platforms) >= MIN_PLATFORMS:
+        _platforms = platforms
     fresh = {}
     for name, url in SOURCES.items():
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(request, timeout=120, context=tls_context(name)) as r:
-                text = r.read().decode("utf-8", "replace")
-            names = PARSERS.get(name, parse)(text)
+            names = PARSERS.get(name, parse)(_read(url, name)) - EXCLUDED
+            if name == "cti":
+                names = frozenset(n for n in names if on_platform(n, _platforms))
         except (OSError, ValueError):
             names = frozenset()
         # one failed list keeps its previous copy instead of emptying it
-        fresh[name] = names if len(names) >= MIN_ENTRIES else _lists.get(name, frozenset())
+        enough = len(names) >= MIN_ENTRIES_BY_LIST.get(name, MIN_ENTRIES)
+        fresh[name] = names if enough else _lists.get(name, frozenset())
     if any(fresh.values()):
         set_lists(fresh)
 
@@ -157,11 +256,48 @@ def normalize(raw: str) -> str | None:
     return host
 
 
+def _rcode(host: str, server: str, port: int = 53) -> int | None:
+    """The response code for an A lookup, or None without an answer. A reply must carry the query's ID: a network can
+    deliver a reply twice, or an old one late."""
+    query_id = secrets.randbits(16)
+    question = b"".join(bytes([len(label)]) + label.encode() for label in host.split(".")) + b"\0\0\1\0\1"
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(QUAD9_TIMEOUT)
+        try:
+            sock.connect((server, port))
+            sock.send(struct.pack(">HHHHHH", query_id, 0x0100, 1, 0, 0, 0) + question)
+            while True:
+                reply = sock.recv(1500)
+                if len(reply) >= 12 and struct.unpack(">H", reply[:2])[0] == query_id:
+                    return reply[3] & 0x0F
+        except OSError:
+            return None
+
+
+def quad9_blocks(host: str) -> bool | None:
+    """Does Quad9's filter block it? None when Quad9 did not answer. 9.9.9.10 is the same service without the filter."""
+    with_filter = _rcode(host, "9.9.9.9")
+    if with_filter != NXDOMAIN:
+        return None if with_filter is None else False
+    without = _rcode(host, "9.9.9.10")
+    return None if without is None else without != NXDOMAIN
+
+
 def blocked_by(host: str) -> dict[str, bool]:
     # the name itself and every parent: `*.example.com` in a list blocks `ads.example.com`
     labels = host.split(".")
     names = {".".join(labels[i:]) for i in range(len(labels))}
     return {name: not names.isdisjoint(_lists.get(name, frozenset())) for name in SOURCES}
+
+
+@router.get("/blocklist/lists")
+def lists_summary(response: Response) -> dict:
+    """The sizes of the lists. Public and the same for everyone; nothing about the visitor is involved."""
+    response.headers["Cache-Control"] = "no-store"
+    refresh_in_background()
+    if _loaded_at is None or not _lists:
+        raise error(503, "lists_loading")
+    return {**_summary, "as_of": datetime.fromtimestamp(_loaded_at, UTC).isoformat()}
 
 
 class Lookup(BaseModel):
@@ -180,4 +316,4 @@ def lookup(body: Lookup, request: Request, response: Response) -> dict:
     refresh_in_background()
     if _loaded_at is None or not _lists:
         raise error(503, "lists_loading")
-    return {"domain": host, **blocked_by(host), "as_of": datetime.fromtimestamp(_loaded_at, UTC).isoformat()}
+    return {"domain": host, **blocked_by(host), "quad9": quad9_blocks(host), "as_of": datetime.fromtimestamp(_loaded_at, UTC).isoformat()}

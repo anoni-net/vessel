@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { ApiError, api } from "../api.ts";
 import { resultOf, track } from "../analytics.ts";
 import { useCtx } from "../context.ts";
+import { faqAnchor } from "./faq.tsx";
 import { PasskeyOffer } from "./passkeys.tsx";
 import { Spin } from "./skeleton.tsx";
 import { errorText } from "../i18n/index.ts";
@@ -10,6 +11,8 @@ import { passkeysSupported } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn, useSignedIn } from "../session.ts";
 import { saveFile, savesInPlace } from "../save-file.ts";
+import { focusHeading } from "../focus.ts";
+import { announce } from "../announce.ts";
 
 export function Redeem() {
   const { t, href } = useCtx();
@@ -17,6 +20,7 @@ export function Redeem() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [number, setNumber] = useState("");
+  const [inGroup, setInGroup] = useState(false);
   const [offer, setOffer] = useState(false);
   const signedIn = useSignedIn();
   // a link from a friend's account page: /redeem/#<code>. The code is after the #, so it never reached the server;
@@ -32,15 +36,18 @@ export function Redeem() {
   // the number is saved; then a passkey, so it never has to be typed again, unless this browser cannot make one
   if (offer) return <PasskeyOffer onDone={toDevices} />;
   if (number) {
-    return <AccountNumber number={number} onContinue={() => (passkeysSupported() ? setOffer(true) : toDevices())} />;
+    return <AccountNumber number={number} inGroup={inGroup} onContinue={() => (passkeysSupported() ? setOffer(true) : toDevices())} />;
   }
 
   const submit = async (e: Event) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setErr("");
     try {
-      setNumber((await api.redeem(code)).account_number);
+      const redeemed = await api.redeem(code);
+      setInGroup(!!redeemed.group_role);
+      setNumber(redeemed.account_number);
       setSignedIn(true);
       track("redeem", { result: "ok" });
     } catch (x) {
@@ -63,14 +70,16 @@ export function Redeem() {
         <label for="code" class="strong">{t["redeem.label"]}</label>
         <input id="code" class="nb-input nb-input--code mono" autoComplete="off" autoCapitalize="characters" spellcheck={false}
           required value={code} maxLength={groupedLength(INVITE)} placeholder="XXXX-XXXX-XXXX-XXXX"
-          onInput={(e) => setCode(regroup(e.currentTarget, INVITE))} aria-describedby="code-hint" />
+          onInput={(e) => setCode(regroup(e.currentTarget, INVITE))} aria-invalid={err ? true : undefined}
+          aria-describedby={err ? "code-error code-hint" : "code-hint"} />
         <p id="code-hint" class="muted small">{t["redeem.hint"]}</p>
-        {err && <p class="error" role="alert">{err}</p>}
+        {err && <p class="error" role="alert" id="code-error">{err}</p>}
         <p class="small">
           {t["redeem.read.before"]}<a href={href("/terms/")}>{t["terms.title"]}</a>{t["redeem.read.and"]}
           <a href={href("/privacy/")}>{t["privacy.title"]}</a>{t["redeem.read.after"]}
         </p>
-        <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+        <p class="small"><a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["faq.risky.q"]}</a></p>
+        <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
           {busy ? <><Spin />{t["busy.redeem"]}</> : t["redeem.submit"]}
         </button>
       </form>
@@ -93,18 +102,21 @@ async function offerToSave(number: string): Promise<void> {
 }
 
 /** The account number, shown once: after redeeming an invite, or after replacing the number with a passkey. */
-export function AccountNumber({ number, rotated = false, onContinue }: { number: string; rotated?: boolean; onContinue: () => void }) {
+export function AccountNumber({ number, rotated = false, inGroup = false, onContinue }: { number: string; rotated?: boolean; inGroup?: boolean; onContinue: () => void }) {
   const { t } = useCtx();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   // a browser that can neither copy nor download without leaving the page (save-file.ts) gets neither button
   const [inPlace, setInPlace] = useState(true);
   useEffect(() => setInPlace(savesInPlace()), []);
+  // shown in place of the form or the account page, whose button is gone
+  useEffect(() => focusHeading(), []);
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(number);
       setCopied(true);
+      announce(t["number.copied"]);
     } catch {
       /* clipboard can be blocked; the number is still on screen */
     }
@@ -118,6 +130,7 @@ export function AccountNumber({ number, rotated = false, onContinue }: { number:
   return (
     <section class="wrap narrow stack">
       <h1>{t[rotated ? "passkey.rotate.doneTitle" : "number.title"]}</h1>
+      {inGroup && <p class="card card--flat" data-testid="redeem-group-note">{t["redeem.groupNote"]}</p>}
       <p class="muted">{t[rotated ? "passkey.rotate.doneLead" : "number.lead"]}</p>
       <div class="number-box printable">
         <p class="small strong">{t["number.label"]}</p>

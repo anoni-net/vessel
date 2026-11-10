@@ -121,8 +121,8 @@ const B = 3;
 const D = 7.5;
 
 /** Beside 社群架設的原因 on a wide screen: East and Southeast Asia as a tabletop seen from above at a slant, the land in
- * tiles, Taiwan raised in cobalt blocks, a server tower at each city with a node, and a dashed arc from Taiwan to
- * each. No words: the text beside it says what the service is. The grid is loaded only when the map is shown, so a
+ * tiles, Taiwan raised in cobalt blocks, a lighthouse at each city with a node, and a dashed arc from Taiwan to
+ * the ones abroad. No words: the text beside it says what the service is. The grid is loaded only when the map is shown, so a
  * phone does not fetch it. */
 function RegionMap() {
   const [map, setMap] = useState<typeof import("../region-map.ts") | null>(null);
@@ -156,7 +156,27 @@ function RegionMap() {
     </g>
   );
   const HOME = 10; // how high Taiwan's blocks stand
-  const TOWER = 110;
+  const LIGHT = 80; // how high a lighthouse stands, to the tip of its roof
+  // a lighthouse where (x, y) is the middle of its foot: a tapered tower with two bands, a lit lantern and two beams
+  const lighthouse = (x: number, y: number) => {
+    const [foot, top, bottom, lantern, roof] = [14, 9, y, y - 52, y - 66];
+    const half = (f: number) => foot + (top - foot) * f;
+    const at = (f: number) => y - 52 * f;
+    const band = (from: number, to: number) =>
+      `M${x - half(from)} ${at(from)}Q${x} ${at(from) + 5} ${x + half(from)} ${at(from)}L${x + half(to)} ${at(to)}Q${x} ${at(to) + 5} ${x - half(to)} ${at(to)}Z`;
+    return (
+      <g class="region-map__node">
+        <path class="region-map__beam" d={`M${x} ${lantern - 7}L${x - 78} ${lantern - 25}V${lantern + 11}ZM${x} ${lantern - 7}L${x + 78} ${lantern - 25}V${lantern + 11}Z`} />
+        <ellipse class="region-map__rock" cx={x} cy={bottom} rx={20} ry={7} />
+        <path class="region-map__tower" d={`M${x - foot} ${bottom}L${x - top} ${lantern}H${x + top}L${x + foot} ${bottom}Q${x} ${bottom + 6} ${x - foot} ${bottom}Z`} />
+        <path class="region-map__band" d={band(0.24, 0.44)} />
+        <path class="region-map__band" d={band(0.64, 0.84)} />
+        <ellipse class="region-map__tower" cx={x} cy={lantern} rx={top + 4} ry={3.5} />
+        <rect class="region-map__lantern" x={x - 6.5} y={roof} width={13} height={14} />
+        <path class="region-map__roof" d={`M${x - 8.5} ${roof}L${x} ${y - LIGHT}L${x + 8.5} ${roof}Z`} />
+      </g>
+    );
+  };
   // north first, so what is nearer covers what is behind it
   const taiwan = [...map.TAIWAN].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
   const [oc, or] = map.ORIGIN;
@@ -164,20 +184,20 @@ function RegionMap() {
   const width = map.LAND[0].length * A + rows * B;
   return (
     <div ref={ref} class={`region-map${seen ? " region-map--live" : ""}`} aria-hidden="true">
-      <svg viewBox={`-4 ${-TOWER - 20} ${width + 8} ${rows * D + TOWER + 24}`}>
+      <svg viewBox={`-4 ${-LIGHT - 20} ${width + 8} ${rows * D + LIGHT + 24}`}>
         <path class="region-map__land" d={land} />
         {taiwan.map(([c, r]) => box(c, r, 1, 1, HOME, "region-map__home"))}
         {[...map.NODES].sort((a, b) => a[1] - b[1]).map(([c, r]) => {
-          const [tx, ty] = P(c + 0.5, r - 0.5, TOWER);
-          // an arc from Taiwan up and over to the top of the tower
+          // a node on Taiwan itself stands on the raised blocks, and needs no line to reach it
+          const near = Math.hypot(c - oc, r - or) < 6;
+          const [x, y] = P(c + 0.5, r + 0.5, near ? HOME : 0);
+          const [tx, ty] = [x, y - LIGHT];
+          // an arc from Taiwan up and over to the tip of the lighthouse
           const [mx, my] = [(ox + tx) / 2, Math.min(oy, ty) - Math.hypot(tx - ox, ty - oy) * 0.28];
           return (
             <>
-              <path class="region-map__line" d={`M${ox} ${oy}Q${mx} ${my} ${tx} ${ty}`} />
-              {box(c - 1, r - 2, 3, 3, TOWER, "region-map__node")}
-              {[0.2, 0.35, 0.5, 0.65, 0.8].map((k) => (
-                <path class="region-map__slot" d={`M${poly(P(c - 0.6, r + 1, TOWER * k), P(c + 1.6, r + 1, TOWER * k)).replace(" ", "L")}`} />
-              ))}
+              {!near && <path class="region-map__line" d={`M${ox} ${oy}Q${mx} ${my} ${tx} ${ty}`} />}
+              {lighthouse(x, y)}
             </>
           );
         })}

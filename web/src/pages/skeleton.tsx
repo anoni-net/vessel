@@ -1,3 +1,5 @@
+import { useEffect } from "preact/hooks";
+import { announce } from "../announce.ts";
 import { useCtx } from "../context.ts";
 
 // Grey blocks in the shape of a page while its data or code loads, so the page does not jump from empty to
@@ -10,7 +12,7 @@ export function SkLine({ w = "full", big = false }: { w?: Width; big?: boolean }
 }
 
 /** `size` gives the card the height of the one it stands for, so nothing moves when the data arrives. */
-export function SkCard({ lines, tint = false, size }: { lines: Width[]; tint?: boolean; size?: "usage" | "device" }) {
+export function SkCard({ lines, tint = false, size }: { lines: Width[]; tint?: boolean; size?: "usage" | "device" | "collect" | "handling" }) {
   return (
     <div class={`card card--flat sk-card${tint ? " card--tint" : ""}${size ? ` sk-card--${size}` : ""}`}>
       {lines.map((w, i) => <SkLine w={w} big={i === 0} />)}
@@ -27,10 +29,14 @@ export function SkButton() {
   return <span class="sk sk--button" />;
 }
 
-/** Says "loading" to screen readers; the grey blocks are hidden from them. */
+/**
+ * Says "loading" to screen readers; the grey blocks are hidden from them. Through the site's live region, since a
+ * status added with its words is often not read; the words stay here too, for reading the page line by line.
+ */
 export function Busy() {
   const { t } = useCtx();
-  return <p class="sr-only" role="status">{t["loading"]}</p>;
+  useEffect(() => announce(t["loading"]), []);
+  return <p class="sr-only">{t["loading"]}</p>;
 }
 
 /** The new-device page while its code (key generation, the QR code) loads: the first step's layout. */

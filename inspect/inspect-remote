@@ -1,0 +1,25 @@
+#!/bin/bash
+# Forced command for the portal's SSH key on the analysis host. The key can run these and nothing else:
+#
+#   report <node> <address> <public key>   the device's results, encrypted to that key
+#   summary <node> <address> <public key>  what a group's leader sees of them, encrypted to the leader's key
+#   clear <node> <address>
+#   flush                                  close what has been received, so the next analysis includes it
+#   status
+set -euo pipefail
+set -a
+# shellcheck source=/dev/null
+. /etc/vessel-inspect.env
+set +a
+A=(/usr/bin/python3 -I /opt/vessel-inspect-app/analyze.py)
+read -r -a a <<<"${SSH_ORIGINAL_COMMAND:-}"
+node='^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$'; address='^10\.8\.1\.[0-9]{1,3}$'; key='^[A-Za-z0-9+/]{43}=$'
+case "${a[0]:-}:${#a[@]}" in
+  report:4) [[ ${a[1]} =~ $node && ${a[2]} =~ $address && ${a[3]} =~ $key ]] && exec "${A[@]}" report --node "${a[1]}" --address "${a[2]}" --seal "${a[3]}" ;;
+  summary:4) [[ ${a[1]} =~ $node && ${a[2]} =~ $address && ${a[3]} =~ $key ]] && exec "${A[@]}" summary --node "${a[1]}" --address "${a[2]}" --seal "${a[3]}" ;;
+  clear:3)  [[ ${a[1]} =~ $node && ${a[2]} =~ $address ]] && exec "${A[@]}" clear --node "${a[1]}" --address "${a[2]}" ;;
+  status:1) exec "${A[@]}" status ;;
+  flush:1)  exec /usr/bin/systemctl kill -s SIGUSR1 --kill-who=main vessel-inspect-recv.service ;;
+esac
+echo "inspect-remote: command not allowed" >&2
+exit 2

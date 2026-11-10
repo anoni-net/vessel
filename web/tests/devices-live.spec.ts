@@ -37,9 +37,11 @@ test("the page asks again once the next read has landed and shows what it added"
   const usage = page.getByTestId("device-usage");
   await expect(usage.first()).toHaveText("3.1 GB");
   await expect(page.getByTestId("device-blocked").first()).toHaveText("12 次");
-  // one read seen: no dot yet, since the page cannot tell what changed
-  await expect(page.locator(".live-dot")).toHaveCount(0);
-  await expect(page.locator(".next-read")).toHaveAttribute("title", /下次更新約/);
+  // one read seen: nothing about the last minutes yet, since the page cannot tell what changed
+  await expect(page.getByTestId("device-recent")).toHaveCount(0);
+  // when the next read is due, in words beside the ring, not in a tooltip (WCAG 1.4.1)
+  await expect(page.locator(".next-read")).toContainText(/下次更新約 \d{2}:\d{2}/);
+  await expect(page.locator(".next-read")).not.toHaveAttribute("title", /.*/);
   await page.waitForLoadState("networkidle");
   const first = api.calls.length;
 
@@ -65,9 +67,15 @@ test("the page asks again once the next read has landed and shows what it added"
   const out = Number(/,\s*(\d+)ms/.exec(delay)![1]);
   expect(out).toBeGreaterThan(4 * 60_000);
   expect(out).toBeLessThanOrEqual(5 * 60_000 - 1_000);
-  await expect(phone.locator(".live-dot--on")).toHaveAttribute("title", "最近 5 分鐘有流量");
-  await expect(laptop.locator(".live-dot")).toHaveAttribute("title", "最近 5 分鐘沒有流量");
+  // whether there was traffic, on the spec sheet in words; the dot beside them only repeats it (WCAG 1.4.1)
+  await expect(phone.getByTestId("device-recent")).toHaveText("有流量");
+  await expect(laptop.getByTestId("device-recent")).toHaveText("沒有流量");
+  await expect(phone.locator("dt", { hasText: "最近 5 分鐘" })).toBeVisible();
+  await expect(phone.locator(".live-dot--on")).toHaveCount(1);
   await expect(laptop.locator(".live-dot--on")).toHaveCount(0);
+  await expect(page.locator(".live-dot[title]")).toHaveCount(0);
+  // the device's heading is its name alone
+  await expect(phone.getByRole("heading", { level: 2 })).toHaveAccessibleName("phone");
 
   // the chips stay clear of the card above, its 4px shadow included
   const chip = await added(phone).first().boundingBox();

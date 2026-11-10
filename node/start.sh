@@ -23,6 +23,15 @@ iptables -A FORWARD -i awg0 -o awg0 -j DROP
 iptables -A FORWARD -i awg0 -d 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,100.64.0.0/10,127.0.0.0/8,224.0.0.0/4,"$NODE_IP"/32 -j DROP
 # no outbound SMTP
 iptables -A FORWARD -i awg0 -p tcp --dport 25 -j REJECT --reject-with tcp-reset
+# How many connections one device can hold open. A runaway app or a device taken over could otherwise fill the
+# connection tracking table every device shares. In 24 hours on three nodes (November 2026) no device passed 500, so
+# 2,000 leaves room for a busy phone or a large sync. Only new connections over the limit are refused, at once so apps
+# do not hang; those already open keep working. Only the total for the node is counted (awgctl p2p), nothing per device.
+DEVICE_FLOWS=2000
+iptables -N VESSEL-LIMIT
+iptables -A VESSEL-LIMIT -p tcp -m comment --comment over-device-limit -j REJECT --reject-with tcp-reset
+iptables -A VESSEL-LIMIT -m comment --comment over-device-limit -j REJECT
+iptables -A FORWARD -i awg0 -m conntrack --ctstate NEW -m connlimit --connlimit-above "$DEVICE_FLOWS" --connlimit-mask 32 --connlimit-saddr -j VESSEL-LIMIT
 iptables -A FORWARD -i awg0 -o eth0 -s "$SUBNET" -j ACCEPT
 iptables -t nat -A POSTROUTING -s "$SUBNET" -o eth0 -j MASQUERADE
 
@@ -50,6 +59,8 @@ iptables -I FORWARD 1 -i awg0 -m conntrack --ctstate NEW -j VESSEL-NEW
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
+# the page a device opens to confirm an inspection (host/vessel-inspect-confirm.py)
+iptables -A INPUT -i awg0 -p tcp --dport 443 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
 # A TCP SYN carrying IPv4 options (Record Route, Timestamp) can trigger a use-after-free in the kernel's handshake
 # code (CVE-2026-98432), and a client reaches the resolvers' TCP port 53. Nothing legitimate sends those options;
@@ -84,7 +95,7 @@ iptables -A OUTPUT -o awg0 -p udp --sport 53 -m u32 --u32 "0>>22&0x3C@8&0x8F=0x3
 iptables -A OUTPUT -o awg0 -p udp --sport 53 -m string --algo bm --from 41 --hex-string "|07|blocked|06|vessel|00|" -j VESSEL-ADS
 
 # --- resolvers ---
-# the host's update-lists.sh keeps /opt/vessel-node/rpz/{malware,tw165,twmoda,ads}.rpz present (an empty zone if a download never succeeded)
+# the filter resolver reads the blocklists it last received from /var/lib/unbound-rpz, and asks the primary for the rest
 unbound-anchor -a /var/lib/unbound/root.key || true
 for p in none filter; do
   cp /var/lib/unbound/root.key /var/lib/unbound/root-$p.key

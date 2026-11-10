@@ -3,9 +3,12 @@ import { LocaleContext, useCtx } from "./context.ts";
 import { HTML_LANG, LANGUAGE_NAME, LANGUAGE_SHORT, LOCALES, type Locale, type MessageKey, PREFIX, messagesOf, splitLocale } from "./i18n/index.ts";
 import { normalizePath } from "./pages.ts";
 import { Account } from "./pages/account.tsx";
+import { GroupPage } from "./pages/group.tsx";
 import { Check } from "./pages/check.tsx";
 import { Devices } from "./pages/devices.tsx";
+import { Inspect } from "./pages/inspect.tsx";
 import { Dns } from "./pages/dns.tsx";
+import { DnsLists } from "./pages/dns-lists.tsx";
 import { Faq } from "./pages/faq.tsx";
 import { Feedback } from "./pages/feedback.tsx";
 import { Home } from "./pages/home.tsx";
@@ -16,6 +19,7 @@ import { StatusPage } from "./pages/status.tsx";
 import { loadNewDevice, loadedNewDevice } from "./pages/lazy.ts";
 import { NewDeviceSkeleton } from "./pages/skeleton.tsx";
 import { Legal, NotFound, preloadLegal } from "./pages/simple.tsx";
+import { focusHeading } from "./focus.ts";
 import { usePath } from "./router.ts";
 import { FAVICON, LOGO, LOGO_DARK } from "./images.ts";
 import { BUILT, REV, REV_URL } from "./rev.ts";
@@ -23,7 +27,7 @@ import { titleOf } from "./seo.ts";
 import { checkSession, looksSignedIn, useSignedIn } from "./session.ts";
 import { CLEARNET, COMMUNITY_SITE, IS_ONION, ONION_HOST, ONION_SITE } from "./site.ts";
 import { dismissHint, rememberLocale, suggestedLocale } from "./langpref.ts";
-import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { BlockTitle } from "./pages/block-title.tsx";
 
 // key generation and the QR code are only needed here, so they load with this page (see pages/lazy.ts)
@@ -85,7 +89,7 @@ function LangHint({ locale, path }: { locale: Locale; path: string }) {
 }
 
 // pages that need a session show their own account links instead of "sign in"
-const SIGNED_IN = new Set(["/devices/", "/devices/new/", "/account/"]);
+const SIGNED_IN = new Set(["/devices/", "/devices/new/", "/devices/inspect/", "/account/", "/group/"]);
 
 const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/": ["home.title", () => <Home />],
@@ -93,9 +97,12 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/login/": ["login.title", () => <Login />],
   "/devices/": ["devices.title", () => <Devices />],
   "/devices/new/": ["new.title", () => <NewDevice />],
+  "/devices/inspect/": ["inspect.title", () => <Inspect />],
   "/account/": ["account.title", () => <Account />],
+  "/group/": ["group.title", () => <GroupPage />],
   "/faq/": ["faq.title", () => <Faq />],
   "/dns/": ["dns.title", () => <Dns />],
+  "/dns/lists/": ["lists.title", () => <DnsLists />],
   "/check/": ["check.title", () => <Check />],
   "/learn/": ["learn.title", () => <Learn />],
   "/feedback/": ["feedback.title", () => <Feedback />],
@@ -126,6 +133,13 @@ export function App({ url }: { url?: string } = {}) {
   useEffect(() => {
     if (route) trackView(path);
   }, [locale, path]);
+  // a link followed inside the site swaps <main>: start at the new page's heading, or at the part the link points to
+  // (the first page loads like any other, and the browser handles that)
+  const shown = useRef(false);
+  useEffect(() => {
+    if (shown.current) focusHeading(decodeURIComponent(location.hash.slice(1)) || undefined);
+    shown.current = true;
+  }, [locale, path]);
 
   if (typeof document !== "undefined") {
     document.documentElement.lang = HTML_LANG[locale];
@@ -134,6 +148,8 @@ export function App({ url }: { url?: string } = {}) {
 
   return (
     <LocaleContext.Provider value={{ locale, t, href }}>
+      {/* the first stop for the keyboard, seen only when it has focus: past the header to the page */}
+      <a class="skip-link" href="#main">{t["nav.skip"]}</a>
       {route && <LangHint locale={locale} path={path} />}
       <header class="site-header">
         <div class="wrap site-header__inner">
@@ -152,7 +168,8 @@ export function App({ url }: { url?: string } = {}) {
             <span class="site-header__langs" role="group" aria-label={t["lang.label"]}>
               <TranslateIcon />
               {others.map((l) => (
-                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} aria-label={LANGUAGE_NAME[l]}
+                // named by what it shows, "EN" (WCAG 2.5.3); the full name is the title, and the footer's links
+                <a href={PREFIX[l] + path} hreflang={HTML_LANG[l]} lang={HTML_LANG[l]} title={LANGUAGE_NAME[l]}
                   onClick={() => rememberLocale(l)}>{LANGUAGE_SHORT[l]}</a>
               ))}
             </span>
@@ -166,31 +183,33 @@ export function App({ url }: { url?: string } = {}) {
           </nav>
         </div>
       </header>
-      <main class="site-main" key={path}>{route ? route[1]() : <NotFound />}</main>
+      <main class="site-main" id="main" key={path}>{route ? route[1]() : <NotFound />}</main>
       <footer class="site-footer">
         {/* a drawing's title block: a frame of cells, each with a short English field name above it (left out on the
-            English pages, where the cell's own heading says the same) */}
+            English pages, where the cell's own heading says the same, and hidden from screen readers, which read the
+            heading) */}
         <div class="wrap">
           <div class="title-block">
             <div class="title-block__cell title-block__cell--project">
-              {locale !== "en" && <span class="title-block__field">PROJECT</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">PROJECT</span>}
               <a class="title-block__mark" href={href("/")} aria-label="Vessel"><BlockTitle plain /></a>
             </div>
             <div class="title-block__cell title-block__cell--by">
-              {locale !== "en" && <span class="title-block__field">BY</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">BY</span>}
               <p class="footer-brand__tagline"><img src={FAVICON} alt="" width="20" height="20" />{t["footer.service"]}</p>
             </div>
             <nav aria-labelledby="footer-help" class="title-block__cell footer-group">
-              {locale !== "en" && <span class="title-block__field">HELP</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">HELP</span>}
               <p class="footer-heading" id="footer-help">{t["footer.help"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={href("/learn/")}>{t["learn.title"]}</a></li>
                 <li><a href={href("/faq/")}>{t["nav.faq"]}</a></li>
                 <li><a href={href("/dns/")}>{t["dns.title"]}</a></li>
+                <li><a href={href("/dns/lists/")}>{t["lists.title"]}</a></li>
               </ul>
             </nav>
             <nav aria-labelledby="footer-checks" class="title-block__cell footer-group">
-              {locale !== "en" && <span class="title-block__field">CHECK</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">CHECK</span>}
               <p class="footer-heading" id="footer-checks">{t["footer.checks"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={href("/check/")}>{t["check.title"]}</a></li>
@@ -199,7 +218,7 @@ export function App({ url }: { url?: string } = {}) {
               </ul>
             </nav>
             <nav aria-labelledby="footer-about" class="title-block__cell title-block__cell--about footer-group footer-group--about">
-              {locale !== "en" && <span class="title-block__field">ABOUT</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">ABOUT</span>}
               <p class="footer-heading" id="footer-about">{t["footer.about"]}</p>
               <ul class="plain footer-group__links">
                 <li><a href={COMMUNITY[locale]} target="_blank" rel="noopener">{t["footer.community"]}</a></li>
@@ -212,7 +231,7 @@ export function App({ url }: { url?: string } = {}) {
               </ul>
             </nav>
             <div class="title-block__cell title-block__cell--rev">
-              {locale !== "en" && <span class="title-block__field">REV</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">REV</span>}
               <p class="footer-heading">{t["footer.rev"]}</p>
               <p class="title-block__rev">
                 {REV_URL ? <a href={REV_URL} target="_blank" rel="noopener">{REV}</a> : "dev"}
@@ -220,7 +239,7 @@ export function App({ url }: { url?: string } = {}) {
               </p>
             </div>
             <nav class="title-block__cell title-block__cell--langs site-footer__langs" aria-label={t["lang.label"]}>
-              {locale !== "en" && <span class="title-block__field">LANGUAGES</span>}
+              {locale !== "en" && <span class="title-block__field" aria-hidden="true">LANGUAGES</span>}
               <span><TranslateIcon /> {t["lang.others"]}
                 {others.map((l, i) => (
                   <>

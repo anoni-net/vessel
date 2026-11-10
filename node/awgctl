@@ -10,10 +10,19 @@
 #   awgctl remove <name>                        revoke a peer immediately (suspended ones too)
 #   awgctl suspend <name>                       take a peer offline but keep its keys on the node (quota used up)
 #   awgctl resume <name>                        bring a suspended peer back
+#   awgctl throttle on <name>                   hold a peer to about 2 Mbit/s each way (quota used up)
+#   awgctl throttle off <name>                  back to full speed
 #   awgctl show <name>                          print a client config created by `add`
 #   awgctl usage --json                         transfer and blocked-lookup counters, when the interface came up
 #   awgctl apply                                rebuild awg0.conf and sync it to the running interface
-#   awgctl p2p                                  whole-node counts of BitTorrent-like packets since the container started
+#   awgctl p2p                                  whole-node counts of BitTorrent-like packets, and of connections refused
+#                                               over the per-device limit, since the container started
+#   awgctl inspect on <name> <until>            copy a device's packets to the inspection stream until <until> (epoch
+#                                               seconds); the node stops by itself at that time (toomore/anoni-net-ws#480)
+#   awgctl inspect off <name>                   stop at once
+#   awgctl inspect status --json                the devices being inspected
+#   awgctl inspect confirms --json              confirmation codes opened on devices (host/vessel-inspect-confirm.py)
+#   awgctl inspect ack <code>                   forget a confirmation the portal has read
 #
 # Layout under /opt/vessel-node:
 #   node.env                  NODE_IP and LISTEN_PORT of this node (not in the repo)
@@ -44,13 +53,189 @@ valid_name() { [[ $1 =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]] || die "name must match [a-
 valid_key() { [[ $1 =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]] || die "$2 is not a WireGuard key"; }
 valid_filter() { [ -n "${RESOLVER[$1]:-}" ] || die "filter must be one of: ${!RESOLVER[*]}"; }
 
+# Inspection copies a device's packets to NFLOG group 42 (host/vessel-inspect-stream reads it). The first packets of a
+# connection go whole, a TLS or QUIC hello needs them to show its server name; after that only the start of each
+# packet, so what leaves the node is the headers and not the content. Each rule names the address it is for and
+# carries its own end time, so a node that has lost the portal still stops.
+INSPECT_GROUP=42
+INSPECT_WHOLE=12    # packets of a connection copied whole
+INSPECT_SNAP=128    # bytes copied of the packets after those
+INSPECT_MAX_SECONDS=$(( 8 * 86400 ))
+
+# Over its monthly quota a device is slowed down rather than taken offline (the portal's worker, enforce_quota). Each
+# direction of its tunnel address is held to THROTTLE_RATE in VESSEL-THROTTLE, which FORWARD checks first; packets over
+# the rate are dropped, and TCP and QUIC slow down to fit. A container restart loses the rules: `usage --json` says which
+# addresses are throttled, and the worker puts back what is missing.
+THROTTLE_RATE=256kb/s   # bytes, about 2 Mbit/s
+THROTTLE_BURST=512kb
+
+# VESSEL-THROTTLE, and FORWARD's jump to it as the first rule; made by the first call that needs them
+throttle_chain() {
+  docker exec $C iptables -t filter -S VESSEL-THROTTLE >/dev/null 2>&1 || docker exec $C iptables -t filter -N VESSEL-THROTTLE || return 1
+  docker exec $C iptables -t filter -C FORWARD -j VESSEL-THROTTLE 2>/dev/null || docker exec $C iptables -t filter -I FORWARD 1 -j VESSEL-THROTTLE
+}
+
+# Remove the speed limit of a tunnel address. Like inspection, it must not carry over to the next device given the
+# address, so callers stop when this fails.
+throttle_clear() { # ipv4
+  local rules line
+  throttle_chain || return 1
+  rules=$(docker exec $C iptables -t filter -S VESSEL-THROTTLE) || return 1
+  { grep -E -- "--comment \"?vessel-throttle:${1//./\\.}\"?( |\$)" <<<"$rules" || true; } | sed -E 's/^-A /-D /' |
+    while read -r line; do
+      line=${line//\"/}
+      # shellcheck disable=SC2086  # the rule's own words
+      docker exec $C iptables -t filter $line || exit 1
+    done
+}
+
+# the throttled tunnel addresses, one a line; none when the chain is not there yet
+# VESSEL-NEW, VESSEL-P2P and VESSEL-LIMIT in node/start.sh, as name<TAB>packets: totals for the node since the
+# container started, nothing per device. A chain a node does not have yet is left out.
+node_totals() {
+  local chain
+  for chain in VESSEL-NEW VESSEL-P2P VESSEL-LIMIT; do docker exec $C iptables -nvxL $chain 2>/dev/null || true; done |
+    awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
+}
+
+throttle_list() {
+  docker exec $C iptables -t filter -S VESSEL-THROTTLE 2>/dev/null | grep -oE 'vessel-throttle:[0-9.]+' | cut -d: -f2 | sort -u || true
+}
+
+# a peer's file, online or suspended
+peer_file() { local f=$D/peers/$1.conf; [ -e "$f" ] || f=$D/suspended/$1.conf; [ -e "$f" ] && echo "$f"; }
+
+throttle_on() { # name
+  local f ip n
+  f=$(peer_file "$1") || die "$1 not found"
+  ip=$(peer_ip "$f"); n=${ip##*.}
+  throttle_clear "$ip" || die "could not clear the speed limit of $1"
+  # shellcheck disable=SC2206  # words
+  local limit=(-m hashlimit --hashlimit-above $THROTTLE_RATE --hashlimit-burst $THROTTLE_BURST)
+  if ! { docker exec $C iptables -t filter -A VESSEL-THROTTLE -i awg0 -s "$ip/32" -m comment --comment "vessel-throttle:$ip" \
+           "${limit[@]}" --hashlimit-name "vt$n-up" -j DROP &&
+         docker exec $C iptables -t filter -A VESSEL-THROTTLE -o awg0 -d "$ip/32" -m comment --comment "vessel-throttle:$ip" \
+           "${limit[@]}" --hashlimit-name "vt$n-down" -j DROP; }; then
+    # never one direction alone
+    throttle_clear "$ip" || true
+    die "could not add the speed limit"
+  fi
+  echo "throttled $1"
+}
+
+throttle_off() { # name
+  local f
+  f=$(peer_file "$1") || die "$1 not found"
+  throttle_clear "$(peer_ip "$f")" || die "could not clear the speed limit of $1"
+  echo "full speed for $1"
+}
+
+# Remove every inspection rule of a tunnel address. The next device given the address must not be copied, so callers
+# stop when this fails.
+inspect_clear() { # ipv4
+  local rules line
+  rules=$(docker exec $C iptables -t mangle -S) || return 1
+  { grep -E -- "--comment \"?vessel-inspect:${1//./\\.}\"?( |\$)" <<<"$rules" || true; } | sed -E 's/^-A /-D /' |
+    while read -r line; do
+      # iptables -S quotes the comment; passed on as it is, the quotes would be part of it and no rule would match
+      line=${line//\"/}
+      # shellcheck disable=SC2086  # the rule's own words
+      docker exec $C iptables -t mangle $line || exit 1
+    done
+}
+
+# shellcheck disable=SC2086  # $match and $count are lists of words
+inspect_add() { # chain, match words, ipv4, end time
+  local chain=$1 match=$2 mark="vessel-inspect:$3" stop=$4 count="-m connbytes --connbytes-dir both --connbytes-mode packets"
+  docker exec $C iptables -t mangle -A "$chain" $match $count --connbytes 0:$INSPECT_WHOLE \
+    -m comment --comment "$mark" -m time --datestop "$stop" -j NFLOG --nflog-group $INSPECT_GROUP || return 1
+  docker exec $C iptables -t mangle -A "$chain" $match $count --connbytes $(( INSPECT_WHOLE + 1 )): \
+    -m comment --comment "$mark" -m time --datestop "$stop" -j NFLOG --nflog-group $INSPECT_GROUP --nflog-size $INSPECT_SNAP
+}
+
+inspect_on() { # name, until (epoch seconds)
+  local f=$D/peers/$1.conf ip now stop
+  [ -e "$f" ] || f=$D/suspended/$1.conf
+  [ -e "$f" ] || die "$1 not found"
+  [[ ${2:-} =~ ^[0-9]{1,12}$ ]] || die "until is epoch seconds"
+  now=$(date +%s)
+  (( $2 > now && $2 <= now + INSPECT_MAX_SECONDS )) || die "until must be in the future, within $(( INSPECT_MAX_SECONDS / 86400 )) days"
+  ip=$(peer_ip "$f")
+  stop=$(date -u -d "@$2" +%Y-%m-%dT%H:%M:%S)
+  inspect_clear "$ip" || die "could not read or clear the inspection rules"
+  if ! { inspect_add PREROUTING "-i awg0 -s $ip/32" "$ip" "$stop" && inspect_add POSTROUTING "-o awg0 -d $ip/32" "$ip" "$stop"; }; then
+    # never half of it: one direction alone would be a wrong report
+    inspect_clear "$ip" || true
+    die "could not add the inspection rules"
+  fi
+  echo "inspecting $1 until $stop UTC"
+}
+
+inspect_off() { # name
+  local f=$D/peers/$1.conf
+  [ -e "$f" ] || f=$D/suspended/$1.conf
+  [ -e "$f" ] || die "$1 not found"
+  inspect_clear "$(peer_ip "$f")" || die "could not clear the inspection rules"
+  echo "stopped inspecting $1"
+}
+
+# what host/vessel-inspect-confirm.py wrote; an old one is of no use to anybody
+inspect_confirms() {
+  [ -d $D/inspect-confirm ] || { echo '[]'; return; }
+  find $D/inspect-confirm -maxdepth 1 -type f -mmin +60 -delete
+  python3 -c '
+import json, os, sys
+d = sys.argv[1]
+out = []
+for code in sorted(os.listdir(d)):
+    if not code.startswith("."):
+        with open(os.path.join(d, code)) as f:
+            out.append({"code": code, "address": f.read().strip()})
+print(json.dumps(out))
+' $D/inspect-confirm
+}
+
+inspect_status() {
+  local peers f
+  peers=$(for f in $D/peers/*.conf $D/suspended/*.conf; do
+    if [ -e "$f" ]; then printf '%s\t%s\n' "$(peer_ip "$f")" "$(basename "$f" .conf)"; fi
+  done)
+  docker exec $C iptables -t mangle -S | PEERS="$peers" python3 -c '
+import datetime, json, os, re, sys
+names = dict(line.split("\t") for line in os.environ["PEERS"].splitlines())
+now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+seen = {}
+for line in sys.stdin:
+    m = re.search(r"vessel-inspect:([0-9.]+)", line)
+    stop = re.search(r"--datestop (\S+)", line)
+    if m and stop:
+        seen[m[1]] = stop[1]
+print(json.dumps([{"name": names.get(ip), "address": ip, "until": until, "active": datetime.datetime.fromisoformat(until) > now}
+                  for ip, until in sorted(seen.items())]))
+'
+}
+
 apply() {
+  local tmp
   umask 077
+  tmp=$(mktemp $D/conf/.awg0.conf.XXXXXX)
   { cat $D/server/interface.conf
     for f in $D/peers/*.conf; do [ -e "$f" ] && { echo; cat "$f"; }; done
-  } > $D/conf/awg0.conf.new
-  mv $D/conf/awg0.conf.new $D/conf/awg0.conf
-  docker exec $C sh -c 'awg-quick strip /etc/amnezia/amneziawg/awg0.conf > /tmp/strip.conf && awg syncconf awg0 /tmp/strip.conf && rm /tmp/strip.conf'
+  } > "$tmp"
+  mv "$tmp" $D/conf/awg0.conf
+  docker exec $C sh -c 'f=$(mktemp) && awg-quick strip /etc/amnezia/amneziawg/awg0.conf > "$f" && awg syncconf awg0 "$f"; r=$?; rm -f "$f"; exit $r'
+}
+
+# the IPv4 tunnel address in a peer file
+peer_ip() { awk -v s="$SUBNET." 'match($0, "AllowedIPs = " s "[0-9]+/") { print substr($0, RSTART + 13, RLENGTH - 14); exit }' "$1"; }
+
+# Drop the kernel's connection tracking for a tunnel address. An established TCP flow stays tracked for five days,
+# and without this the next device given the address would get the replies meant for the previous one. Nothing is
+# printed: the entries name the sites the address was talking to. An image built without conntrack skips it.
+forget_flows() { # ipv4
+  docker exec $C sh -c 'command -v conntrack >/dev/null || exit 0
+    conntrack -D -s "$1"; conntrack -D -d "$1"; conntrack -D -f ipv6 -s "$2"; conntrack -D -f ipv6 -d "$2"; exit 0' \
+    sh "$1" "$(ip6_of "$1")" >/dev/null 2>&1 || true
 }
 
 # Client-only params (the server ignores them), so every peer gets its own values
@@ -90,6 +275,9 @@ next_ip() {
   die "no free address in $SUBNET.0/24"
 }
 
+# a peer by this name, online or suspended
+exists() { [ -e $D/peers/$1.conf ] || [ -e $D/suspended/$1.conf ]; }
+
 # the IPv6 address that goes with an IPv4 tunnel address
 ip6_of() { echo "$SUBNET6${1##*.}"; }
 
@@ -97,6 +285,12 @@ ip6_of() { echo "$SUBNET6${1##*.}"; }
 new_peer() { # name filter pubkey psk
   local ip
   ip=$(next_ip)
+  # in case the previous holder's flows were not dropped when it was removed
+  forget_flows "$ip"
+  # nor may the previous holder's inspection carry over to whoever gets the address next
+  inspect_clear "$ip" || die "could not clear the inspection rules of $ip"
+  # and a speed limit belongs to the device that used up its quota, not to the address
+  throttle_clear "$ip" || die "could not clear the speed limit of $ip"
   umask 077
   printf '[Peer]\n# %s\n# dns=%s\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s/32, %s/128\n' \
     "$1" "$2" "$3" "$4" "$ip" "$(ip6_of "$ip")" > $D/peers/$1.conf
@@ -117,13 +311,23 @@ peer_table() { # name<TAB>filter<TAB>pubkey for every peer file
 
 cmd=${1:-}; name=${2:-}
 case $cmd in
+  add|add-pubkey|remove|suspend|resume|apply|inspect|throttle)
+    # one change at a time: the portal and its worker can call at once, and two changes together could give two
+    # peers the same address or sync a config the other is still writing
+    exec 9>$D/.awgctl.lock
+    flock -w 15 9 || die "busy, try again"
+    ;;
+esac
+case $cmd in
   list|usage)
     json=0; [ "$name" = "--json" ] && json=1
     [ "$cmd" = usage ] && json=1
     started=$(docker inspect -f '{{.State.StartedAt}}' $C)
     { peer_table; echo "--"; docker exec $C awg show awg0 dump | tail -n +2
       echo "--"; docker exec $C iptables -nvxL VESSEL-BLOCKED 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'
-      echo "--"; docker exec $C iptables -nvxL VESSEL-ADS 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'; } |
+      echo "--"; docker exec $C iptables -nvxL VESSEL-ADS 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'
+      echo "--"; throttle_list
+      echo "--"; if [ "$cmd" = usage ]; then node_totals; fi; } |
       CMD=$cmd JSON=$json STARTED=$started python3 -c '
 import json, os, sys, time
 peers, dump = {}, {}
@@ -131,6 +335,8 @@ lines = sys.stdin.read().splitlines()
 sep = lines.index("--")
 sep2 = lines.index("--", sep + 1)
 sep3 = lines.index("--", sep2 + 1)
+sep4 = lines.index("--", sep3 + 1)
+sep5 = lines.index("--", sep4 + 1)
 for l in lines[:sep]:
     name, flt, pub = l.split("\t")
     peers[pub] = (name, flt)
@@ -142,18 +348,22 @@ for l in lines[sep + 1:sep2]:
 # blocked lookups per tunnel address: the malware list (VESSEL-BLOCKED) and the ad list (VESSEL-ADS); a chain
 # a node does not have yet reads as zero
 blocked = dict(l.split("\t") for l in lines[sep2 + 1:sep3] if "\t" in l)
-ads = dict(l.split("\t") for l in lines[sep3 + 1:] if "\t" in l)
+ads = dict(l.split("\t") for l in lines[sep3 + 1:sep4] if "\t" in l)
+throttled = set(lines[sep4 + 1:sep5])
+# node-wide counts since the container started (node_totals), for the portal to notice P2P or a device at its limit
+totals = {k: int(v) for k, v in (l.split("\t") for l in lines[sep5 + 1:] if "\t" in l)}
 for d in dump.values():
     d["blocked"] = int(blocked.get(d["address"], 0))
     d["blocked_ads"] = int(ads.get(d["address"], 0))
+    d["throttled"] = d["address"] in throttled
 rows = []
 for pub, (name, flt) in sorted(peers.items(), key=lambda kv: kv[1][0]):
-    d = dump.get(pub, {"address": None, "latest_handshake": 0, "rx": 0, "tx": 0, "blocked": 0, "blocked_ads": 0})
+    d = dump.get(pub, {"address": None, "latest_handshake": 0, "rx": 0, "tx": 0, "blocked": 0, "blocked_ads": 0, "throttled": False})
     rows.append({"name": name, "filter": flt, "public_key": pub, **d})
 if os.environ["JSON"] == "1":
     if os.environ["CMD"] == "usage":
-        rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake", "blocked", "blocked_ads")} for r in rows]
-        print(json.dumps({"interface_started": os.environ["STARTED"], "peers": rows}))
+        rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake", "blocked", "blocked_ads", "throttled")} for r in rows]
+        print(json.dumps({"interface_started": os.environ["STARTED"], "peers": rows, "totals": totals}))
     else:
         print(json.dumps(rows))
 else:
@@ -172,7 +382,7 @@ else:
     valid_name "$name"
     filter=${3:-none}
     valid_filter "$filter"
-    [ -e $D/peers/$name.conf ] && die "$name already exists"
+    exists "$name" && die "$name already exists"
     priv=$(awg_run genkey </dev/null); pub=$(echo "$priv" | awg_run pubkey); psk=$(awg_run genpsk </dev/null)
     srv_pub=$(docker exec $C awg show awg0 public-key)
     ip=$(new_peer "$name" "$filter" "$pub" "$psk")
@@ -189,8 +399,8 @@ else:
     valid_name "$name"
     pub=${3:-}; psk=${4:-}; filter=${5:-none}
     valid_key "$pub" "public key"; valid_key "$psk" "preshared key"; valid_filter "$filter"
-    [ -e $D/peers/$name.conf ] && die "$name already exists"
-    grep -qxF "PublicKey = $pub" $D/peers/*.conf 2>/dev/null && die "public key already in use"
+    exists "$name" && die "$name already exists"
+    grep -qxF "PublicKey = $pub" $D/peers/*.conf $D/suspended/*.conf 2>/dev/null && die "public key already in use"
     srv_pub=$(docker exec $C awg show awg0 public-key)
     ip=$(new_peer "$name" "$filter" "$pub" "$psk")
     params=$(client_params)
@@ -209,9 +419,22 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     ;;
   remove)
     valid_name "$name"
-    [ -e $D/peers/$name.conf ] || [ -e $D/suspended/$name.conf ] || die "$name not found"
+    ip=
+    for f in $D/peers/$name.conf $D/suspended/$name.conf; do
+      [ -e "$f" ] && ip=$(peer_ip "$f")
+    done
+    found=0; exists "$name" && found=1
+    # before the files go: a try that fails here finds the address again the next time
+    if [ -n "$ip" ]; then
+      inspect_clear "$ip" || die "could not clear the inspection rules of $name"
+      throttle_clear "$ip" || die "could not clear the speed limit of $name"
+    fi
     rm -f $D/peers/$name.conf $D/clients/$name.conf $D/suspended/$name.conf
+    # apply even when the files are already gone: a try that deleted them and then failed to apply left the peer on
+    # the interface, and the portal tries again
     apply
+    [ -n "$ip" ] && forget_flows "$ip"
+    [ "$found" = 1 ] || die "$name not found"
     echo "removed $name"
     ;;
   suspend)
@@ -219,20 +442,21 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     if [ -e $D/peers/$name.conf ]; then
       [ -d $D/suspended ] || mkdir -m 700 $D/suspended
       mv $D/peers/$name.conf $D/suspended/$name.conf
-      apply
     elif [ ! -e $D/suspended/$name.conf ]; then
       die "$name not found"
     fi
+    # also when it was already moved: an earlier try may have moved it and failed to apply
+    apply
     echo "suspended $name"
     ;;
   resume)
     valid_name "$name"
     if [ -e $D/suspended/$name.conf ]; then
       mv $D/suspended/$name.conf $D/peers/$name.conf
-      apply
     elif [ ! -e $D/peers/$name.conf ]; then
       die "$name not found"
     fi
+    apply
     echo "resumed $name"
     ;;
   show)
@@ -244,13 +468,32 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     apply
     ;;
   p2p)
-    # VESSEL-NEW and VESSEL-P2P in node/start.sh: totals for the node, nothing per device
+    # VESSEL-NEW, VESSEL-P2P and VESSEL-LIMIT in node/start.sh: totals for the node, nothing per device
     echo "since $(docker inspect -f '{{.State.StartedAt}}' $C)"
-    { docker exec $C iptables -nvxL VESSEL-NEW 2>/dev/null; docker exec $C iptables -nvxL VESSEL-P2P 2>/dev/null; } |
-      awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
+    node_totals
+    ;;
+  throttle)
+    case $name in
+      on) valid_name "${3:-}"; throttle_on "$3" ;;
+      off) valid_name "${3:-}"; throttle_off "$3" ;;
+      *) die "throttle on <name> | off <name>" ;;
+    esac
+    ;;
+  inspect)
+    case $name in
+      on) valid_name "${3:-}"; inspect_on "$3" "${4:-}" ;;
+      off) valid_name "${3:-}"; inspect_off "$3" ;;
+      status) inspect_status ;;
+      confirms) inspect_confirms ;;
+      ack)
+        [[ ${3:-} =~ ^[A-Z0-9]{16}$ ]] || die "not a confirmation code"
+        rm -f "$D/inspect-confirm/$3"
+        ;;
+      *) die "inspect on <name> <until> | off <name> | status --json" ;;
+    esac
     ;;
   *)
-    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac

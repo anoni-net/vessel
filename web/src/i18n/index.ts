@@ -30,10 +30,7 @@ export function messagesOf(locale: Locale): Record<MessageKey, string> {
   return MESSAGES[locale];
 }
 
-/** Fill {name} placeholders. */
-export function fmt(text: string, vars: Record<string, string | number>): string {
-  return text.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
-}
+export { fmt } from "./fmt.ts";
 
 export type T = Record<MessageKey, string>;
 

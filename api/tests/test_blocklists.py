@@ -1,12 +1,18 @@
 import json
+import socket
 import ssl
+import threading
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app import blocklists
 from app.main import app
+
+# the tests' fixture replaces this so that nothing reaches Quad9
+REAL_RCODE = blocklists._rcode
 
 HEADERS = {"X-Vessel-Request": "1"}
 
@@ -23,7 +29,8 @@ bad.example CNAME .
 def api():
     # fresh lists, so the request does not start a download
     blocklists.set_lists({"malware": frozenset({"bad.example"}), "tw165": frozenset({"scam.example"}),
-                          "twmoda": frozenset({"fakeshop.example"}),
+                          "twmoda": frozenset({"fakeshop.example"}), "stalkerware": frozenset({"spy.example"}),
+                          "cti": frozenset({"active.example"}),
                           "ads": frozenset({"ads.example", "bad.example"})})
     blocklists.lookup_limiter.reset()
     yield TestClient(app)
@@ -46,6 +53,23 @@ def test_parse_165_cleans_the_entries():
             "11509,https://www.fake.example/login,電子商務,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n"
             "11509,not a domain,電子商務,詐欺犯罪危害防制條例,刑事警察局詐欺犯罪防制中心\n")
     assert blocklists.parse_165(text) == frozenset({"scam.example", "shop.example", "www.fake.example"})
+
+
+def test_parse_hosts_reads_a_name_a_line():
+    text = "# a comment\nSpy.Example\nsync.spy.example\n\nnot a name\n"
+    assert blocklists.parse_hosts(text) == frozenset({"spy.example", "sync.spy.example"})
+
+
+def test_lookup_names_the_stalkerware_list(api):
+    body = ask(api, "media.spy.example").json()
+    assert {k: body[k] for k in ("malware", "tw165", "twmoda", "stalkerware", "ads")} == {
+        "malware": False, "tw165": False, "twmoda": False, "stalkerware": True, "ads": False}
+
+
+def test_lookup_names_the_cti_list(api):
+    body = ask(api, "login.active.example").json()
+    assert {k: body[k] for k in ("malware", "tw165", "twmoda", "stalkerware", "cti", "ads")} == {
+        "malware": False, "tw165": False, "twmoda": False, "stalkerware": False, "cti": True, "ads": False}
 
 
 @pytest.mark.parametrize("raw, host", [
@@ -116,3 +140,141 @@ def test_only_the_165_download_relaxes_the_strict_certificate_check():
     assert not relaxed.verify_flags & ssl.VERIFY_X509_STRICT
     assert relaxed.verify_mode == ssl.CERT_REQUIRED and relaxed.check_hostname
     assert default.verify_flags == ssl.create_default_context().verify_flags
+
+
+def test_the_exclude_file_is_the_same_as_the_nodes():
+    node = Path(__file__).parents[2] / "node" / "exclude.txt"
+    api_copy = Path(blocklists.__file__).with_name("blocklist_exclude.txt")
+    assert node.read_text(encoding="utf-8") == api_copy.read_text(encoding="utf-8")
+
+
+def test_excluded_names_leave_out_the_reasons():
+    text = "# a comment\nfrom-ia.com  # why\n\nGomLab.com\n"
+    assert blocklists.excluded_names(text) == frozenset({"from-ia.com", "gomlab.com"})
+
+
+def test_a_download_leaves_out_the_excluded_name_but_not_the_names_under_it(monkeypatch):
+    names = [f"bad{i}.example" for i in range(blocklists.MIN_ENTRIES)] + ["keep.excluded.example", "excluded.example"]
+    zone = "".join(f"{n} CNAME .\n*.{n} CNAME .\n" for n in names).encode()
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return zone
+
+    monkeypatch.setattr(blocklists, "SOURCES", {"malware": "https://lists.example/malware"})
+    monkeypatch.setattr(blocklists, "EXCLUDED", frozenset({"excluded.example"}))
+    monkeypatch.setattr(blocklists.urllib.request, "urlopen", lambda *_, **__: Response())
+    blocklists._download()
+    try:
+        assert blocklists.blocked_by("excluded.example") == {"malware": False}
+        assert blocklists.blocked_by("keep.excluded.example") == {"malware": True}
+    finally:
+        blocklists.set_lists({}, at=None)
+        blocklists._loaded_at = None
+
+
+def test_the_hosting_platforms_are_the_private_section():
+    text = "// ===BEGIN ICANN DOMAINS===\ncom\n// ===END ICANN DOMAINS===\n// ===BEGIN PRIVATE DOMAINS===\n// a platform\n" \
+           "pages.dev\n*.Compute.Example-Cloud.com\n!exception.other-cloud.com\n// ===END PRIVATE DOMAINS===\n"
+    assert blocklists.parse_platforms(text) == frozenset(
+        {"pages.dev", "compute.example-cloud.com", "exception.other-cloud.com"})
+
+
+def _serve(monkeypatch, files: dict[str, str]) -> None:
+    class Response:
+        def __init__(self, url: str):
+            if url not in files:
+                raise OSError("offline")
+            self.body = files[url].encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return self.body
+
+    monkeypatch.setattr(blocklists.urllib.request, "urlopen", lambda request, **_: Response(request.full_url))
+
+
+def test_only_the_names_on_a_hosting_platform_are_used_from_cti(monkeypatch):
+    platforms = "// ===BEGIN PRIVATE DOMAINS===\npages.dev\n" + "".join(f"p{i}.example\n" for i in range(1000))
+    cti = "".join(f"site{i}.pages.dev\n" for i in range(60000)) + "own-site.example\npages.dev\n"
+    monkeypatch.setattr(blocklists, "SOURCES", {"cti": "https://lists.example/cti"})
+    monkeypatch.setattr(blocklists, "_platforms", frozenset())
+    _serve(monkeypatch, {blocklists.PUBLIC_SUFFIXES: platforms, "https://lists.example/cti": cti})
+    blocklists._download()
+    try:
+        assert blocklists.blocked_by("site1.pages.dev") == {"cti": True}
+        assert blocklists.blocked_by("own-site.example") == {"cti": False}
+        assert blocklists.blocked_by("pages.dev") == {"cti": False}
+    finally:
+        blocklists.set_lists({}, at=None)
+        blocklists._loaded_at = None
+
+
+def test_cti_keeps_what_it_had_without_the_hosting_platforms(monkeypatch):
+    blocklists.set_lists({"cti": frozenset({"old.pages.dev"})})
+    monkeypatch.setattr(blocklists, "SOURCES", {"cti": "https://lists.example/cti"})
+    monkeypatch.setattr(blocklists, "_platforms", frozenset())
+    _serve(monkeypatch, {"https://lists.example/cti": "".join(f"site{i}.pages.dev\n" for i in range(60000))})
+    blocklists._download()
+    try:
+        assert blocklists._lists["cti"] == frozenset({"old.pages.dev"})
+    finally:
+        blocklists.set_lists({}, at=None)
+        blocklists._loaded_at = None
+
+
+def test_the_summary_counts_what_each_list_adds(api):
+    blocklists.set_lists({"malware": frozenset({"bad.example", "only.example"}), "tw165": frozenset({"scam.example"}),
+                          "twmoda": frozenset({"sub.bad.example"}), "stalkerware": frozenset({"spy.example"}),
+                          "ads": frozenset({"bad.example", "ads.example"})})
+    body = api.get("/api/blocklist/lists").json()
+    rows = {row["id"]: row for row in body["lists"]}
+    assert rows["malware"] == {"id": "malware", "domains": 2, "only_here": 1}
+    assert rows["tw165"] == {"id": "tw165", "domains": 1, "only_here": 1}
+    # a parent on another list already blocks it
+    assert rows["twmoda"] == {"id": "twmoda", "domains": 1, "only_here": 0}
+    assert rows["stalkerware"] == {"id": "stalkerware", "domains": 1, "only_here": 1}
+    assert rows["ads"] == {"id": "ads", "domains": 2, "only_here": 1}
+    assert (body["malware_filter"], body["ads_filter"], body["hagezi"]) == (4, 5, 3)
+    assert "as_of" in body
+
+
+def test_the_summary_before_the_lists_arrive(api):
+    blocklists._loaded_at = None
+    assert api.get("/api/blocklist/lists").status_code == 503
+
+
+def test_lookup_says_when_quad9_blocks(api, monkeypatch):
+    # 9.9.9.10 is the same service without the filter
+    answers = {"9.9.9.9": 3, "9.9.9.10": 0}
+    monkeypatch.setattr(blocklists, "_rcode", lambda host, server, port=53: answers[server])
+    assert ask(api, "phish.example").json()["quad9"] is True
+    answers["9.9.9.10"] = 3  # it just does not exist
+    assert ask(api, "gone.example").json()["quad9"] is False
+    answers["9.9.9.9"] = None  # no answer
+    assert ask(api, "phish.example").json()["quad9"] is None
+
+
+def test_rcode_ignores_a_reply_with_another_id():
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server.bind(("127.0.0.1", 0))
+
+    def answer():
+        query, client_addr = server.recvfrom(512)
+        server.sendto(bytes([query[0] ^ 0xFF, query[1], 0x81, 0x80]) + bytes(8), client_addr)
+        server.sendto(query[:2] + bytes([0x81, 0x83]) + bytes(8), client_addr)
+
+    threading.Thread(target=answer, daemon=True).start()
+    assert REAL_RCODE("bad.example", "127.0.0.1", server.getsockname()[1]) == 3
+    server.close()

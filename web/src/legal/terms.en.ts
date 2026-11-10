@@ -1,13 +1,14 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-04",
+  updated: "2026-11-10",
   blocks: [
     { h: "The service" },
     { p: "Vessel is a free VPN set up by the anoni.net anonymous network community and run by volunteers, made up of the portal (vessel.anoni.net) and nodes in several cities. It is in testing: no network is guaranteed to work, and the service may be interrupted. We may change the allowance, nodes and features, or end the service, and will try to announce changes in advance." },
     { h: "Accounts" },
     { p: "Your account number is your sign-in credential, so keep it safe. A lost number cannot be recovered, and we have no email address to reset it with." },
     { p: "Each invite code creates one account. Invite codes and accounts must not be sold or traded for money. Give the invite codes you make on the account page to people you know, and do not post them publicly." },
+    { p: "For accounts issued by a group, data, device limits and expiry follow the group's settings instead of the figures under \"Limits and expiry\" below, and devices last until the group ends or they are revoked. Leaders can revoke devices or take back accounts, and accounts are deleted when the group ends. Apart from the invites leaders give to members, these accounts cannot create invites. Leaders can ask a member to inspect a device, which starts only once the member agrees; what leaders see is under [“Groups” in the privacy policy](/privacy/#groups)." },
     { h: "Prohibited uses" },
     { p: "When using Vessel, do not:" },
     {
@@ -23,13 +24,13 @@ export default {
     { h: "Allowance and expiry" },
     {
       ul: [
-        "50 GB per account per month, shared by its devices and paused until the next month once used up",
+        "A monthly data allowance per account, shared by its devices and shown with this month's use on the devices page; once it is used up, each device is slowed down to about 2 Mbps until the next month",
         "Up to 3 devices per account",
         "Even if you stay connected, devices expire when the account has not opened the portal for 30 days; signing in, or opening the portal while signed in, extends them by 30 days",
       ],
     },
     { h: "We cannot trace individual accounts" },
-    { p: "Vessel does not log where you connect or when. An abuse report usually gives only an exit IP address and a time, which we cannot trace to an account, so we can only respond with service-wide limits such as blocking certain ports or domains. A request from law enforcement can only get the data listed in the [privacy policy](/privacy/)." },
+    { p: "Vessel does not log where you connect or when (except on a device where you turned on an inspection, see the privacy policy). An abuse report usually gives only an exit IP address and a time, which we cannot trace to an account, so we can only respond with service-wide limits such as blocking certain ports or domains. A request from law enforcement can only get the data listed in the [privacy policy](/privacy/)." },
     { h: "Revocation and termination" },
     { p: "If an account breaks these terms, we may revoke its devices or disable it. You can delete your account at any time on the account page, which revokes all its devices." },
     { h: "Disclaimer" },

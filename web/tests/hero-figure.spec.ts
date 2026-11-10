@@ -6,15 +6,15 @@ import { expect, test } from "@playwright/test";
 test("the connection picture names each part and says what it shows", async ({ page }) => {
   await page.goto("/");
   const fig = page.locator(".hero .hero-fig");
-  await expect(fig.getByRole("img")).toHaveAttribute("aria-label", /東京或新加坡的 Vessel 節點/);
-  await expect(fig.locator(".hero-fig__label")).toHaveText(["你的裝置YOUR DEVICE", "東京節點NODE · TYO", "新加坡節點NODE · SIN", "網際網路INTERNET", "加密連線ENCRYPTED"]);
+  await expect(fig.getByRole("img")).toHaveAttribute("aria-label", /東京、台北或新加坡的 Vessel 節點/);
+  await expect(fig.locator(".hero-fig__label")).toHaveText(["你的裝置YOUR DEVICE", "東京節點NODE · TYO", "台北節點NODE · TPE", "新加坡節點NODE · SIN", "網際網路INTERNET", "加密連線ENCRYPTED"]);
   await expect(fig.locator("figcaption")).toHaveText("FIG. 01連線經過 Vessel 的節點");
   await page.goto("/en/");
-  await expect(page.locator(".hero-fig__en")).toHaveText(["NODE", "NODE"]);
+  await expect(page.locator(".hero-fig__en")).toHaveText(["NODE", "NODE", "NODE"]);
   await expect(page.locator(".hero .hero-fig__label").first()).toHaveText("Your device");
   // the cities alone, "node" under them, so "Singapore" stays clear of the globe
-  await expect(page.locator(".hero .hero-fig__label").nth(2)).toHaveText("SingaporeNODE");
-  const sg = await page.locator(".hero .hero-fig__label").nth(2).boundingBox();
+  await expect(page.locator(".hero .hero-fig__label").nth(3)).toHaveText("SingaporeNODE");
+  const sg = await page.locator(".hero .hero-fig__label").nth(3).boundingBox();
   const globe = await page.locator(".hero circle.hero-fig__top").boundingBox();
   expect(sg!.x + sg!.width).toBeLessThanOrEqual(globe!.x);
 });
@@ -24,10 +24,10 @@ test("under 使用情境, the blocklists, the disguise, the relay routes and the
   const works = page.locator("#works");
   await expect(works.getByRole("heading", { level: 2 })).toHaveText("Vessel 的做法");
   await expect(works.locator("figcaption")).toHaveText([
-    "FIG. 02組合多份公開名單，擋下詐騙與釣魚網站", "FIG. 03以 AmneziaWG 偽裝連線，不容易被認出是 VPN",
+    "FIG. 02組合多份公開名單，擋下名單上的詐騙與釣魚網站", "FIG. 03以 AmneziaWG 偽裝連線，不容易被認出是 VPN",
     "FIG. 04從台北入口連線，出口是你選的城市", "FIG. 05金鑰在你的裝置上產生，私鑰不會離開",
   ]);
-  await expect(works.getByRole("img").nth(2)).toHaveAttribute("aria-label", /入口只轉送加密的封包、不解開通道，再轉到你選的東京或新加坡節點/);
+  await expect(works.getByRole("img").nth(2)).toHaveAttribute("aria-label", /入口只轉送加密的封包、不解開通道，再轉到你選的城市的節點/);
   await expect(works.getByRole("img").nth(3)).toHaveAttribute("aria-label", /只有公鑰送到入口網站與節點/);
   await expect(works.getByRole("link", { name: "隱私權政策" })).toHaveAttribute("href", "/privacy/");
   await expect(works.getByRole("img").nth(1)).toHaveAttribute("aria-label", /開源的 AmneziaWG/);

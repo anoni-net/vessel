@@ -7,28 +7,50 @@ import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { Months, monthsSince } from "./months.tsx";
 import { Invites } from "./invites.tsx";
+import { GroupView } from "./group-view.tsx";
 import { Passkeys } from "./passkeys.tsx";
 import { AccountNumber } from "./redeem.tsx";
 import { Busy, SkLine, Spin } from "./skeleton.tsx";
+import { focusHeading } from "../focus.ts";
+import { announce } from "../announce.ts";
+import { passkeysSupported } from "../passkey.ts";
+import { useReverify } from "./reverify.tsx";
 
-/** Links shown on the signed-in pages. */
-export function AccountNav() {
+/** Links shown on the signed-in pages. `leader`: the account leads a group, so its page is among them. */
+export function AccountNav({ leader = false }: { leader?: boolean }) {
   const { t, href } = useCtx();
   const [leaving, setLeaving] = useState(false);
+  const [failed, setFailed] = useState(false);
   const logout = async () => {
+    if (leaving) return;
     setLeaving(true);
-    await api.logout().catch(() => undefined);
+    setFailed(false);
+    try {
+      await api.logout();
+    } catch (x) {
+      // only the server can clear the session cookie; until it answers, this browser stays signed in, and the next
+      // person at a shared computer would land in this account. An already ended session needs nothing more.
+      if (!(x instanceof ApiError && x.code === "signed_out")) {
+        setFailed(true);
+        setLeaving(false);
+        return;
+      }
+    }
     setSignedIn(false);
     navigate(href("/"));
   };
   return (
-    <nav class="subnav" aria-label={t["nav.account"]}>
-      <a href={href("/devices/")}>{t["nav.devices"]}</a>
-      <a href={href("/account/")}>{t["nav.account"]}</a>
-      <button class="link-button" type="button" onClick={logout} disabled={leaving} aria-busy={leaving}>
-        {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
-      </button>
-    </nav>
+    <>
+      <nav class="subnav" aria-label={t["nav.account"]}>
+        <a href={href("/devices/")}>{t["nav.devices"]}</a>
+        <a href={href("/account/")}>{t["nav.account"]}</a>
+        {(leader || last.me?.group?.role === "leader") && <a href={href("/group/")}>{t["nav.group"]}</a>}
+        <button class="link-button" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
+          {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
+        </button>
+      </nav>
+      {failed && <p class="error" role="alert">{t["nav.logoutFailed"]}</p>}
+    </>
   );
 }
 
@@ -54,6 +76,8 @@ export function Account() {
   const [deleting, setDeleting] = useState(false);
   // a number just replaced with a passkey: shown on its own, once, then back to the account page
   const [newNumber, setNewNumber] = useState("");
+  // adding or removing a passkey and deleting the account may first ask the person to confirm it is them
+  const { guard, dialog } = useReverify(!!passkeys?.length && passkeysSupported());
 
   useEffect(() => {
     api.passkeys().then(setPasskeys).catch(() => setPasskeys(null));
@@ -68,9 +92,13 @@ export function Account() {
   }, []);
 
   const remove = async () => {
+    if (deleting) return;
     setDeleting(true);
     try {
-      await api.deleteAccount();
+      await guard(() => api.deleteAccount());
+      // the header and the home page no longer offer "My devices", and the home page says it is done
+      setSignedIn(false);
+      announce(t["account.deleted"]);
       navigate(href("/"));
     } catch (x) {
       setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
@@ -78,7 +106,7 @@ export function Account() {
     }
   };
 
-  if (newNumber) return <AccountNumber number={newNumber} rotated onContinue={() => setNewNumber("")} />;
+  if (newNumber) return <AccountNumber number={newNumber} rotated onContinue={() => { setNewNumber(""); focusHeading(); }} />;
   if (err && !me) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
   // The page keeps its final layout while loading: the words are there from the start, and only what comes
   // from the server (the dates, the monthly record, the passkeys) is grey until it arrives, then eases in.
@@ -86,7 +114,7 @@ export function Account() {
   const day = (iso: string | null | undefined) => (iso ? formatDate(locale, iso) : "-");
   return (
     <section class="wrap narrow stack account-page" aria-busy={loading}>
-      <AccountNav />
+      <AccountNav leader={me?.group?.role === "leader"} />
       <h1>{t["account.title"]}</h1>
       <dl class="facts">
         <dt>{t["account.created"]}</dt>
@@ -99,9 +127,10 @@ export function Account() {
         <div class="account-col">
           <Months data={months} rows={monthsSince(me?.created_on)} guess={filterGuess()} />
           <Invites />
+          <GroupView me={me} />
         </div>
         <div class="account-col">
-          <Passkeys initial={passkeys} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
+          <Passkeys initial={passkeys} guard={guard} onNewNumber={(n) => { setNewNumber(n); window.scrollTo(0, 0); }} />
         </div>
       </div>
       <div class="account-section account-delete">
@@ -113,12 +142,13 @@ export function Account() {
             {t["account.deleteCheck"]}
           </label>
           {err && <p class="error" role="alert">{err}</p>}
-          <button class="nb-button nb-button--danger" type="button" disabled={!sure || deleting} aria-busy={deleting} onClick={remove}>
+          <button class="nb-button nb-button--danger" type="button" disabled={!sure} aria-disabled={deleting} aria-busy={deleting} onClick={remove}>
             {deleting ? <><Spin />{t["busy.delete"]}</> : t["account.deleteSubmit"]}
           </button>
         </div>
       </div>
       {loading && <Busy />}
+      {dialog}
     </section>
   );
 }

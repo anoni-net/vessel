@@ -1,5 +1,6 @@
 """Background worker: runs queued node jobs, expires devices, clears unfetched configs, and every few minutes
-reads the nodes' transfer counters and enforces the monthly quota.
+reads the nodes' transfer counters and enforces the monthly quota. Every half hour it also reads which common sites
+each node can open.
 Usage: python -m app.worker [--once]"""
 
 import sys
@@ -8,7 +9,7 @@ import traceback
 
 import psycopg
 
-from app import jobs, policy
+from app import inspections, jobs, policy
 from app.config import load
 from app.db import KEEPALIVE
 
@@ -17,11 +18,16 @@ USAGE_EVERY = 300  # seconds
 
 def tick(conn: psycopg.Connection, usage: bool = True) -> None:
     jobs.expire_devices(conn)
+    jobs.close_groups(conn)
     if usage:
         jobs.poll_usage(conn)
-        jobs.enforce_quota(conn, policy.MONTHLY_QUOTA_BYTES)
+        jobs.enforce_quota(conn, policy.personal_quota(conn))
+        jobs.poll_reach(conn)
+        jobs.reconcile_peers(conn)
+    inspections.tick(conn, usage)
     jobs.run_due_jobs(conn)
     jobs.clear_stale_results(conn)
+    jobs.forget_finished_jobs(conn)
     jobs.forget_expired_invites(conn)
     jobs.beat(conn, "worker")
 

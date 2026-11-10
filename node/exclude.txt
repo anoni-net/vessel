@@ -1,0 +1,22 @@
+# Names left out of every blocklist on the nodes (deploy/rpz/lists.sh) and in the portal's lookup. Only the name itself:
+# a name under it stays listed, and a listed parent still blocks it. api/app/blocklist_exclude.txt is a copy, a test
+# checks that the two match. Each line says why, so that anyone can check the decision.
+from-ia.com  # a public suffix for dynamic DNS hosts: listing it would block everyone under it
+gomlab.com  # on the 165 list since 2026-09, but HiNet resolves it again (checked 2026-11-07)
+playinfo.gomlab.com  # same as gomlab.com
+waws-prod-blu-247.sip.azurewebsites.windows.net  # an Azure App Service front end other sites point to, on Echap's stalkerware list
+waws-prod-blu-247-e7b3.eastus.cloudapp.azure.com  # the same front end's other name
+wixsite.com  # Wix's shared parent, a public suffix: its sites belong to different people, on DNSBunker's CTI list
+cloudflare-ipfs.com  # a public IPFS gateway and public suffix, on DNSBunker's CTI list
+graph.org  # Telegraph's other domain, where anyone can publish a page, on DNSBunker's CTI list
+meusitehostgator.com.br  # HostGator Brazil's temporary addresses for its customers, on DNSBunker's CTI list
+edgeone.dev  # Tencent EdgeOne's platform for customers' sites, on DNSBunker's CTI list
+jumpingcrab.com  # a dynamic DNS domain anyone can get a name under, on DNSBunker's CTI list
+publicvm.com  # a dynamic DNS domain anyone can get a name under, on DNSBunker's CTI list
+myhuaweicloud-custom.com  # Huawei Cloud's customer host names, on DNSBunker's CTI list
+hosted-by-vdsina.com  # the host names of a hosting company's servers, on DNSBunker's CTI list
+awsdns-531.com  # the name servers of Amazon Route 53, on DNSBunker's CTI list
+top4top.io  # a file and image host for anyone's uploads, on DNSBunker's CTI list
+craftum.io  # a website builder for customers' sites, on DNSBunker's CTI list
+eporner.com  # an adult video site: content is not a reason to block, on DNSBunker's CTI list
+pmvhaven.com  # an adult video site: content is not a reason to block, on DNSBunker's CTI list

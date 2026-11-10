@@ -12,6 +12,8 @@
 | `/etc/vessel/db.env` | `POSTGRES_PASSWORD` | 可以進資料庫容器重設 |
 | `/etc/vessel/ssh/key`、`known_hosts` | 呼叫節點 `awgctl-remote` 的金鑰與節點的主機金鑰 | 重新產生，再換掉節點上 `authorized_keys` 的那一行 |
 
+連線檢測的 UDP 測試預設使用 Cloudflare 的公開 STUN 伺服器（`stun.cloudflare.com:3478`），`api.env` 加上 `VESSEL_STUN=<主機>:<埠>` 可以換成其他伺服器，設成空值就不顯示這一項。
+
 `VESSEL_ACCOUNT_PEPPER` 與 `VESSEL_HMAC_KEY` 要另外備份在主機以外的地方，例如維護者的密碼管理器，而且不要跟資料庫的備份放在一起。三個檔案的權限都是 600，擁有者是 root。
 
 ## 第一次安裝
@@ -64,8 +66,11 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 
 - worker 超過 5 分鐘沒有完成一輪
 - 某個節點超過 20 分鐘沒有讀到用量
+- 某個節點的網站自測超過 3 小時沒有更新（節點上的 `vessel-reach.timer` 停了，見 `node/README.md` 的「節點打不開的網站」）
 - 有節點工作排隊超過 15 分鐘
 - 後端沒有回應
+
+節點打不開的網站另外比對，跟服務狀態頁一樣，只算某個節點打不開、其他節點打得開的網站。有網站新打不開或恢復時，推一則一般優先的通知，列出變化的網站。上一次的清單記在 `VESSEL_REACH_STATE`（預設 `~/.cache/vessel-reach.state`），第一次執行只記下清單，不推播。
 
 用主機的 crontab 每 10 分鐘執行一次，`VESSEL_HEALTH_URL` 的埠跟 `deploy/.env` 的 `VESSEL_API_PORT` 一致：
 
@@ -75,6 +80,31 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 
 加上 `--force` 手動執行一次，可以確認通知收得到。
 
+## 濫用的跡象
+
+節點不記錄連線的目的地與時間，所以無法從紀錄查出是哪一台裝置做了什麼。節點先擋下常見的濫用（往外的 SMTP、內網與雲端 metadata 的位址、每台裝置同時 2,000 條連線，見 `node/start.sh`），其餘靠外部的訊號。
+
+### 出口 IP 的黑名單
+
+`health_warn.py` 每次執行都把各城市的出口 IP（`regions set --exit-ip`，換主機期間也包括舊主機的）逐一到 DNS 黑名單查詢，被列入時推一則高優先的通知，移出時推一則一般優先的通知。預設查 SpamCop、Barracuda、DroneBL 與 PSBL，2026-11 在 m6 確認這四份都能透過主機的解析器查詢。Spamhaus 拒絕經由公用解析器的查詢，要用的話先申請免費的 DQS 金鑰，在 crontab 加上 `VESSEL_DNSBL="<預設的四份> <金鑰>.zen.dq.spamhaus.net"`。查不到結果（逾時、名單拒絕查詢）時沿用上一次的結果，原因寫在 log。上一次的結果記在 `VESSEL_DNSBL_STATE`（預設 `~/.cache/vessel-dnsbl.state`）。只查 IPv4。
+
+改了名單之後執行一次 `python3 deploy/health_warn.py --dnsbl`，每一筆都應該是 `clear` 或 `listed`，出現 `unknown` 代表那份名單無法從這台主機查詢。
+
+### 用量與節點的計數
+
+`/internal/health` 的 `usage_flags` 是本月三種帳號的數量：上傳超過下載而且上傳至少 1 GB、已經用了額度的三分之一而且照目前的速度月底前會用完、已經用完額度。瀏覽、影片與訊息多半是下載，上傳多的帳號可能在架站、做種或替別人轉送。`node_totals` 是各節點從容器啟動以來的 BitTorrent 封包數與裝置連線數到上限的次數（`node/start.sh`），worker 讀用量時一起存下。
+
+`health_warn.py` 在任何一種帳號變多時推播，節點的計數從 0 變成大於 0 時推播一次，持續增加不再推播，節點重啟歸零後再出現才會再推。都只有總數，通知裡沒有帳號或裝置，上一次的結果記在 `VESSEL_USAGE_STATE`（預設 `~/.cache/vessel-usage.state`）。收到通知之後在 m6 上查 `account_usage`，只在需要處理時看是哪個帳號，看完不另外記下。
+
+### 被列入或收到 abuse 通知時
+
+主機商轉來的 abuse 通知會寄到主機帳號的 email，要確認維護者看得到。處理的順序：
+
+1. 通知裡有目的地或埠的話，先在那個節點暫時擋下，回覆主機商已經處理
+2. 用 `report` 看那個城市的流量與連線裝置數，對照最近有沒有用量或節點計數的通知
+3. 同一個城市一再出現，評估收緊每台裝置的連線數，或暫停兌換（`settings redeem_paused true`）
+4. 到黑名單的網站申請移除，多數名單在問題停止之後也會自動移除
+
 ## Cloudflare
 
 - 主機名稱經 Cloudflare 代理
@@ -82,3 +112,7 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 - 不快取
 - `/api/login` 與 `/api/redeem` 依 IP 做速率限制
 - `/dns/` 的即時檢測另外用到四個主機名稱 `vessel-dns-0` 到 `vessel-dns-3.anoni.net`，都是經代理、CNAME 到同一台主機的紀錄，nginx 的設定照 `nginx/vessel-dns.anoni.net.conf`。只回應 `/check`，只允許 `https://vessel.anoni.net` 讀取，不記存取紀錄。入口網站 CSP 的 `connect-src` 要列出這四個主機名稱
+
+## 裝置檢測
+
+裝置頁的檢測（`app/inspections.py`）要有分析主機才會開放。`/etc/vessel/api.env` 加上 `VESSEL_ANALYSIS_HOST=<分析主機的 tailnet IP>`，沒有設定時開始檢測回 503。入口用跟節點相同的 SSH 金鑰連線，分析主機的 `authorized_keys` 要把這把金鑰限制在 `inspect/inspect-remote`，分析主機的 host key 也要加進 `VESSEL_SSH_KNOWN_HOSTS`。節點端的設定見 `node/README.md`，分析主機見 `inspect/README.md`。

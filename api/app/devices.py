@@ -40,10 +40,22 @@ def used_bytes(conn, account_id: int) -> int:
     return row[0] if row else 0
 
 
+# The addresses taken on a region's node: every device row, and the peers of deleted accounts, whose rows are gone
+# while their remove jobs are still waiting (the row of a device being removed otherwise goes only after its peer)
+PEERS_ON_NODE = (
+    "(SELECT count(*) FROM devices d WHERE d.region_id = r.id) + "
+    "(SELECT count(*) FROM jobs j WHERE j.region_id = r.id AND j.action = 'remove' AND j.status = 'queued' "
+    "AND NOT EXISTS (SELECT 1 FROM devices d WHERE d.id = j.device_id))"
+)
+
+
 @router.get("/regions")
 def regions(_: Account, conn: Conn) -> list[dict]:
-    # the frontend names regions by id; node hosts and endpoints are not exposed here
-    return [{"id": r[0], "open": r[1]} for r in conn.execute("SELECT id, is_open FROM regions ORDER BY id")]
+    # the frontend names regions by id; node hosts, endpoints and how many peers a node has are not exposed here
+    return [
+        {"id": r[0], "open": r[1], "full": r[2] >= policy.NODE_PEER_LIMIT}
+        for r in conn.execute(f"SELECT r.id, r.is_open, {PEERS_ON_NODE} FROM regions r ORDER BY r.id")
+    ]
 
 
 @router.get("/relays")
@@ -64,11 +76,23 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
         "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
-        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id FROM devices d JOIN regions r ON r.id = d.region_id "
+        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status, d.throttled, i.ends_at, i.report_until, "
+        "g.status, g.requested_on, g.until "
+        "FROM devices d JOIN regions r ON r.id = d.region_id "
+        # a request whose confirmation link has run out confirms nothing, as on the inspection's own page; the worker
+        # deletes it later
+        "LEFT JOIN device_inspections i ON i.device_id = d.id "
+        "AND NOT (i.status = 'confirming' AND i.code_at <= now() - make_interval(mins => %s)) "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
+        # a leader's request for an inspection (app/groups.py), and whether the inspection is the one they asked for
+        "LEFT JOIN group_inspections g ON g.device_id = d.id AND g.status IN ('requested', 'started') "
         "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
-        (account_id,),
+        (policy.INSPECT_CONFIRM_MINUTES, account_id),
     )
+    # The inspection is told as where it stands and its dates, for the card to say what to do next. Never what the
+    # report found: the device list is the page most often seen over someone's shoulder, and a stalker who reads
+    # "known threat" there can act before the person does (toomore/anoni-net-ws#461). The report is sealed to the
+    # person's browser and opened on the inspection's page only.
     return [
         {"id": r[0], "name": r[1], "region": r[2], "dns_filter": r[3], "status": r[4],
          "created_on": r[5].isoformat(), "expires_on": r[6].isoformat(), "used_bytes": r[7], "blocked": r[8],
@@ -78,7 +102,23 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          # made before configs had a private IPv6 address; on Apple devices some connections may go around the VPN
          "ipv6": r[11],
          # the relay route it connects through, or None for a direct connection
-         "relay": r[12]}
+         "relay": r[12],
+         # the device inspection, if there is one (app/inspections.py)
+         "inspection": r[13],
+         # over this month's quota: online, at a low speed (app/jobs.py, enforce_quota)
+         "throttled": r[14],
+         # when it ends, while it runs (from confirmation on), and how many days it runs in all: the card counts the
+         # day as the inspection's page does
+         "inspection_ends_at": r[15].isoformat() if r[15] else None,
+         "inspection_days": policy.INSPECT_DAYS if r[13] else None,
+         # the last day its report is kept, once it has ended
+         "inspection_report_until": r[16].isoformat() if r[16] else None,
+         # while it waits for the device: how long a confirmation link is good for after it is made
+         "inspection_confirm_minutes": policy.INSPECT_CONFIRM_MINUTES if r[13] == "confirming" else None,
+         # the group's leaders asked for an inspection of this device and wait for the member's answer until `until`
+         "inspection_request": {"requested_on": r[18].isoformat(), "until": r[19].isoformat()} if r[17] == "requested" else None,
+         # the inspection is one a leader asked for: the leaders get its summary
+         "inspection_group": r[17] == "started" and r[13] is not None}
         for r in rows
     ]
 
@@ -88,12 +128,15 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
     name = body.name.strip()
     if not name:
         raise error(400, "invalid_name")
-    if not KEY.match(body.public_key) or not KEY.match(body.preshared_key) or body.public_key == body.preshared_key:
+    # fullmatch: a pattern ending in $ also takes a trailing newline
+    if not KEY.fullmatch(body.public_key) or not KEY.fullmatch(body.preshared_key) or body.public_key == body.preshared_key:
         raise error(400, "invalid_key")
     device_id = new_device_id()
     with conn.transaction():
         conn.execute("SELECT id FROM accounts WHERE id = %s FOR UPDATE", (account_id,))
-        if not conn.execute("SELECT 1 FROM regions WHERE id = %s AND is_open", (body.region,)).fetchone():
+        # one creation at a time per region, so two at once cannot take the node's last address; NO KEY so the foreign
+        # keys of other writers do not wait for it
+        if not conn.execute("SELECT 1 FROM regions WHERE id = %s AND is_open FOR NO KEY UPDATE", (body.region,)).fetchone():
             raise error(400, "region_closed")
         if body.relay is not None:
             relay = conn.execute("SELECT region_id, is_open FROM relays WHERE id = %s", (body.relay,)).fetchone()
@@ -101,19 +144,23 @@ def create_device(body: NewDevice, account_id: Account, conn: Conn, response: Re
                 raise error(400, "invalid_relay")
             if not relay[1]:
                 raise error(400, "relay_closed")
+        limits = policy.limits_of(conn, account_id)
         count = conn.execute(
             "SELECT count(*) FROM devices WHERE account_id = %s AND status <> 'revoking'", (account_id,)
         ).fetchone()[0]
-        if count >= policy.DEVICE_LIMIT:
+        if count >= limits.devices:
             raise error(409, "device_limit")
-        if used_bytes(conn, account_id) >= policy.MONTHLY_QUOTA_BYTES:
+        if used_bytes(conn, account_id) >= limits.monthly_quota_bytes:
             raise error(403, "quota_exceeded")
+        peers = conn.execute(f"SELECT {PEERS_ON_NODE} FROM regions r WHERE r.id = %s", (body.region,)).fetchone()[0]
+        if peers >= policy.NODE_PEER_LIMIT:
+            raise error(409, "region_full")
         if conn.execute("SELECT 1 FROM devices WHERE public_key = %s", (body.public_key,)).fetchone():
             raise error(409, "key_in_use")
         conn.execute(
             "INSERT INTO devices (id, account_id, region_id, name, public_key, dns_filter, expires_on, relay_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, current_date + %s, %s)",
-            (device_id, account_id, body.region, name, body.public_key, body.dns_filter, policy.DEVICE_DAYS,
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (device_id, account_id, body.region, name, body.public_key, body.dns_filter, limits.device_expires_on,
              body.relay),
         )
         job_id = conn.execute(
@@ -171,21 +218,31 @@ def device_config(device_id: str, account_id: Account, conn: Conn, response: Res
     raise error(410, "config_gone")
 
 
+def queue_revoke(conn, device_id: str, region_id: str) -> int:
+    """Start taking a device off its node, inside the caller's transaction. Returns the remove job to try."""
+    conn.execute("UPDATE devices SET status = 'revoking' WHERE id = %s", (device_id,))
+    # a pending add that has not reached the node yet is dropped; remove covers it either way. A config nobody
+    # fetched goes too.
+    conn.execute("UPDATE jobs SET status = 'done', payload = NULL WHERE device_id = %s AND status = 'queued'",
+                 (device_id,))
+    conn.execute("UPDATE jobs SET result = NULL WHERE device_id = %s AND result IS NOT NULL", (device_id,))
+    return conn.execute(
+        "INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'remove') RETURNING id",
+        (region_id, device_id),
+    ).fetchone()[0]
+
+
 @router.delete("/devices/{device_id}", dependencies=[Depends(require_app_header)])
 def delete_device(device_id: str, account_id: Account, conn: Conn) -> dict[str, bool]:
     with conn.transaction():
         row = conn.execute(
-            "UPDATE devices SET status = 'revoking' WHERE id = %s AND account_id = %s RETURNING region_id",
-            (device_id, account_id),
+            "SELECT region_id, status FROM devices WHERE id = %s AND account_id = %s FOR UPDATE", (device_id, account_id)
         ).fetchone()
         if row is None:
             raise error(404, "not_found")
-        # a pending add that has not reached the node yet is dropped; remove covers it either way
-        conn.execute("UPDATE jobs SET status = 'done', payload = NULL WHERE device_id = %s AND status = 'queued'",
-                     (device_id,))
-        job_id = conn.execute(
-            "INSERT INTO jobs (region_id, device_id, action) VALUES (%s, %s, 'remove') RETURNING id",
-            (row[0], device_id),
-        ).fetchone()[0]
+        if row[1] == "revoking":
+            # already on its way off the node; its remove job keeps trying
+            return {"ok": True}
+        job_id = queue_revoke(conn, device_id, row[0])
     jobs.run_job(conn, job_id)
     return {"ok": True}

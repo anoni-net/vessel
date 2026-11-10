@@ -12,8 +12,10 @@ import { setSignedIn } from "../session.ts";
 import { faqAnchor } from "./faq.tsx";
 import { FILTERS, Layers } from "./layers.tsx";
 import { NewDeviceSkeleton, Spin } from "./skeleton.tsx";
+import { announce } from "../announce.ts";
 import { type Platform, buildConfig, configFileName, detectPlatform, qrSvg } from "../wgconfig.ts";
 import { saveFile, savesInPlace } from "../save-file.ts";
+import { focusHeading } from "../focus.ts";
 
 const PLATFORMS: Platform[] = ["android", "apple", "windows"];
 // the steps inside AmneziaWG, after the config is saved
@@ -36,14 +38,14 @@ function gateOf(me?: Me | null, devices?: Device[] | null): Gate | undefined {
   return "ok";
 }
 
-type CityState = "open" | "closed" | "planned";
+type CityState = "open" | "full" | "closed" | "planned";
 
-/** Open cities first, then the ones being set up, then the ones still in talks with a host. */
+/** Open cities first, then the full ones, then the ones being set up, then the ones still in talks with a host. */
 function cityChoices(regions: Region[]): { id: string; state: CityState }[] {
-  const rank: Record<CityState, number> = { open: 0, closed: 1, planned: 2 };
+  const rank: Record<CityState, number> = { open: 0, full: 1, closed: 2, planned: 3 };
   const known = new Set(regions.map((r) => r.id));
   return [
-    ...regions.map((r) => ({ id: r.id, state: (r.open ? "open" : "closed") as CityState })),
+    ...regions.map((r) => ({ id: r.id, state: (!r.open ? "closed" : r.full ? "full" : "open") as CityState })),
     ...PLANNED.filter((id) => !known.has(id)).map((id) => ({ id, state: "planned" as CityState })),
   ].sort((a, b) => rank[a.state] - rank[b.state]);
 }
@@ -110,13 +112,16 @@ export function NewDevice() {
     setStep(s);
     track("device-step", { step: s, platform });
     window.scrollTo(0, 0);
+    focusHeading();
   };
 
   const create = async (e: Event) => {
     e.preventDefault();
+    if (busy) return;
     started.current = true;
     setBusy(true);
     setErr("");
+    announce(t["config.waiting"]);
     const keys = generateKeyPair();
     const psk = generatePresharedKey();
     try {
@@ -216,6 +221,7 @@ export function NewDevice() {
         <ul class="plain install-more small">
           <li><a href={href("/learn/")}>{t["learn.link"]}</a></li>
           <li><a href={href(`/faq/#${faqAnchor("protocols")}`)}>{t["faq.protocols.q"]}</a></li>
+          <li><a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["faq.risky.q"]}</a></li>
         </ul>
       </section>
     );
@@ -245,13 +251,14 @@ export function NewDevice() {
             <p class="muted small">{t["pick.relaysBody"]}</p>
             {relays.map((r) => {
               const city = t[`region.${r.region}` as MessageKey] ?? r.region;
+              const full = regions?.some((x) => x.id === r.region && x.full);
               return (
-                <button type="button" class="choice choice--city" data-state="open"
+                <button type="button" class="choice choice--city" data-state={full ? "full" : "open"} disabled={full}
                   onClick={() => { setRegion(r.region); setRelay(r.id); go("name"); }}>
                   {flagOf(r.region) && <img class="flag" src={flagOf(r.region)} alt="" width="32" height="24" />}
                   <span class="choice__text">
                     <span class="strong big">{fmt(t["pick.relayRoute"], { entry: t[relayEntry(r.id)], city })}</span>
-                    <span class="muted small">{fmt(t["pick.relayExit"], { city })}</span>
+                    <span class="muted small">{full ? t["pick.full"] : fmt(t["pick.relayExit"], { city })}</span>
                   </span>
                 </button>
               );
@@ -269,13 +276,21 @@ export function NewDevice() {
   if (step === "name") {
     return (
       <section class="wrap narrow" key="name">
-        <form class="stack" onSubmit={(e) => { e.preventDefault(); go("filter"); }}>
+        <form class="stack" onSubmit={(e) => {
+          e.preventDefault();
+          // only spaces passes `required` but not the server: say so here, next to the field, not a step later
+          if (name.trim()) return go("filter");
+          setErr(errorText(t, "invalid_name"));
+          document.getElementById("device-name")?.focus();
+        }}>
           {stepLabel(3)}
-          <h1>{t["name.title"]}</h1>
-          <label for="device-name" class="sr-only">{t["name.label"]}</label>
+          {/* the heading is the field's label, so what is read is what is shown (WCAG 2.5.3) */}
+          <h1 id="device-name-label">{t["name.title"]}</h1>
           <input id="device-name" class="nb-input" maxLength={40} required placeholder={t["name.placeholder"]}
-            value={name} onInput={(e) => setName(e.currentTarget.value)} aria-describedby="name-hint" />
-          <p id="name-hint" class="muted small">{t["name.hint"]}</p>
+            value={name} onInput={(e) => setName(e.currentTarget.value)} aria-labelledby="device-name-label"
+            aria-invalid={err ? true : undefined} aria-describedby={err ? "device-name-error name-hint" : "name-hint"} />
+          <p id="name-hint" class="muted small">{t[me?.group ? "name.hintGroup" : "name.hint"]}</p>
+          {err && <p class="error" role="alert" id="device-name-error">{err}</p>}
           <button class="nb-button nb-button--ink" type="submit">{t["name.next"]}</button>
           <button class="link-button" type="button" onClick={() => go("region")}>{t["back"]}</button>
         </form>
@@ -298,7 +313,7 @@ export function NewDevice() {
                 <span class="choice__text">
                   <span class="choice__head">
                     <Layers filter={f} />
-                    <span class="strong">{t[`protect.${f}`]}</span>
+                    <span class="strong">{t[`filter.${f}`]}</span>
                     {f === "malware" && <span class="badge badge--active">{t["protect.recommended"]}</span>}
                   </span>
                   <span class="muted small">{t[`filter.${f}.desc`]}</span>
@@ -306,14 +321,16 @@ export function NewDevice() {
               </label>
             ))}
           </fieldset>
+          {/* a new tab, so the device being set up is not lost */}
+          <p class="small"><a href={href("/dns/lists/")} target="_blank" rel="noopener">{t["protect.how"]}</a></p>
           <p class="muted small">
             {t["filter.doh"]}{" "}
             {/* a new tab, so the device being set up is not lost */}
             <a href={href("/dns/")} target="_blank" rel="noopener">{t["dns.link"]}</a>
           </p>
-          {busy && <p class="muted" role="status">{t["config.waiting"]}</p>}
+          {busy && <p class="muted">{t["config.waiting"]}</p>}
           {errorLine}
-          <button class="nb-button nb-button--primary" type="submit" disabled={busy} aria-busy={busy}>
+          <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
             {busy ? <><Spin />{t["busy.create"]}</> : t["name.submit"]}
           </button>
           <button class="link-button" type="button" onClick={() => go("name")} disabled={busy}>{t["back"]}</button>
