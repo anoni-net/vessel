@@ -1,6 +1,6 @@
 """Calling awgctl on a node over SSH. On the node the key is pinned to awgctl-remote, which allows only
-add-pubkey, remove, suspend, resume, list --json and usage --json, and reach --json, which reads the node's own
-check of the sites it can open (node/host/vessel-reach.py)."""
+add-pubkey, remove, suspend, resume, throttle on and off, list --json, usage --json and the inspection calls, and
+reach --json, which reads the node's own check of the sites it can open (node/host/vessel-reach.py)."""
 
 import json
 import os
@@ -17,6 +17,8 @@ class Node(Protocol):
     def remove(self, host: str, device_id: str) -> None: ...
     def suspend(self, host: str, device_id: str) -> None: ...
     def resume(self, host: str, device_id: str) -> None: ...
+    def throttle_on(self, host: str, device_id: str) -> None: ...
+    def throttle_off(self, host: str, device_id: str) -> None: ...
     def usage(self, host: str) -> dict: ...
     def list_peers(self, host: str) -> list[dict]: ...
     def reach(self, host: str) -> dict: ...
@@ -74,6 +76,22 @@ class SSHNode:
 
     def resume(self, host, device_id):
         self._run(host, "resume", device_id)
+
+    def throttle_on(self, host, device_id):
+        try:
+            self._run(host, "throttle", "on", device_id)
+        except NodeError as e:
+            # a peer the node does not have uses nothing to slow down
+            if not str(e).endswith(f"{device_id} not found"):
+                raise
+
+    def throttle_off(self, host, device_id):
+        try:
+            self._run(host, "throttle", "off", device_id)
+        except NodeError as e:
+            # a peer that is gone has no limit left
+            if not str(e).endswith(f"{device_id} not found"):
+                raise
 
     def usage(self, host):
         return json.loads(self._run(host, "usage", "--json"))

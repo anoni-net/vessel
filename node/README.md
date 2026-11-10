@@ -73,6 +73,8 @@ awgctl add-pubkey <ID> <公鑰> <PSK> [過濾]     # 入口網站用，金鑰在
 awgctl usage --json                           # 流量計數與介面啟動的時間
 awgctl suspend <名稱>                         # 額度用完：peer 下線，金鑰留在節點
 awgctl resume <名稱>                          # 恢復暫停的 peer
+awgctl throttle on <名稱>                     # 額度用完：限速到上傳、下載各約 2 Mbit/s，仍然連得上
+awgctl throttle off <名稱>                    # 恢復全速
 awgctl show <名稱>
 awgctl remove <名稱>
 awgctl inspect on <名稱> <結束時間的 epoch 秒數>  # 開始檢測，最長 8 天
@@ -88,9 +90,11 @@ awgctl inspect status --json                  # 檢測中的裝置
 
 `suspend` 把 peer 的設定搬到 `suspended/`，`resume` 再搬回來。入口網站把 PresharedKey 交給節點之後就不保存，所以暫停與恢復都在節點上完成。兩個指令重複執行都不會出錯，`remove` 也會清掉暫停中的 peer。`remove`、`suspend`、`resume` 不論 peer 原本在哪裡，都會再套用一次設定，前一次搬了檔案卻套用失敗時，入口網站重試就會補上。`node/test/awgctl-test.sh` 用假的 docker 測試這幾件事。
 
+`throttle on` 在容器的 `VESSEL-THROTTLE`（`FORWARD` 的第一條規則跳過去，第一次用到時建立）替隧道位址加兩條 `hashlimit` 規則，上傳、下載各限 256 KB/s，超過的封包丟掉，TCP 與 QUIC 會自己降速。本機用真的 iptables 與 iperf3 量過，限速後上傳、下載各約 2.75 Mbit/s，UDP 約 2.2 Mbit/s。規則不寫進檔案，容器重啟就沒了，`usage --json` 依位址帶出 `throttled`，入口網站的 worker 每 5 分鐘比對並補回。位址換給下一台裝置之前，`add-pubkey` 與 `remove` 都會清掉它的限速。暫停中的 peer 也能限速，恢復時直接是慢的。
+
 ## 入口網站的金鑰
 
-入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`suspend`、`resume`、`list --json`、`usage --json`，以及讀取「節點打不開的網站」結果的 `reach --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
+入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`suspend`、`resume`、`throttle on`、`throttle off`、`list --json`、`usage --json`，以及讀取「節點打不開的網站」結果的 `reach --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
 
 ```
 command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 tailnet IP>" ssh-ed25519 AAAA... vessel-portal

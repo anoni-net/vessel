@@ -71,7 +71,7 @@ def test_a_group_account_over_its_quota_cannot_add_a_device(signed_in, node, db)
     assert create(signed_in).json() == {"error": "quota_exceeded"}
 
 
-def test_the_groups_quota_suspends_only_that_account(signed_in, node, db):
+def test_the_groups_quota_slows_down_only_that_account(signed_in, node, db):
     device_id = create(signed_in).json()["id"]
     join_group(db, quota=GB)
     other = another_personal_account_with_a_device(db, node)
@@ -82,18 +82,22 @@ def test_the_groups_quota_suspends_only_that_account(signed_in, node, db):
             (account, GB),
         )
     jobs.enforce_quota(db, policy.MONTHLY_QUOTA_BYTES)
-    assert status(db, device_id) == "suspended"
-    assert status(db, "d-other") == "active"
+    assert throttled(db, device_id) is True
+    assert throttled(db, "d-other") is False
     # the group's quota goes up: the account is under it again
     db.execute("UPDATE groups SET monthly_quota_bytes = %s", (2 * GB,))
     jobs.enforce_quota(db, policy.MONTHLY_QUOTA_BYTES)
     db.execute("UPDATE jobs SET next_try_at = now()")
     jobs.run_due_jobs(db)
-    assert status(db, device_id) == "active"
+    assert throttled(db, device_id) is False and device_id not in node.throttled
 
 
 def account_id_of_device(db, device_id: str) -> int:
     return db.execute("SELECT account_id FROM devices WHERE id = %s", (device_id,)).fetchone()[0]
+
+
+def throttled(db, device_id: str) -> bool:
+    return db.execute("SELECT throttled FROM devices WHERE id = %s", (device_id,)).fetchone()[0]
 
 
 def status(db, device_id: str) -> str:

@@ -93,6 +93,8 @@ class FakeNode:
         self.inspecting: dict[str, int] = {}
         self.confirms: list[dict] = []
         self.acked: list[str] = []
+        # devices held to a low speed (awgctl throttle)
+        self.throttled: set[str] = set()
 
     def add_pubkey(self, host, device_id, public_key, psk, dns_filter):
         if self.down:
@@ -110,6 +112,7 @@ class FakeNode:
             raise NodeError("timeout")
         self.peers.pop(device_id, None)
         self.suspended.pop(device_id, None)
+        self.throttled.discard(device_id)
 
     def suspend(self, host, device_id):
         if self.down:
@@ -123,6 +126,17 @@ class FakeNode:
         if device_id in self.suspended:
             self.peers[device_id] = self.suspended.pop(device_id)
             self.counters[device_id] = (0, 0)
+
+    def throttle_on(self, host, device_id):
+        if self.down:
+            raise NodeError("timeout")
+        if device_id in self.peers or device_id in self.suspended:
+            self.throttled.add(device_id)
+
+    def throttle_off(self, host, device_id):
+        if self.down:
+            raise NodeError("timeout")
+        self.throttled.discard(device_id)
 
     def inspect_on(self, host, device_id, until):
         if self.down:
@@ -160,7 +174,8 @@ class FakeNode:
         return {"interface_started": self.started,
                 "peers": [{"name": n, "rx": self.counters.get(n, (0, 0))[0], "tx": self.counters.get(n, (0, 0))[1],
                            "latest_handshake": self.handshakes.get(n, 0), "blocked": self.blocked.get(n, 0),
-                           "blocked_ads": self.blocked_ads.get(n, 0)} for n in self.peers]}
+                           "blocked_ads": self.blocked_ads.get(n, 0), "throttled": n in self.throttled}
+                          for n in self.peers]}
 
 
 @pytest.fixture

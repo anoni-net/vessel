@@ -24,7 +24,7 @@ export default {
     { h: "Allowance and expiry" },
     {
       ul: [
-        "A monthly data allowance per account, shared by its devices and shown with this month's use on the devices page; devices pause until the next month once it is used up",
+        "A monthly data allowance per account, shared by its devices and shown with this month's use on the devices page; once it is used up, each device is slowed down to about 2 Mbps until the next month",
         "Up to 3 devices per account",
         "Even if you stay connected, devices expire when the account has not opened the portal for 30 days; signing in, or opening the portal while signed in, extends them by 30 days",
       ],

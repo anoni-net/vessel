@@ -598,7 +598,7 @@ test("a device made today that has not connected yet: the usual few minutes", as
 });
 
 test("the usage card says what is left from four fifths of the allowance, until it runs out", async ({ page }) => {
-  for (const [used, text] of [[39e9, null], [40e9, "本月剩下約 10 GB，用完之後裝置會暫停，到下個月 1 日（UTC）恢復。"], [50e9, null]] as const) {
+  for (const [used, text] of [[39e9, null], [40e9, "本月剩下約 10 GB，用完之後每台裝置會限速到約 2 Mbps，到下個月 1 日（UTC）恢復全速。"], [50e9, null]] as const) {
     await mockApi(page, { ...signedIn, "GET /api/me": json({ ...ME, used_bytes: used }) });
     await page.goto("/devices/");
     await expect(page.getByTestId("usage-percent")).toBeVisible();
@@ -945,4 +945,16 @@ test("on wide screens the home page's questions stay in their column, with nothi
   expect(questions.width).toBeLessThanOrEqual(760);
   const section = (await page.locator("#faq").boundingBox())!;
   expect(section.height).toBeLessThan(questions.height + 260);
+});
+
+test("a device over the quota says it is slowed down, not cut off", async ({ page }) => {
+  const over = { ...ME, used_bytes: 51e9 };
+  const slow = [{ ...DEVICES[0], throttled: true }];
+  await mockApi(page, { "GET /api/me": json(over), "GET /api/devices": json(slow) });
+  await page.goto("/devices/");
+  await expect(page.getByTestId("throttled")).toHaveText("本月額度已經用完，這台裝置限速到約 2 Mbps，傳訊息、查地圖與瀏覽網頁仍可使用，下個月 1 日（UTC）恢復全速。");
+  await mockApi(page, { "GET /api/me": json(ME), "GET /api/devices": json(DEVICES) });
+  await page.goto("/devices/");
+  await expect(page.getByRole("listitem").filter({ hasText: "phone" })).toBeVisible();
+  await expect(page.getByTestId("throttled")).toHaveCount(0);
 });

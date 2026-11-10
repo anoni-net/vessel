@@ -317,6 +317,7 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
                 </p>
               )}
               {d.status === "suspended" && <p class="muted small">{t["status.suspendedNote"]}</p>}
+              {d.status === "active" && d.throttled && <p class="muted small" data-testid="throttled">{t["status.throttledNote"]}</p>}
               {d.moved_until && (
                 <p class="card card--warn card--flat small notice" data-testid="moved">
                   <Icon name="warning" />

@@ -52,7 +52,7 @@ export interface Me {
   group?: { role: "leader" | "member"; label: string; device_revoked_on: string | null; closing_on?: string | null } | null;
 }
 
-export type GroupIssue = "not_connected" | "suspended" | "new_config" | "blocked_many";
+export type GroupIssue = "not_connected" | "suspended" | "throttled" | "new_config" | "blocked_many";
 
 export interface GroupDevice {
   id: string;
@@ -164,6 +164,8 @@ export interface Device {
   relay?: string | null;
   /** the device inspection, if there is one (missing from an older backend) */
   inspection?: "confirming" | "active" | "ending" | "ended" | null;
+  /** over this month's quota: online at about 2 Mbps until the next month (missing from an older backend) */
+  throttled?: boolean;
 }
 
 export interface Inspection {

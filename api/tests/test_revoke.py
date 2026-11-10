@@ -102,7 +102,7 @@ def test_only_awgctls_own_not_found_counts_as_removed(monkeypatch, stderr, gone)
         raise NodeError(stderr)
 
     monkeypatch.setattr(ssh, "_run", run)
-    for call in (ssh.remove, ssh.suspend):
+    for call in (ssh.remove, ssh.suspend, ssh.throttle_on, ssh.throttle_off):
         if gone:
             call("node", "d-abcdefghijkl")
         else:

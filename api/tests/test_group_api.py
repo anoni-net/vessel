@@ -106,7 +106,9 @@ def test_issues_for_suspended_and_new_config(leader, db):
     create(member)
     db.execute("UPDATE devices SET status = 'suspended', connected = true")
     assert issues(leader) == ["suspended"]
-    db.execute("UPDATE devices SET status = 'active', ipv6 = false")
+    db.execute("UPDATE devices SET status = 'active', throttled = true")
+    assert issues(leader) == ["throttled"]
+    db.execute("UPDATE devices SET throttled = false, ipv6 = false")
     assert issues(leader) == ["new_config"]
     db.execute("UPDATE devices SET ipv6 = true, moved = true")
     db.execute("UPDATE regions SET previous_until = current_date + 5")
