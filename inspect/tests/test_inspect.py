@@ -193,9 +193,15 @@ class Seal(Base):
             opened(X25519PrivateKey.generate(), box)
 
 
-def dns_answer(name, flags, src="10.8.1.253", dst="10.8.1.3", sport=53):
-    question = b"".join(bytes([len(p)]) + p.encode() for p in name.split(".")) + b"\0\0\1\0\1"
-    body = struct.pack(">HHHHHH", 1, flags, 1, 0, 0, 0) + question
+def wire(name):
+    return b"".join(bytes([len(p)]) + p.encode() for p in name.split(".")) + b"\0"
+
+
+def dns_answer(name, flags, src="10.8.1.253", dst="10.8.1.3", sport=53, cname=None):
+    question = wire(name) + b"\0\1\0\1"
+    # a CNAME record pointing back at the question's name (offset 12), as unbound writes it
+    answer = b"\xc0\x0c\0\5\0\1" + struct.pack(">IH", 3600, len(wire(cname))) + wire(cname) if cname else b""
+    body = struct.pack(">HHHHHH", 1, flags, 1, 1 if cname else 0, 0, 0) + question + answer
     udp = struct.pack(">HHHH", sport, 40000, 8 + len(body), 0) + body
     addr = lambda a: bytes(map(int, a.split(".")))  # noqa: E731
     return bytes([0x45, 0]) + struct.pack(">HHHBBH", 20 + len(udp), 0, 0, 64, 17, 0) + addr(src) + addr(dst) + udp
@@ -215,6 +221,13 @@ class BlockedAnswers(Base):
 
     def test_an_ordinary_answer_is_not_blocked(self):
         self.assertEqual(self.found(dns_answer("a.example", 0x8180)), set())
+
+    def test_the_ad_lists_cname_to_a_name_that_does_not_exist_is_the_nodes_own(self):
+        self.assertEqual(self.found(dns_answer("ad.example", 0x8583, src="10.8.1.254", cname="blocked.vessel")),
+                         {("10.8.1.3", "ad.example")})
+
+    def test_a_cname_elsewhere_that_does_not_exist_is_not_blocked(self):
+        self.assertEqual(self.found(dns_answer("cdn.example", 0x8183, cname="gone.example")), set())
 
     def test_only_the_nodes_resolvers_count(self):
         self.assertEqual(self.found(dns_answer("bad.example", 0x8003, src="8.8.8.8")), set())
