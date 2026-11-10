@@ -30,6 +30,8 @@ case "\$*" in
   *"iptables -t filter -A"*) a="\$*"; r="\${a#*filter }"; [ ! -e "$TMP/ipt-add-fail" ] || exit 1; echo "\$r" >> "$TMP/filter" ;;
   *"iptables -t filter -D"*) a="\$*"; r="\${a#*filter }"; [ ! -e "$TMP/ipt-fail" ] || exit 1; grep -vxF -- "-A \${r#-D }" "$TMP/filter" > "$TMP/filter.new" || true; mv "$TMP/filter.new" "$TMP/filter" ;;
   *"awg show awg0 dump"*) echo "x	x	443	off"; for f in "$N"/peers/*.conf; do [ -e "\$f" ] || continue; printf '%s\t(none)\t(none)\t%s\t0\t0\t0\toff\n' "\$(awk '/^PublicKey/ {print \$3}' "\$f")" "\$(awk '/^AllowedIPs/ {print \$3 \$4}' "\$f")"; done ;;
+  *"iptables -nvxL VESSEL-NEW"*) printf 'Chain VESSEL-NEW (1 references)\n    pkts      bytes target     prot opt in     out     source               destination\n      40     2400 RETURN     0    --  *      *       0.0.0.0/0            0.0.0.0/0            /* new-connections */\n' ;;
+  *"iptables -nvxL VESSEL-P2P"*) [ -e "$TMP/p2p" ] || exit 1; printf 'Chain VESSEL-P2P (1 references)\n    pkts      bytes target     prot opt in     out     source               destination\n       3      180 RETURN     17   --  *      *       0.0.0.0/0            0.0.0.0/0            STRING match  "d1:ad2:id20:" ALGO name bm TO 100 /* bt-dht */\n       0        0 RETURN     6    --  *      *       0.0.0.0/0            0.0.0.0/0            STRING match  "BitTorrent protocol" ALGO name bm TO 100 /* bt-handshake */\n' ;;
   *public-key*) echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= ;;
   *syncconf*) sleep 0.3; [ ! -e "$TMP/fail" ] ;;
 esac
@@ -150,6 +152,18 @@ p = {r["name"]: r["throttled"] for r in json.load(sys.stdin)["peers"]}
 assert p.pop("t-1") is True and not any(p.values()), p' || fail "usage does not say which peers are throttled"
 awgctl throttle off t-1 > /dev/null
 [ "$(trules "$ip")" = 0 ] || fail "throttle off left rules"
+
+# usage carries the node's totals; a chain the node does not have yet is left out, and list has none
+awgctl usage --json | python3 -c '
+import json, sys
+assert json.load(sys.stdin)["totals"] == {"new-connections": 40}' || fail "usage totals without VESSEL-P2P"
+touch "$TMP/p2p"
+awgctl usage --json | python3 -c '
+import json, sys
+assert json.load(sys.stdin)["totals"] == {"bt-dht": 3, "bt-handshake": 0, "new-connections": 40}' || fail "usage totals"
+awgctl list --json | python3 -c 'import json, sys; assert isinstance(json.load(sys.stdin), list)' || fail "list with totals around"
+[ "$(awgctl p2p | tail -n +2)" = "$(printf 'bt-dht\t3\nbt-handshake\t0\nnew-connections\t40')" ] || fail "p2p"
+rm "$TMP/p2p"
 awgctl throttle on nobody 2> /dev/null && fail "throttled a device that does not exist"
 awgctl throttle on "t-1;reboot" 2> /dev/null && fail "accepted a malformed name"
 # a suspended peer keeps its address and can be throttled before it comes back

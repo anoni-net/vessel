@@ -90,6 +90,14 @@ throttle_clear() { # ipv4
 }
 
 # the throttled tunnel addresses, one a line; none when the chain is not there yet
+# VESSEL-NEW, VESSEL-P2P and VESSEL-LIMIT in node/start.sh, as name<TAB>packets: totals for the node since the
+# container started, nothing per device. A chain a node does not have yet is left out.
+node_totals() {
+  local chain
+  for chain in VESSEL-NEW VESSEL-P2P VESSEL-LIMIT; do docker exec $C iptables -nvxL $chain 2>/dev/null || true; done |
+    awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
+}
+
 throttle_list() {
   docker exec $C iptables -t filter -S VESSEL-THROTTLE 2>/dev/null | grep -oE 'vessel-throttle:[0-9.]+' | cut -d: -f2 | sort -u || true
 }
@@ -318,7 +326,8 @@ case $cmd in
     { peer_table; echo "--"; docker exec $C awg show awg0 dump | tail -n +2
       echo "--"; docker exec $C iptables -nvxL VESSEL-BLOCKED 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'
       echo "--"; docker exec $C iptables -nvxL VESSEL-ADS 2>/dev/null | awk 'NR > 2 {print $9 "\t" $1}'
-      echo "--"; throttle_list; } |
+      echo "--"; throttle_list
+      echo "--"; if [ "$cmd" = usage ]; then node_totals; fi; } |
       CMD=$cmd JSON=$json STARTED=$started python3 -c '
 import json, os, sys, time
 peers, dump = {}, {}
@@ -327,6 +336,7 @@ sep = lines.index("--")
 sep2 = lines.index("--", sep + 1)
 sep3 = lines.index("--", sep2 + 1)
 sep4 = lines.index("--", sep3 + 1)
+sep5 = lines.index("--", sep4 + 1)
 for l in lines[:sep]:
     name, flt, pub = l.split("\t")
     peers[pub] = (name, flt)
@@ -339,7 +349,9 @@ for l in lines[sep + 1:sep2]:
 # a node does not have yet reads as zero
 blocked = dict(l.split("\t") for l in lines[sep2 + 1:sep3] if "\t" in l)
 ads = dict(l.split("\t") for l in lines[sep3 + 1:sep4] if "\t" in l)
-throttled = set(lines[sep4 + 1:])
+throttled = set(lines[sep4 + 1:sep5])
+# node-wide counts since the container started (node_totals), for the portal to notice P2P or a device at its limit
+totals = {k: int(v) for k, v in (l.split("\t") for l in lines[sep5 + 1:] if "\t" in l)}
 for d in dump.values():
     d["blocked"] = int(blocked.get(d["address"], 0))
     d["blocked_ads"] = int(ads.get(d["address"], 0))
@@ -351,7 +363,7 @@ for pub, (name, flt) in sorted(peers.items(), key=lambda kv: kv[1][0]):
 if os.environ["JSON"] == "1":
     if os.environ["CMD"] == "usage":
         rows = [{k: r[k] for k in ("name", "rx", "tx", "latest_handshake", "blocked", "blocked_ads", "throttled")} for r in rows]
-        print(json.dumps({"interface_started": os.environ["STARTED"], "peers": rows}))
+        print(json.dumps({"interface_started": os.environ["STARTED"], "peers": rows, "totals": totals}))
     else:
         print(json.dumps(rows))
 else:
@@ -458,8 +470,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
   p2p)
     # VESSEL-NEW, VESSEL-P2P and VESSEL-LIMIT in node/start.sh: totals for the node, nothing per device
     echo "since $(docker inspect -f '{{.State.StartedAt}}' $C)"
-    { docker exec $C iptables -nvxL VESSEL-NEW 2>/dev/null; docker exec $C iptables -nvxL VESSEL-P2P 2>/dev/null; docker exec $C iptables -nvxL VESSEL-LIMIT 2>/dev/null || true; } |
-      awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
+    node_totals
     ;;
   throttle)
     case $name in

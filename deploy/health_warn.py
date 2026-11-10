@@ -16,6 +16,10 @@
 VESSEL_DNSBL_STATE。節點不記錄連線的目的地，有裝置寄垃圾信、掃描或攻擊其他主機時，出口 IP 被列入
 黑名單是我們看得到的少數訊號之一。
 
+用量與節點計數也另外比對：本月上傳超過下載、照目前的速度月底前會用完額度、已經用完額度的帳號數，
+有任何一項變多時推播；節點的 BitTorrent 與連線數上限的計數從 0 變成大於 0 時推播。都只有總數，
+沒有帳號或裝置，上一次的結果記在 VESSEL_USAGE_STATE。
+
 只用標準函式庫，在部署主機上用系統的 python3 執行。
 
     VESSEL_NTFY=http://<ntfy 主機>/<topic> python3 deploy/health_warn.py
@@ -27,6 +31,7 @@ VESSEL_DNSBL_STATE。節點不記錄連線的目的地，有裝置寄垃圾信�
     VESSEL_REACH_STATE     預設 ~/.cache/vessel-reach.state
     VESSEL_DNSBL           查詢的黑名單，空白分隔，預設見下方的 DNSBL，設成空值就不查
     VESSEL_DNSBL_STATE     預設 ~/.cache/vessel-dnsbl.state
+    VESSEL_USAGE_STATE     預設 ~/.cache/vessel-usage.state
     --force                不管狀態有沒有變都推播一次，用來測試通知
     --dnsbl                只查一次黑名單並印出每一筆的結果，不推播也不更新狀態，用來確認名單可以查詢
 """
@@ -46,6 +51,19 @@ NTFY = os.environ.get("VESSEL_NTFY", "")
 STATE = Path(os.environ.get("VESSEL_HEALTH_STATE", Path.home() / ".cache" / "vessel-health.state"))
 REACH_STATE = Path(os.environ.get("VESSEL_REACH_STATE", Path.home() / ".cache" / "vessel-reach.state"))
 DNSBL_STATE = Path(os.environ.get("VESSEL_DNSBL_STATE", Path.home() / ".cache" / "vessel-dnsbl.state"))
+USAGE_STATE = Path(os.environ.get("VESSEL_USAGE_STATE", Path.home() / ".cache" / "vessel-usage.state"))
+# /internal/health usage_flags, and the node totals worth a notice (node/start.sh); new-connections is only for scale
+USAGE_FLAGS = {
+    "upload": "本月上傳超過下載（上傳至少 1 GB）的帳號",
+    "pace": "照目前的速度月底前會用完額度的帳號",
+    "quota": "已經用完額度、限速中的帳號",
+}
+NODE_SIGNALS = {
+    "bt-dht": "BitTorrent DHT 查詢的封包",
+    "bt-handshake": "BitTorrent 握手的封包",
+    "bt-tracker": "BitTorrent tracker 請求的封包",
+    "over-device-limit": "裝置連線數到上限、被拒絕的新連線",
+}
 # Lists that answer through the host's resolver (checked on m6, 2026-11). Spamhaus refuses queries that come through
 # public resolvers (it answers 127.255.255.254, read here as unknown); with its free DQS key, add
 # <key>.zen.dq.spamhaus.net to VESSEL_DNSBL.
@@ -151,6 +169,7 @@ def main() -> int:
     if isinstance(data, dict):
         watch_reach(data)
         watch_dnsbl(data)
+        watch_usage(data)
     state, body = check(data)
     previous = STATE.read_text().strip() if STATE.exists() else "ok"
     if state == previous and not force:
@@ -261,6 +280,59 @@ def watch_dnsbl(data: dict) -> None:
     DNSBL_STATE.parent.mkdir(parents=True, exist_ok=True)
     DNSBL_STATE.write_text("".join(f"{k}\n" for k in sorted(now)))
     print(f"vessel dnsbl: {len(results)} 筆查詢，列入 {len(now)} 筆" + ("，已推播" if now != before else ""))
+
+
+
+def usage_counts(data: dict) -> dict[str, int]:
+    """What to compare between runs: each usage flag's count of accounts, and `region:name` set to 1 for each node
+    total worth a notice that is above zero. A node total counts as present or not, so P2P that goes on is told
+    once, not every run; it goes back to 0 when the node's container restarts."""
+    counts = {k: int(v) for k, v in data.get("usage_flags", {}).items() if k in USAGE_FLAGS}
+    for region, node in data.get("node_totals", {}).items():
+        for name, value in node.get("counts", {}).items():
+            if name in NODE_SIGNALS and value > 0:
+                counts[f"{region}:{name}"] = 1
+    return counts
+
+
+def usage_body(data: dict, now: dict[str, int], before: dict[str, int]) -> str:
+    lines = []
+    for key, label in USAGE_FLAGS.items():
+        if now.get(key):
+            change = f"（上次 {before.get(key, 0)} 個）" if now[key] != before.get(key, 0) else ""
+            lines.append(f"- {label}：{now[key]} 個{change}")
+    for region, node in sorted(data.get("node_totals", {}).items()):
+        for name, label in NODE_SIGNALS.items():
+            if f"{region}:{name}" in now:
+                fresh = "，新出現" if f"{region}:{name}" not in before else ""
+                lines.append(f"- {region} 節點的{label}：{node['counts'][name]} 次（節點 {node['since'][:16]} UTC 啟動以來{fresh}）")
+    return "\n".join(lines) + ("\n\n只有總數。帳號的細節在 m6 上查 account_usage，"
+                               "處理方式見 deploy/README.md 的「濫用的跡象」。")
+
+
+def watch_usage(data: dict) -> None:
+    """Notify when any count of unusual accounts goes up, or a node total worth a notice turns up. Counts going down
+    (a new month, a node restart) are only remembered. A failed notice leaves the state as it was, to try again."""
+    if "usage_flags" not in data:
+        return  # a backend from before the flags
+    now = usage_counts(data)
+    before = {}
+    if USAGE_STATE.exists():
+        for line in USAGE_STATE.read_text().splitlines():
+            key, _, value = line.partition("=")
+            if value.isdigit():
+                before[key] = int(value)
+    risen = sorted(k for k, v in now.items() if v > before.get(k, 0))
+    if risen:
+        try:
+            notify("Vessel 用量或節點計數有異常", usage_body(data, now, before), "default", "mag")
+        except Exception as err:
+            print(f"vessel usage: 推播失敗：{err}", file=sys.stderr)
+            return
+        print(f"vessel usage: {', '.join(risen)} 增加，已推播")
+    if now != before or not USAGE_STATE.exists():
+        USAGE_STATE.parent.mkdir(parents=True, exist_ok=True)
+        USAGE_STATE.write_text("".join(f"{k}={v}\n" for k, v in sorted(now.items())))
 
 
 if __name__ == "__main__":
