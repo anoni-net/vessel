@@ -534,7 +534,7 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(cover.locator(".cover__day--future")).toHaveCount(7);
     // a row a site, the first few drawn, each saying it was seen once
     const words = page.getByTestId("inspect-hit-words");
-    await expect(words.first()).toHaveText("只出現在 1 個時段 · 最後一次在 02:03");
+    await expect(words.first()).toHaveText("只出現在 1 個時段 · 最後一次在 11/10 02:03");
     await expect(page.getByTestId("inspect-hits").first().locator(":scope > ul > li")).toHaveCount(3);
     await expect(page.getByTestId("inspect-hits-more").first()).toContainText("其餘 1 個網站");
     // the kinds are named for the lists, with what can put a site on them
@@ -582,7 +582,21 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(rare.getByTestId("inspect-hit-words")).toContainText("只出現在 1 個時段");
     // the same in a table
     const table = page.getByTestId("inspect-hits-table");
-    await expect(table.locator("tr").filter({ hasText: "beacon.example" })).toContainText("11/01 (1), 11/02 (2), 11/03 (1), 11/05 (2), 11/06 (1), 11/07 (2)");
+    const beaconRow = table.locator("tr").filter({ hasText: "beacon.example" });
+    // a day to a line, and the last time with its day, so a report read later or saved to a file still says which day
+    await expect(beaconRow.locator(".inspect-table__when").first().locator("span"))
+      .toHaveText(["11/01 (1)", "11/02 (2)", "11/03 (1)", "11/05 (2)", "11/06 (1)", "11/07 (2)"]);
+    await expect(beaconRow.locator(".inspect-table__when").last()).toHaveText("11/07 17:13");
+    // on a phone the site's name is what wraps: no day or time is broken over two lines, and the headings stay readable
+    await table.evaluate((el) => el.closest("details")!.setAttribute("open", ""));
+    for (const cell of await table.locator(".inspect-table__when span").all()) {
+      const box = await cell.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return { h: r.height, line: parseFloat(getComputedStyle(el).lineHeight) };
+      });
+      expect(box.h).toBeLessThan(box.line * 1.5);
+    }
+    expect(await table.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     await expect(page.getByTestId("inspect-idle")).toHaveText("2%");
     // the hours on the same days as the bars at the top: 11/04 and 11/08, without a connection, keep a row of their own
     const rows = page.getByTestId("inspect-tiles").locator(".tiles__row:not(.tiles__axis)");
@@ -700,7 +714,7 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(lists(page, "popunder.example")).toHaveText("同時列在 3 份名單上：惡意網站名單、資安威脅情報名單、廣告與追蹤名單");
     await expect(lists(page, "promo.example")).toHaveCount(0);
     // the words on when it was seen are as they were, the lists on a line of their own
-    await expect(page.getByTestId("inspect-hit").filter({ hasText: "ads-redirect.example" }).getByTestId("inspect-hit-words")).toHaveText("只出現在 1 個時段 · 最後一次在 02:03");
+    await expect(page.getByTestId("inspect-hit").filter({ hasText: "ads-redirect.example" }).getByTestId("inspect-hit-words")).toHaveText("只出現在 1 個時段 · 最後一次在 11/10 02:03");
     // one of them only on its own list: the reason says nothing about the ad list
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
     await expect(page.getByTestId("inspect-reason")).toHaveText(ONCE_REASON);

@@ -1191,7 +1191,7 @@
   "inspect.hits.level2": "2 到 3 個時段",
   "inspect.hits.level3": "4 個時段以上",
   "inspect.hits.tableSite": "網站",
-  "inspect.hits.tableWhen": "出現的日期（時段數）",
+  "inspect.hits.tableWhen": "日期（時段）",
   "inspect.hits.tableLast": "最後一次",
   "inspect.list.stalkerware": "跟蹤軟體名單",
   "inspect.list.malware": "惡意網站名單",

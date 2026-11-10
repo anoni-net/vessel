@@ -1191,7 +1191,7 @@
   "inspect.hits.level2": "2 to 3 hours",
   "inspect.hits.level3": "4 hours or more",
   "inspect.hits.tableSite": "Site",
-  "inspect.hits.tableWhen": "Days seen (hours)",
+  "inspect.hits.tableWhen": "Days (hours)",
   "inspect.hits.tableLast": "Last seen",
   "inspect.list.stalkerware": "stalkerware list",
   "inspect.list.malware": "malicious site list",

@@ -1140,6 +1140,14 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-group ul, .inspect-group p { margin-top: 8px; }
 .inspect-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
 .inspect-table th, .inspect-table td { padding: 3px 6px 3px 0; text-align: start; border-bottom: 1px solid var(--line); }
+/* the sites' table: a long name breaks anywhere, the days and times stay whole, so on a phone the name column is the one
+   that gives, not the headings */
+.inspect-table thead th { vertical-align: bottom; }
+.inspect-table td { vertical-align: top; }
+.inspect-table__site { overflow-wrap: anywhere; }
+.inspect-table__site, .inspect-table__when:not(:last-child) { padding-inline-end: 14px; }
+.inspect-table__when { white-space: nowrap; }
+.inspect-table__when > span { display: block; }
 .spec--figures { grid-template-columns: minmax(0, 1fr) max-content; }
 /* the consent page while it loads (pages/inspect.tsx): each block as tall as the one it stands for */
 .sk-lead { display: flex; align-items: center; height: 34px; }
