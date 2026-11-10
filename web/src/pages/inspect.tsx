@@ -685,6 +685,12 @@ function allOnAdList(report: Report) {
   return !left && named.length > 0 && named.every((f) => f.severity === "check" && f.lists?.includes("ads"));
 }
 
+/**
+ * A time in the report always with its day: the report is read again on later days, and saved to a file, where "02:37"
+ * alone would no longer say which day. (formatTime leaves the day out for today; no day is today next to the epoch.)
+ */
+const withDay = (locale: ReturnType<typeof useCtx>["locale"], iso: string) => formatTime(locale, iso, new Date(0));
+
 /** A day's cell for one site: how many of its hours it was seen in, as one of three steps. */
 const hitLevel = (n: number) => (n <= 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : 3);
 
@@ -730,7 +736,7 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
       next: true,
       reason: fmt(t[words], {
         days: n(new Set(hours.map(dayOf)).size), slots: n(hours.length), app: apps[0] ?? "", apps: n(apps.length),
-        last: last ? formatTime(locale, new Date(last * 1000).toISOString()) : formatTime(locale, hours.at(-1)!.toISOString()),
+        last: last ? withDay(locale, new Date(last * 1000).toISOString()) : withDay(locale, hours.at(-1)!.toISOString()),
       }),
     };
   }
@@ -785,7 +791,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
       <code>{f.name}</code>
       <span class="muted small">
         {fmt(t["inspect.seen"], { n: formatCount(locale, f.count) })}
-        {f.first ? ` ${fmt(t["inspect.firstSeen"], { time: formatTime(locale, new Date(f.first * 1000).toISOString()) })}` : ""}
+        {f.first ? ` ${fmt(t["inspect.firstSeen"], { time: withDay(locale, new Date(f.first * 1000).toISOString()) })}` : ""}
       </span>
       {f.app && <span class="small" data-testid="inspect-hit-app">{fmt(t["inspect.app"], { app: f.app })}</span>}
       {alsoOn(f, t) && <span class="small" data-testid="inspect-hit-lists">{alsoOn(f, t)}</span>}
@@ -800,7 +806,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
     const words = w.slots === 1 ? t["inspect.hits.once"]
       : w.days === 1 ? fmt(t["inspect.hits.oneDay"], { slots: n(w.slots) })
       : fmt(t["inspect.hits.days"], { total: n(Math.max(online, w.days)), days: n(w.days), slots: n(w.slots) });
-    return { words, last: w.last ? fmt(t["inspect.hits.last"], { time: formatTime(locale, w.last.toISOString()) }) : "", w };
+    return { words, last: w.last ? fmt(t["inspect.hits.last"], { time: withDay(locale, w.last.toISOString()) }) : "", w };
   };
   const hitCells = (perDay: Map<string, number>) => week.days.map((day) => {
     const n = perDay.get(day) ?? 0;
@@ -938,15 +944,16 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
               <details class="small">
                 <summary>{t["inspect.report.table"]}</summary>
                 <table class="inspect-table" data-testid="inspect-hits-table">
-                  <thead><tr><th>{t["inspect.hits.tableSite"]}</th><th>{t["inspect.hits.tableWhen"]}</th><th>{t["inspect.hits.tableLast"]}</th></tr></thead>
+                  <thead><tr><th>{t["inspect.hits.tableSite"]}</th><th class="inspect-table__when">{t["inspect.hits.tableWhen"]}</th><th class="inspect-table__when">{t["inspect.hits.tableLast"]}</th></tr></thead>
                   <tbody>{datedGroups.flatMap((g) => [
                     <tr><th colSpan={3} scope="colgroup">{kind(g.kind)}</th></tr>,
                     ...g.listed.map((f) => {
                       const w = seenWhen(f);
                       return (
-                        <tr><td><code>{f.name}</code></td>
-                          <td>{[...w.perDay].map(([day, n]) => `${dayLabel(day)} (${n})`).join(", ")}</td>
-                          <td>{w.last ? formatTime(locale, w.last.toISOString()) : ""}</td></tr>
+                        <tr><td class="inspect-table__site"><code>{f.name}</code></td>
+                          {/* a day to a line, each kept whole, so the site's name is what wraps on a phone */}
+                          <td class="inspect-table__when">{[...w.perDay].map(([day, n]) => <span>{`${dayLabel(day)} (${n})`}</span>)}</td>
+                          <td class="inspect-table__when">{w.last && <span>{withDay(locale, w.last.toISOString())}</span>}</td></tr>
                       );
                     }),
                   ])}</tbody>
