@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import axe from "axe-core";
-import { FULL_REPORT, KEY, seal } from "./inspect-fixtures.ts";
+import { FULL_REPORT, KEY, ONCE_REPORT, THREAT_REPORT, WEEK_START, seal } from "./inspect-fixtures.ts";
 
 // WCAG 2.2 AA. axe-core checks what a tool can (names, roles, labels, contrast where it can tell the background);
 // the tests after it cover what it cannot: the focus ring on the footer's dark blue, the narrowest phone, and
@@ -303,7 +303,12 @@ const INSPECT: Record<string, InspectState> = {
   running: { inspection: { ...INSPECT_BASE, status: "active", report: seal(FULL_REPORT), ends_at: "2026-11-16T00:00:00Z" }, kept: { key: KEY }, ready: '[data-testid="inspect-report"]' },
   ending: { inspection: { ...INSPECT_BASE, status: "ending" }, ready: "main .card--tint" },
   report: { inspection: { ...ENDED, report: seal(FULL_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-report"]' },
-  "report with nothing found": { inspection: { ...ENDED, report: seal({ ...FULL_REPORT, findings: [], more: {} }) }, kept: { key: KEY }, ready: '[data-testid="inspect-clean"]' },
+  "report with nothing found": { inspection: { ...ENDED, report: seal({ ...FULL_REPORT, findings: [], more: {} }) }, kept: { key: KEY }, ready: '[data-testid="inspect-verdict"][data-state="clean"]' },
+  // reports that say when each site was seen: drawn by day, with an hour that sent more than it received
+  "report, sites seen once": { inspection: { ...ENDED, report: seal(ONCE_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-hits"]' },
+  "report, stalkerware over days": {
+    inspection: { ...ENDED, started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report: seal(THREAT_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-hits"]',
+  },
   "nothing recorded": { inspection: { ...ENDED, report: seal({ empty: true }) }, kept: { key: KEY }, ready: '[data-testid="inspect-empty"]' },
   "asking for the key": {
     inspection: { ...ENDED, report: seal(FULL_REPORT) }, ready: '[data-testid="inspect-locked"]',
@@ -353,17 +358,24 @@ for (const scheme of ["light", "dark"] as const) {
   // axe leaves out what is hidden from screen readers, as the hours are: the signs on them are still read by eye
   test(`the signs on the hours stand out from their colour at 4.5:1, ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
-    await openInspection(page, INSPECT.report);
-    const marks = await page.locator(".tile:not(:empty)").evaluateAll((tiles) => tiles.map((e) => {
-      const lum = (c: string) => {
-        const [r, g, b] = (c.match(/[\d.]+/g) ?? []).map(Number).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
-      };
-      const s = getComputedStyle(e);
-      const [hi, lo] = [lum(s.color), lum(s.backgroundColor)].sort((a, b) => b - a);
-      return { mark: e.textContent, ratio: Math.round(((hi! + 0.05) / (lo! + 0.05)) * 100) / 100 };
-    }));
+    const marks: { mark: string | null; ratio: number }[] = [];
+    for (const state of [INSPECT.report!, INSPECT["report, sites seen once"]!]) {
+      await page.unrouteAll();
+      await page.goto("about:blank");
+      await openInspection(page, state);
+      marks.push(...await page.locator(".tile:not(:empty)").evaluateAll((tiles) => tiles.map((e) => {
+        const lum = (c: string) => {
+          const [r, g, b] = (c.match(/[\d.]+/g) ?? []).map(Number).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+        };
+        const s = getComputedStyle(e);
+        const [hi, lo] = [lum(s.color), lum(s.backgroundColor)].sort((a, b) => b - a);
+        return { mark: e.textContent, ratio: Math.round(((hi! + 0.05) / (lo! + 0.05)) * 100) / 100 };
+      })));
+    }
     expect(marks.length).toBeGreaterThan(2);
+    // the arrow of an hour that sent more than it received, on the light steps and the dark ones
+    expect(marks.filter((m) => m.mark === "↑").length).toBeGreaterThan(1);
     for (const m of marks) expect(m.ratio, m.mark!).toBeGreaterThanOrEqual(4.5);
   });
 }

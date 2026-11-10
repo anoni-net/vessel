@@ -33,3 +33,73 @@ export const FULL_REPORT = {
   more: { cti: 4 },
   nx_names: [{ name: "gone.example", count: 12 }],
 };
+
+// Reports in the format analyze.py writes since 2026-11-10: each site says the hours it was seen in and when last, and
+// there are no names that could not be found. The hours are UTC; the tests that read them run on Taipei's clock.
+
+/** `2026-11-09T18` and so on: `n` hours from `from` (a UTC hour), one apart. */
+const hoursFrom = (from: string, n: number) => Array.from({ length: n }, (_, i) => new Date(Date.parse(`${from}:00:00Z`) + i * 3_600_000).toISOString().slice(0, 13));
+const epoch = (hour: string, minutes = 0) => Date.parse(`${hour}:00:00Z`) / 1000 + minutes * 60;
+const traffic = (hours: string[], marks: Record<string, "x" | "!"> = {}, heavy: string[] = []) =>
+  hours.map((hour, i) => {
+    const down = Math.round(2e6 * (1 + ((i * 7) % 11)) ** 1.6);
+    return { hour, up: heavy.includes(hour) ? 35e6 : Math.round(down / 6), down: heavy.includes(hour) ? 8e6 : down, mark: marks[hour] ?? null };
+  });
+const hit = (kind: string, severity: string, name: string, count: number, hours: string[], minutes = 13) =>
+  ({ severity, kind, name, how: "DNS", count, hours, last: epoch(hours.at(-1)!, minutes) });
+
+/**
+ * Like the maintainer's own first day: everything on the lists seen within a quarter of an hour, at 2 am Taipei time
+ * (18:00 UTC), while browsing; twelve more hours of use after it, and one hour that sent more than it received.
+ */
+export const ONCE_START = "2026-11-09T17:50:00Z";
+const onceHours = hoursFrom("2026-11-09T18", 13);
+export const ONCE_REPORT = {
+  first: epoch("2026-11-09T18", 2), last: epoch("2026-11-10T06", 40),
+  hours: traffic(onceHours, { "2026-11-09T18": "!" }, ["2026-11-10T03"]),
+  coverage: { active_hours: 13, total_hours: 13 },
+  dns: { total: 2300, nx_share: 0.04, ads_share: 0.31 }, idle_share: 0.94,
+  checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 6 }, { id: "cti", count: 5 }, { id: "bypass_dns", count: 0 }],
+  findings: [
+    hit("malware", "check", "ads-redirect.example", 2, ["2026-11-09T18"], 3), hit("malware", "check", "popunder.example", 2, ["2026-11-09T18"], 4),
+    hit("malware", "check", "click-track.example", 1, ["2026-11-09T18"], 9), hit("malware", "check", "banner-cdn.example", 1, ["2026-11-09T18"], 13),
+    hit("cti", "check", "short-link.example", 2, ["2026-11-09T18"], 5), hit("cti", "check", "metrics.example", 1, ["2026-11-09T18"], 6),
+    hit("cti", "check", "promo.example", 1, ["2026-11-09T18"], 11), hit("cti", "check", "pixel.example", 1, ["2026-11-09T18"], 12),
+  ],
+  more: {},
+};
+
+/** A week with one site seen on six of its seven days: 11/01 to 11/07 Taipei time, the device off on 11/04. */
+export const WEEK_START = "2026-11-01T02:00:00Z";
+const weekDays = ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-05", "2026-11-06", "2026-11-07"];
+// 8 am to 11 pm Taipei time, 00:00 to 15:00 UTC
+const weekHours = weekDays.flatMap((d) => hoursFrom(`${d}T00`, 16));
+const beacon = weekDays.flatMap((d, i) => (i % 2 ? [`${d}T01`, `${d}T09`] : [`${d}T01`]));
+export const WEEK_REPORT = {
+  first: epoch("2026-11-01T00"), last: epoch("2026-11-07T15", 50),
+  hours: traffic(weekHours, Object.fromEntries(beacon.map((h) => [h, "!"]))),
+  coverage: { active_hours: weekHours.length, total_hours: 160 },
+  dns: { total: 41000, nx_share: 0.03, ads_share: 0.22 }, idle_share: 0.02,
+  checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 1 }, { id: "cti", count: 31 }, { id: "bypass_dns", count: 0 }],
+  findings: [hit("cti", "check", "beacon.example", 30, beacon), hit("cti", "check", "rare.example", 1, ["2026-11-03T05"]),
+    hit("malware", "check", "ads-redirect.example", 1, ["2026-11-02T12"])],
+  more: {},
+};
+
+/** Stalkerware seen on three days, with a lookup that went around Vessel. */
+export const THREAT_REPORT = {
+  ...WEEK_REPORT,
+  checks: [{ id: "stalkerware", count: 9 }, { id: "malware", count: 0 }, { id: "cti", count: 0 }, { id: "bypass_dns", count: 4 }],
+  findings: [hit("stalkerware", "threat", "collect.example", 9, ["2026-11-01T03", "2026-11-03T03", "2026-11-03T04", "2026-11-06T03"]),
+    { severity: "check", kind: "bypass_dns", count: 4 }],
+};
+
+/** The same week with nothing found. */
+export const CLEAN_REPORT = { ...WEEK_REPORT, hours: traffic(weekHours), checks: WEEK_REPORT.checks.map((c) => ({ ...c, count: 0 })), findings: [], more: {} };
+
+/** More sites of one kind than the page draws before folding the rest away. */
+export const MANY_REPORT = {
+  ...WEEK_REPORT,
+  checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 0 }, { id: "cti", count: 8 }, { id: "bypass_dns", count: 0 }],
+  findings: Array.from({ length: 8 }, (_, i) => hit("cti", "check", `site${i + 1}.example`, 8 - i, [`2026-11-0${1 + (i % 3)}T0${i % 6}`])),
+};
