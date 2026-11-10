@@ -1012,6 +1012,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   background: linear-gradient(to right, transparent calc(3.2em + 2px + var(--sq) + 1px), var(--night) 0,
     var(--night) calc(3.2em + 2px + 6 * (var(--sq) + 2px) - 1px), transparent 0); }
 .tiles__axis { background: none; }
+/* a day without a connection: one empty box across the hours, as its bar at the top is empty */
+.tiles__off { grid-column: 2 / -1; padding-inline: 6px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper);
+  font: 11px/1.4 var(--mono); color: var(--muted); }
 .tiles__axis > span { white-space: nowrap; }
 .tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 2px; background: var(--tile-0); font: 700 10px/1 var(--mono); color: #fff; }
 .tile--1 { background: var(--tile-1); } .tile--2 { background: var(--tile-2); } .tile--3 { background: var(--tile-3); }
@@ -1034,6 +1037,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-verdict--threat { border-color: var(--danger); background: var(--bad-fill); }
 .inspect-verdict--check { border-color: var(--caution); }
 .inspect-verdict--clean { background: var(--tint); }
+/* cancelling, deleting: a link at the start of the line, under the "back to the devices" one, not centred in its column */
+.inspect-wide > .link-button { align-self: flex-start; text-align: start; }
 /* two cards that sit side by side on a wide screen (below); one above the other, as the page's other blocks, on a phone */
 .inspect-pair { display: flex; flex-direction: column; gap: 16px; }
 .inspect-verdict__main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -1052,6 +1057,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .cover__day--today .cover__meter { outline: 2px solid var(--ink); outline-offset: 1px; }
 .cover__label { font: 11px/1.4 var(--mono); color: var(--muted); white-space: nowrap; }
 .cover__day--today .cover__label { font-weight: 700; color: var(--text); }
+/* the day under a bar or a column of squares: its number on a phone, the full date on a wide screen */
+.day-full { display: none; }
 /* when each site was seen: a square a day, darker for more hours in it; dashed where the device was not connected */
 .inspect-kind { gap: 6px; }
 .inspect-kind__name { font-size: 17px; }
@@ -1098,6 +1105,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .hit-row { grid-template-columns: minmax(0, 1fr) 336px minmax(0, 1.2fr); }
   .hit-row__words { grid-column: 3; grid-row: 1; }
   .hits__grid { width: 100%; gap: 4px; }
+  .day-short { display: none; }
+  .day-full { display: inline; }
   .hit { height: 20px; }
   .tile { font-size: 12px; }
   .tiles__row { font-size: 12px; }

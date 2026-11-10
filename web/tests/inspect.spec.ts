@@ -539,6 +539,7 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-why").first()).toContainText("瀏覽網頁時的廣告或轉址也可能連到");
     // the hours: the night's five columns on each day's row, and the hour that sent more than it received
     const tiles = page.getByTestId("inspect-tiles");
+    // the days still to come have a bar at the top, and no row of hours yet
     await expect(tiles.locator(".tiles__row:not(.tiles__axis)")).toHaveCount(1);
     await expect(tiles.locator(".tile--night")).toHaveCount(5);
     await expect(tiles.locator(".tile--up")).toHaveText("↑");
@@ -580,6 +581,13 @@ test.describe("the report says what it comes to, and when each site was seen", (
     const table = page.getByTestId("inspect-hits-table");
     await expect(table.locator("tr").filter({ hasText: "beacon.example" })).toContainText("11/01 (1), 11/02 (2), 11/03 (1), 11/05 (2), 11/06 (1), 11/07 (2)");
     await expect(page.getByTestId("inspect-idle")).toHaveText("2%");
+    // the hours on the same days as the bars at the top: 11/04 and 11/08, without a connection, keep a row of their own
+    const rows = page.getByTestId("inspect-tiles").locator(".tiles__row:not(.tiles__axis)");
+    await expect(rows).toHaveCount(await page.getByTestId("inspect-cover").locator(".cover__day").count());
+    await expect(rows).toHaveCount(8);
+    await expect(rows.nth(3)).toHaveClass(/tiles__row--off/);
+    await expect(rows.nth(3)).toContainText("11/04沒有連線");
+    await expect(page.getByTestId("inspect-hours-table").locator("tr").filter({ hasText: "沒有連線" })).toHaveText(["11/04沒有連線", "11/08沒有連線"]);
   });
 
   test("stalkerware: a known threat, with when it was seen and what to do", async ({ page }) => {
@@ -654,6 +662,7 @@ test.describe("the report says what it comes to, and when each site was seen", (
     const cover = page.getByTestId("inspect-cover");
     await expect(cover).toContainText("檢測期間（11/01 到 11/05）");
     await expect(cover.locator(".cover__day")).toHaveCount(5);
+    await expect(page.getByTestId("inspect-tiles").locator(".tiles__row:not(.tiles__axis)")).toHaveCount(5);
     // without it (a portal from before), the planned end, as before
     await page.unrouteAll();
     await open(page, endedWith(report));
@@ -700,6 +709,45 @@ test.describe("on a wide screen", () => {
     const next = await page.getByRole("heading", { name: "接下來可以做" }).boundingBox();
     expect(next!.y).toBeLessThan(findings.y);
     expect(await sideways(page)).toBe(0);
+  });
+
+  const ended = { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(WEEK_REPORT) };
+  /** The labels under the bars at the top and over the squares of the sites: what each shows, and that none runs into the next. */
+  const labels = (page: Page, selector: string) => page.locator(selector).evaluateAll((all) => all.map((e) => {
+    const shown = [...e.children].find((c) => getComputedStyle(c).display !== "none")!;
+    const r = shown.getBoundingClientRect();
+    return { text: shown.textContent, left: r.left, right: r.right, cell: e.getBoundingClientRect().width };
+  }));
+  const apart = (tags: { left: number; right: number; cell: number }[]) =>
+    tags.every((tag, i) => tag.right - tag.left <= tag.cell + 0.5 && (i === 0 || tags[i - 1]!.right <= tag.left));
+
+  for (const width of [1280, 960]) {
+    test(`at ${width}px the days are labelled with their full dates, eight across without running into each other`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+      await backend(page, ended);
+      await withKey(page);
+      await goto(page);
+      await expect(page.getByTestId("inspect-report")).toBeVisible();
+      for (const selector of ['[data-testid="inspect-cover"] .cover__label', '[data-testid="inspect-hits"] >> nth=0 >> .hits__day']) {
+        const tags = await labels(page, selector);
+        expect(tags.map((x) => x.text), selector).toEqual(["11/01", "11/02", "11/03", "11/04", "11/05", "11/06", "11/07", "11/08"]);
+        expect(apart(tags), selector).toBe(true);
+      }
+    });
+  }
+
+  test("deleting the report is a link at the start of the line, under the way back to the devices", async ({ page }) => {
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.unrouteAll();
+      await backend(page, ended);
+      await withKey(page);
+      await goto(page);
+      const [del, back] = await Promise.all([page.getByRole("button", { name: "現在刪除報告" }).boundingBox(), page.getByRole("link", { name: "回到裝置清單" }).boundingBox()]);
+      expect(Math.abs(del!.x - back!.x), `${width}`).toBeLessThan(1);
+      expect(del!.width, `${width}`).toBeLessThan(200);
+    }
   });
 
   test("the downloaded report has the wide layout too", async ({ page }) => {
@@ -751,6 +799,12 @@ test.describe("on a wide screen", () => {
     expect(cover.y).toBeGreaterThan(verdict.y + 100);
     expect(checks.y).toBeGreaterThan(hours.y + hours.height);
     expect(Math.abs(checks.x - hours.x)).toBeLessThan(40);
+    // the days under the bars and over the squares: their numbers alone, side by side
+    for (const selector of ['[data-testid="inspect-cover"] .cover__label', '[data-testid="inspect-hits"] >> nth=0 >> .hits__day']) {
+      const tags = await labels(page, selector);
+      expect(tags.map((x) => x.text), selector).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
+      expect(apart(tags), selector).toBe(true);
+    }
     expect(await sideways(page)).toBe(0);
   });
 });

@@ -488,8 +488,11 @@ const atHour = (hour: string) => new Date(`${hour}:00:00Z`);
 const dayOf = (at: Date) => at.toLocaleDateString("sv");
 /** `2026-11-10` as `11/10`, as the rows of the hours are labelled. */
 const short = (day: string) => day.slice(5).replace("-", "/");
-/** Its day of the month alone, under the days drawn side by side, where `11/10` would not fit eight across a phone. */
-const dayNumber = (day: string) => String(Number(day.slice(8)));
+/**
+ * A day under the days drawn side by side: the day of the month alone on a phone, where `11/10` would not fit eight
+ * across, and the full date on a wide screen (styles.css shows one or the other).
+ */
+const dayTag = (day: string) => [<span class="day-short">{Number(day.slice(8))}</span>, <span class="day-full">{short(day)}</span>];
 
 /** The night hours shaded on the hours: 1 to 6 am, analyze.py's IDLE_HOURS. */
 const NIGHT = (hour: number) => hour >= 1 && hour < 6;
@@ -659,7 +662,7 @@ const join = (a: string, b: string) => (b ? `${a}${/[.!?]$/.test(a) ? " " : ""}$
 function ReportView({ report, locale, span }: { report: Report; locale: ReturnType<typeof useCtx>["locale"]; span: Span }) {
   const { t } = useCtx();
   const [picked, setPicked] = useState("");
-  const { days, cells, level } = hourGrid(report.hours ?? []);
+  const { cells, level } = hourGrid(report.hours ?? []);
   const groups = findingGroups(report);
   const { state, reason, next } = judge(report, t, locale);
   const week = inspectionDays(report, span);
@@ -711,6 +714,9 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
     );
   };
   const datedGroups = groups.filter((g) => g.dated);
+  // the hours a day a row, on the same days as the bars at the top: a day without a connection keeps its row, and the
+  // days still to come are left out
+  const hourDays = week.days.filter((d) => !week.future(d));
   const coverage = report.coverage ?? { active_hours: 0, total_hours: 0 };
 
   return (
@@ -747,7 +753,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
                 return (
                   <span class={`cover__day${week.future(day) ? " cover__day--future" : ""}${day === week.today ? " cover__day--today" : ""}`}>
                     <span class="cover__meter"><span class="cover__fill" style={{ height: `${(hours / 24) * 100}%` }} /></span>
-                    <span class="cover__label">{dayNumber(day)}</span>
+                    <span class="cover__label">{dayTag(day)}</span>
                   </span>
                 );
               })}
@@ -784,7 +790,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
                 {g.dated ? (
                   <div class="hits" data-testid="inspect-hits">
                     <div class="hit-row hit-row--head" aria-hidden="true">
-                      <span class="hit-row__cells hits__grid">{week.days.map((day) => <span class="hits__day">{dayNumber(day)}</span>)}</span>
+                      <span class="hit-row__cells hits__grid">{week.days.map((day) => <span class="hits__day">{dayTag(day)}</span>)}</span>
                     </div>
                     <ul class="plain hits__rows">{g.listed.slice(0, TOP_ROWS).map(hitRow)}</ul>
                     {g.listed.length > TOP_ROWS && (
@@ -839,8 +845,13 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
         <h2>{t["inspect.report.hours"]}</h2>
         <p class="muted small">{fmt(t["inspect.report.coverage"], { active: coverage.active_hours, total: coverage.total_hours })}</p>
         <div class="tiles" aria-hidden="true" data-testid="inspect-tiles">
-          {days.map((day) => (
-            <div class="tiles__row">
+          {hourDays.map((day) => !cells.has(day) ? (
+            <div class="tiles__row tiles__row--off" data-day={day}>
+              <span class="tiles__day">{dayLabel(day)}</span>
+              <span class="tiles__off">{t["inspect.hits.offline"]}</span>
+            </div>
+          ) : (
+            <div class="tiles__row" data-day={day}>
               <span class="tiles__day">{dayLabel(day)}</span>
               {Array.from({ length: 24 }, (_, hour) => {
                 const c = cells.get(day)!.get(hour);
@@ -875,10 +886,14 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
           <summary>{t["inspect.report.table"]}</summary>
           <table class="inspect-table">
             <thead><tr><th>{t["inspect.report.tableHour"]}</th><th>{t["inspect.report.tableUp"]}</th><th>{t["inspect.report.tableDown"]}</th></tr></thead>
-            <tbody>{report.hours?.map((h) => {
-              const at = atHour(h.hour);
-              const marks = [h.mark === "x" ? t["inspect.report.markThreat"] : h.mark === "!" ? t["inspect.report.markCheck"] : "", upHeavy(h) ? t["inspect.report.upMark"] : ""].filter(Boolean);
-              return <tr><td>{`${dayLabel(dayOf(at))} ${pad(at.getHours())}:00${marks.length ? ` ${marks.join(", ")}` : ""}`}</td><td>{formatBytes(locale, h.up)}</td><td>{formatBytes(locale, h.down)}</td></tr>;
+            <tbody data-testid="inspect-hours-table">{hourDays.flatMap((day) => {
+              const hours = (report.hours ?? []).filter((h) => dayOf(atHour(h.hour)) === day);
+              if (!hours.length) return [<tr><td>{dayLabel(day)}</td><td colSpan={2}>{t["inspect.hits.offline"]}</td></tr>];
+              return hours.map((h) => {
+                const at = atHour(h.hour);
+                const marks = [h.mark === "x" ? t["inspect.report.markThreat"] : h.mark === "!" ? t["inspect.report.markCheck"] : "", upHeavy(h) ? t["inspect.report.upMark"] : ""].filter(Boolean);
+                return <tr><td>{`${dayLabel(day)} ${pad(at.getHours())}:00${marks.length ? ` ${marks.join(", ")}` : ""}`}</td><td>{formatBytes(locale, h.up)}</td><td>{formatBytes(locale, h.down)}</td></tr>;
+              });
             })}</tbody>
           </table>
         </details>
