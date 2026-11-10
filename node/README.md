@@ -62,7 +62,9 @@ install -m 644 host/vessel-net-tune.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now vessel-net-tune.service
 ```
 
-確認：`tc qdisc show dev <網卡>` 的第一行是 `fq_codel`，`ethtool -k <網卡> | grep rx-udp-gro-forwarding` 是 `on`，`sysctl vm.swappiness` 是 10。
+主機商對頻寬有約定上限的節點，在 `node.env` 設 `UPLINK_RATE`（例如 `24mbit`），`vessel-net-tune.sh` 改用 `cake` 把對外網卡限制在這個速率，同樣每條連線各自排隊。節點轉送的流量都會從對外網卡出去一次，所以上傳與下載都受限。改了之後執行 `systemctl restart vessel-net-tune.service`，使用者不會斷線。
+
+確認：`tc qdisc show dev <網卡>` 的第一行是 `fq_codel`（有設 `UPLINK_RATE` 的節點是 `cake`），`ethtool -k <網卡> | grep rx-udp-gro-forwarding` 是 `on`，`sysctl vm.swappiness` 是 10。
 
 ## 管理使用者
 
