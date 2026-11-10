@@ -1006,6 +1006,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-finding { display: grid; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--caution); }
 .inspect-finding--threat { border-color: var(--danger); }
 .inspect-finding code { overflow-wrap: anywhere; }
+.inspect-group summary { width: fit-content; min-height: 24px; cursor: pointer; }
+.inspect-group ul, .inspect-group p { margin-top: 8px; }
 .inspect-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
 .inspect-table th, .inspect-table td { padding: 3px 6px 3px 0; text-align: start; border-bottom: 1px solid var(--line); }
 .inspect-names { display: grid; gap: 4px; margin-top: 6px; overflow-wrap: anywhere; }

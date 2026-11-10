@@ -26,6 +26,8 @@ export interface Report {
   idle_share?: number;
   checks?: { id: string; count: number }[];
   findings?: { severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number }[];
+  /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
+  more?: Record<string, number>;
   nx_names?: { name: string; count: number }[];
 }
 
@@ -329,18 +331,43 @@ export function hourGrid(hours: NonNullable<Report["hours"]>) {
   return { days: [...cells.keys()].sort(), cells, level };
 }
 
+/** At most this many sites of a kind: analyze.py's MAX_FINDINGS, and older reports, still stored, list all of theirs. */
+const MAX_LISTED = 30;
+
+/** The findings by kind, threats first: what was found comes before the sites it was found on. */
+export function findingGroups(report: Report) {
+  const byKind = new Map<string, NonNullable<Report["findings"]>>();
+  const all = report.findings ?? [];
+  for (const f of [...all.filter((x) => x.severity === "threat"), ...all.filter((x) => x.severity === "check")]) {
+    if (!byKind.has(f.kind)) byKind.set(f.kind, []);
+    byKind.get(f.kind)!.push(f);
+  }
+  return [...byKind].map(([kind, items]) => {
+    const named = items.filter((f) => f.name);
+    const left = report.more?.[kind] ?? 0;
+    return {
+      kind,
+      severity: items[0].severity,
+      count: report.checks?.find((c) => c.id === kind)?.count ?? items.reduce((sum, f) => sum + f.count, 0),
+      sites: named.length + left,
+      listed: named.slice(0, MAX_LISTED),
+      hidden: Math.max(0, named.length - MAX_LISTED) + left,
+    };
+  });
+}
+
 function ReportView({ report, locale }: { report: Report; locale: ReturnType<typeof useCtx>["locale"] }) {
   const { t } = useCtx();
   const [picked, setPicked] = useState("");
   const { days, cells, level } = hourGrid(report.hours ?? []);
-  const threats = report.findings?.filter((f) => f.severity === "threat") ?? [];
-  const checks = report.findings?.filter((f) => f.severity === "check") ?? [];
+  const groups = findingGroups(report);
+  const threats = groups.some((g) => g.severity === "threat");
+  const withSites = groups.filter((g) => g.sites > 0);
   const kind = (id: string) => t[`inspect.kind.${id}` as keyof typeof t] ?? id;
   const percent = (n: number) => `${Math.round(n * 100)}%`;
   const line = (f: NonNullable<Report["findings"]>[number]) => (
     <li class={`inspect-finding inspect-finding--${f.severity}`} data-testid="inspect-finding">
-      <span class="strong">{kind(f.kind)}</span>
-      {f.name && <code>{f.name}</code>}
+      <code>{f.name}</code>
       <span class="muted small">
         {fmt(t["inspect.seen"], { n: formatCount(locale, f.count) })}
         {f.first ? ` ${fmt(t["inspect.firstSeen"], { time: formatTime(locale, new Date(f.first * 1000).toISOString()) })}` : ""}
@@ -349,6 +376,40 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
   );
   return (
     <div class="stack" id="inspection-report" data-testid="inspect-report">
+      {groups.length > 0 ? (
+        <div class="card card--flat stack">
+          <h2>{t["inspect.report.findings"]}</h2>
+          <ul class="plain stack" data-testid="inspect-summary">
+            {groups.map((g) => (
+              <li class={`inspect-finding inspect-finding--${g.severity}`}>
+                <span class="strong">{kind(g.kind)}</span>
+                <span class="muted small">
+                  {g.sites
+                    ? fmt(t["inspect.report.sites"], { sites: formatCount(locale, g.sites), n: formatCount(locale, g.count) })
+                    : fmt(t["inspect.seen"], { n: formatCount(locale, g.count) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {threats && (
+            <>
+              <h3>{t["inspect.report.next"]}</h3>
+              <ol class="inspect-list">
+                {(["apps", "admin", "ask"] as const).map((k) => <li>{t[`inspect.report.next.${k}`]}</li>)}
+              </ol>
+            </>
+          )}
+          {withSites.length > 0 && <h3>{t["inspect.report.list"]}</h3>}
+          {withSites.map((g) => (
+            <details key={g.kind} class="inspect-group small" open={g.severity === "threat"} data-testid="inspect-group">
+              <summary>{kind(g.kind)} <span class="muted">{fmt(t["inspect.report.siteCount"], { n: formatCount(locale, g.sites) })}</span></summary>
+              <ul class="plain stack">{g.listed.map(line)}</ul>
+              {g.hidden > 0 && <p class="muted" data-testid="inspect-not-listed">{fmt(t["inspect.report.notListed"], { n: formatCount(locale, g.hidden), limit: MAX_LISTED })}</p>}
+            </details>
+          ))}
+        </div>
+      ) : <p class="card card--tint card--flat" data-testid="inspect-clean">{t["inspect.report.clean"]}</p>}
+
       <div class="card card--flat stack">
         <h2>{t["inspect.report.hours"]}</h2>
         <p class="muted small">{fmt(t["inspect.report.coverage"], { active: report.coverage?.active_hours ?? 0, total: report.coverage?.total_hours ?? 0 })}</p>
@@ -390,21 +451,6 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
           </table>
         </details>
       </div>
-
-      {threats.length + checks.length > 0 ? (
-        <div class="card card--flat stack">
-          <h2>{t["inspect.report.findings"]}</h2>
-          <ul class="plain stack">{threats.map(line)}{checks.map(line)}</ul>
-          {threats.length > 0 && (
-            <>
-              <h3>{t["inspect.report.next"]}</h3>
-              <ol class="inspect-list">
-                {(["apps", "admin", "ask"] as const).map((k) => <li>{t[`inspect.report.next.${k}`]}</li>)}
-              </ol>
-            </>
-          )}
-        </div>
-      ) : <p class="card card--tint card--flat" data-testid="inspect-clean">{t["inspect.report.clean"]}</p>}
 
       <div class="card card--flat stack">
         <h2>{t["inspect.report.checks"]}</h2>
