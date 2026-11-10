@@ -160,3 +160,16 @@ test("in English the links name their device too", async ({ page }) => {
   // the dot between the state and its date is drawn by CSS, so it is not in the text
   ]) await expect(page.getByRole("link", { name, exact: true })).toHaveText(shown);
 });
+
+test("a device slowed down for the month keeps its inspection, and can start one", async ({ page }) => {
+  // over the quota a device stays active at a low speed (anoni-net/vessel#254); the backend lets an active device start
+  await backend(page, [{ ...ACTIVE, throttled: true }, { ...NONE, throttled: true }]);
+  await page.goto("/devices/");
+  const running = card(page, "筆電 B");
+  await expect(running.getByTestId("throttled")).toBeVisible();
+  await expect(running.getByTestId("device-inspect")).toHaveAttribute("data-state", "active");
+  await expect(running.getByTestId("inspect-detail")).toHaveText("第 3 天，共 7 天");
+  const idle = card(page, "桌機 D");
+  await expect(idle.getByTestId("throttled")).toBeVisible();
+  await expect(idle.getByRole("link", { name: "檢測流量「桌機 D」" })).toHaveText("檢測流量");
+});
