@@ -47,7 +47,8 @@
   python -m app.admin notices delete ID
 
 Settings: account_cap (0 means no cap), redeem_paused (true/false), user_invites (how many invites each account
-may make, 0 turns it off; toomore/anoni-net-ws#458).
+may make, 0 turns it off; toomore/anoni-net-ws#458), monthly_quota_gb (personal accounts' monthly quota, read by the
+portal and the worker within minutes; a group keeps the quota it was made with).
 """
 
 import argparse
@@ -104,7 +105,7 @@ def main(argv: list[str] | None = None) -> None:
     gc.add_argument("--accounts", type=int, required=True)
     gc.add_argument("--ends-on", type=date.fromisoformat, required=True)
     gc.add_argument("--devices", type=int, default=policy.DEVICE_LIMIT)
-    gc.add_argument("--quota-gb", type=int, default=policy.MONTHLY_QUOTA_BYTES // 10**9)
+    gc.add_argument("--quota-gb", type=int, help="per account; personal accounts' quota if left out")
     gs = gr.add_parser("set")
     gs.add_argument("code")
     gs.add_argument("--accounts", type=int)
@@ -151,10 +152,12 @@ def main(argv: list[str] | None = None) -> None:
                 print(code)
         elif args.cmd == "settings":
             if args.key and args.value is not None:
-                if args.key not in ("account_cap", "redeem_paused", "user_invites"):
+                if args.key not in ("account_cap", "redeem_paused", "user_invites", "monthly_quota_gb"):
                     sys.exit(f"unknown setting {args.key}")
-                if args.key in ("account_cap", "user_invites") and not args.value.isdigit():
+                if args.key in ("account_cap", "user_invites", "monthly_quota_gb") and not args.value.isdigit():
                     sys.exit(f"{args.key} is a number")
+                if args.key == "monthly_quota_gb" and int(args.value) <= 0:
+                    sys.exit("monthly_quota_gb must be above zero")
                 conn.execute("UPDATE settings SET value = %s WHERE key = %s", (args.value, args.key))
             for key, value in conn.execute("SELECT key, value FROM settings ORDER BY key"):
                 print(f"{key} = {value}")
@@ -314,7 +317,8 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
         conn.execute(
             "INSERT INTO groups (code, account_limit, device_limit, monthly_quota_bytes, ends_on) "
             "VALUES (%s, %s, %s, %s, %s)",
-            (args.code, args.accounts, args.devices, args.quota_gb * 10**9, args.ends_on),
+            (args.code, args.accounts, args.devices,
+             args.quota_gb * 10**9 if args.quota_gb else policy.personal_quota(conn), args.ends_on),
         )
     elif args.action == "set":
         with conn.transaction():
@@ -458,7 +462,7 @@ def report(conn: psycopg.Connection, days: int) -> None:
         "SELECT count(*) FROM account_usage u JOIN accounts a ON a.id = u.account_id "
         "LEFT JOIN groups g ON g.code = a.group_code "
         f"WHERE u.period = {MONTH} AND u.rx_bytes + u.tx_bytes >= coalesce(g.monthly_quota_bytes, %s)",
-        (policy.MONTHLY_QUOTA_BYTES,),
+        (policy.personal_quota(conn),),
     )
     print(f"accounts at the monthly quota: {full}")
     print(f"daily, UTC, last {days} days (active: devices with a handshake that day):")

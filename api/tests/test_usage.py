@@ -310,3 +310,23 @@ def test_monthly_record_keeps_twelve_months_and_names_the_strongest_filter(signe
     assert signed_in.get("/api/usage/months").json()["filter"] == "ads"
     signed_in.post("/api/logout", headers=HEADERS)
     assert signed_in.get("/api/usage/months").status_code == 401
+
+
+def test_the_quota_follows_the_setting(signed_in, node, db):
+    db.execute("UPDATE settings SET value = '100' WHERE key = 'monthly_quota_gb'")
+    device_id = create(signed_in).json()["id"]
+    node.counters[device_id] = (policy.MONTHLY_QUOTA_BYTES, 0)
+    worker.tick(db)
+    # 50 GB is under a quota of 100
+    assert device_id in node.peers
+    assert signed_in.get("/api/me").json()["monthly_quota_bytes"] == 100 * GB
+    # lowered below what was used: suspended on the next tick
+    db.execute("UPDATE settings SET value = '40' WHERE key = 'monthly_quota_gb'")
+    worker.tick(db)
+    assert device_id in node.suspended
+
+
+def test_a_quota_setting_that_is_not_a_positive_number_keeps_the_default(db):
+    for value in ("", "0", "-5", "fifty"):
+        db.execute("UPDATE settings SET value = %s WHERE key = 'monthly_quota_gb'", (value,))
+        assert policy.personal_quota(db) == policy.MONTHLY_QUOTA_BYTES
