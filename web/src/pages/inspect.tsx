@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, type Inspection, type Me, api, last } from "../api.ts";
 import { announce } from "../announce.ts";
 import { useCtx } from "../context.ts";
-import { formatBytes, formatCount, formatDate, formatDay, formatTime } from "../format.ts";
+import { formatBytes, formatCount, formatDate, formatDay, formatStamp, formatTime } from "../format.ts";
 import { focusLater } from "../focus.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { type Kept, type Sealed, forget, isKey, keep, kept, newKey, openReport } from "../inspection-key.ts";
@@ -35,6 +35,12 @@ export interface Report {
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   nx_names?: { name: string; count: number }[];
+}
+
+/** Which day of the inspection it is, on the visitor's clock: the third of seven. */
+export function progress(state: Inspection) {
+  const left = Math.ceil((new Date(state.ends_at!).getTime() - Date.now()) / 86_400_000);
+  return { day: Math.min(state.days, Math.max(1, state.days - left + 1)), days: state.days };
 }
 
 const deviceId = () => (typeof location === "undefined" ? "" : new URLSearchParams(location.search).get("d") ?? "");
@@ -330,8 +336,7 @@ function Running({ state, local, setKept, name, stop }: {
 }) {
   const { t, locale } = useCtx();
   const end = () => window.confirm(fmt(t["inspect.endConfirm"], { days: state.report_days })) && stop();
-  const left = Math.ceil((new Date(state.ends_at!).getTime() - Date.now()) / 86_400_000);
-  const day = Math.min(state.days, Math.max(1, state.days - left + 1));
+  const { day } = progress(state);
   return (
     <div class="stack" data-testid="inspect-running">
       <div class="card card--tint card--flat inspect-status" data-testid="inspect-status">
@@ -411,18 +416,30 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
     const body = area.current!.cloneNode(true) as HTMLElement;
     body.querySelectorAll("details").forEach((d) => d.setAttribute("open", ""));
     const title = fmt(t["inspect.device"], { name });
-    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t["inspect.title"]}</title><style>${css}</style><body><main class="wrap narrow stack"><h1>${t["inspect.title"]}</h1><p class="lead"></p>${body.outerHTML}</main></body></html>`;
+    // the results so far: the file says so in its name, its title and its first lines, so it is not taken for the full report
+    const heading = partial ? t["inspect.file.partialTitle"] : t["inspect.title"];
+    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading}</title><style>${css}</style><body><main class="wrap narrow stack"><h1>${heading}</h1><p class="lead"></p>${partial ? '<p class="card card--warn card--flat" data-partial></p>' : ""}${body.outerHTML}</main></body></html>`;
     const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelector(".lead")!.textContent = title;
-    const day = new Date().toLocaleDateString("sv");
-    saveFile(`vessel-inspection-${day}.html`, new Blob([`<!doctype html>${doc.documentElement.outerHTML}`], { type: "text/html" }));
+    const now = new Date();
+    if (partial) doc.querySelector("[data-partial]")!.textContent = fmt(t["inspect.file.partial"], { time: formatStamp(locale, now), ...progress(state) });
+    const day = now.toLocaleDateString("sv");
+    const at = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+    saveFile(partial ? `vessel-inspection-${day}-${at}-in-progress.html` : `vessel-inspection-${day}.html`,
+      new Blob([`<!doctype html>${doc.documentElement.outerHTML}`], { type: "text/html" }));
   };
   if (report.empty) return <p class="muted" data-testid="inspect-empty">{t["inspect.noneYet"]}</p>;
   return (
     <div class="stack">
       {!partial && <button class="nb-button nb-button--primary" type="button" onClick={download} data-testid="inspect-download">{t["inspect.download"]}</button>}
       <div ref={area}><ReportView report={report} locale={locale} /></div>
-      {partial && <p class="muted small" data-testid="inspect-delay">{t["inspect.partial"]}</p>}
+      {partial && (
+        // below the report, as a link: the results so far are there to read, and ending early stays the one thing at the top
+        <div class="inspect-partial">
+          <p class="muted small" data-testid="inspect-delay">{t["inspect.partial"]}</p>
+          <button class="link-button" type="button" onClick={download} data-testid="inspect-download">{t["inspect.downloadPartial"]}</button>
+        </div>
+      )}
     </div>
   );
 }

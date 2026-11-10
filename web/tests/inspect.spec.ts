@@ -48,6 +48,14 @@ async function backend(page: Page, inspection: object, opts: { me?: object; post
   return sent;
 }
 
+/** Presses the download button and reads what it saves. */
+async function downloaded(page: Page) {
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("inspect-download").click()]);
+  const chunks: Buffer[] = [];
+  for await (const c of await download.createReadStream()) chunks.push(c as Buffer);
+  return { name: download.suggestedFilename(), html: Buffer.concat(chunks).toString() };
+}
+
 const goto = (page: Page) => page.goto(`/devices/inspect/?d=${ID}`);
 const withKey = (page: Page, key = KEY) =>
   page.addInitScript(([id, k]) => localStorage.setItem(`vessel-inspection:${id}`, JSON.stringify({ key: k })), [ID, key]);
@@ -145,14 +153,14 @@ test("opens a report sealed by the analysis host, with a reminder to download it
   await expect(page.getByTestId("inspect-tiles").locator(".tile--check")).toHaveCount(1);
   // a mark also has a sign, for whoever cannot tell the colours apart
   await expect(page.getByTestId("inspect-tiles").locator(".tile--check")).toHaveText("!");
-  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("inspect-download").click()]);
-  expect(download.suggestedFilename()).toMatch(/^vessel-inspection-.*\.html$/);
-  const file = await download.createReadStream();
-  const chunks: Buffer[] = [];
-  for await (const c of file) chunks.push(c as Buffer);
-  const html = Buffer.concat(chunks).toString();
+  const { name, html } = await downloaded(page);
+  // the full report keeps the name and the title it had before there was a download of the results so far
+  expect(name).toMatch(/^vessel-inspection-\d{4}-\d{2}-\d{2}\.html$/);
   expect(html).toContain("tracker.example");
   expect(html).toContain("<style>");
+  expect(html).toContain("<title>裝置流量檢測</title>");
+  expect(html).not.toContain("進行中");
+  expect(html).not.toContain("data-partial");
   expect(html).not.toContain(KEY);
 });
 
@@ -230,7 +238,6 @@ test("a running inspection shows the end date and the results so far, and can be
   await goto(page);
   await expect(page.getByTestId("inspect-running")).toContainText("自動結束");
   await expect(page.getByTestId("inspect-report")).toBeVisible();
-  await expect(page.getByTestId("inspect-download")).toHaveCount(0);
   // readable at any time, and it says how far behind it is, below the report
   await expect(page.getByTestId("inspect-delay")).toContainText("延遲 30 分鐘，最久約 1 小時");
   const [report, delay] = await Promise.all([page.getByTestId("inspect-report").boundingBox(), page.getByTestId("inspect-delay").boundingBox()]);
@@ -254,6 +261,48 @@ test("a running inspection says how far along it is in one small card, with endi
   const [card, report] = await Promise.all([status.boundingBox(), page.getByTestId("inspect-report").boundingBox()]);
   expect(card!.y + card!.height).toBeLessThanOrEqual(report!.y);
   expect(card!.height).toBeLessThan(120);
+});
+
+test("a running inspection's results so far can be downloaded, from a link below the report", async ({ page }) => {
+  const ends = new Date(Date.now() + 4.5 * 86_400_000).toISOString();
+  await backend(page, { ...BASE, status: "active", report: SEALED, ends_at: ends });
+  await withKey(page);
+  await goto(page);
+  const link = page.getByTestId("inspect-download");
+  await expect(link).toHaveText("下載目前的結果");
+  // no louder than ending it early: a link like that one, under the report and the words on how far behind it is
+  await expect(link).toHaveClass("link-button");
+  const [report, delay, box] = await Promise.all([page.getByTestId("inspect-report").boundingBox(), page.getByTestId("inspect-delay").boundingBox(), link.boundingBox()]);
+  expect(box!.y).toBeGreaterThanOrEqual(delay!.y + delay!.height - 1);
+  expect(box!.y).toBeGreaterThan(report!.y + report!.height - 1);
+
+  const before = Date.now();
+  const { name, html } = await downloaded(page);
+  // marked as in progress in its name, its title and its first lines, with the time it was made and how far behind it is
+  expect(name).toMatch(/^vessel-inspection-\d{4}-\d{2}-\d{2}-\d{4}-in-progress\.html$/);
+  expect(name).toContain(new Date(before).toLocaleDateString("sv"));
+  expect(html).toContain("<title>裝置流量檢測（進行中）</title>");
+  expect(html).toContain("<h1>裝置流量檢測（進行中）</h1>");
+  expect(html).toMatch(/檢測進行中，結果產生於 \d{4}\/\d{2}\/\d{2} \d{2}:\d{2} UTC[+-]\d+(:\d{2})?（第 3 天，共 7 天）/);
+  expect(html).toContain("延遲 30 分鐘，最久約 1 小時");
+  expect(html).toContain("檢測結束後可以下載完整報告");
+  expect(html).toContain("我的手機");
+  expect(html).toContain("tracker.example");
+  expect(html).not.toContain(KEY);
+  // the words for the page and the link stay on the page
+  expect(html).not.toContain("下載目前的結果");
+});
+
+test("in English, the results so far say they are in progress too", async ({ page }) => {
+  await backend(page, { ...BASE, status: "active", report: SEALED, ends_at: "2026-11-16T00:00:00Z" });
+  await withKey(page);
+  await page.goto(`/en/devices/inspect/?d=${ID}`);
+  await expect(page.getByTestId("inspect-download")).toHaveText("Download results so far");
+  const { name, html } = await downloaded(page);
+  expect(name).toMatch(/-in-progress\.html$/);
+  expect(html).toContain("<title>Device traffic inspection (in progress)</title>");
+  expect(html).toContain("Inspection in progress. Results as of ");
+  expect(html).toContain("about 30 minutes behind");
 });
 
 test("a device with nothing recorded says so", async ({ page }) => {
