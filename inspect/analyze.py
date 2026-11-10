@@ -34,6 +34,7 @@ RESOLVERS = {"10.8.1.1", "10.8.1.253", "10.8.1.254"}
 TZ = dt.timezone(dt.timedelta(hours=8))
 IDLE_HOURS = range(1, 6)
 AD_BLOCK_TARGET = "blocked.vessel"
+AD_BLOCK_WIRE = b"\x07blocked\x06vessel\x00"  # the name as it appears in an answer
 MAX_NX_NAMES = 500
 MAX_FINDINGS = 30  # of each kind in a report, the most frequent; the rest are only counted
 SOURCES = {
@@ -149,16 +150,21 @@ def question_name(dns):
 
 
 def blocked_answers(path):
-    """(device, name) of the lookups the node's own lists stopped. Their NXDOMAIN has the RA flag cleared, which no other
-    answer has (node/start.sh counts them the same way). The flag is read here because Zeek's RA field is false for
-    every answer without records, so it cannot tell these from a name that really does not exist."""
+    """(device, name) of the lookups the node's own lists stopped, read from the packets as node/start.sh counts them.
+    The malware lists answer NXDOMAIN with the RA flag cleared, which no other answer has; Zeek's RA field is false for
+    every answer without records, so it cannot tell these from a name that really does not exist. The ad list answers
+    with a CNAME to blocked.vessel., which then does not exist: NXDOMAIN with RA set, told apart only by that name."""
     found = set()
     for _, ip, src, dst in ipv4_packets(path):
         if src not in RESOLVERS or ip[9] != 17:
             continue
         udp = (ip[0] & 15) * 4
         dns = ip[udp + 8:]
-        if len(dns) > 12 and struct.unpack(">H", ip[udp:udp + 2])[0] == 53 and dns[3] & 0x8F == 3 and (name := question_name(dns)):
+        if len(dns) <= 12 or struct.unpack(">H", ip[udp:udp + 2])[0] != 53 or dns[3] & 0x0F != 3:
+            continue
+        name = question_name(dns)
+        # the answer section starts after the question's name and its type and class
+        if name and (not dns[3] & 0x80 or AD_BLOCK_WIRE in dns[12 + len(name) + 2 + 4:]):
             found.add((dst, name))
     return found
 
