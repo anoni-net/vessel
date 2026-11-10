@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import axe from "axe-core";
-import { FULL_REPORT, KEY, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, THREAT_REPORT, WEEK_START, seal } from "./inspect-fixtures.ts";
+import { FULL_REPORT, KEY, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, THREAT_APP_REPORT, THREAT_REPORT, WEEK_START, seal } from "./inspect-fixtures.ts";
 
 // WCAG 2.2 AA. axe-core checks what a tool can (names, roles, labels, contrast where it can tell the background);
 // the tests after it cover what it cannot: the focus ring on the footer's dark blue, the narrowest phone, and
@@ -311,6 +311,9 @@ const INSPECT: Record<string, InspectState> = {
   "report, every site on the ad list too": { inspection: { ...ENDED, report: seal(ONCE_ADS_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-hit-lists"]' },
   "report, stalkerware over days": {
     inspection: { ...ENDED, started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report: seal(THREAT_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-hits"]',
+  },
+  "report, stalkerware with its app": {
+    inspection: { ...ENDED, started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report: seal(THREAT_APP_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-app-source"]',
   },
   "nothing recorded": { inspection: { ...ENDED, report: seal({ empty: true }) }, kept: { key: KEY }, ready: '[data-testid="inspect-empty"]' },
   "asking for the key": {

@@ -15,6 +15,7 @@ whoever holds someone else's phone (#461)."""
 import argparse
 import base64
 import collections
+import csv
 import datetime as dt
 import json
 import os
@@ -43,6 +44,10 @@ SOURCES = {
     "cti": "https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
+# Which stalkerware each of Echap's domains belongs to (`type,indicator,app`), CC BY 4.0: the name a report gives a
+# stalkerware hit, with where it comes from (toomore/anoni-net-ws#480)
+APPS = "stalkerware-apps"
+APPS_SOURCE = "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/network.csv"
 # One visit to a site looks a listed name up as A, AAAA and HTTPS, and then connects with SNI: a hit seen again this
 # soon after it was last counted is the same visit (toomore/anoni-net-ws#480)
 VISIT_SECONDS = 60
@@ -81,7 +86,28 @@ def load_lists():
                 if name:
                     names.add(name)
         lists[kind] = names - excluded
+    lists[APPS] = load_apps()
     return lists
+
+
+def load_apps():
+    """Domain to stalkerware name, from Echap's network.csv; empty where it has not been downloaded."""
+    path = HOME / "lists" / f"{APPS}.csv"
+    apps = {}
+    if path.exists():
+        with open(path, encoding="utf-8", errors="replace", newline="") as f:
+            for row in csv.DictReader(f):
+                name = clean(row.get("indicator") or "")
+                app = (row.get("app") or "").strip()
+                if row.get("type") == "domain" and name and app:
+                    apps.setdefault(name, app)
+    return apps
+
+
+def app_of(name, apps):
+    """The stalkerware a name belongs to: the most specific of Echap's domains that covers it, or None."""
+    labels = (name or "").lower().rstrip(".").split(".")
+    return next((apps[entry] for i in range(len(labels) - 1) if (entry := ".".join(labels[i:])) in apps), None)
 
 
 def entry_of(name, names):
@@ -257,15 +283,19 @@ def merge(node, totals, logs, lists):
 
     def note_hit(row, name, how):
         if not system_name(name) and (matched := match(name, lists)):
-            candidates.append((row["ts"], row["id.orig_h"], *matched, how, lists_of(name, lists)))
+            app = app_of(name, lists.get(APPS, {})) if matched[0] == "stalkerware" else None
+            candidates.append((row["ts"], row["id.orig_h"], *matched, how, lists_of(name, lists), app))
 
-    def count_hit(ts, address, kind, entry, how, on):
+    def count_hit(ts, address, kind, entry, how, on, app):
         """A visit counts once: Zeek's rows come in no set order, so they are sorted before they get here. `on` is every
-        list the name seen covers; a hit is a list entry, so its lists are those of all the names it came from."""
+        list the name seen covers; a hit is a list entry, so its lists are those of all the names it came from. `app`
+        is the stalkerware the name belongs to, kept from the first name that had one."""
         state = get(address)
         hit = state["hits"].setdefault(f"{kind}|{entry}", {"kind": kind, "name": entry, "how": how, "count": 0, "first": ts,
                                                            "last": ts, "hours": [], "counted": None, "lists": [kind]})
         hit["lists"] = sorted(set(hit["lists"]) | on | {kind})
+        if app and not hit.get("app"):
+            hit["app"] = app
         if hit["counted"] is None or abs(ts - hit["counted"]) >= VISIT_SECONDS:
             hit["count"] += 1
             hit["counted"] = max(hit["counted"] or ts, ts)
@@ -356,7 +386,8 @@ def report(node, address):
         entries[hit["kind"]] += 1
         if entries[hit["kind"]] <= MAX_FINDINGS:
             findings.append({"severity": "threat" if hit["kind"] in THREAT else "check",
-                             **{k: hit[k] for k in ("kind", "name", "how", "count", "first", "last", "hours", "lists")}})
+                             **{k: hit[k] for k in ("kind", "name", "how", "count", "first", "last", "hours", "lists")},
+                             **({"app": hit["app"]} if hit.get("app") else {})})
     if state["bypass"]:
         findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"]})
     checks = [{"id": kind, "count": found[kind]} for kind in FLAGGED] + [{"id": "bypass_dns", "count": state["bypass"]}]
@@ -400,8 +431,9 @@ def status():
 
 def update_lists():
     (HOME / "lists").mkdir(parents=True, exist_ok=True, mode=0o700)
-    for kind, url in SOURCES.items():
-        path = HOME / "lists" / f"{kind}.txt"
+    downloads = {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE}
+    for name, url in downloads.items():
+        path = HOME / "lists" / name
         part = path.with_suffix(".part")
         try:
             with urllib.request.urlopen(url, timeout=120) as response, part.open("wb") as f:
@@ -410,7 +442,7 @@ def update_lists():
                 raise ValueError("too small")
         except (OSError, ValueError) as e:
             # the previous copy stays
-            print(f"{kind}: {e}", file=sys.stderr)
+            print(f"{name}: {e}", file=sys.stderr)
             part.unlink(missing_ok=True)
             continue
         os.replace(part, path)

@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import io
 import json
 import os
 import signal
@@ -295,6 +296,84 @@ class HitLists(Base):
 
     def test_an_ad_name_alone_is_not_a_finding(self):
         self.assertEqual(self.report({"dns": [dns("ad.example")]}), {})
+
+
+class StalkerwareApps(Base):
+    """Which stalkerware a hit belongs to, from Echap's network.csv (toomore/anoni-net-ws#480)."""
+
+    CSV = ("type,indicator,app\n"
+           "domain,tracker.example,FakeSpy\n"
+           "domain,api.tracker.example,FakeSpy Pro\n"
+           "ipv4,192.0.2.1,FakeSpy\n"
+           "domain,collect.example,<b>Spy</b>\n"
+           "domain,other.example,OtherSpy\n")
+
+    def setUp(self):
+        super().setUp()
+        (analyze.HOME / "lists" / "stalkerware.txt").write_text("0.0.0.0 tracker.example\n0.0.0.0 collect.example\n"
+                                                                "0.0.0.0 unnamed.example\n0.0.0.0 shared.example\n")
+        (analyze.HOME / "lists" / "stalkerware-apps.csv").write_text(self.CSV)
+        (analyze.HOME / "lists" / "cti.txt").write_text("other.example\n")
+        self.lists = analyze.load_lists()
+
+    def report(self, rows):
+        analyze.merge("n1", {}, logs(dns=rows), self.lists)
+        return {f["name"]: f for f in analyze.report("n1", "10.8.1.3")["findings"]}
+
+    def test_only_the_domains_of_the_table_are_kept(self):
+        self.assertEqual(analyze.load_apps(), {"tracker.example": "FakeSpy", "api.tracker.example": "FakeSpy Pro",
+                                               "collect.example": "<b>Spy</b>", "other.example": "OtherSpy"})
+
+    def test_a_stalkerware_hit_says_which_app_from_its_most_specific_domain(self):
+        r = self.report([dns("x.cdn.tracker.example"), dns("collect.example", ts=T0 + 1)])
+        self.assertEqual(r["tracker.example"]["app"], "FakeSpy")
+        # the name as the table has it, whatever it has in it: the page shows it as text
+        self.assertEqual(r["collect.example"]["app"], "<b>Spy</b>")
+        analyze.state_path("n1", "10.8.1.3").unlink()
+        self.assertEqual(self.report([dns("v2.api.tracker.example")])["tracker.example"]["app"], "FakeSpy Pro")
+
+    def test_a_hit_not_in_the_table_has_no_app(self):
+        hit = self.report([dns("unnamed.example")])["unnamed.example"]
+        self.assertNotIn("app", hit)
+        self.assertEqual(hit["severity"], "threat")
+
+    def test_only_stalkerware_hits_have_an_app(self):
+        self.assertNotIn("app", self.report([dns("other.example")])["other.example"])
+
+    def test_without_the_table_there_is_no_app(self):
+        (analyze.HOME / "lists" / "stalkerware-apps.csv").unlink()
+        self.lists = analyze.load_lists()
+        hit = self.report([dns("tracker.example")])["tracker.example"]
+        self.assertEqual((hit["severity"], "app" in hit), ("threat", False))
+
+    def test_an_older_state_gets_its_app_when_the_site_is_seen_again(self):
+        old = {"node": "n1", "address": "10.8.1.3", "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
+               "hits": {"stalkerware|tracker.example": {"kind": "stalkerware", "name": "tracker.example", "how": "DNS",
+                                                        "count": 2, "first": T0}},
+               "bypass": 0, "first": T0, "last": T0}
+        path = analyze.state_path("n1", "10.8.1.3")
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps(old))
+        self.assertNotIn("app", analyze.report("n1", "10.8.1.3")["findings"][0])
+        self.assertEqual(self.report([dns("tracker.example", ts=T0 + 600)])["tracker.example"]["app"], "FakeSpy")
+
+    def test_a_failed_download_keeps_the_table_it_had(self):
+        with mock.patch.object(analyze.urllib.request, "urlopen", side_effect=OSError("offline")), \
+                mock.patch.object(analyze.sys, "stderr"):
+            analyze.update_lists()
+        self.assertEqual((analyze.HOME / "lists" / "stalkerware-apps.csv").read_text(), self.CSV)
+        self.assertEqual(analyze.load_apps()["tracker.example"], "FakeSpy")
+
+    def test_a_download_replaces_the_table(self):
+        fresh = self.CSV.replace("FakeSpy\n", "RenamedSpy\n") + "".join(f"domain,d{i}.example,Filler\n" for i in range(60))
+
+        def urlopen(url, timeout):
+            body = fresh if url == analyze.APPS_SOURCE else "0.0.0.0 tracker.example\n" * 60
+            return io.BytesIO(body.encode())
+
+        with mock.patch.object(analyze.urllib.request, "urlopen", side_effect=urlopen):
+            analyze.update_lists()
+        self.assertEqual(analyze.load_apps()["tracker.example"], "RenamedSpy")
 
 
 class SystemNames(Base):

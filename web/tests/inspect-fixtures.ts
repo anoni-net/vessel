@@ -129,3 +129,24 @@ export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,
   findings: THREAT_REPORT.findings.map((f) => (f.kind === "stalkerware" ? onLists(f, "ads") : f)),
 };
+
+/** Stalkerware with the name of the app it belongs to, from Echap's table: a made-up name. */
+export const THREAT_APP_REPORT = {
+  ...THREAT_REPORT,
+  findings: THREAT_REPORT.findings.map((f) => (f.kind === "stalkerware" ? { ...onLists(f), app: "FakeSpy" } : f)),
+};
+
+/** Two sites of two apps, one of them with markup in its name, which the page shows as it is. */
+export const THREAT_APPS_REPORT = {
+  ...THREAT_REPORT,
+  checks: [{ id: "stalkerware", count: 11 }, ...THREAT_REPORT.checks.slice(1)],
+  findings: [{ ...onLists(THREAT_REPORT.findings[0]), app: "FakeSpy" },
+    { ...hit("stalkerware", "threat", "upload.example", 2, ["2026-11-02T03"]), lists: ["stalkerware"], app: "<b>Spy</b> & Co" },
+    THREAT_REPORT.findings[1]],
+};
+
+/** The first day, the sites seen across four hours of it, every one also on the ad list. */
+export const ONE_DAY_ADS_REPORT = {
+  ...ONCE_ADS_REPORT,
+  findings: ONCE_ADS_REPORT.findings.map((f, i) => ({ ...f, hours: [`2026-11-09T${18 + (i % 4)}`], last: Date.parse(`2026-11-09T${18 + (i % 4)}:10:00Z`) / 1000 })),
+};

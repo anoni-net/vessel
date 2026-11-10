@@ -39,8 +39,12 @@ export interface Report {
    * (the UTC hours it was seen in, `YYYY-MM-DDTHH`, sorted) and `last`; older ones, still stored, have `first` instead.
    * Reports made since the lists were compared one by one add `lists`: every list the site's names are on, its own `kind`
    * and the ad list included (`stalkerware`, `malware`, `cti`, `ads`, sorted). Without it, nothing is said about other lists.
+   * A stalkerware site may also have `app`, the stalkerware it belongs to in Echap's stalkerware-indicators: a name from
+   * outside, only ever put on the page as text.
    */
-  findings?: { severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[]; lists?: string[] }[];
+  findings?: {
+    severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[]; lists?: string[]; app?: string;
+  }[];
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -659,6 +663,18 @@ export function alsoOn(f: NonNullable<Report["findings"]>[number], t: ReturnType
   return fmt(t["inspect.lists.many"], { n: all.length, lists: all.map(name).join(t["inspect.lists.sep"]) });
 }
 
+/** Where the names of the stalkerware come from, and their licence (CC BY 4.0 asks for both). */
+export const APPS_SOURCE = "https://github.com/AssoEchap/stalkerware-indicators";
+export const APPS_LICENSE = "https://creativecommons.org/licenses/by/4.0/";
+
+/** The stalkerware a report's threats belong to, where every one of them it lists says, and it lists them all. */
+function threatApps(report: Report) {
+  const threats = (report.findings ?? []).filter((f) => f.severity === "threat" && f.name);
+  const left = Object.entries(report.more ?? {}).some(([kind, n]) => n > 0 && threats.some((f) => f.kind === kind));
+  if (left || !threats.length || !threats.every((f) => f.app)) return [];
+  return [...new Set(threats.map((f) => f.app!))];
+}
+
 /**
  * Whether every site behind a "needs a check" is also on the ad list, so the reason can say so. Only where the report
  * names them all: a report that leaves some out (more than it lists) or from before `lists` says nothing.
@@ -706,11 +722,14 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
     }
     const hours = hoursOf("threat");
     const last = lastOf("threat");
+    // named after the stalkerware where the report knows it for every site: one by its name, more by how many
+    const apps = threatApps(report);
+    const words = apps.length === 1 ? "inspect.reason.threatApp" : apps.length > 1 ? "inspect.reason.threatApps" : "inspect.reason.threat";
     return {
       state,
       next: true,
-      reason: fmt(t["inspect.reason.threat"], {
-        days: n(new Set(hours.map(dayOf)).size), slots: n(hours.length),
+      reason: fmt(t[words], {
+        days: n(new Set(hours.map(dayOf)).size), slots: n(hours.length), app: apps[0] ?? "", apps: n(apps.length),
         last: last ? formatTime(locale, new Date(last * 1000).toISOString()) : formatTime(locale, hours.at(-1)!.toISOString()),
       }),
     };
@@ -724,7 +743,9 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
   // seen day after day: the same steps as for a known threat, starting from the apps
   if (days.length > 1) return { state, reason: join(fmt(t["inspect.reason.repeat"], { days: n(days.length), slots: n(hours.length) }), also), next: true };
   const date = short(days[0]);
-  if (hours.length > 3) return { state, reason: join(fmt(t["inspect.reason.oneDay"], { date, slots: n(hours.length) }), also), next: false };
+  // seen on one day only, and every one of them on the ad list too: one more sentence, the same state
+  const ads = allOnAdList(report) ? t[sites.reduce((s, g) => s + g.sites, 0) === 1 ? "inspect.reason.alsoAdsOne" : "inspect.reason.alsoAds"] : "";
+  if (hours.length > 3) return { state, reason: join(join(fmt(t["inspect.reason.oneDay"], { date, slots: n(hours.length) }), ads), also), next: false };
   const clock = hours.map((h) => h.getHours());
   const periods = [...new Set(clock.map(period))];
   const when = periods.length === 1
@@ -732,8 +753,6 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
     : fmt(t["inspect.when.range"], { date, from: `${pad(Math.min(...clock))}:00`, to: `${pad(Math.max(...clock) + 1)}:00` });
   const lastHit = hours.at(-1)!.getTime();
   const after = (report.hours ?? []).filter((h) => atHour(h.hour).getTime() > lastHit && h.up + h.down > 0).length;
-  // seen within a few hours of one day, and every one of them on the ad list too: one more sentence, the same state
-  const ads = allOnAdList(report) ? t[sites.reduce((s, g) => s + g.sites, 0) === 1 ? "inspect.reason.alsoAdsOne" : "inspect.reason.alsoAds"] : "";
   const once = fmt(t[after >= QUIET_HOURS ? "inspect.reason.onceQuiet" : "inspect.reason.onceLatest"], { when });
   return { state, reason: join(join(once, ads), also), next: false };
 }
@@ -768,6 +787,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
         {fmt(t["inspect.seen"], { n: formatCount(locale, f.count) })}
         {f.first ? ` ${fmt(t["inspect.firstSeen"], { time: formatTime(locale, new Date(f.first * 1000).toISOString()) })}` : ""}
       </span>
+      {f.app && <span class="small" data-testid="inspect-hit-app">{fmt(t["inspect.app"], { app: f.app })}</span>}
       {alsoOn(f, t) && <span class="small" data-testid="inspect-hit-lists">{alsoOn(f, t)}</span>}
     </li>
   );
@@ -796,6 +816,8 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
         <span class="hit-row__cells hits__grid" aria-hidden="true">{hitCells(w.perDay)}</span>
         <span class="hit-row__words small">
           <span data-testid="inspect-hit-words">{words}{last && <>{dot}<span class="muted">{last}</span></>}</span>
+          {/* a name from outside: a text node, never markup */}
+          {f.app && <span class="hit-row__lists" data-testid="inspect-hit-app">{fmt(t["inspect.app"], { app: f.app })}</span>}
           {lists && <span class="hit-row__lists" data-testid="inspect-hit-lists">{lists}</span>}
         </span>
       </li>
@@ -895,6 +917,12 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
                     <ul class="plain stack">{g.listed.map(line)}</ul>
                     {g.hidden > 0 && <p class="muted" data-testid="inspect-not-listed">{fmt(t["inspect.report.notListed"], { n: formatCount(locale, g.hidden), limit: MAX_LISTED })}</p>}
                   </details>
+                )}
+                {g.listed.some((f) => f.app) && (
+                  <p class="muted small" data-testid="inspect-app-source">
+                    {t["inspect.apps.source"]}<a href={APPS_SOURCE} target="_blank" rel="noopener">{t["inspect.apps.sourceName"]}</a>
+                    {t["inspect.apps.license"]}<a href={APPS_LICENSE} target="_blank" rel="noopener">CC BY 4.0</a>{t["inspect.apps.end"]}
+                  </p>
                 )}
               </li>
             ))}

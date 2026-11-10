@@ -1,7 +1,7 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, THREAT_ADS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT,
-  WEEK_REPORT, WEEK_START, seal,
+  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
 // made with inspect/analyze.py's `seal`, so that the page and the analysis host are checked against each other
@@ -761,6 +761,64 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-hit-lists")).toHaveCount(0);
   });
 
+  test("sites seen in more hours of the one day, all on the ad list too: the sentence is added there as well", async ({ page }) => {
+    await open(page, running(ONE_DAY_ADS_REPORT), "2026-11-10T07:10:00Z");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("名單上的網站只在 11/10 出現，共 4 個時段。之後幾天也出現的話，建議檢查最近安裝的 App。" + ADS_NOTE);
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await expect(verdict(page).getByRole("heading", { level: 2 })).toHaveText("需要檢查");
+  });
+
+  // The stalkerware a site belongs to, from Echap's stalkerware-indicators (CC BY 4.0): a name from outside, put on the
+  // page as text, with where it comes from.
+  const app = (page: Page, name: string) => page.getByTestId("inspect-hit").filter({ hasText: name }).getByTestId("inspect-hit-app");
+
+  test("a stalkerware site says which app it belongs to, the reason names it, and the source is credited", async ({ page }) => {
+    await open(page, endedWith(THREAT_APP_REPORT));
+    await expect(app(page, "collect.example")).toHaveText("屬於跟蹤軟體 FakeSpy");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("跟蹤軟體 FakeSpy 使用的網站出現在 3 天、4 個時段，最後一次在 11/06 11:13。一般瀏覽網頁很少連到這類網站，請照下面的步驟檢查。");
+    await expect(verdict(page)).toHaveAttribute("data-state", "threat");
+    const source = page.getByTestId("inspect-app-source");
+    await expect(source).toHaveText("跟蹤軟體的名稱取自 Echap 的 stalkerware-indicators，資料授權是 CC BY 4.0。");
+    // under the stalkerware, the one kind it is about
+    await expect(page.getByTestId("inspect-kind").filter({ hasText: "跟蹤軟體" }).getByTestId("inspect-app-source")).toHaveCount(1);
+    const repo = source.getByRole("link", { name: "Echap 的 stalkerware-indicators" });
+    await expect(repo).toHaveAttribute("href", "https://github.com/AssoEchap/stalkerware-indicators");
+    await expect(repo).toHaveAttribute("target", "_blank");
+    await expect(repo).toHaveAttribute("rel", "noopener");
+    await expect(source.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute("href", "https://creativecommons.org/licenses/by/4.0/");
+  });
+
+  test("an app's name is shown as it is, markup and all, and two apps are counted", async ({ page }) => {
+    await open(page, endedWith(THREAT_APPS_REPORT));
+    await expect(app(page, "upload.example")).toHaveText("屬於跟蹤軟體 <b>Spy</b> & Co");
+    await expect(page.getByTestId("inspect-report").locator("b")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-reason")).toHaveText(/^2 個跟蹤軟體使用的網站出現在 4 天、5 個時段/);
+    // one of the two without a name: the reason does not guess
+    await page.unrouteAll();
+    const report = { ...THREAT_APPS_REPORT, findings: THREAT_APPS_REPORT.findings.map((f, i) => (i === 1 ? { ...f, app: undefined } : f)) };
+    await open(page, endedWith(report));
+    await expect(page.getByTestId("inspect-reason")).toHaveText(/^跟蹤軟體名單上的網站出現在/);
+    await expect(page.getByTestId("inspect-hit-app")).toHaveCount(1);
+    await expect(page.getByTestId("inspect-app-source")).toHaveCount(1);
+  });
+
+  test("without an app's name, nothing about apps is said", async ({ page }) => {
+    await open(page, endedWith(THREAT_REPORT));
+    await expect(page.getByTestId("inspect-hit-app")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-app-source")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-reason")).toHaveText(/^跟蹤軟體名單上的網站出現在/);
+  });
+
+  test("the downloaded report has the app's name and where it comes from", async ({ page }) => {
+    await open(page, endedWith(THREAT_APPS_REPORT));
+    const { html } = await downloaded(page);
+    expect(html).toContain("屬於跟蹤軟體 FakeSpy");
+    expect(html).toContain("屬於跟蹤軟體 &lt;b&gt;Spy&lt;/b&gt; &amp; Co");
+    expect(html).not.toContain("<b>Spy</b>");
+    expect(html).toContain('href="https://github.com/AssoEchap/stalkerware-indicators"');
+    expect(html).toContain('href="https://creativecommons.org/licenses/by/4.0/"');
+  });
+
   test("in English, the lists are named and the sentence added", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-11-10T07:10:00Z"));
     await backend(page, running(ONCE_LISTS_REPORT));
@@ -773,6 +831,12 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await page.goto(`/en/devices/inspect/?d=${ID}`);
     await expect(page.getByTestId("inspect-reason")).toContainText("browsing. Every one of these sites is also on the ad and tracking list.");
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await page.unrouteAll();
+    await backend(page, { ...BASE, status: "ended", started_at: WEEK_START, ends_at: plus(WEEK_START, 7), report_until: "2026-11-15", report: seal(THREAT_APP_REPORT) });
+    await page.goto(`/en/devices/inspect/?d=${ID}`);
+    await expect(page.getByTestId("inspect-hit-app")).toHaveText("Belongs to the stalkerware FakeSpy");
+    await expect(page.getByTestId("inspect-reason")).toContainText("Sites used by the stalkerware FakeSpy were seen on 3 days");
+    await expect(page.getByTestId("inspect-app-source")).toHaveText("Stalkerware names come from stalkerware-indicators by Echap, under CC BY 4.0.");
   });
 
   test("the downloaded report has the lists and the sentence", async ({ page }) => {
