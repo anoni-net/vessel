@@ -989,9 +989,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 
 /* The device inspection (pages/inspect.tsx). Its hours, one cobalt from light to dark; orange and red keep their
    meaning from the rest of the site, and carry a mark so they do not depend on colour. */
-:root { --tile-0: var(--grey); --tile-1: #d6e2fb; --tile-2: #a5bcf2; --tile-3: #5f85ea; --tile-4: #2f5fd4; --tile-5: #0b3ca8; }
+:root { --tile-0: var(--grey); --tile-1: #d6e2fb; --tile-2: #a5bcf2; --tile-3: #5f85ea; --tile-4: #2f5fd4; --tile-5: #0b3ca8;
+  /* the night hours' band: a warm grey, apart from the cobalt steps so an empty night hour does not read as a quiet one */
+  --night: #ebe6dc; }
 @media (prefers-color-scheme: dark) {
-  :root { --tile-1: #2a4478; --tile-2: #3f64ad; --tile-3: #6088da; --tile-4: #93b0ef; --tile-5: #d6e2fb; }
+  :root { --tile-1: #2a4478; --tile-2: #3f64ad; --tile-3: #6088da; --tile-4: #93b0ef; --tile-5: #d6e2fb; --night: #3a3550; }
 }
 .inspect-list { margin: 0; padding-inline-start: 1.3em; display: grid; gap: 6px; }
 .inspect-key { display: block; padding: 8px 10px; background: var(--grey); overflow-wrap: anywhere; user-select: all; }
@@ -1002,16 +1004,121 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-partial { display: flex; flex-direction: column; align-items: flex-start; }
 .inspect-partial p { margin: 0; }
 .inspect-qr { max-width: 220px; padding: 8px; background: #fff; }
-.tiles { display: grid; gap: 3px; }
-.tiles__row { display: grid; grid-template-columns: 3.2em repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.tiles { display: grid; }
+/* the night hours (1 to 6 am) on a band behind their columns: from the gap before the 1 am square to the gap after the
+   5 am one. The day's label takes 3.2em, then 24 squares with 2px between them */
+.tiles__row { --sq: calc((100% - 3.2em - 48px) / 24); display: grid; grid-template-columns: 3.2em repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center;
+  padding-block: 1.5px; font-family: var(--mono); font-size: 11px; color: var(--muted);
+  background: linear-gradient(to right, transparent calc(3.2em + 2px + var(--sq) + 1px), var(--night) 0,
+    var(--night) calc(3.2em + 2px + 6 * (var(--sq) + 2px) - 1px), transparent 0); }
+.tiles__axis { background: none; }
+/* a day without a connection: one empty box across the hours, as its bar at the top is empty */
+.tiles__off { grid-column: 2 / -1; padding-inline: 6px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper);
+  font: 11px/1.4 var(--mono); color: var(--muted); }
 .tiles__axis > span { white-space: nowrap; }
 .tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 2px; background: var(--tile-0); font: 700 10px/1 var(--mono); color: #fff; }
 .tile--1 { background: var(--tile-1); } .tile--2 { background: var(--tile-2); } .tile--3 { background: var(--tile-3); }
 .tile--4 { background: var(--tile-4); } .tile--5 { background: var(--tile-5); }
 /* the "!" is dark on the orange, which white does not stand out from (WCAG 1.4.3) */
 .tile--check { background: var(--caution); color: #000; } .tile--threat { background: #b3261e; }
+/* an hour that sent more than it received: the arrow dark on the light steps and light on the dark ones (WCAG 1.4.3) */
+.tile--up { color: #000; } .tile--up.tile--4, .tile--up.tile--5 { color: #fff; }
+@media (prefers-color-scheme: dark) { .tile--up.tile--4, .tile--up.tile--5 { color: #000; } .tile--up.tile--1, .tile--up.tile--2 { color: #fff; } }
+/* an hour without traffic at night shows the band, so the night stays one band from top to bottom */
+.tile--0.tile--night { background: transparent; }
+.tile--night-key { background: var(--night); }
 .inspect-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0; }
-.inspect-legend .tile { width: 14px; height: 14px; }
+.inspect-legend .tile, .inspect-legend .hit { width: 14px; height: 14px; flex: none; }
+.inspect-legend__item { display: inline-flex; align-items: center; gap: 5px; margin-inline-end: 10px; }
+
+/* what the report comes to, first: the colour of the edge and of the icon go with the word beside them (WCAG 1.4.1) */
+.inspect-verdict { border-inline-start-width: 6px; }
+.inspect-verdict p { margin: 0; }
+.inspect-verdict--threat { border-color: var(--danger); background: var(--bad-fill); }
+.inspect-verdict--check { border-color: var(--caution); }
+.inspect-verdict--clean { background: var(--tint); }
+/* cancelling, deleting: a link at the start of the line, under the "back to the devices" one, not centred in its column */
+.inspect-wide > .link-button { align-self: flex-start; text-align: start; }
+/* two cards that sit side by side on a wide screen (below); one above the other, as the page's other blocks, on a phone */
+.inspect-pair { display: flex; flex-direction: column; gap: 16px; }
+.inspect-verdict__main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.inspect-verdict__state { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 24px; line-height: 1.3; color: var(--text); }
+.inspect-verdict__state .icon { flex: none; }
+.inspect-verdict--threat .inspect-verdict__state .icon { color: var(--danger); }
+.inspect-verdict--check .inspect-verdict__state .icon { color: var(--caution); }
+.inspect-verdict--clean .inspect-verdict__state .icon { color: var(--ink); }
+/* the days of the inspection: a bar a day, filled to the hours it had traffic, dashed for the days still to come */
+.inspect-cover { display: grid; gap: 8px; margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+.cover { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; max-width: 420px; }
+.cover__day { display: grid; gap: 2px; justify-items: stretch; text-align: center; }
+.cover__meter { display: flex; align-items: flex-end; height: 36px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
+.cover__fill { display: block; width: 100%; background: var(--tile-4); }
+.cover__day--future .cover__meter { border-style: dashed; border-color: var(--placeholder); background: transparent; }
+.cover__day--today .cover__meter { outline: 2px solid var(--ink); outline-offset: 1px; }
+.cover__label { font: 11px/1.4 var(--mono); color: var(--muted); white-space: nowrap; }
+.cover__day--today .cover__label { font-weight: 700; color: var(--text); }
+/* the day under a bar or a column of squares: its number on a phone, the full date on a wide screen */
+.day-full { display: none; }
+/* when each site was seen: a square a day, darker for more hours in it; dashed where the device was not connected */
+.inspect-kind { gap: 6px; }
+.inspect-kind__name { font-size: 17px; }
+.hits { display: grid; gap: 6px; margin-top: 4px; }
+.hits__rows { display: grid; gap: 12px; }
+.hits__more > summary { width: fit-content; min-height: 24px; cursor: pointer; }
+.hits__more > ul { margin-top: 10px; }
+.hits__grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; width: min(100%, 248px); }
+.hits__day { font: 11px/1 var(--mono); color: var(--muted); text-align: center; }
+.hit-row { display: grid; gap: 4px; }
+.hit-row__name { overflow-wrap: anywhere; font-size: 14px; }
+.hit { display: block; height: 16px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
+.hit--off { border-style: dashed; border-color: var(--placeholder); background: transparent; }
+.hit--0 { background: var(--tile-0); }
+.hit--1 { background: var(--tile-3); border-color: var(--tile-3); }
+.hit--2 { background: var(--tile-4); border-color: var(--tile-4); }
+.hit--3 { background: var(--tile-5); border-color: var(--tile-5); }
+@media (min-width: 641px) {
+  .hit-row { grid-template-columns: minmax(0, 1fr) 248px; column-gap: 16px; align-items: center; }
+  .hit-row__cells { grid-column: 2; grid-row: 1; }
+  .hit-row__words { grid-column: 1 / -1; }
+}
+/* A wide screen (toomore/anoni-net-ws#480): the page takes the width, in every state, so its heading does not move when the
+   status does. Blocks that read best at the narrow width keep it, left-aligned: anything in the page or in a container
+   marked .inspect-wide that is not itself wide. The two cards of the consent page and of the confirmation sit side by side.
+   The report reads in rows, in the order of the page (and of the keyboard and screen readers): what it comes to across
+   the top with the days beside it, the sites the full width, then the hours beside the checks. */
+@media (min-width: 960px) {
+  .inspect-page { max-width: 1120px; }
+  .inspect-page > :not(nav, h1, .inspect-wide), .inspect-wide:not(.inspect-pair, .inspect-report) > :not(.inspect-wide, .inspect-report) { max-width: 520px; }
+  .inspect-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+  /* the key beside the link is a short card: as tall as it is, not as the one with the QR code */
+  .inspect-pair--top { align-items: start; }
+  .inspect-report { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .inspect-report > * { grid-column: 1 / -1; }
+  .inspect-report > .inspect-hours { grid-column: 1; }
+  .inspect-report > .inspect-checkcard { grid-column: 2; }
+  .inspect-report > p { max-width: 720px; }
+  .inspect-verdict { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px 40px; align-items: start; }
+  .inspect-verdict .inspect-cover { margin-top: 0; padding-top: 0; padding-inline-start: 40px; border-top: 0; border-inline-start: 1px solid var(--line);
+    margin-inline-start: -40px; }
+  .inspect-verdict__main > p, .inspect-verdict__main > ol { max-width: 640px; }
+  /* the sites: the name, the week and the words on one line */
+  .hit-row { grid-template-columns: minmax(0, 1fr) 336px minmax(0, 1.2fr); }
+  .hit-row__words { grid-column: 3; grid-row: 1; }
+  .hits__grid { width: 100%; gap: 4px; }
+  .day-short { display: none; }
+  .day-full { display: inline; }
+  .hit { height: 20px; }
+  .tile { font-size: 12px; }
+  .tiles__row { font-size: 12px; }
+}
+
+/* what was checked, a line each: the icon and the sentence say the same, the figures are folded below */
+.inspect-checks { display: grid; gap: 8px; }
+.inspect-check { display: flex; align-items: flex-start; gap: 8px; }
+.inspect-check .icon { flex: none; margin-top: calc((1lh - 1.25em) / 2); }
+.inspect-check--ok .icon { color: var(--ink); }
+.inspect-check--check .icon { color: var(--caution); }
+.inspect-check--threat .icon { color: var(--danger); }
 .inspect-finding { display: grid; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--caution); }
 .inspect-finding--threat { border-color: var(--danger); }
 .inspect-finding code { overflow-wrap: anywhere; }
@@ -1019,7 +1126,6 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-group ul, .inspect-group p { margin-top: 8px; }
 .inspect-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
 .inspect-table th, .inspect-table td { padding: 3px 6px 3px 0; text-align: start; border-bottom: 1px solid var(--line); }
-.inspect-names { display: grid; gap: 4px; margin-top: 6px; overflow-wrap: anywhere; }
 .spec--figures { grid-template-columns: minmax(0, 1fr) max-content; }
 /* the consent page while it loads (pages/inspect.tsx): each block as tall as the one it stands for */
 .sk-lead { display: flex; align-items: center; height: 34px; }

@@ -1,5 +1,5 @@
 import { type Page, expect, test } from "@playwright/test";
-import { FULL_REPORT, KEY, seal } from "./inspect-fixtures.ts";
+import { CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_REPORT, ONCE_START, THREAT_REPORT, WEEK_REPORT, WEEK_START, seal } from "./inspect-fixtures.ts";
 
 // made with inspect/analyze.py's `seal`, so that the page and the analysis host are checked against each other
 const SEALED = {"epk": "ignJt+ZZHZd1te0IIZaPaP1DfczxkdNt4JRP7PZoHzU=", "iv": "tWYNp+Nl//rdFBJU", "ct": "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"};
@@ -148,7 +148,8 @@ test("opens a report sealed by the analysis host, with a reminder to download it
   const report = page.getByTestId("inspect-report");
   await expect(report).toContainText("tracker.example");
   await expect(report).toContainText("跟蹤軟體");
-  await expect(report).toContainText("gone.example");
+  // a report from before the names that could not be found were left out: they stay out of the page
+  await expect(report).not.toContainText("gone.example");
   await expect(page.getByTestId("inspect-tiles").locator(".tile--threat")).toHaveCount(2);
   await expect(page.getByTestId("inspect-tiles").locator(".tile--check")).toHaveCount(1);
   // a mark also has a sign, for whoever cannot tell the colours apart
@@ -159,6 +160,7 @@ test("opens a report sealed by the analysis host, with a reminder to download it
   expect(html).toContain("tracker.example");
   expect(html).toContain("<style>");
   expect(html).toContain("<title>裝置流量檢測</title>");
+  expect(html).not.toContain("gone.example");
   expect(html).not.toContain("進行中");
   expect(html).not.toContain("data-partial");
   expect(html).not.toContain(KEY);
@@ -488,9 +490,321 @@ test("each kind of finding says how serious it is", async ({ page }) => {
   await backend(page, { ...ended, report: seal(FULL_REPORT) });
   await withKey(page);
   await goto(page);
-  const summary = page.getByTestId("inspect-summary").locator("li");
+  const summary = page.getByTestId("inspect-kind");
   await expect(summary.nth(0)).toContainText("已知威脅");
   await expect(summary.nth(1)).toContainText("需要檢查");
-  await expect(page.getByTestId("inspect-group").nth(0).locator("summary")).toContainText("已知威脅");
-  await expect(page.getByTestId("inspect-group").nth(1).locator("summary")).toContainText("需要檢查");
+  // each list of sites sits in the block of its kind, under the words that say how serious it is
+  await expect(summary.nth(0).getByTestId("inspect-group")).toHaveCount(1);
+  await expect(summary.nth(1).getByTestId("inspect-group")).toHaveCount(1);
+});
+
+// What the report comes to, at the top, and when each site was seen. The reports below are in the format analyze.py
+// writes since 2026-11-10 (each site with its hours, no names that could not be found); the days and hours are drawn on
+// the reader's clock, so these run on Taipei's.
+
+test.describe("the report says what it comes to, and when each site was seen", () => {
+  test.use({ timezoneId: "Asia/Taipei" });
+
+  const plus = (iso: string, days: number) => new Date(Date.parse(iso) + days * 86_400_000).toISOString();
+  const endedWith = (report: object) =>
+    ({ ...BASE, status: "ended", started_at: WEEK_START, ends_at: plus(WEEK_START, 7), report_until: "2026-11-15", report: seal(report) });
+  const open = async (page: Page, inspection: object, now = "2026-11-08T03:00:00Z") => {
+    await page.clock.setFixedTime(new Date(now));
+    await backend(page, inspection);
+    await withKey(page);
+    await goto(page);
+    await expect(page.getByTestId("inspect-report")).toBeVisible();
+  };
+  const verdict = (page: Page) => page.getByTestId("inspect-verdict");
+
+  test("sites seen once, in the small hours of the first day: what to check, and that it looks like browsing", async ({ page }) => {
+    // day 1 of 7, at 3 pm: the sites at 2 am, twelve hours of use since
+    await open(page, { ...BASE, status: "active", started_at: ONCE_START, ends_at: plus(ONCE_START, 7), report: seal(ONCE_REPORT) }, "2026-11-10T07:10:00Z");
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await expect(verdict(page).getByRole("heading", { level: 2 })).toHaveText("需要檢查");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("名單上的網站集中出現在 11/10 凌晨，之後沒有再出現，比較像瀏覽網頁時遇到的廣告或轉址。");
+    await expect(page.getByRole("heading", { name: "接下來可以做" })).toHaveCount(0);
+    // the week so far: today, and the days still to come drawn apart
+    const cover = page.getByTestId("inspect-cover");
+    await expect(cover).toContainText("檢測第 1 天，共 7 天（11/10 到 11/17），目前累積 13 小時有連線。");
+    await expect(cover.locator(".cover__day--today")).toHaveCount(1);
+    await expect(cover.locator(".cover__day--future")).toHaveCount(7);
+    // a row a site, the first few drawn, each saying it was seen once
+    const words = page.getByTestId("inspect-hit-words");
+    await expect(words.first()).toHaveText("只出現在 1 個時段 · 最後一次在 02:03");
+    await expect(page.getByTestId("inspect-hits").first().locator(":scope > ul > li")).toHaveCount(3);
+    await expect(page.getByTestId("inspect-hits-more").first()).toContainText("其餘 1 個網站");
+    // the kinds are named for the lists, with what can put a site on them
+    await expect(page.getByTestId("inspect-kind").first()).toContainText("惡意網站名單");
+    await expect(page.getByTestId("inspect-why").first()).toContainText("瀏覽網頁時的廣告或轉址也可能連到");
+    // the hours: the night's five columns on each day's row, and the hour that sent more than it received
+    const tiles = page.getByTestId("inspect-tiles");
+    // the days still to come have a bar at the top, and no row of hours yet
+    await expect(tiles.locator(".tiles__row:not(.tiles__axis)")).toHaveCount(1);
+    await expect(tiles.locator(".tile--night")).toHaveCount(5);
+    await expect(tiles.locator(".tile--up")).toHaveText("↑");
+    await expect(page.getByTestId("inspect-tiles-legend")).toContainText("上傳偏多（至少 20 MB，且多於下載）");
+    // less than a day: no share of the night yet
+    await expect(page.getByTestId("inspect-idle")).toHaveText("累積滿一天後顯示");
+    // what was checked, in words, the numbers folded
+    const checks = page.getByTestId("inspect-check");
+    await expect(checks.nth(0)).toHaveText("沒有發現跟蹤軟體");
+    await expect(checks.nth(0)).toHaveAttribute("data-state", "ok");
+    await expect(checks.nth(1)).toHaveText("有連往惡意網站名單上的網站");
+    await expect(checks.nth(1)).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-figures")).toHaveJSProperty("open", false);
+  });
+
+  test("sites seen at the very end of what there is so far are not said to have stopped", async ({ page }) => {
+    const report = { ...ONCE_REPORT, hours: ONCE_REPORT.hours.slice(0, 4), coverage: { active_hours: 4, total_hours: 4 } };
+    await open(page, { ...BASE, status: "active", started_at: ONCE_START, ends_at: plus(ONCE_START, 7), report: seal(report) }, "2026-11-09T22:30:00Z");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("名單上的網站集中出現在 11/10 凌晨，比較像瀏覽網頁時遇到的廣告或轉址。之後幾天也出現的話，就可能是某個 App 在固定連線。");
+  });
+
+  test("a site seen day after day: on how many days, and a suggestion to look at the apps", async ({ page }) => {
+    await open(page, endedWith(WEEK_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-reason")).toContainText("名單上的網站在 6 天出現，共 11 個時段");
+    await expect(page.getByTestId("inspect-reason")).toContainText("建議檢查最近裝了哪些不認識的 App");
+    // seen day after day: the same steps as for a known threat, in the card at the top
+    await expect(verdict(page).getByRole("heading", { name: "接下來可以做" })).toBeVisible();
+    await expect(verdict(page).locator("ol > li")).toHaveCount(3);
+    await expect(page.getByTestId("inspect-cover")).toContainText("檢測期間（11/01 到 11/08）共 96 小時有連線。");
+    // the device was off on 11/04 and the last morning: six days it could have been seen on, and it was on all six
+    const beacon = page.getByTestId("inspect-hit").filter({ hasText: "beacon.example" });
+    await expect(beacon.getByTestId("inspect-hit-words")).toContainText("有連線的 6 天中 6 天出現，共 9 個時段");
+    await expect(beacon.locator(".hit")).toHaveCount(8);
+    await expect(beacon.locator(".hit--off")).toHaveCount(2);
+    const rare = page.getByTestId("inspect-hit").filter({ hasText: "rare.example" });
+    await expect(rare.getByTestId("inspect-hit-words")).toContainText("只出現在 1 個時段");
+    // the same in a table
+    const table = page.getByTestId("inspect-hits-table");
+    await expect(table.locator("tr").filter({ hasText: "beacon.example" })).toContainText("11/01 (1), 11/02 (2), 11/03 (1), 11/05 (2), 11/06 (1), 11/07 (2)");
+    await expect(page.getByTestId("inspect-idle")).toHaveText("2%");
+    // the hours on the same days as the bars at the top: 11/04 and 11/08, without a connection, keep a row of their own
+    const rows = page.getByTestId("inspect-tiles").locator(".tiles__row:not(.tiles__axis)");
+    await expect(rows).toHaveCount(await page.getByTestId("inspect-cover").locator(".cover__day").count());
+    await expect(rows).toHaveCount(8);
+    await expect(rows.nth(3)).toHaveClass(/tiles__row--off/);
+    await expect(rows.nth(3)).toContainText("11/04沒有連線");
+    await expect(page.getByTestId("inspect-hours-table").locator("tr").filter({ hasText: "沒有連線" })).toHaveText(["11/04沒有連線", "11/08沒有連線"]);
+  });
+
+  test("stalkerware: a known threat, with when it was seen and what to do", async ({ page }) => {
+    await open(page, endedWith(THREAT_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "threat");
+    await expect(verdict(page).getByRole("heading", { level: 2 })).toHaveText("已知威脅");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("跟蹤軟體名單上的網站出現在 3 天、4 個時段，最後一次在 11/06 11:13。一般瀏覽網頁很少連到這類網站，請照下面的步驟檢查。");
+    // what to do sits in the card at the top, ahead of the sites and the hours
+    const next = verdict(page).getByRole("heading", { name: "接下來可以做" });
+    await expect(next).toBeVisible();
+    const [at, kinds] = await Promise.all([next.boundingBox(), page.getByTestId("inspect-summary").boundingBox()]);
+    expect(at!.y).toBeLessThan(kinds!.y);
+    await expect(page.getByTestId("inspect-check").first()).toHaveAttribute("data-state", "threat");
+    await expect(page.getByTestId("inspect-check").last()).toHaveText("有些查詢沒有經過 Vessel");
+  });
+
+  test("nothing found: said first, and every check passed", async ({ page }) => {
+    await open(page, endedWith(CLEAN_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "clean");
+    await expect(verdict(page).getByRole("heading", { level: 2 })).toHaveText("沒有發現");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("檢測期間沒有發現連往名單上的可疑網站。");
+    await expect(page.getByTestId("inspect-summary")).toHaveCount(0);
+    for (const c of await page.getByTestId("inspect-check").all()) await expect(c).toHaveAttribute("data-state", "ok");
+  });
+
+  test("a report from before the hours were added says what and how much, and draws no times", async ({ page }) => {
+    await open(page, endedWith(FULL_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "threat");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("裝置連往跟蹤軟體名單上的網站，共 2 個網站、7 次，請照下面的步驟檢查。");
+    await expect(page.getByTestId("inspect-hits")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-group")).toHaveCount(2);
+    await expect(page.getByTestId("inspect-report")).not.toContainText("gone.example");
+    await expect(page.getByTestId("inspect-idle")).toHaveText("40%");
+  });
+
+  test("the rows past the first few fold away", async ({ page }) => {
+    await open(page, endedWith(MANY_REPORT));
+    const hits = page.getByTestId("inspect-hits");
+    await expect(hits.locator(":scope > ul > li")).toHaveCount(3);
+    const more = page.getByTestId("inspect-hits-more");
+    await expect(more).toHaveJSProperty("open", false);
+    await expect(more.locator("summary")).toHaveText("其餘 5 個網站");
+    await expect(more.getByTestId("inspect-hit")).toHaveCount(5);
+  });
+
+  test("the downloaded report keeps the verdict and the drawings, ended or in progress", async ({ page }) => {
+    await open(page, endedWith(WEEK_REPORT));
+    let { html } = await downloaded(page);
+    expect(html).toContain('data-state="check"');
+    expect(html).toContain("名單上的網站在 6 天出現");
+    expect(html).toContain("有連線的 6 天中 6 天出現");
+    expect(html).toMatch(/class="hit hit--1"/);
+    expect(html).toMatch(/class="cover__fill" style="height: [\d.]+%;?"/);
+    expect(html).toContain("tile--night");
+    expect(html).toContain(".hit--3");
+    // the folded rows are open in the file
+    expect(html.match(/<details[^>]*>/g)!.every((tag) => /\bopen\b/.test(tag))).toBe(true);
+
+    await page.unrouteAll();
+    await open(page, { ...BASE, status: "active", started_at: ONCE_START, ends_at: plus(ONCE_START, 7), report: seal(ONCE_REPORT) }, "2026-11-10T07:10:00Z");
+    ({ html } = await downloaded(page));
+    expect(html).toContain("檢測第 1 天，共 7 天");
+    expect(html).toContain("cover__day--today");
+    expect(html).toContain("只出現在 1 個時段");
+    expect(html).toContain("tile--up");
+  });
+
+  test("one ended early ends where copying stopped, and the days after it are not drawn", async ({ page }) => {
+    // planned for 11/01 to 11/08, stopped on 11/05 in the evening
+    const report = { ...WEEK_REPORT, hours: WEEK_REPORT.hours.filter((h) => h.hour < "2026-11-05T12"), findings: [], checks: WEEK_REPORT.checks.map((c) => ({ ...c, count: 0 })) };
+    await open(page, { ...endedWith(report), stopped_at: "2026-11-05T12:30:00Z" });
+    const cover = page.getByTestId("inspect-cover");
+    await expect(cover).toContainText("檢測期間（11/01 到 11/05）");
+    await expect(cover.locator(".cover__day")).toHaveCount(5);
+    await expect(page.getByTestId("inspect-tiles").locator(".tiles__row:not(.tiles__axis)")).toHaveCount(5);
+    // without it (a portal from before), the planned end, as before
+    await page.unrouteAll();
+    await open(page, endedWith(report));
+    await expect(page.getByTestId("inspect-cover").locator(".cover__day")).toHaveCount(8);
+  });
+});
+
+// A wide screen: the page takes the width in every state, the report in rows in the order of the page, and a phone
+// keeps the one column.
+test.describe("on a wide screen", () => {
+  test.use({ timezoneId: "Asia/Taipei", viewport: { width: 1280, height: 800 } });
+  const box = async (page: Page, testid: string) => (await page.getByTestId(testid).first().boundingBox())!;
+  const order = (page: Page, ids: string[]) => page.evaluate((ids) => {
+    const nodes = ids.map((id) => document.querySelector(`[data-testid="${id}"]`)!);
+    return nodes.every((n, i) => i === 0 || !!(nodes[i - 1]!.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING));
+  }, ids);
+  const sideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+
+  test("the report reads in rows: what it comes to with the days beside it, the sites, then the hours beside the checks", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+    await backend(page, { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(THREAT_REPORT) });
+    await withKey(page);
+    await goto(page);
+    await expect(page.getByTestId("inspect-report")).toBeVisible();
+    const [verdict, cover, findings, hours, checks] = await Promise.all(
+      ["inspect-verdict", "inspect-cover", "inspect-summary", "inspect-tiles", "inspect-checks"].map((id) => box(page, id)));
+    const report = await box(page, "inspect-report");
+    // wider than the narrow column, and the days beside what it comes to
+    expect(report.width).toBeGreaterThan(900);
+    expect(cover.x).toBeGreaterThan(verdict.x + verdict.width / 3);
+    expect(cover.y).toBeLessThan(verdict.y + 80);
+    expect(findings.y).toBeGreaterThan(verdict.y + verdict.height);
+    // the hours and the checks side by side, below the sites
+    expect(hours.y).toBeGreaterThan(findings.y + findings.height);
+    expect(checks.x).toBeGreaterThan(hours.x + hours.width);
+    expect(Math.abs(checks.y - hours.y)).toBeLessThan(120);
+    // a site's name, its week and the words on one line
+    const row = page.getByTestId("inspect-hit").first();
+    const [name, cells, words] = await Promise.all([row.locator("code").boundingBox(), row.locator(".hits__grid").boundingBox(), row.getByTestId("inspect-hit-words").boundingBox()]);
+    expect(Math.abs(name!.y - cells!.y)).toBeLessThan(20);
+    expect(words!.x).toBeGreaterThan(cells!.x + cells!.width);
+    // what to do sits in the first card; the page, the keyboard and a screen reader meet them in the order they are seen
+    expect(await order(page, ["inspect-verdict", "inspect-summary", "inspect-tiles", "inspect-checks"])).toBe(true);
+    const next = await page.getByRole("heading", { name: "接下來可以做" }).boundingBox();
+    expect(next!.y).toBeLessThan(findings.y);
+    expect(await sideways(page)).toBe(0);
+  });
+
+  const ended = { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(WEEK_REPORT) };
+  /** The labels under the bars at the top and over the squares of the sites: what each shows, and that none runs into the next. */
+  const labels = (page: Page, selector: string) => page.locator(selector).evaluateAll((all) => all.map((e) => {
+    const shown = [...e.children].find((c) => getComputedStyle(c).display !== "none")!;
+    const r = shown.getBoundingClientRect();
+    return { text: shown.textContent, left: r.left, right: r.right, cell: e.getBoundingClientRect().width };
+  }));
+  const apart = (tags: { left: number; right: number; cell: number }[]) =>
+    tags.every((tag, i) => tag.right - tag.left <= tag.cell + 0.5 && (i === 0 || tags[i - 1]!.right <= tag.left));
+
+  for (const width of [1280, 960]) {
+    test(`at ${width}px the days are labelled with their full dates, eight across without running into each other`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+      await backend(page, ended);
+      await withKey(page);
+      await goto(page);
+      await expect(page.getByTestId("inspect-report")).toBeVisible();
+      for (const selector of ['[data-testid="inspect-cover"] .cover__label', '[data-testid="inspect-hits"] >> nth=0 >> .hits__day']) {
+        const tags = await labels(page, selector);
+        expect(tags.map((x) => x.text), selector).toEqual(["11/01", "11/02", "11/03", "11/04", "11/05", "11/06", "11/07", "11/08"]);
+        expect(apart(tags), selector).toBe(true);
+      }
+    });
+  }
+
+  test("deleting the report is a link at the start of the line, under the way back to the devices", async ({ page }) => {
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.unrouteAll();
+      await backend(page, ended);
+      await withKey(page);
+      await goto(page);
+      const [del, back] = await Promise.all([page.getByRole("button", { name: "現在刪除報告" }).boundingBox(), page.getByRole("link", { name: "回到裝置清單" }).boundingBox()]);
+      expect(Math.abs(del!.x - back!.x), `${width}`).toBeLessThan(1);
+      expect(del!.width, `${width}`).toBeLessThan(200);
+    }
+  });
+
+  test("the downloaded report has the wide layout too", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+    await backend(page, { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(WEEK_REPORT) });
+    await withKey(page);
+    await goto(page);
+    const { html } = await downloaded(page);
+    await page.unrouteAll();
+    await page.goto("about:blank");
+    await page.setContent(html);
+    const [hours, checks] = await Promise.all([box(page, "inspect-tiles"), box(page, "inspect-checks")]);
+    expect(checks.x).toBeGreaterThan(hours.x + hours.width);
+    expect((await box(page, "inspect-report")).width).toBeGreaterThan(900);
+    expect(await sideways(page)).toBe(0);
+  });
+
+  test("the consent page puts its two cards side by side, and keeps its text and button at the narrow width", async ({ page }) => {
+    await backend(page, { ...BASE, status: "none" });
+    await goto(page);
+    const cards = page.getByTestId("inspect-consent").locator(".inspect-pair > .card");
+    const [a, b] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()]);
+    expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
+    expect(b!.x).toBeGreaterThan(a!.x + a!.width);
+    expect((await page.getByRole("button", { name: "同意並開始" }).boundingBox())!.width).toBeLessThanOrEqual(520);
+    // the heading stays where it is in every state
+    expect((await page.locator("main h1").boundingBox())!.x).toBeLessThan(a!.x + 1);
+    expect(await sideways(page)).toBe(0);
+  });
+
+  test("on a phone the consent page's cards stay one above the other, apart", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await backend(page, { ...BASE, status: "none" });
+    await goto(page);
+    const cards = page.getByTestId("inspect-consent").locator(".inspect-pair > .card");
+    const [a, b] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()]);
+    expect(b!.y - (a!.y + a!.height)).toBeGreaterThanOrEqual(16);
+    expect(Math.abs(a!.x - b!.x)).toBeLessThan(1);
+  });
+
+  test("a phone keeps the one column", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+    await backend(page, { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(WEEK_REPORT) });
+    await withKey(page);
+    await goto(page);
+    await expect(page.getByTestId("inspect-report")).toBeVisible();
+    const [verdict, cover, hours, checks] = await Promise.all(["inspect-verdict", "inspect-cover", "inspect-tiles", "inspect-checks"].map((id) => box(page, id)));
+    expect(cover.y).toBeGreaterThan(verdict.y + 100);
+    expect(checks.y).toBeGreaterThan(hours.y + hours.height);
+    expect(Math.abs(checks.x - hours.x)).toBeLessThan(40);
+    // the days under the bars and over the squares: their numbers alone, side by side
+    for (const selector of ['[data-testid="inspect-cover"] .cover__label', '[data-testid="inspect-hits"] >> nth=0 >> .hits__day']) {
+      const tags = await labels(page, selector);
+      expect(tags.map((x) => x.text), selector).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
+      expect(apart(tags), selector).toBe(true);
+    }
+    expect(await sideways(page)).toBe(0);
+  });
 });

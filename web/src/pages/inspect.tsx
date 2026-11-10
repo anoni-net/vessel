@@ -5,6 +5,7 @@ import { useCtx } from "../context.ts";
 import { formatBytes, formatCount, formatDate, formatDay, formatStamp, formatTime } from "../format.ts";
 import { focusLater } from "../focus.ts";
 import { errorText, fmt } from "../i18n/index.ts";
+import { Icon } from "../icons.tsx";
 import { type Kept, type Sealed, forget, isKey, keep, kept, newKey, openReport } from "../inspection-key.ts";
 import { navigate } from "../router.ts";
 import { saveFile } from "../save-file.ts";
@@ -31,10 +32,38 @@ export interface Report {
   dns?: { total: number; nx_share: number; ads_share: number };
   idle_share?: number;
   checks?: { id: string; count: number }[];
-  findings?: { severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number }[];
+  /**
+   * A site on a list, or `bypass_dns` (no name, no hours). Reports made since 2026-11-10 count visits and add `hours`
+   * (the UTC hours it was seen in, `YYYY-MM-DDTHH`, sorted) and `last`; older ones, still stored, have `first` instead.
+   */
+  findings?: { severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[] }[];
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
-  nx_names?: { name: string; count: number }[];
+  /** Older reports only: the names that could not be found. The page no longer shows them. */
+  nx_names?: unknown;
+}
+
+/** The days an inspection runs, for the parts of the report drawn a day at a time; `now` while it is still running. */
+export interface Span {
+  start: Date | null;
+  end: Date | null;
+  now?: Date;
+  /** which day of how many, while it runs */
+  day?: number;
+  days: number;
+}
+
+/**
+ * The inspection's days from what the portal says about it; the report's own hours fill in what it does not. One ended
+ * early ends where copying stopped (`stopped_at`, from portals that send it), so the days after it are not drawn as days
+ * without a connection.
+ */
+export function spanOf(state: Inspection, partial = false): Span {
+  const planned = state.ends_at ? new Date(state.ends_at) : null;
+  const stopped = !partial && state.stopped_at ? new Date(state.stopped_at) : null;
+  const end = planned && stopped && stopped < planned ? stopped : planned ?? stopped;
+  const start = state.started_at ? new Date(state.started_at) : end ? new Date(end.getTime() - state.days * 86_400_000) : null;
+  return { start, end, days: state.days, ...(partial && end ? { now: new Date(), day: progress(state).day } : {}) };
 }
 
 /** Which day of the inspection it is, on the visitor's clock: the third of seven. */
@@ -180,13 +209,15 @@ export function Inspect() {
 /** The page while it loads, in the shape of the consent page unless this tab knows the device has an inspection. */
 function InspectSkeleton({ consent }: { consent: boolean }) {
   return (
-    <div class="stack" aria-hidden="true">
+    <div class="stack inspect-wide" aria-hidden="true">
       <div class="sk-lead"><SkLine w="mid" big /></div>
       {consent ? (
         <>
           <div class="sk-intro stack"><SkLine /><SkLine /><SkLine w="long" /></div>
-          <SkCard size="collect" lines={["mid", "full", "long", "full", "long"]} />
-          <SkCard size="handling" lines={["mid", "full", "long", "full", "long"]} />
+          <div class="inspect-pair inspect-wide">
+            <SkCard size="collect" lines={["mid", "full", "long", "full", "long"]} />
+            <SkCard size="handling" lines={["mid", "full", "long", "full", "long"]} />
+          </div>
           <SkLine w="long" />
           <SkButton />
         </>
@@ -217,24 +248,27 @@ function Consent({ state, grouped, id, setKept, reload, fail }: {
   };
   const items = (["names", "where", "size", "packets", "plain"] as const).map((k) => t[`inspect.collect.${k}`]);
   return (
-    <form class="stack" onSubmit={start} data-testid="inspect-consent">
+    <form class="stack inspect-wide" onSubmit={start} data-testid="inspect-consent">
       <p>{fmt(t["inspect.intro"], { days: state.days })}</p>
-      <div class="card card--flat stack">
-        <h2>{t["inspect.collect.title"]}</h2>
-        <ul class="inspect-list">{items.map((x) => <li>{x}</li>)}</ul>
-        <p class="muted small">{t["inspect.collect.not"]}</p>
-      </div>
-      <div class="card card--flat stack">
-        <h2>{t["inspect.handling.title"]}</h2>
-        <dl class="spec small">
-          <dt>{t["inspect.handling.who"]}</dt><dd>{t["inspect.handling.whoValue"]}</dd>
-          <dt>{t["inspect.handling.where"]}</dt><dd>{t["inspect.handling.whereValue"]}</dd>
-          <dt>{t["inspect.handling.packets"]}</dt><dd>{t["inspect.handling.packetsValue"]}</dd>
-          <dt>{t["inspect.handling.report"]}</dt><dd>{fmt(t["inspect.handling.reportValue"], { days: state.report_days })}</dd>
-          <dt>{t["inspect.handling.stop"]}</dt><dd>{t["inspect.handling.stopValue"]}</dd>
-        </dl>
-        {grouped && <p class="small" data-testid="inspect-group">{t["inspect.handling.group"]}</p>}
-        <p class="small"><a href={href("/privacy/#inspection")}>{t["inspect.handling.more"]}</a></p>
+      {/* side by side on a wide screen: what is collected, then how it is handled, read left to right */}
+      <div class="inspect-pair inspect-wide">
+        <div class="card card--flat stack">
+          <h2>{t["inspect.collect.title"]}</h2>
+          <ul class="inspect-list">{items.map((x) => <li>{x}</li>)}</ul>
+          <p class="muted small">{t["inspect.collect.not"]}</p>
+        </div>
+        <div class="card card--flat stack">
+          <h2>{t["inspect.handling.title"]}</h2>
+          <dl class="spec small">
+            <dt>{t["inspect.handling.who"]}</dt><dd>{t["inspect.handling.whoValue"]}</dd>
+            <dt>{t["inspect.handling.where"]}</dt><dd>{t["inspect.handling.whereValue"]}</dd>
+            <dt>{t["inspect.handling.packets"]}</dt><dd>{t["inspect.handling.packetsValue"]}</dd>
+            <dt>{t["inspect.handling.report"]}</dt><dd>{fmt(t["inspect.handling.reportValue"], { days: state.report_days })}</dd>
+            <dt>{t["inspect.handling.stop"]}</dt><dd>{t["inspect.handling.stopValue"]}</dd>
+          </dl>
+          {grouped && <p class="small" data-testid="inspect-group">{t["inspect.handling.group"]}</p>}
+          <p class="small"><a href={href("/privacy/#inspection")}>{t["inspect.handling.more"]}</a></p>
+        </div>
       </div>
       <label class="check">
         <input type="checkbox" checked={sure} onChange={(e) => setSure(e.currentTarget.checked)} data-testid="inspect-agree" />
@@ -305,7 +339,7 @@ function Confirming({ id, state, local, setKept, reload, fail, stop }: {
     }
   };
   return (
-    <div class="stack" data-testid="inspect-confirming">
+    <div class="stack inspect-wide" data-testid="inspect-confirming">
       {soon && (
         <div class="card card--warn card--flat stack" data-testid="inspect-soon">
           <p>{fmt(t["inspect.confirm.soon"], { minutes })}</p>
@@ -314,18 +348,20 @@ function Confirming({ id, state, local, setKept, reload, fail, stop }: {
           </button>
         </div>
       )}
-      {local?.url ? (
-        <div class="card card--tint card--flat stack">
-          <h2>{t["inspect.confirm.title"]}</h2>
-          <p>{fmt(t["inspect.confirm.body"], { minutes: local.minutes ?? 30 })}</p>
-          <p class="inspect-link"><a href={local.url} data-testid="inspect-url">{local.url}</a></p>
-          <div class="qr card inspect-qr" role="img" aria-label={t["inspect.confirm.qr"]} dangerouslySetInnerHTML={{ __html: qrSvg(local.url) }} />
-          <p class="muted small">{t["inspect.confirm.waiting"]}</p>
-        </div>
-      ) : (
-        <p class="card card--warn card--flat" data-testid="inspect-lost">{t["inspect.confirm.lost"]}</p>
-      )}
-      {local && <CopyKey value={local.key} />}
+      <div class="inspect-pair inspect-pair--top inspect-wide">
+        {local?.url ? (
+          <div class="card card--tint card--flat stack">
+            <h2>{t["inspect.confirm.title"]}</h2>
+            <p>{fmt(t["inspect.confirm.body"], { minutes: local.minutes ?? 30 })}</p>
+            <p class="inspect-link"><a href={local.url} data-testid="inspect-url">{local.url}</a></p>
+            <div class="qr card inspect-qr" role="img" aria-label={t["inspect.confirm.qr"]} dangerouslySetInnerHTML={{ __html: qrSvg(local.url) }} />
+            <p class="muted small">{t["inspect.confirm.waiting"]}</p>
+          </div>
+        ) : (
+          <p class="card card--warn card--flat" data-testid="inspect-lost">{t["inspect.confirm.lost"]}</p>
+        )}
+        {local && <CopyKey value={local.key} />}
+      </div>
       <button class="link-button" type="button" onClick={() => stop(t["inspect.said.cancelled"])}>{t["inspect.cancel"]}</button>
     </div>
   );
@@ -338,7 +374,7 @@ function Running({ state, local, setKept, name, stop }: {
   const end = () => window.confirm(fmt(t["inspect.endConfirm"], { days: state.report_days })) && stop();
   const { day } = progress(state);
   return (
-    <div class="stack" data-testid="inspect-running">
+    <div class="stack inspect-wide" data-testid="inspect-running">
       <div class="card card--tint card--flat inspect-status" data-testid="inspect-status">
         <p class="strong">{fmt(t["inspect.runningDay"], { day, days: state.days })}</p>
         <div class="inspect-status__row">
@@ -358,7 +394,7 @@ function Ended({ state, local, setKept, name, stop }: {
   const { t, locale } = useCtx();
   const remove = () => window.confirm(t["inspect.deleteConfirm"]) && stop(t["inspect.said.deleted"]);
   return (
-    <div class="stack" data-testid="inspect-ended">
+    <div class="stack inspect-wide" data-testid="inspect-ended">
       <p class="card card--warn card--flat" data-testid="inspect-until">{fmt(t["inspect.keepUntil"], { date: formatDate(locale, state.report_until!) })}</p>
       {state.report ? <Opened state={state} local={local} setKept={setKept} name={name} /> : <p class="muted">{t["inspect.noneYet"]}</p>}
       <button class="link-button" type="button" onClick={remove}>{t["inspect.delete"]}</button>
@@ -418,7 +454,7 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
     const title = fmt(t["inspect.device"], { name });
     // the results so far: the file says so in its name, its title and its first lines, so it is not taken for the full report
     const heading = partial ? t["inspect.file.partialTitle"] : t["inspect.title"];
-    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading}</title><style>${css}</style><body><main class="wrap narrow stack"><h1>${heading}</h1><p class="lead"></p>${partial ? '<p class="card card--warn card--flat" data-partial></p>' : ""}${body.outerHTML}</main></body></html>`;
+    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading}</title><style>${css}</style><body><main class="wrap narrow stack inspect-page"><h1>${heading}</h1><p class="lead"></p>${partial ? '<p class="card card--warn card--flat" data-partial></p>' : ""}${body.outerHTML}</main></body></html>`;
     const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelector(".lead")!.textContent = title;
     const now = new Date();
@@ -430,9 +466,9 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
   };
   if (report.empty) return <p class="muted" data-testid="inspect-empty">{t["inspect.noneYet"]}</p>;
   return (
-    <div class="stack">
+    <div class="stack inspect-wide">
       {!partial && <button class="nb-button nb-button--primary" type="button" onClick={download} data-testid="inspect-download">{t["inspect.download"]}</button>}
-      <div ref={area}><ReportView report={report} locale={locale} /></div>
+      <div ref={area} class="inspect-wide"><ReportView report={report} locale={locale} span={spanOf(state, partial)} /></div>
       {partial && (
         // below the report, as a link: the results so far are there to read, and ending early stays the one thing at the top
         <div class="inspect-partial">
@@ -446,14 +482,45 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/** An hour as the report writes it (UTC), as a moment; everything drawn from it is on the reader's clock. */
+const atHour = (hour: string) => new Date(`${hour}:00:00Z`);
+/** A moment's day on the reader's clock, `YYYY-MM-DD`. */
+const dayOf = (at: Date) => at.toLocaleDateString("sv");
+/** `2026-11-10` as `11/10`, as the rows of the hours are labelled. */
+const short = (day: string) => day.slice(5).replace("-", "/");
+/**
+ * A day under the days drawn side by side: the day of the month alone on a phone, where `11/10` would not fit eight
+ * across, and the full date on a wide screen (styles.css shows one or the other).
+ */
+const dayTag = (day: string) => [<span class="day-short">{Number(day.slice(8))}</span>, <span class="day-full">{short(day)}</span>];
+
+/** The night hours shaded on the hours: 1 to 6 am, analyze.py's IDLE_HOURS. */
+const NIGHT = (hour: number) => hour >= 1 && hour < 6;
+/**
+ * An hour that sent at least this much, and more than it received, is marked. A phone mostly receives: an hour the other
+ * way round, beyond the size of a few photos sent in a chat, is worth a look. A backup or an upload the person made does
+ * it too, which is why it is a mark on the hours and not a finding.
+ */
+export const UP_HEAVY_BYTES = 20e6;
+const upHeavy = (h: { up: number; down: number }) => h.up >= UP_HEAVY_BYTES && h.up > h.down;
+/**
+ * Sites seen only within one day are said to have stopped once the device has had at least this many hours of traffic
+ * after the last of them: enough of a day of use that "not seen again" means something.
+ */
+export const QUIET_HOURS = 6;
+/** The rows of each kind drawn before the rest are folded away. */
+export const TOP_ROWS = 3;
+/** At most this many sites of a kind: analyze.py's MAX_FINDINGS, and older reports, still stored, list all of theirs. */
+const MAX_LISTED = 30;
+
 /** The report's hours on the reader's clock: a row a day, a cell an hour. */
 export function hourGrid(hours: NonNullable<Report["hours"]>) {
-  const cells = new Map<string, Map<number, { total: number; up: number; down: number; mark: "x" | "!" | null; at: Date }>>();
+  const cells = new Map<string, Map<number, { total: number; up: number; down: number; mark: "x" | "!" | null; heavy: boolean; at: Date }>>();
   for (const h of hours) {
-    const at = new Date(`${h.hour}:00:00Z`);
-    const day = at.toLocaleDateString("sv");
+    const at = atHour(h.hour);
+    const day = dayOf(at);
     if (!cells.has(day)) cells.set(day, new Map());
-    cells.get(day)!.set(at.getHours(), { total: h.up + h.down, up: h.up, down: h.down, mark: h.mark, at });
+    cells.get(day)!.set(at.getHours(), { total: h.up + h.down, up: h.up, down: h.down, mark: h.mark, heavy: upHeavy(h), at });
   }
   // a phone's hours run from a few KB to some GB, so the five steps are even on a log scale, between this report's
   // quietest and busiest hour
@@ -464,8 +531,35 @@ export function hourGrid(hours: NonNullable<Report["hours"]>) {
   return { days: [...cells.keys()].sort(), cells, level };
 }
 
-/** At most this many sites of a kind: analyze.py's MAX_FINDINGS, and older reports, still stored, list all of theirs. */
-const MAX_LISTED = 30;
+/**
+ * Every day of the inspection on the reader's clock, from the day it started to the day it ends, with the hours that had
+ * traffic on each. Days the report has hours on are always in, so a report whose inspection the portal no longer
+ * describes still has its days.
+ */
+export function inspectionDays(report: Report, span: Span) {
+  const seen = new Set<string>();
+  if (span.start && span.end) [span.start, new Date(span.end.getTime() - 1)].forEach((d) => seen.add(dayOf(d)));
+  for (const h of report.hours ?? []) seen.add(dayOf(atHour(h.hour)));
+  for (const f of report.findings ?? []) for (const h of f.hours ?? []) seen.add(dayOf(atHour(h)));
+  const sorted = [...seen].sort();
+  const days: string[] = [];
+  if (sorted.length) {
+    // at noon, so a change of summer time does not skip or repeat a day
+    const d = new Date(`${sorted[0]}T12:00:00`);
+    while (days.length < 31 && dayOf(d) <= sorted.at(-1)!) {
+      days.push(dayOf(d));
+      d.setDate(d.getDate() + 1);
+    }
+  }
+  const connected = new Map<string, number>();
+  for (const h of report.hours ?? []) {
+    if (h.up + h.down <= 0) continue;
+    const day = dayOf(atHour(h.hour));
+    connected.set(day, (connected.get(day) ?? 0) + 1);
+  }
+  const today = span.now ? dayOf(span.now) : null;
+  return { days, connected, today, future: (day: string) => today !== null && day > today };
+}
 
 /** The findings by kind, threats first: what was found comes before the sites it was found on. */
 export function findingGroups(report: Report) {
@@ -485,19 +579,97 @@ export function findingGroups(report: Report) {
       sites: named.length + left,
       listed: named.slice(0, MAX_LISTED),
       hidden: Math.max(0, named.length - MAX_LISTED) + left,
+      // reports made since the hours were added say when each site was seen; older ones are listed as they were
+      dated: named.length > 0 && named.every((f) => Array.isArray(f.hours)),
     };
   });
 }
 
-function ReportView({ report, locale }: { report: Report; locale: ReturnType<typeof useCtx>["locale"] }) {
+/** When a site was seen: how many of its hours fell on each day, and over how many days and hours. */
+export function seenWhen(f: NonNullable<Report["findings"]>[number]) {
+  const perDay = new Map<string, number>();
+  for (const h of f.hours ?? []) {
+    const day = dayOf(atHour(h));
+    perDay.set(day, (perDay.get(day) ?? 0) + 1);
+  }
+  return { perDay, slots: f.hours?.length ?? 0, days: perDay.size, last: f.last ? new Date(f.last * 1000) : null };
+}
+
+/** A day's cell for one site: how many of its hours it was seen in, as one of three steps. */
+const hitLevel = (n: number) => (n <= 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : 3);
+
+type Verdict = "threat" | "check" | "clean";
+
+/**
+ * What the report comes to, and why, in a sentence. Where the report says when each site was seen, the sentence tells a
+ * one-off (most likely an ad or a redirect met while browsing) from sites seen day after day (more like an app that
+ * keeps connecting). Older reports do not say when, and the sentence only gives what was found and how much.
+ */
+export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale: ReturnType<typeof useCtx>["locale"]) {
+  const groups = findingGroups(report);
+  const state: Verdict = groups.some((g) => g.severity === "threat") ? "threat" : groups.length ? "check" : "clean";
+  if (state === "clean") return { state, reason: t["inspect.report.clean"], next: false };
+  const n = (x: number) => formatCount(locale, x);
+  const named = (report.findings ?? []).filter((f) => f.name);
+  const bypass = groups.find((g) => g.kind === "bypass_dns");
+  const sites = groups.filter((g) => g.kind !== "bypass_dns");
+  const counted = { sites: n(sites.reduce((s, g) => s + g.sites, 0)), n: n(sites.reduce((s, g) => s + g.count, 0)) };
+  // the hours the sites of one severity were seen in, on the reader's clock
+  const hoursOf = (severity: "threat" | "check") => [...new Set(named.filter((f) => f.severity === severity).flatMap((f) => f.hours ?? []))].sort().map(atHour);
+  const lastOf = (severity: "threat" | "check") => Math.max(...named.filter((f) => f.severity === severity).map((f) => f.last ?? 0));
+  const dated = (severity: "threat" | "check") => groups.filter((g) => g.severity === severity && g.kind !== "bypass_dns").every((g) => g.dated);
+
+  if (state === "threat") {
+    const threats = groups.filter((g) => g.severity === "threat");
+    if (!dated("threat")) {
+      return { state, reason: fmt(t["inspect.reason.threatCount"], { sites: n(threats.reduce((s, g) => s + g.sites, 0)), n: n(threats.reduce((s, g) => s + g.count, 0)) }), next: true };
+    }
+    const hours = hoursOf("threat");
+    const last = lastOf("threat");
+    return {
+      state,
+      next: true,
+      reason: fmt(t["inspect.reason.threat"], {
+        days: n(new Set(hours.map(dayOf)).size), slots: n(hours.length),
+        last: last ? formatTime(locale, new Date(last * 1000).toISOString()) : formatTime(locale, hours.at(-1)!.toISOString()),
+      }),
+    };
+  }
+
+  const also = bypass ? fmt(t["inspect.reason.alsoBypass"], { n: n(bypass.count) }) : "";
+  if (!sites.length) return { state, reason: fmt(t["inspect.reason.bypass"], { n: n(bypass!.count) }), next: false };
+  if (!dated("check")) return { state, reason: join(fmt(t["inspect.reason.count"], counted), also), next: false };
+  const hours = hoursOf("check");
+  const days = [...new Set(hours.map(dayOf))];
+  // seen day after day: the same steps as for a known threat, starting from the apps
+  if (days.length > 1) return { state, reason: join(fmt(t["inspect.reason.repeat"], { days: n(days.length), slots: n(hours.length) }), also), next: true };
+  const date = short(days[0]);
+  if (hours.length > 3) return { state, reason: join(fmt(t["inspect.reason.oneDay"], { date, slots: n(hours.length) }), also), next: false };
+  const clock = hours.map((h) => h.getHours());
+  const periods = [...new Set(clock.map(period))];
+  const when = periods.length === 1
+    ? fmt(t["inspect.when.period"], { date, period: t[`inspect.period.${periods[0]}`] })
+    : fmt(t["inspect.when.range"], { date, from: `${pad(Math.min(...clock))}:00`, to: `${pad(Math.max(...clock) + 1)}:00` });
+  const lastHit = hours.at(-1)!.getTime();
+  const after = (report.hours ?? []).filter((h) => atHour(h.hour).getTime() > lastHit && h.up + h.down > 0).length;
+  return { state, reason: join(fmt(t[after >= QUIET_HOURS ? "inspect.reason.onceQuiet" : "inspect.reason.onceLatest"], { when }), also), next: false };
+}
+
+const period = (hour: number) => (hour < 6 ? "night" : hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening");
+// sentences end in their own full stop, so they are only put side by side (a space between them in English)
+const join = (a: string, b: string) => (b ? `${a}${/[.!?]$/.test(a) ? " " : ""}${b}` : a);
+
+function ReportView({ report, locale, span }: { report: Report; locale: ReturnType<typeof useCtx>["locale"]; span: Span }) {
   const { t } = useCtx();
   const [picked, setPicked] = useState("");
-  const { days, cells, level } = hourGrid(report.hours ?? []);
+  const { cells, level } = hourGrid(report.hours ?? []);
   const groups = findingGroups(report);
-  const threats = groups.some((g) => g.severity === "threat");
-  const withSites = groups.filter((g) => g.sites > 0);
+  const { state, reason, next } = judge(report, t, locale);
+  const week = inspectionDays(report, span);
   const kind = (id: string) => t[`inspect.kind.${id}` as keyof typeof t] ?? id;
+  const why = (id: string) => t[`inspect.why.${id}` as keyof typeof t] as string | undefined;
   const percent = (n: number) => `${Math.round(n * 100)}%`;
+  const dayLabel = (day: string) => short(day);
   // how serious, in words as well as in the colour of the edge (WCAG 1.4.1)
   const severity = (s: "threat" | "check") => (
     <span class="strong" data-testid="inspect-severity">
@@ -515,25 +687,49 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
       </span>
     </li>
   );
+  // "seen on 2 of the 5 days with traffic": a day the device was not connected, or one still to come, is not a day the
+  // site could have been seen on
+  const online = week.days.filter((d) => week.connected.get(d)).length;
+  const seenText = (f: NonNullable<Report["findings"]>[number]) => {
+    const w = seenWhen(f);
+    const n = (x: number) => formatCount(locale, x);
+    const words = w.slots === 1 ? t["inspect.hits.once"]
+      : w.days === 1 ? fmt(t["inspect.hits.oneDay"], { slots: n(w.slots) })
+      : fmt(t["inspect.hits.days"], { total: n(Math.max(online, w.days)), days: n(w.days), slots: n(w.slots) });
+    return { words, last: w.last ? fmt(t["inspect.hits.last"], { time: formatTime(locale, w.last.toISOString()) }) : "", w };
+  };
+  const hitCells = (perDay: Map<string, number>) => week.days.map((day) => {
+    const n = perDay.get(day) ?? 0;
+    const off = week.future(day) || !week.connected.get(day);
+    return <span class={`hit hit--${n ? hitLevel(n) : off ? "off" : 0}`} />;
+  });
+  const hitRow = (f: NonNullable<Report["findings"]>[number]) => {
+    const { words, last, w } = seenText(f);
+    return (
+      <li class="hit-row" data-testid="inspect-hit">
+        <code class="hit-row__name">{f.name}</code>
+        <span class="hit-row__cells hits__grid" aria-hidden="true">{hitCells(w.perDay)}</span>
+        <span class="hit-row__words small" data-testid="inspect-hit-words">{words}{last && <>{dot}<span class="muted">{last}</span></>}</span>
+      </li>
+    );
+  };
+  const datedGroups = groups.filter((g) => g.dated);
+  // the hours a day a row, on the same days as the bars at the top: a day without a connection keeps its row, and the
+  // days still to come are left out
+  const hourDays = week.days.filter((d) => !week.future(d));
+  const coverage = report.coverage ?? { active_hours: 0, total_hours: 0 };
+
   return (
-    <div class="stack" id="inspection-report" data-testid="inspect-report">
-      {groups.length > 0 ? (
-        <div class="card card--flat stack">
-          <h2>{t["inspect.report.findings"]}</h2>
-          <ul class="plain stack" data-testid="inspect-summary">
-            {groups.map((g) => (
-              <li class={`inspect-finding inspect-finding--${g.severity}`}>
-                <span class="strong">{kind(g.kind)}</span>
-                <span class="muted small">
-                  {severity(g.severity)}{dot}
-                  {g.sites
-                    ? fmt(t["inspect.report.sites"], { sites: formatCount(locale, g.sites), n: formatCount(locale, g.count) })
-                    : fmt(t["inspect.seen"], { n: formatCount(locale, g.count) })}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {threats && (
+    <div class="stack inspect-report" id="inspection-report" data-testid="inspect-report">
+      <div class={`card card--flat inspect-verdict inspect-verdict--${state}`} data-testid="inspect-verdict" data-state={state}>
+        <div class="inspect-verdict__main">
+          <p class="muted small">{t["inspect.verdict.title"]}</p>
+          <h2 class="inspect-verdict__state">
+            <Icon name={state === "threat" ? "cancel" : state === "check" ? "warning" : "ok"} />
+            <span>{t[state === "threat" ? "inspect.report.markThreat" : state === "check" ? "inspect.report.markCheck" : "inspect.verdict.clean"]}</span>
+          </h2>
+          <p data-testid="inspect-reason">{reason}</p>
+          {next && (
             <>
               <h3>{t["inspect.report.next"]}</h3>
               <ol class="inspect-list">
@@ -541,30 +737,130 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
               </ol>
             </>
           )}
-          {withSites.length > 0 && <h3>{t["inspect.report.list"]}</h3>}
-          {withSites.map((g) => (
-            <details key={g.kind} class="inspect-group small" open={g.severity === "threat"} data-testid="inspect-group">
-              <summary>{kind(g.kind)} <span class="muted">{severity(g.severity)}{dot}{fmt(t["inspect.report.siteCount"], { n: formatCount(locale, g.sites) })}</span></summary>
-              <ul class="plain stack">{g.listed.map(line)}</ul>
-              {g.hidden > 0 && <p class="muted" data-testid="inspect-not-listed">{fmt(t["inspect.report.notListed"], { n: formatCount(locale, g.hidden), limit: MAX_LISTED })}</p>}
-            </details>
-          ))}
         </div>
-      ) : <p class="card card--tint card--flat" data-testid="inspect-clean">{t["inspect.report.clean"]}</p>}
+        {week.days.length > 0 && (
+          <div class="inspect-cover" data-testid="inspect-cover">
+            <h3>{t["inspect.cover.title"]}</h3>
+            <p class="small">
+              {fmt(t[span.day ? "inspect.cover.running" : "inspect.cover.done"], {
+                day: span.day ?? 0, days: span.days, hours: formatCount(locale, coverage.active_hours),
+                from: dayLabel(week.days[0]), to: dayLabel(week.days.at(-1)!),
+              })}
+            </p>
+            <div class="cover" aria-hidden="true">
+              {week.days.map((day) => {
+                const hours = week.connected.get(day) ?? 0;
+                return (
+                  <span class={`cover__day${week.future(day) ? " cover__day--future" : ""}${day === week.today ? " cover__day--today" : ""}`}>
+                    <span class="cover__meter"><span class="cover__fill" style={{ height: `${(hours / 24) * 100}%` }} /></span>
+                    <span class="cover__label">{dayTag(day)}</span>
+                  </span>
+                );
+              })}
+            </div>
+            <p class="muted small">{join(t["inspect.cover.note"], week.today ? t["inspect.cover.noteFuture"] : "")}</p>
+            <details class="small">
+              <summary>{t["inspect.report.table"]}</summary>
+              <table class="inspect-table">
+                <thead><tr><th>{t["inspect.cover.tableDay"]}</th><th>{t["inspect.cover.tableHours"]}</th></tr></thead>
+                <tbody>{week.days.map((day) => (
+                  <tr><td>{dayLabel(day)}{day === week.today ? ` ${t["inspect.cover.today"]}` : ""}</td>
+                    <td>{week.future(day) ? t["inspect.cover.future"] : fmt(t["inspect.cover.hours"], { n: week.connected.get(day) ?? 0 })}</td></tr>
+                ))}</tbody>
+              </table>
+            </details>
+          </div>
+        )}
+      </div>
 
-      <div class="card card--flat stack">
+      {groups.length > 0 && (
+        <div class="card card--flat stack inspect-findings">
+          <h2>{t["inspect.report.findings"]}</h2>
+          <ul class="plain stack" data-testid="inspect-summary">
+            {groups.map((g) => (
+              <li class={`inspect-finding inspect-finding--${g.severity} inspect-kind`} data-testid="inspect-kind">
+                <h3 class="inspect-kind__name">{kind(g.kind)}</h3>
+                <span class="muted small">
+                  {severity(g.severity)}{dot}
+                  {g.sites
+                    ? fmt(t["inspect.report.sites"], { sites: formatCount(locale, g.sites), n: formatCount(locale, g.count) })
+                    : fmt(t["inspect.seen"], { n: formatCount(locale, g.count) })}
+                </span>
+                {why(g.kind) && <span class="small" data-testid="inspect-why">{why(g.kind)}</span>}
+                {g.dated ? (
+                  <div class="hits" data-testid="inspect-hits">
+                    <div class="hit-row hit-row--head" aria-hidden="true">
+                      <span class="hit-row__cells hits__grid">{week.days.map((day) => <span class="hits__day">{dayTag(day)}</span>)}</span>
+                    </div>
+                    <ul class="plain hits__rows">{g.listed.slice(0, TOP_ROWS).map(hitRow)}</ul>
+                    {g.listed.length > TOP_ROWS && (
+                      <details class="small hits__more" data-testid="inspect-hits-more">
+                        <summary>{fmt(t["inspect.hits.more"], { n: formatCount(locale, g.listed.length - TOP_ROWS) })}</summary>
+                        <ul class="plain hits__rows">{g.listed.slice(TOP_ROWS).map(hitRow)}</ul>
+                      </details>
+                    )}
+                    {g.hidden > 0 && <p class="muted small" data-testid="inspect-not-listed">{fmt(t["inspect.report.notListed"], { n: formatCount(locale, g.hidden), limit: MAX_LISTED })}</p>}
+                  </div>
+                ) : g.sites > 0 && (
+                  <details key={g.kind} class="inspect-group small" open={g.severity === "threat"} data-testid="inspect-group">
+                    <summary>{t["inspect.report.list"]} <span class="muted">{fmt(t["inspect.report.siteCount"], { n: formatCount(locale, g.sites) })}</span></summary>
+                    <ul class="plain stack">{g.listed.map(line)}</ul>
+                    {g.hidden > 0 && <p class="muted" data-testid="inspect-not-listed">{fmt(t["inspect.report.notListed"], { n: formatCount(locale, g.hidden), limit: MAX_LISTED })}</p>}
+                  </details>
+                )}
+              </li>
+            ))}
+          </ul>
+          {datedGroups.length > 0 && (
+            <>
+              <p class="inspect-legend small muted" data-testid="inspect-hits-legend">
+                {(["off", "0", "1", "2", "3"] as const).map((k) => (
+                  <span class="inspect-legend__item"><span class={`hit hit--${k}`} />{t[k === "off" ? "inspect.hits.offline" : k === "0" ? "inspect.hits.quiet" : `inspect.hits.level${k}` as const]}</span>
+                ))}
+              </p>
+              <p class="muted small">{t["inspect.hits.note"]}</p>
+              <details class="small">
+                <summary>{t["inspect.report.table"]}</summary>
+                <table class="inspect-table" data-testid="inspect-hits-table">
+                  <thead><tr><th>{t["inspect.hits.tableSite"]}</th><th>{t["inspect.hits.tableWhen"]}</th><th>{t["inspect.hits.tableLast"]}</th></tr></thead>
+                  <tbody>{datedGroups.flatMap((g) => [
+                    <tr><th colSpan={3} scope="colgroup">{kind(g.kind)}</th></tr>,
+                    ...g.listed.map((f) => {
+                      const w = seenWhen(f);
+                      return (
+                        <tr><td><code>{f.name}</code></td>
+                          <td>{[...w.perDay].map(([day, n]) => `${dayLabel(day)} (${n})`).join(", ")}</td>
+                          <td>{w.last ? formatTime(locale, w.last.toISOString()) : ""}</td></tr>
+                      );
+                    }),
+                  ])}</tbody>
+                </table>
+              </details>
+            </>
+          )}
+        </div>
+      )}
+
+      <div class="card card--flat stack inspect-hours">
         <h2>{t["inspect.report.hours"]}</h2>
-        <p class="muted small">{fmt(t["inspect.report.coverage"], { active: report.coverage?.active_hours ?? 0, total: report.coverage?.total_hours ?? 0 })}</p>
+        <p class="muted small">{fmt(t["inspect.report.coverage"], { active: coverage.active_hours, total: coverage.total_hours })}</p>
         <div class="tiles" aria-hidden="true" data-testid="inspect-tiles">
-          {days.map((day) => (
-            <div class="tiles__row">
-              <span class="tiles__day">{day.slice(5).replace("-", "/")}</span>
+          {hourDays.map((day) => !cells.has(day) ? (
+            <div class="tiles__row tiles__row--off" data-day={day}>
+              <span class="tiles__day">{dayLabel(day)}</span>
+              <span class="tiles__off">{t["inspect.hits.offline"]}</span>
+            </div>
+          ) : (
+            <div class="tiles__row" data-day={day}>
+              <span class="tiles__day">{dayLabel(day)}</span>
               {Array.from({ length: 24 }, (_, hour) => {
                 const c = cells.get(day)!.get(hour);
-                const words = c ? `${day.slice(5).replace("-", "/")} ${pad(hour)}:00  ↑${formatBytes(locale, c.up)} ↓${formatBytes(locale, c.down)}` : "";
+                const words = c ? `${dayLabel(day)} ${pad(hour)}:00  ↑${formatBytes(locale, c.up)} ↓${formatBytes(locale, c.down)}${c.heavy ? ` ${t["inspect.report.upMark"]}` : ""}` : "";
+                // one sign to a square: a finding says more than the size of the hour, and the table has both
+                const sign = c?.mark === "x" ? "×" : c?.mark === "!" ? "!" : c?.heavy ? "↑" : "";
                 return (
-                  <span class={`tile tile--${c ? level(c.total) : 0}${c?.mark === "x" ? " tile--threat" : c?.mark === "!" ? " tile--check" : ""}`}
-                    title={words} onClick={() => setPicked(words)}>{c?.mark === "x" ? "×" : c?.mark === "!" ? "!" : ""}</span>
+                  <span class={`tile tile--${c ? level(c.total) : 0}${c?.mark === "x" ? " tile--threat" : c?.mark === "!" ? " tile--check" : c?.heavy ? " tile--up" : ""}${NIGHT(hour) ? " tile--night" : ""}`}
+                    title={words} onClick={() => setPicked(words)}>{sign}</span>
                 );
               })}
             </div>
@@ -579,41 +875,62 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
           {t["inspect.report.less"]}
           {[1, 2, 3, 4, 5].map((n) => <span class={`tile tile--${n}`} />)}
           {t["inspect.report.more"]}
-          <span class="tile tile--3 tile--check">!</span>{t["inspect.report.markCheck"]}
-          <span class="tile tile--3 tile--threat">×</span>{t["inspect.report.markThreat"]}
+        </p>
+        <p class="inspect-legend small muted" data-testid="inspect-tiles-legend">
+          <span class="inspect-legend__item"><span class="tile tile--3 tile--check">!</span>{t["inspect.report.markCheck"]}</span>
+          <span class="inspect-legend__item"><span class="tile tile--3 tile--threat">×</span>{t["inspect.report.markThreat"]}</span>
+          <span class="inspect-legend__item"><span class="tile tile--4 tile--up">↑</span>{fmt(t["inspect.report.upHeavy"], { mb: UP_HEAVY_BYTES / 1e6 })}</span>
+          <span class="inspect-legend__item"><span class="tile tile--night-key" />{t["inspect.report.night"]}</span>
         </p>
         <details class="small">
           <summary>{t["inspect.report.table"]}</summary>
           <table class="inspect-table">
             <thead><tr><th>{t["inspect.report.tableHour"]}</th><th>{t["inspect.report.tableUp"]}</th><th>{t["inspect.report.tableDown"]}</th></tr></thead>
-            <tbody>{report.hours?.map((h) => {
-              const at = new Date(`${h.hour}:00:00Z`);
-              return <tr><td>{`${at.toLocaleDateString("sv").slice(5).replace("-", "/")} ${pad(at.getHours())}:00${h.mark ? ` ${h.mark === "x" ? t["inspect.report.markThreat"] : t["inspect.report.markCheck"]}` : ""}`}</td><td>{formatBytes(locale, h.up)}</td><td>{formatBytes(locale, h.down)}</td></tr>;
+            <tbody data-testid="inspect-hours-table">{hourDays.flatMap((day) => {
+              const hours = (report.hours ?? []).filter((h) => dayOf(atHour(h.hour)) === day);
+              if (!hours.length) return [<tr><td>{dayLabel(day)}</td><td colSpan={2}>{t["inspect.hits.offline"]}</td></tr>];
+              return hours.map((h) => {
+                const at = atHour(h.hour);
+                const marks = [h.mark === "x" ? t["inspect.report.markThreat"] : h.mark === "!" ? t["inspect.report.markCheck"] : "", upHeavy(h) ? t["inspect.report.upMark"] : ""].filter(Boolean);
+                return <tr><td>{`${dayLabel(day)} ${pad(at.getHours())}:00${marks.length ? ` ${marks.join(", ")}` : ""}`}</td><td>{formatBytes(locale, h.up)}</td><td>{formatBytes(locale, h.down)}</td></tr>;
+              });
             })}</tbody>
           </table>
         </details>
       </div>
 
-      <div class="card card--flat stack">
+      <div class="card card--flat stack inspect-checkcard">
         <h2>{t["inspect.report.checks"]}</h2>
-        <dl class="spec spec--figures small">
-          {report.checks?.map((c) => (
-            <>
-              <dt>{kind(c.id)}</dt>
-              <dd>{c.count ? fmt(t["inspect.seen"], { n: formatCount(locale, c.count) }) : t["inspect.report.notFound"]}</dd>
-            </>
-          ))}
-          <dt>{t["inspect.report.dns"]}</dt><dd>{formatCount(locale, report.dns?.total ?? 0)}</dd>
-          <dt>{t["inspect.report.nx"]}</dt><dd>{percent(report.dns?.nx_share ?? 0)}</dd>
-          <dt>{t["inspect.report.ads"]}</dt><dd>{percent(report.dns?.ads_share ?? 0)}</dd>
-          <dt>{t["inspect.report.idle"]}</dt><dd>{percent(report.idle_share ?? 0)}</dd>
-        </dl>
-        {!!report.nx_names?.length && (
-          <details class="small">
-            <summary>{t["inspect.report.nxNames"]}</summary>
-            <ul class="plain inspect-names">{report.nx_names.map((n) => <li><code>{n.name}</code> <span class="muted">{formatCount(locale, n.count)}</span></li>)}</ul>
-          </details>
-        )}
+        <ul class="plain inspect-checks" data-testid="inspect-checks">
+          {report.checks?.map((c) => {
+            const found = c.count > 0;
+            const sev = !found ? "ok" : c.id === "stalkerware" ? "threat" : "check";
+            const words = t[`inspect.check.${found ? "hit" : "ok"}.${c.id}` as keyof typeof t] ?? `${kind(c.id)}: ${found ? fmt(t["inspect.seen"], { n: c.count }) : t["inspect.report.notFound"]}`;
+            return (
+              <li class={`inspect-check inspect-check--${sev}`} data-testid="inspect-check" data-state={sev}>
+                <Icon name={sev === "ok" ? "ok" : sev === "threat" ? "cancel" : "warning"} />
+                <span>{words}</span>
+              </li>
+            );
+          })}
+        </ul>
+        <details class="small" data-testid="inspect-figures">
+          <summary>{t["inspect.check.details"]}</summary>
+          <dl class="spec spec--figures">
+            {report.checks?.map((c) => (
+              <>
+                <dt>{kind(c.id)}</dt>
+                <dd>{c.count ? fmt(t["inspect.seen"], { n: formatCount(locale, c.count) }) : t["inspect.report.notFound"]}</dd>
+              </>
+            ))}
+            <dt>{t["inspect.report.dns"]}</dt><dd>{formatCount(locale, report.dns?.total ?? 0)}</dd>
+            <dt>{t["inspect.report.nx"]}</dt><dd>{percent(report.dns?.nx_share ?? 0)}</dd>
+            <dt>{t["inspect.report.ads"]}</dt><dd>{percent(report.dns?.ads_share ?? 0)}</dd>
+            <dt>{t["inspect.report.idle"]}</dt>
+            {/* the share of a night is only a share of the nights there were: on the first day it says when it started */}
+            <dd data-testid="inspect-idle">{coverage.total_hours >= 24 ? percent(report.idle_share ?? 0) : t["inspect.report.idleLater"]}</dd>
+          </dl>
+        </details>
       </div>
       <p class="muted small">{t["inspect.report.limits"]}</p>
     </div>
