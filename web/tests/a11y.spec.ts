@@ -494,3 +494,52 @@ test("nothing moves on its own while the inspection waits", async ({ page }) => 
     expect(forever, name).toEqual([]);
   }
 });
+
+// axe does not read text drawn by CSS: the NOTE on a warning, the DEVICE on the device under inspection. At their size
+// they need 4.5:1 against the paper they are written on, as any other small text (WCAG 1.4.3)
+for (const scheme of ["light", "dark"] as const) {
+  test(`the labels drawn by CSS stand out at 4.5:1, ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    const opens: [string, () => Promise<void>][] = [
+      ["/devices/", async () => { await backend(page, true); await page.goto("/devices/"); await page.waitForLoadState("networkidle"); }],
+      ["inspection, link not here", () => openInspection(page, INSPECT["link not here"]!)],
+      ["inspection, report", () => openInspection(page, INSPECT.report!)],
+    ];
+    const seen = new Set<string>();
+    const low: string[] = [];
+    for (const [name, open] of opens) {
+      await page.unrouteAll();
+      await page.goto("about:blank");
+      await open();
+      const labels = await page.evaluate(() => {
+        const parse = (c: string) => { const m = (c.match(/[\d.]+/g) ?? []).map(Number); return { rgb: m.slice(0, 3), a: m[3] ?? 1 }; };
+        const lum = (rgb: number[]) => {
+          const [r, g, b] = rgb.map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+        };
+        const out: { text: string; ratio: number; need: number }[] = [];
+        for (const e of document.querySelectorAll("main *")) {
+          for (const which of ["::before", "::after"]) {
+            const s = getComputedStyle(e, which);
+            const text = s.content.match(/^"([^"]+)"/)?.[1];
+            if (!text || !e.getClientRects().length) continue;
+            // the label's own paper, or what is behind its box
+            let bg = parse(s.backgroundColor);
+            for (let p: Element | null = e; bg.a < 1 && p; p = p.parentElement) bg = parse(getComputedStyle(p).backgroundColor);
+            const [hi, lo] = [lum(parse(s.color).rgb), lum(bg.a < 1 ? [255, 255, 255] : bg.rgb)].sort((x, y) => y - x);
+            const size = parseFloat(s.fontSize);
+            const need = size >= 24 || (parseInt(s.fontWeight) >= 700 && size >= 18.66) ? 3 : 4.5;
+            out.push({ text, ratio: Math.round(((hi! + 0.05) / (lo! + 0.05)) * 100) / 100, need });
+          }
+        }
+        return out;
+      });
+      for (const l of labels) {
+        seen.add(l.text);
+        if (l.ratio < l.need) low.push(`${name}: ${l.text} ${l.ratio}:1`);
+      }
+    }
+    expect([...seen].sort()).toEqual(["DEVICE", "NOTE"]);
+    expect(low).toEqual([]);
+  });
+}
