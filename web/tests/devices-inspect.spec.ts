@@ -8,7 +8,7 @@ const ME = { created_on: "2026-10-27", last_login_on: "2026-11-05", device_limit
 const BASE = { region: "jp", dns_filter: "malware", status: "active", created_on: "2026-11-01", expires_on: "2026-12-04", used_bytes: 2e9,
   blocked: 4, connected: true, ipv6: true, moved_until: null, relay: null,
   inspection: null, inspection_ends_at: null, inspection_days: null, inspection_report_until: null };
-const CONFIRMING = { ...BASE, id: "d-a", name: "手機 A", inspection: "confirming", inspection_days: 7 };
+const CONFIRMING = { ...BASE, id: "d-a", name: "手機 A", inspection: "confirming", inspection_days: 7, inspection_confirm_minutes: 30 };
 const ACTIVE = { ...BASE, id: "d-b", name: "筆電 B", inspection: "active", inspection_days: 7,
   inspection_ends_at: new Date(NOW.getTime() + 4.5 * 86_400_000).toISOString() };
 const ENDING = { ...BASE, id: "d-e", name: "平板 E", inspection: "ending", inspection_days: 7, inspection_ends_at: "2026-11-09T04:00:00Z" };
@@ -31,58 +31,97 @@ async function backend(page: Page, devices: object[], inspection?: object) {
 
 const card = (page: Page, name: string) => page.getByTestId("device").filter({ has: page.getByRole("heading", { name }) });
 
-for (const [device, badge, words, go, goName] of [
-  [CONFIRMING, "檢測待確認", "請在這台裝置上打開檢測的確認連結，連結產生後 30 分鐘內有效。", "繼續", "繼續「手機 A」的檢測"],
-  [ACTIVE, "檢測中", "檢測第 3 天，共 7 天，2026/11/15 結束。", "查看目前的結果", "查看目前的結果「筆電 B」"],
-  [ENDING, "檢測結束中", "正在整理檢測報告，大約 5 分鐘。", null, null],
-  [ENDED, "檢測已結束", "檢測報告保存到 2026/11/15，請記得下載。", "查看報告", "查看報告「平板 C」"],
+for (const [device, state, detail, name] of [
+  [CONFIRMING, "檢測待確認", null, "檢測待確認，「手機 A」"],
+  [ACTIVE, "檢測中", "第 3 天，共 7 天", "檢測中，第 3 天，共 7 天，「筆電 B」"],
+  [ENDING, "檢測結束中", null, "檢測結束中，「平板 E」"],
+  [ENDED, "檢測報告", "保存到 2026/11/15", "檢測報告，保存到 2026/11/15，「平板 C」"],
 ] as const) {
-  test(`the card says where the inspection stands: ${device.inspection}`, async ({ page }) => {
+  test(`the card's corner says where the inspection stands: ${device.inspection}`, async ({ page }) => {
     await backend(page, [device]);
     await page.goto("/devices/");
     const c = card(page, device.name);
-    await expect(c.getByTestId("inspect-badge")).toHaveText(badge);
-    // beside the device's own state, in the same corner
-    await expect(c.locator(".device-head__badges .badge")).toHaveText(["使用中", badge]);
-    const note = c.getByTestId("inspect-note");
-    await expect(note).toHaveAttribute("data-state", device.inspection);
-    await expect(note.locator("span")).toHaveText(words);
-    // under the spec sheet
-    const spec = (await c.locator(".spec").boundingBox())!;
-    expect((await note.boundingBox())!.y).toBeGreaterThan(spec.y + spec.height - 1);
-    const links = c.getByTestId("device-inspect");
-    if (go === null) {
-      await expect(links).toHaveCount(0);
-    } else {
-      // one link to the inspection, in the line and not again at the bottom of the card
-      await expect(links).toHaveCount(1);
-      await expect(note.getByRole("link", { name: goName, exact: true })).toHaveText(go);
-      await expect(links).toHaveAttribute("href", `/devices/inspect/?d=${device.id}`);
-      await expect(c.locator(".device-foot a")).toHaveCount(0);
-    }
+    // one link, where "檢測流量" is otherwise, on the row of the delete button
+    const link = c.getByTestId("device-inspect");
+    await expect(link).toHaveCount(1);
+    await expect(c.locator(".device-foot > a")).toHaveCount(1);
+    await expect(link).toHaveAttribute("href", `/devices/inspect/?d=${device.id}`);
+    await expect(link).toHaveAttribute("data-state", device.inspection);
+    await expect(link.locator(".foot-inspect__line > span").first()).toHaveText(state);
+    if (detail) await expect(link.getByTestId("inspect-detail")).toHaveText(detail);
+    else await expect(link.getByTestId("inspect-detail")).toHaveCount(0);
+    // named for its device, starting with the shown words (WCAG 2.5.3); the mark before them is not read
+    await expect(c.getByRole("link", { name, exact: true })).toHaveCount(1);
+    await expect(link.locator(".inspect-mark")).toHaveAttribute("aria-hidden", "true");
+    await expect(link.locator(`.inspect-mark--${device.inspection}`)).toHaveCount(1);
+    // no badge beside the device's state any more
+    await expect(c.locator(".device-head .badge")).toHaveCount(1);
+    await expect(c.locator(".device-head .badge")).toHaveText("使用中");
+    // the note in the card only while it waits for the device
+    await expect(c.getByTestId("inspect-note")).toHaveCount(device.inspection === "confirming" ? 1 : 0);
   });
 }
 
-test("the line's colour: orange while it waits for the person, pale blue while it runs, plain once it has ended", async ({ page }) => {
-  await backend(page, [CONFIRMING, ACTIVE, ENDING, ENDED]);
+test("waiting for the device, the card has a note with the link's time and a way on", async ({ page }) => {
+  await backend(page, [{ ...CONFIRMING, inspection_confirm_minutes: 20 }]);
   await page.goto("/devices/");
-  const look = (name: string) => card(page, name).getByTestId("inspect-note").getAttribute("class");
-  expect(await look("手機 A")).toContain("card--warn");
-  expect(await look("筆電 B")).toContain("card--tint");
-  expect(await look("平板 E")).toContain("card--tint");
-  expect(await look("平板 C")).not.toMatch(/card--(warn|tint)/);
-  // the badge is a state, not a warning: the same blue outline as the others, on the card's paper
-  const badge = card(page, "手機 A").getByTestId("inspect-badge");
-  const [border, ink] = await badge.evaluate((e) => [getComputedStyle(e).borderTopColor, getComputedStyle(e).color]);
-  expect(border).toBe(ink);
-  expect(border).toBe("rgb(11, 60, 168)");
+  const note = page.getByTestId("inspect-note");
+  await expect(note).toHaveClass(/card--warn/);
+  // the minutes the backend sends, not a number of the page's own
+  await expect(note.locator("span")).toHaveText("請在這台裝置上打開檢測的確認連結，連結產生後 20 分鐘內有效。");
+  await expect(note.getByRole("link", { name: "繼續「手機 A」的檢測", exact: true })).toHaveAttribute("href", "/devices/inspect/?d=d-a");
+  // under the spec sheet
+  const spec = (await page.locator(".spec").boundingBox())!;
+  expect((await note.boundingBox())!.y).toBeGreaterThan(spec.y + spec.height - 1);
+});
+
+test("a backend without the link's time: the note says 30 minutes", async ({ page }) => {
+  const { inspection_confirm_minutes: _, ...older } = CONFIRMING;
+  await backend(page, [older]);
+  await page.goto("/devices/");
+  await expect(page.getByTestId("inspect-note").locator("span")).toContainText("30 分鐘內有效");
+});
+
+test("the marks differ in shape, not only in colour, in both schemes", async ({ page }) => {
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.unrouteAll();
+    await backend(page, [CONFIRMING, ACTIVE, ENDING, ENDED]);
+    await page.goto("/devices/");
+    const mark = (state: string) => page.locator(`.inspect-mark--${state}`).evaluate((e) => {
+      const s = getComputedStyle(e);
+      return { bg: s.backgroundColor, image: s.backgroundImage, radius: s.borderTopLeftRadius, ink: getComputedStyle(e.closest("a")!).color };
+    });
+    const [active, waiting, ending, ended] = await Promise.all(["active", "confirming", "ending", "ended"].map(mark));
+    // running: filled with the link's own colour; waiting and the report: empty; wrapping up: half filled
+    expect(active.bg).toBe(active.ink);
+    expect(waiting.bg).toBe("rgba(0, 0, 0, 0)");
+    expect(ended.bg).toBe("rgba(0, 0, 0, 0)");
+    expect(ending.image).toContain("linear-gradient");
+    expect(ended.radius).not.toBe(active.radius);
+  }
+});
+
+test("on a narrow phone the date goes under the state and the delete button stays on the right", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await backend(page, [ENDED]);
+  await page.goto("/en/devices/");
+  const link = page.getByTestId("device-inspect");
+  const del = page.getByRole("button", { name: "Delete “平板 C”" });
+  const [state, detail, button, foot] = await Promise.all([
+    link.locator(".foot-inspect__line > span").first().boundingBox(), link.getByTestId("inspect-detail").boundingBox(),
+    del.boundingBox(), page.locator(".device-foot").boundingBox(),
+  ]);
+  expect(detail!.y).toBeGreaterThan(state!.y + 5);
+  expect(button!.x + button!.width).toBeGreaterThan(foot!.x + foot!.width - 2);
+  expect(button!.y).toBeLessThan(state!.y + state!.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
 
 test("without an inspection the card links to start one, named for its device", async ({ page }) => {
   await backend(page, [NONE, { ...NONE, id: "d-f", name: "手機 F" }]);
   await page.goto("/devices/");
   const c = card(page, "桌機 D");
-  await expect(c.getByTestId("inspect-badge")).toHaveCount(0);
   await expect(c.getByTestId("inspect-note")).toHaveCount(0);
   // two links shown as the same words, told apart by name (WCAG 2.5.3: the name starts with them)
   await expect(page.getByRole("link", { name: "檢測流量「桌機 D」" })).toHaveText("檢測流量");
@@ -93,7 +132,7 @@ test("the card says nothing of what the report found", async ({ page }) => {
   // a portal that sent more than it should still has the page show only where the inspection stands
   await backend(page, [{ ...ENDED, report: { epk: "e", iv: "i", ct: "c" }, verdict: "threat", findings: ["stalkerware"] }, ACTIVE]);
   await page.goto("/devices/");
-  await expect(page.getByTestId("inspect-note")).toHaveCount(2);
+  await expect(page.getByTestId("device-inspect")).toHaveCount(2);
   const text = await page.locator("main").innerText();
   for (const words of ["需要檢查", "需要留意", "已知威脅", "威脅", "跟蹤", "可疑", "沒有發現", "stalkerware", "threat"]) expect(text).not.toContain(words);
 });
@@ -104,18 +143,20 @@ test("the card and the inspection's page count the same day", async ({ page }) =
     await page.unrouteAll();
     await backend(page, [{ ...ACTIVE, id: "d-1", inspection_ends_at: ends }], { consent_version: "x", days: 7, report_days: 7, status: "active", ends_at: ends, started_at: NOW.toISOString() });
     await page.goto("/devices/");
-    await expect(page.getByTestId("inspect-note").locator("span")).toContainText(`檢測第 ${day} 天，共 7 天`);
+    await expect(page.getByTestId("inspect-detail")).toHaveText(`第 ${day} 天，共 7 天`);
     await page.goto("/devices/inspect/?d=d-1");
     await expect(page.getByTestId("inspect-status")).toContainText(`檢測中，第 ${day} 天，共 7 天`);
   }
 });
 
 test("in English the links name their device too", async ({ page }) => {
-  await backend(page, [CONFIRMING, ACTIVE, ENDED, NONE]);
+  await backend(page, [CONFIRMING, ACTIVE, ENDING, ENDED, NONE]);
   await page.goto("/en/devices/");
   for (const [name, shown] of [
-    ["Continue the inspection of “手機 A”", "Continue"], ["See the results so far for “筆電 B”", "See the results so far"],
-    ["See the report for “平板 C”", "See the report"], ["Inspect traffic on “桌機 D”", "Inspect traffic"],
+    ["Continue the inspection of “手機 A”", "Continue"], ["Inspection pending, for “手機 A”", "Inspection pending"],
+    ["Inspecting, day 3 of 7, for “筆電 B”", "Inspectingday 3 of 7"], ["Inspection ending, for “平板 E”", "Inspection ending"],
+    ["Inspection report, kept until 11/15/2026, for “平板 C”", "Inspection reportkept until 11/15/2026"],
+    ["Inspect traffic on “桌機 D”", "Inspect traffic"],
+  // the dot between the state and its date is drawn by CSS, so it is not in the text
   ]) await expect(page.getByRole("link", { name, exact: true })).toHaveText(shown);
-  await expect(card(page, "筆電 B").getByTestId("inspect-note")).toContainText("Inspection day 3 of 7, ends on");
 });

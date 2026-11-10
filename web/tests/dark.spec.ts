@@ -64,7 +64,7 @@ for (const path of ["/", "/en/", "/devices/", "/account/", "/faq/", "/dns/", "/d
   });
 }
 
-test("dark: the inspection's badges and lines on /devices/ stay readable", async ({ page }) => {
+test("dark: the inspection's links and note on /devices/ stay readable", async ({ page }) => {
   await signedIn(page);
   const day = { inspection_days: 7, inspection_ends_at: "2026-11-14T04:00:00Z", inspection_report_until: "2026-11-15" };
   await page.route("**/api/devices", (route) => route.fulfill({ json: [
@@ -72,8 +72,13 @@ test("dark: the inspection's badges and lines on /devices/ stay readable", async
     { ...DEVICE, ...day, id: "d-c", name: "tablet", inspection: "ended" },
   ] }));
   await page.goto("/devices/");
-  await expect(page.getByTestId("inspect-note")).toHaveCount(3);
+  await expect(page.getByTestId("device-inspect")).toHaveCount(3);
   expect(await lowContrast(page, 7)).toEqual([]);
+  // running is a filled dot, the others empty: told apart by shape, not by a shade of the dark blue
+  const fill = (state: string) => page.locator(`.inspect-mark--${state}`).evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(await fill("active")).toBe("rgb(179, 204, 255)");
+  expect(await fill("confirming")).toBe("rgba(0, 0, 0, 0)");
+  expect(await fill("ended")).toBe("rgba(0, 0, 0, 0)");
 });
 
 test("dark: the header shows the logo with light words", async ({ page }) => {

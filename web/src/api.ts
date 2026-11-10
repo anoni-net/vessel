@@ -172,6 +172,8 @@ export interface Device {
   inspection_days?: number | null;
   /** the last day the report is kept, once it has ended (missing from an older backend) */
   inspection_report_until?: string | null;
+  /** while it waits for the device: how long a confirmation link is good for (missing from an older backend) */
+  inspection_confirm_minutes?: number | null;
 }
 
 export interface Inspection {

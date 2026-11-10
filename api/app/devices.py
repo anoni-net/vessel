@@ -109,7 +109,9 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          "inspection_ends_at": r[15].isoformat() if r[15] else None,
          "inspection_days": policy.INSPECT_DAYS if r[13] else None,
          # the last day its report is kept, once it has ended
-         "inspection_report_until": r[16].isoformat() if r[16] else None}
+         "inspection_report_until": r[16].isoformat() if r[16] else None,
+         # while it waits for the device: how long a confirmation link is good for after it is made
+         "inspection_confirm_minutes": policy.INSPECT_CONFIRM_MINUTES if r[13] == "confirming" else None}
         for r in rows
     ]
 

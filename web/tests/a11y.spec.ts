@@ -73,7 +73,7 @@ for (const scheme of ["light", "dark"] as const) {
 
 // the devices page with an inspection in each of its states: the badges, the lines under the spec sheets and their links
 const INSPECTED = [
-  { ...DEVICES[0], inspection: "confirming", inspection_days: 7, inspection_ends_at: null, inspection_report_until: null },
+  { ...DEVICES[0], inspection: "confirming", inspection_days: 7, inspection_ends_at: null, inspection_report_until: null, inspection_confirm_minutes: 30 },
   { ...DEVICES[1], inspection: "active", inspection_days: 7, inspection_ends_at: "2026-11-14T04:00:00Z", inspection_report_until: null },
   { ...DEVICES[0], id: "d-c", name: "tablet", inspection: "ending", inspection_days: 7, inspection_ends_at: "2026-11-09T04:00:00Z", inspection_report_until: null },
   { ...DEVICES[1], id: "d-d", name: "desktop", inspection: "ended", inspection_days: 7, inspection_ends_at: "2026-11-08T04:00:00Z", inspection_report_until: "2026-11-15" },
@@ -86,7 +86,7 @@ for (const scheme of ["light", "dark"] as const) {
     await page.route("**/api/devices", (route) => route.fulfill({ json: INSPECTED }));
     await page.route("**/api/me", (route) => route.fulfill({ json: { ...ME, device_limit: 4 } }));
     await page.goto("/devices/");
-    await expect(page.getByTestId("inspect-note")).toHaveCount(4);
+    await expect(page.getByTestId("device-inspect")).toHaveCount(4);
     await page.evaluate(axe.source);
     const found = await page.evaluate(async () => {
       const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {
@@ -95,10 +95,13 @@ for (const scheme of ["light", "dark"] as const) {
       return res.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
     });
     expect(found).toEqual([]);
-    // every link to an inspection says which device it is for, starting with its shown words (WCAG 2.5.3)
-    for (const link of await page.locator('a[href^="/devices/inspect/"]').all()) {
-      const [shown, name] = [(await link.innerText()).trim(), await link.getAttribute("aria-label")];
-      expect(name?.startsWith(shown), `${name} starts with ${shown}`).toBe(true);
+    // every link to an inspection says which device it is for, starting with its shown words (WCAG 2.5.3): the state,
+    // then its date after a comma where the page draws a dot, then the device
+    const links = page.locator('a[href^="/devices/inspect/"]');
+    await expect(links).toHaveCount(5);
+    for (const link of await links.all()) {
+      const [shown, name] = [(await link.innerText()).split("\n").map((x) => x.trim()).filter(Boolean), (await link.getAttribute("aria-label"))!];
+      expect(name.startsWith(shown.join("，")), `${name} starts with ${shown.join("，")}`).toBe(true);
     }
   });
 }

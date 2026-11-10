@@ -1,9 +1,6 @@
 // Which day of a device inspection it is, shared by the inspection's page and the device card on the devices page, so
 // the two count the same day. Kept apart from pages/inspect.tsx, which the devices page loads only when it is opened.
 
-/** How long the confirmation link is good for, as the backend's policy.INSPECT_CONFIRM_MINUTES. */
-export const CONFIRM_MINUTES = 30;
-
 /** Which day of the inspection it is, on the visitor's clock: the third of seven. */
 export function progress(state: { ends_at?: string | null; days: number }) {
   const left = Math.ceil((new Date(state.ends_at!).getTime() - Date.now()) / 86_400_000);

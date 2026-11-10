@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { Icon } from "../icons.tsx";
 import { ApiError, type Device, type Me, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
-import { formatBytes, formatCount, formatDate, formatDay, formatPercent, formatTime } from "../format.ts";
+import { formatBytes, formatCount, formatDate, formatPercent, formatTime } from "../format.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { flagOf, relayEntry } from "../regions.ts";
-import { CONFIRM_MINUTES, progress } from "../inspection-progress.ts";
+import { progress } from "../inspection-progress.ts";
 import { AccountNav } from "./account.tsx";
 import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
@@ -286,11 +286,7 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
               )}
               <div class="row device-head">
                 <h2 class="big device-head__name"><LiveDot d={d} />{d.name}</h2>
-                <div class="device-head__badges">
-                  <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
-                  {/* a state like the one beside it, not a warning: the same outline, no orange or red */}
-                  {inspecting(d) && <span class="badge badge--inspect" data-testid="inspect-badge">{t[`devices.inspect.${d.inspection!}`]}</span>}
-                </div>
+                <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
               {/* the device as a spec sheet: one line per fact, the name of each on the left */}
               <dl class="spec small">
@@ -339,10 +335,9 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
                   <span>{t["devices.oldConfig"]}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
                 </p>
               )}
-              {inspecting(d) && !deleting.has(d.id) && <InspectNote d={d} />}
+              {d.inspection === "confirming" && d.status !== "revoking" && !deleting.has(d.id) && <InspectNote d={d} />}
               <div class="row small device-foot">
-                {/* with an inspection, its line above has the link */}
-                {d.status === "active" && !d.inspection && !deleting.has(d.id) && (
+                {inspecting(d) && !deleting.has(d.id) ? <InspectLink d={d} /> : d.status === "active" && !d.inspection && !deleting.has(d.id) && (
                   <a data-testid="device-inspect" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectNamed"], { name: d.name })}>
                     {t["devices.inspect"]}
                   </a>
@@ -387,37 +382,52 @@ const inspecting = (d: Device) => !!d.inspection && d.status !== "revoking";
 const inspectHref = (href: (p: string) => string, d: Device) => `${href("/devices/inspect/")}?d=${encodeURIComponent(d.id)}`;
 
 /**
- * Where the device's inspection stands, in a line under its spec sheet, with the one thing to do next. Only where it
- * stands and its dates: never what the report found ("needs a look", "known threat"), and the report is not opened on
- * this page. The device list is what is most often seen over someone's shoulder, and a stalker who reads there that
- * their app was found can act before the person does (toomore/anoni-net-ws#461). The report is opened on the
- * inspection's own page, with the key in this browser.
+ * Where the device's inspection stands, at the bottom left of its card where "Inspect traffic" is otherwise: a mark,
+ * the state and its date, all one link to the inspection's page. Only where it stands and its dates: never what the
+ * report found ("needs a look", "known threat"), and the report is not opened on this page. The device list is what is
+ * most often seen over someone's shoulder, and a stalker who reads there that their app was found can act before the
+ * person does (toomore/anoni-net-ws#461). The report is opened on the inspection's own page, with the key in this browser.
  */
-function InspectNote({ d }: { d: Device }) {
+function InspectLink({ d }: { d: Device }) {
   const { t, href, locale } = useCtx();
   const state = d.inspection!;
-  // an older backend sends the state alone: the line says it without the dates
-  const words = state === "confirming" ? fmt(t["devices.inspectNote.confirming"], { minutes: CONFIRM_MINUTES })
-    : state === "active" ? (d.inspection_ends_at && d.inspection_days
-      ? fmt(t["devices.inspectNote.active"], { ...progress({ ends_at: d.inspection_ends_at, days: d.inspection_days }), date: formatDay(locale, d.inspection_ends_at) })
-      : t["devices.inspectNote.activeUndated"])
-    : state === "ending" ? t["devices.inspectNote.ending"]
-    : d.inspection_report_until ? fmt(t["devices.inspectNote.ended"], { date: formatDate(locale, d.inspection_report_until) })
-    : t["devices.inspectNote.endedUndated"];
-  // waiting for the person to open the link is the one that asks something of them: the orange of a note. Running and
-  // being wrapped up are the pale blue of the usage card; a finished one plain.
-  const look = state === "confirming" ? "card--warn" : state === "ended" ? "" : "card--tint";
-  // being wrapped up has nothing to do but wait
-  const go = state === "ending" ? null : state;
+  const label = t[`devices.inspect.${state}`];
+  // an older backend sends the state alone: then the state alone
+  const detail = state === "active" && d.inspection_ends_at && d.inspection_days
+    ? fmt(t["devices.inspectDetail.active"], progress({ ends_at: d.inspection_ends_at, days: d.inspection_days }))
+    : state === "ended" && d.inspection_report_until
+      ? fmt(t["devices.inspectDetail.ended"], { date: formatDate(locale, d.inspection_report_until) })
+      : "";
   return (
-    <p class={`card card--flat small device-inspect ${look}`} data-testid="inspect-note" data-state={state}>
-      <span>{words}</span>
-      {go && (
-        // which device, for a list of links all named alike; starting with the shown words (WCAG 2.5.3)
-        <a class="strong" data-testid="device-inspect" href={inspectHref(href, d)} aria-label={fmt(t[`devices.inspectGo.${go}Named`], { name: d.name })}>
-          {t[`devices.inspectGo.${go}`]}
-        </a>
-      )}
+    // which device, for a list of links all alike; starting with the shown words (WCAG 2.5.3). The mark is drawn, the
+    // words say the state.
+    <a class="foot-inspect strong" data-testid="device-inspect" data-state={state} href={inspectHref(href, d)}
+      aria-label={fmt(t["devices.inspectLinkNamed"], { label: detail ? `${label}${locale === "en" ? ", " : "，"}${detail}` : label, name: d.name })}>
+      <span class={`inspect-mark inspect-mark--${state}`} aria-hidden="true" />
+      {/* on two lines where one is too narrow: the date goes under the state, without the dot between them */}
+      <span class="foot-inspect__words">
+        <span class="foot-inspect__line">
+          <span>{label}</span>
+          {detail && <span class="foot-inspect__detail" data-testid="inspect-detail">{detail}</span>}
+        </span>
+      </span>
+    </a>
+  );
+}
+
+/** Waiting for the person to open the confirmation link on the device: the one state that asks something of them, so
+ * it is a note in the card, with the link to go on. */
+function InspectNote({ d }: { d: Device }) {
+  const { t, href } = useCtx();
+  // an older backend does not send the link's time: 30 minutes, policy.INSPECT_CONFIRM_MINUTES when this was written
+  const minutes = d.inspection_confirm_minutes ?? 30;
+  return (
+    <p class="card card--flat card--warn small device-inspect" data-testid="inspect-note" data-state="confirming">
+      <span>{fmt(t["devices.inspectNote.confirming"], { minutes })}</span>
+      {/* which device, for a list of links all named alike; starting with the shown words (WCAG 2.5.3) */}
+      <a class="strong" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectGo.confirmingNamed"], { name: d.name })}>
+        {t["devices.inspectGo.confirming"]}
+      </a>
     </p>
   );
 }
