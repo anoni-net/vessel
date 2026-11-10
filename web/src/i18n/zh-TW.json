@@ -1259,5 +1259,7 @@
   "lists.notes.col.reviewed": "審查日期",
   "lists.notes.noOperator": "不明",
   "lists.notes.report": "說明有誤，或想補充有公開來源的網站，請用",
-  "lists.notes.reportAfter": "告訴我們，附上網址與來源。我們不蒐集使用者命中了哪些網站，新的說明來自維護者自己的檢測與大家的回報。"
+  "lists.notes.reportAfter": "告訴我們，附上網址與來源。我們不蒐集使用者命中了哪些網站，新的說明來自維護者自己的檢測與大家的回報。",
+  "inspect.notes.title": "這一類裡出現的網站：",
+  "lists.log.20261110notes": "新增檢測報告的網站說明，第一批 4 筆：2 個廣告聯播網與 2 個廣告轉址網域"
 }

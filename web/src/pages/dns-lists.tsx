@@ -66,8 +66,10 @@ const PHISHING = [
 const RULES = [1, 2, 3, 4] as const;
 const KNOWN = [1, 2, 3, 5, 6] as const;
 const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
-// newest first; every change to the lists adds a line
+// newest first; every change to the lists adds a line, and so does every note on sites added or taken out
+// (src/data/site-notes.json)
 const LOG = [
+  ["2026-11-10", "20261110notes"],
   ["2026-11-09", "20261109c"],
   ["2026-11-09", "20261109b"],
   ["2026-11-09", "20261109"],

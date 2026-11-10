@@ -12,11 +12,11 @@ import { flagOf } from "../regions.ts";
 import { navigate } from "../router.ts";
 import { saveFile } from "../save-file.ts";
 import { setSignedIn } from "../session.ts";
-import { noteFor } from "../site-notes.ts";
+import { NOTE_CATEGORIES, type SiteNote, noteFor } from "../site-notes.ts";
 import { qrSvg } from "../wgconfig.ts";
 import { AccountNav } from "./account.tsx";
 import { Layers } from "./layers.tsx";
-import { NoteLine } from "./site-note.tsx";
+import { NoteCategories, NoteLine } from "./site-note.tsx";
 import { Busy, SkButton, SkCard, SkLine, Spin } from "./skeleton.tsx";
 
 const WAITING_EVERY = 10_000;
@@ -931,6 +931,8 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
                     {g.hidden > 0 && <p class="muted" data-testid="inspect-not-listed">{fmt(t["inspect.report.notListed"], { n: formatCount(locale, g.hidden), limit: MAX_LISTED })}</p>}
                   </details>
                 )}
+                {/* the categories of this kind's notes, each said once */}
+                <NoteCategories notes={g.listed.map((f) => noteFor(f.name)).filter((n): n is SiteNote => !!n)} order={NOTE_CATEGORIES} t={t} />
                 {g.listed.some((f) => f.app) && (
                   <p class="muted small" data-testid="inspect-app-source">
                     {t["inspect.apps.source"]}<a href={APPS_SOURCE} target="_blank" rel="noopener">{t["inspect.apps.sourceName"]}</a>
@@ -968,7 +970,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
                           <td class="inspect-table__when">{w.last && <span>{withDay(locale, w.last.toISOString())}</span>}</td></tr>
                       );
                       const note = noteFor(f.name);
-                      // what the site is, on a row of its own the width of the table, so a phone does not squeeze it
+                      // what the site is, its short line on a row of its own the width of the table, so a phone does not squeeze it
                       return note ? [row, <tr class="inspect-table__noterow"><td colSpan={3}><NoteLine note={note} t={t} class="inspect-table__note" /></td></tr>] : [row];
                     }),
                   ])}</tbody>

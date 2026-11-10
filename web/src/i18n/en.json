@@ -1259,5 +1259,7 @@
   "lists.notes.col.reviewed": "Reviewed",
   "lists.notes.noOperator": "Unknown",
   "lists.notes.report": "If a note is wrong, or you know a site with a published source to add, tell us through ",
-  "lists.notes.reportAfter": " with the address and the source. We do not collect which sites users' reports found, so new notes come from the maintainers' own inspections and from what people send us."
+  "lists.notes.reportAfter": " with the address and the source. We do not collect which sites users' reports found, so new notes come from the maintainers' own inspections and from what people send us.",
+  "inspect.notes.title": "The sites of this kind include:",
+  "lists.log.20261110notes": "Added notes on sites in inspection reports, a first 4: two ad networks and two ad redirect domains"
 }

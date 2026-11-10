@@ -1,6 +1,7 @@
 // What a site in an inspection report is, written up and reviewed by hand (toomore/anoni-net-ws#480, the second layer of
 // "網站的說明資料庫"). The data is data/site-notes.json; scripts/site-notes.mjs checks it in CI, and the lists page
-// (/dns/lists/#site-notes) shows all of it.
+// (/dns/lists/#site-notes) shows all of it. Adding or taking out a note adds a line to that page's change log too (`LOG`
+// in pages/dns-lists.tsx).
 //
 // Three rules hold here, and tests/site-notes.spec.ts keeps them:
 //

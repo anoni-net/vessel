@@ -32,7 +32,8 @@ export function NoteSources({ note, t, bare }: { note: SiteNote; t: T; bare?: bo
 }
 
 /**
- * What a site in a report is: "Ad network ExoClick: …", then its sources. Every word from the file is a text node, never
+ * What a site in a report is, in one short line: "Ad network ExoClick · Source: docs.exoclick.com". The category's sentence
+ * is said once under the kind (`NoteCategories`), not on every site. Every word from the file is a text node, never
  * markup, and the line only describes the site: it is drawn beside a finding whose severity is already decided.
  */
 export function NoteLine({ note, t, class: cls }: { note: SiteNote; t: T; class?: string }) {
@@ -40,8 +41,26 @@ export function NoteLine({ note, t, class: cls }: { note: SiteNote; t: T; class?
   const label = note.operator ? fmt(t["notes.withOperator"], { category: name, operator: note.operator }) : name;
   return (
     <span class={`site-note${cls ? ` ${cls}` : ""}`} data-testid="inspect-hit-note" data-category={note.category}>
-      <span data-testid="inspect-note-text">{fmt(t["notes.line"], { label, about: noteAbout(t, note.category) })}</span>
-      <span class="muted site-note__sources" data-testid="inspect-note-sources"><NoteSources note={note} t={t} /></span>
+      <span data-testid="inspect-note-text">{label}</span>
+      <span class="muted" aria-hidden="true"> · </span>
+      <span class="muted" data-testid="inspect-note-sources"><NoteSources note={note} t={t} /></span>
     </span>
+  );
+}
+
+/**
+ * The categories of the notes in one kind of finding, each said once with its sentence, in the order of the file: under
+ * the kind, so a row of sites only needs its short line.
+ */
+export function NoteCategories({ notes, order, t }: { notes: readonly SiteNote[]; order: readonly string[]; t: T }) {
+  const present = order.filter((c) => notes.some((n) => n.category === c));
+  if (!present.length) return null;
+  return (
+    <div class="small site-note-categories" data-testid="inspect-kind-notes">
+      <p>{t["inspect.notes.title"]}</p>
+      <ul class="plain">
+        {present.map((c) => <li data-category={c}>{fmt(t["notes.line"], { label: noteName(t, c), about: noteAbout(t, c) })}</li>)}
+      </ul>
+    </div>
   );
 }

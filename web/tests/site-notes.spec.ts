@@ -17,7 +17,8 @@ const DATA = JSON.parse(readFileSync(new URL("../src/data/site-notes.json", impo
 const MESSAGES = { "zh-TW": zhTW, "zh-CN": zhCN, en };
 const TODAY = "2026-11-10";
 
-const AD = "廣告聯播網 ExoClick：替許多網站投放廣告的服務，打開放了它廣告的網頁時，瀏覽器會自動連過去。經手的廣告曾經導向詐騙或惡意網站，所以也出現在部分惡意網站名單上。";
+// the categories' sentences, said once under a kind
+const AD = "廣告聯播網：替許多網站投放廣告的服務，打開放了它廣告的網頁時，瀏覽器會自動連過去。經手的廣告曾經導向詐騙或惡意網站，所以也出現在部分惡意網站名單上。";
 const REDIRECT = "廣告轉址：點廣告、彈出視窗或新分頁時經過的轉址網站，通常一閃而過就轉到下一個網頁。最後打開的網頁可能是一般廣告，也可能是詐騙或要求安裝 App 的頁面。";
 
 test.describe("the CI check", () => {
@@ -104,7 +105,7 @@ test.describe("the CI check", () => {
 test("a note's words are text: a name with markup in it is escaped, never markup", () => {
   const note = { domain: "magsrv.com", category: "ad-network", operator: "<b>Ex</b> & <script>x()</script>", sources: ["https://docs.exoclick.com/a?b=1&c=<2>", "javascript:alert(1)"], reviewed: TODAY };
   const html = render(h(NoteLine, { note, t: zhTW }));
-  expect(html).toContain("廣告聯播網 &lt;b>Ex&lt;/b> &amp; &lt;script>x()&lt;/script>：");
+  expect(html).toContain("廣告聯播網 &lt;b>Ex&lt;/b> &amp; &lt;script>x()&lt;/script></span>");
   expect(html).not.toContain("<b>");
   expect(html).not.toContain("<script>");
   // only the https:// source is a link, opened in a new tab
@@ -142,11 +143,14 @@ test.describe("in a report", () => {
   const rowNotes = (page: Page) => page.getByTestId("inspect-hit").getByTestId("inspect-hit-note");
   const row = (page: Page, name: string) => page.getByTestId("inspect-hit").filter({ has: page.locator("code", { hasText: new RegExp(`^${name.replace(/\./g, "\\.")}$`) }) });
 
-  test("a site with a note says what it is, its operator and its sources, under what the lists say", async ({ page }) => {
+  test("a site with a note says in one short line what it is, its operator and its sources, under what the lists say", async ({ page }) => {
     await open(page, running(NOTES_REPORT));
     const magsrv = row(page, "magsrv.com");
-    await expect(magsrv.getByTestId("inspect-note-text")).toHaveText(AD);
+    await expect(magsrv.getByTestId("inspect-hit-note")).toHaveText("廣告聯播網 ExoClick · 來源：docs.exoclick.com");
+    await expect(magsrv.getByTestId("inspect-note-text")).toHaveText("廣告聯播網 ExoClick");
     await expect(magsrv.getByTestId("inspect-note-sources")).toHaveText("來源：docs.exoclick.com");
+    // the category's sentence is not on the row
+    await expect(magsrv).not.toContainText("替許多網站投放廣告");
     const link = magsrv.getByRole("link", { name: "docs.exoclick.com" });
     await expect(link).toHaveAttribute("href", "https://docs.exoclick.com/docs/adblock-dynamic-domains-api");
     await expect(link).toHaveAttribute("target", "_blank");
@@ -155,17 +159,17 @@ test.describe("in a report", () => {
     const order = await magsrv.locator(".hit-row__words > span").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
     expect(order).toEqual(["inspect-hit-words", "inspect-hit-lists", "inspect-hit-note"]);
     // two sources
-    await expect(row(page, "diffusedpassionquaking.com").getByTestId("inspect-note-text")).toHaveText(/^廣告聯播網 Clickadu：/);
+    await expect(row(page, "diffusedpassionquaking.com").getByTestId("inspect-note-text")).toHaveText("廣告聯播網 Clickadu");
     await expect(row(page, "diffusedpassionquaking.com").getByTestId("inspect-note-sources")).toHaveText("來源：website.informer.com、hypestat.com");
     // without an operator: the category alone. The fourth site of its kind is folded away at first
     await page.getByTestId("inspect-hits-more").first().locator("summary").click();
-    await expect(row(page, "opoxv.com").getByTestId("inspect-note-text")).toHaveText(REDIRECT);
+    await expect(row(page, "opoxv.com").getByTestId("inspect-hit-note")).toHaveText("廣告轉址 · 來源：urlscan.io");
     await expect(row(page, "opoxv.com").getByRole("link", { name: "urlscan.io" })).toHaveAttribute("href", "https://urlscan.io/result/019af467-48a7-727f-b44c-e0afbd5d86e8/");
   });
 
   test("a name below a noted domain has its note; a name that only ends the same way, or another site, has none", async ({ page }) => {
     await open(page, running(NOTES_REPORT));
-    await expect(row(page, "s10.snaptrckr.fun").getByTestId("inspect-note-text")).toHaveText(/^廣告轉址：/);
+    await expect(row(page, "s10.snaptrckr.fun").getByTestId("inspect-note-text")).toHaveText("廣告轉址");
     await expect(row(page, "s10.snaptrckr.fun").getByRole("link", { name: "malwarebytes.com" })).toHaveAttribute("href", "https://www.malwarebytes.com/blog/detections/snaptrckr-fun");
     await expect(row(page, "notmagsrv.com").getByTestId("inspect-hit-note")).toHaveCount(0);
     await expect(row(page, "pixel.example").getByTestId("inspect-hit-note")).toHaveCount(0);
@@ -228,13 +232,30 @@ test.describe("in a report", () => {
     expect(withNotes.heading).toBe("需要檢查");
   });
 
+  test("each category's sentence is said once, under the kind its sites are in, and only the categories seen there", async ({ page }) => {
+    await open(page, running(NOTES_REPORT));
+    const kinds = page.getByTestId("inspect-kind");
+    const notes = kinds.filter({ hasText: "惡意網站名單" }).getByTestId("inspect-kind-notes");
+    await expect(notes.locator("p")).toHaveText("這一類裡出現的網站：");
+    // two sites of each category, a sentence each; in the order of the file
+    await expect(notes.locator("li")).toHaveText([AD, REDIRECT]);
+    await expect(page.getByText(AD, { exact: true })).toHaveCount(1);
+    // the other kind has no noted site, and says nothing
+    await expect(kinds.filter({ hasText: "資安威脅情報名單" }).getByTestId("inspect-kind-notes")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-kind-notes")).toHaveCount(1);
+    // one category only: one sentence
+    await page.unrouteAll();
+    await open(page, running(AD_NETWORK_REPORT));
+    await expect(page.getByTestId("inspect-kind-notes").locator("li")).toHaveText([AD]);
+  });
+
   test("the table has the notes too", async ({ page }) => {
     await open(page, running(NOTES_REPORT));
     const table = page.getByTestId("inspect-hits-table");
     await table.locator("xpath=ancestor::details[1]/summary").click();
     // on the row under the site's own
     const cell = table.locator("tr", { has: page.locator("code", { hasText: /^magsrv\.com$/ }) }).locator("+ tr.inspect-table__noterow td");
-    await expect(cell.getByTestId("inspect-note-text")).toHaveText(AD);
+    await expect(cell).toHaveText("廣告聯播網 ExoClick · 來源：docs.exoclick.com");
     await expect(cell.getByRole("link", { name: "docs.exoclick.com" })).toHaveAttribute("target", "_blank");
     await expect(table.getByTestId("inspect-hit-note")).toHaveCount(4);
   });
@@ -245,8 +266,10 @@ test.describe("in a report", () => {
     const chunks: Buffer[] = [];
     for await (const c of await download.createReadStream()) chunks.push(c as Buffer);
     const html = Buffer.concat(chunks).toString();
-    expect(html).toContain(AD);
-    expect(html).toContain(REDIRECT);
+    // the sentences once, under the kind
+    expect(html.split(AD)).toHaveLength(2);
+    expect(html.split(REDIRECT)).toHaveLength(2);
+    expect(html).toContain("廣告聯播網 ExoClick");
     expect(html).toContain('href="https://docs.exoclick.com/docs/adblock-dynamic-domains-api" target="_blank" rel="noopener"');
     // in the rows and in the table
     expect(html.match(/data-testid="inspect-hit-note"/g)).toHaveLength(8);
@@ -256,12 +279,14 @@ test.describe("in a report", () => {
 
   test("in English and in Simplified Chinese", async ({ page }) => {
     await open(page, running(NOTES_REPORT), "/en/devices/inspect/?d=d-1");
-    await expect(row(page, "magsrv.com").getByTestId("inspect-note-text")).toHaveText(/^Ad network run by ExoClick: A service that places ads on many websites/);
+    await expect(row(page, "magsrv.com").getByTestId("inspect-hit-note")).toHaveText("Ad network run by ExoClick · Source: docs.exoclick.com");
+    await expect(page.getByTestId("inspect-kind-notes").locator("li").first()).toHaveText(/^Ad network: A service that places ads on many websites/);
     await expect(row(page, "magsrv.com").getByTestId("inspect-note-sources")).toHaveText("Source: docs.exoclick.com");
     await expect(row(page, "diffusedpassionquaking.com").getByTestId("inspect-note-sources")).toHaveText("Sources: website.informer.com, hypestat.com");
     await expect(page.getByTestId("inspect-notes-by").getByRole("link")).toHaveAttribute("href", "/en/dns/lists/#site-notes");
     await page.goto("/zh-cn/devices/inspect/?d=d-1");
-    await expect(row(page, "opoxv.com").getByTestId("inspect-note-text")).toHaveText(/^广告跳转：/);
+    await page.getByTestId("inspect-hits-more").first().locator("summary").click();
+    await expect(row(page, "opoxv.com").getByTestId("inspect-hit-note")).toHaveText("广告跳转 · 来源：urlscan.io");
     await expect(page.getByTestId("inspect-notes-by").getByRole("link")).toHaveAttribute("href", "/zh-cn/dns/lists/#site-notes");
   });
 });
@@ -307,6 +332,12 @@ test.describe("on the lists page", () => {
     await expect(page.getByTestId("lists-notes-table").locator("tbody tr").nth(1).locator("td")).toHaveText(["magsrv.com", "Ad network", "ExoClick", "docs.exoclick.com", "2026-11-10"]);
     await go(page, "/zh-cn/dns/lists/");
     await expect(page.getByTestId("lists-notes-categories").locator("dt").first()).toHaveText("广告联播网");
+  });
+
+  test("the change log has a line for the notes", async ({ page }) => {
+    await go(page);
+    await page.getByTestId("lists-more").locator("summary").click();
+    await expect(page.getByTestId("lists-log").locator("li").first()).toHaveText("2026-11-10 新增檢測報告的網站說明，第一批 4 筆：2 個廣告聯播網與 2 個廣告轉址網域");
   });
 
   test("the table stays a table on a phone, and nothing runs off the page", async ({ page }) => {

@@ -1182,10 +1182,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   :lang(en) .sk-card--handling { min-height: 573px; }
 }
 
-/* What a site in an inspection report is (site-notes.ts): the category and its sentence, its sources on a line below. */
+/* What a site in an inspection report is (site-notes.ts): a short line, the category's sentence once under its kind. */
 .site-note { display: block; }
-.site-note__sources { display: block; }
 .site-note a { overflow-wrap: anywhere; }
+.site-note-categories { margin-top: 4px; }
+.site-note-categories > ul { display: grid; gap: 4px; margin-top: 4px; }
 /* on a row of its own under the site's row in the table, in the page's own letters like the rest of the words */
 .inspect-table tr:has(+ .inspect-table__noterow) > td { border-bottom: 0; padding-bottom: 0; }
 .inspect-table__note { padding-bottom: 4px; font-family: var(--font); }
