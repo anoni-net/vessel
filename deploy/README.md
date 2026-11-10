@@ -80,6 +80,25 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 
 加上 `--force` 手動執行一次，可以確認通知收得到。
 
+## 濫用的跡象
+
+節點不記錄連線的目的地與時間，所以無法從紀錄查出是哪一台裝置做了什麼。節點先擋下常見的濫用（往外的 SMTP、內網與雲端 metadata 的位址、每台裝置同時 2,000 條連線，見 `node/start.sh`），其餘靠外部的訊號。
+
+### 出口 IP 的黑名單
+
+`health_warn.py` 每次執行都把各城市的出口 IP（`regions set --exit-ip`，換主機期間也包括舊主機的）逐一到 DNS 黑名單查詢，被列入時推一則高優先的通知，移出時推一則一般優先的通知。預設查 SpamCop、Barracuda、DroneBL 與 PSBL，2026-11 在 m6 確認這四份都能透過主機的解析器查詢。Spamhaus 拒絕經由公用解析器的查詢，要用的話先申請免費的 DQS 金鑰，在 crontab 加上 `VESSEL_DNSBL="<預設的四份> <金鑰>.zen.dq.spamhaus.net"`。查不到結果（逾時、名單拒絕查詢）時沿用上一次的結果，原因寫在 log。上一次的結果記在 `VESSEL_DNSBL_STATE`（預設 `~/.cache/vessel-dnsbl.state`）。只查 IPv4。
+
+改了名單之後執行一次 `python3 deploy/health_warn.py --dnsbl`，每一筆都應該是 `clear` 或 `listed`，出現 `unknown` 代表那份名單無法從這台主機查詢。
+
+### 被列入或收到 abuse 通知時
+
+主機商轉來的 abuse 通知會寄到主機帳號的 email，要確認維護者看得到。處理的順序：
+
+1. 通知裡有目的地或埠的話，先在那個節點暫時擋下，回覆主機商已經處理
+2. 用 `report` 看那個城市的流量與連線裝置數有沒有異常
+3. 同一個城市一再出現，評估收緊每台裝置的連線數，或暫停兌換（`settings redeem_paused true`）
+4. 到黑名單的網站申請移除，多數名單在問題停止之後也會自動移除
+
 ## Cloudflare
 
 - 主機名稱經 Cloudflare 代理
