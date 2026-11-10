@@ -339,10 +339,56 @@ def test_deleting_a_device_that_is_not_being_inspected_leaves_no_note(signed_in,
     assert db.execute("SELECT count(*) FROM inspection_leftovers").fetchone()[0] == 0
 
 
+INSPECTION_FIELDS = ("inspection", "inspection_ends_at", "inspection_days", "inspection_report_until", "inspection_confirm_minutes")
+
+
+def listed(client) -> dict:
+    return {k: v for k, v in client.get("/api/devices").json()[0].items() if k.startswith("inspection")}
+
+
 def test_the_device_list_says_there_is_one(signed_in, node, db, device):
-    assert signed_in.get("/api/devices").json()[0]["inspection"] is None
-    confirm(signed_in, device, node, db)
+    assert listed(signed_in) == dict.fromkeys(INSPECTION_FIELDS)
+    code = start(signed_in, device).json()["code"]
+    # the link's time from the policy, for the card to say; the same the inspection's page is told when it is made
+    assert listed(signed_in) == {"inspection": "confirming", "inspection_ends_at": None,
+                                 "inspection_days": policy.INSPECT_DAYS, "inspection_report_until": None,
+                                 "inspection_confirm_minutes": policy.INSPECT_CONFIRM_MINUTES}
+    node.confirms.append({"code": code, "address": "10.8.1.2"})
+    worker.tick(db)
     assert signed_in.get("/api/devices").json()[0]["inspection"] == "active"
+
+
+def test_the_device_list_gives_the_dates_the_inspection_page_has(signed_in, node, db, device, analysis):
+    confirm(signed_in, device, node, db)
+    page = read(signed_in, device)
+    running = listed(signed_in)
+    # the same end and the same days, so the card and the inspection's page count the same day
+    assert running == {"inspection": "active", "inspection_ends_at": page["ends_at"], "inspection_days": page["days"],
+                       "inspection_report_until": None, "inspection_confirm_minutes": None}
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    assert listed(signed_in)["inspection"] == "ending"
+    finish_it(db)
+    ended = listed(signed_in)
+    assert ended["inspection"] == "ended" and ended["inspection_report_until"] == read(signed_in, device)["report_until"]
+
+
+def test_the_device_list_drops_a_request_past_its_link(signed_in, db, device):
+    start(signed_in, device)
+    db.execute("UPDATE device_inspections SET code_at = now() - interval '31 minutes'")
+    # as on the inspection's page, before the worker deletes it
+    assert listed(signed_in) == dict.fromkeys(INSPECTION_FIELDS)
+
+
+def test_the_device_list_never_carries_the_report(signed_in, node, db, device, analysis):
+    """Only where the inspection stands: what it found stays on the inspection's own page (toomore/anoni-net-ws#461)."""
+    confirm(signed_in, device, node, db)
+    signed_in.delete(f"/api/devices/{device}/inspection", headers=HEADERS)
+    finish_it(db)
+    body = signed_in.get("/api/devices").json()
+    assert set(listed(signed_in)) == set(INSPECTION_FIELDS)
+    for value in SEALED.values():
+        assert f"'{value}'" not in str(body)
+    assert "report" not in str(body).replace("inspection_report_until", "")
 
 
 def test_health_watches_the_analysis_host_only_while_something_is_inspected(client, signed_in, node, db, device, analysis):

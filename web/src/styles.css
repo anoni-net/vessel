@@ -710,6 +710,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .device-head { flex-wrap: nowrap; align-items: flex-start; }
 .device-head__name { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 20px; color: inherit; overflow-wrap: anywhere; }
 .device-head > .badge { flex: none; }
+/* waiting for the inspection to be confirmed on the device, under the spec sheet: the sentence, and the link on a line
+   of its own */
+.device-inspect { gap: 4px; align-items: flex-start; margin: 0; padding: 10px 14px 10px 24px; }
+.device-inspect > span { text-wrap: pretty; }
 /* a device as a spec sheet: the name of each fact on the left, a hairline between the lines */
 .spec { display: grid; grid-template-columns: max-content minmax(0, 1fr); margin: 0; border-top: 1px solid var(--line); }
 .spec > dt, .spec > dd { margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); }
@@ -717,8 +721,20 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .spec > dd { color: var(--text); }
 .spec__with-icon { display: flex; align-items: center; gap: 8px; }
 .spec__figure { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.device-foot { justify-content: flex-end; }
+.device-foot { justify-content: flex-end; flex-wrap: nowrap; align-items: baseline; }
 .device-foot > a { margin-inline-end: auto; }
+.device-foot > :not(a) { flex: none; }
+/* the inspection's state in the card's corner: a mark, then the state and its date as one sentence, one link. The mark
+   is not text, so the underline is under the words alone; where the line is too narrow they wrap as any text does */
+.foot-inspect { display: inline-flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.foot-inspect__words { min-width: 0; text-wrap: pretty; }
+/* drawn, not read: the words say the state. A filled dot while it runs, a ring while it waits for the device, half
+   filled while it is wrapped up, a square for the report; the shapes differ in both schemes, not only the colour */
+.inspect-mark { flex: none; width: 10px; height: 10px; margin-top: calc((1lh - 10px) / 2); border: 2px solid currentColor; border-radius: 50%; }
+.inspect-mark--active { background: currentColor; box-shadow: 0 0 0 3px var(--accent); }
+.inspect-mark--confirming { border-color: var(--caution); }
+.inspect-mark--ending { background: linear-gradient(90deg, currentColor 50%, transparent 50%); }
+.inspect-mark--ended { border-radius: 1px; }
 /* Centre the icons on the letters rather than on the line box. Fonts leave different space above and below their
    glyphs: a fixed offset that lined the icons up with Noto Sans put them 1.5 px too high with PingFang on iPhone.
    Trimming the text to its cap height and baseline makes the box hug the letters in any font. */

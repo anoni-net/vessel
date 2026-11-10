@@ -7,6 +7,7 @@ import { errorText, fmt } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { flagOf, relayEntry } from "../regions.ts";
+import { progress } from "../inspection-progress.ts";
 import { AccountNav } from "./account.tsx";
 import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
@@ -334,10 +335,11 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
                   <span>{t["devices.oldConfig"]}{locale === "en" ? " " : ""}{full ? t["devices.movedDeleteFirst"] : t["devices.movedAdd"]}</span>
                 </p>
               )}
+              {d.inspection === "confirming" && d.status !== "revoking" && !deleting.has(d.id) && <InspectNote d={d} />}
               <div class="row small device-foot">
-                {(d.status === "active" || d.inspection) && d.status !== "revoking" && !deleting.has(d.id) && (
-                  <a data-testid="device-inspect" href={`${href("/devices/inspect/")}?d=${encodeURIComponent(d.id)}`}>
-                    {t[d.inspection ? (`devices.inspect.${d.inspection}` as const) : "devices.inspect"]}
+                {inspecting(d) && !deleting.has(d.id) ? <InspectLink d={d} /> : d.status === "active" && !d.inspection && !deleting.has(d.id) && (
+                  <a data-testid="device-inspect" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectNamed"], { name: d.name })}>
+                    {t["devices.inspect"]}
                   </a>
                 )}
                 {deleting.has(d.id) ? (
@@ -373,6 +375,53 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
       </p>
       <p class="small center"><a class="strong" href={href("/feedback/?from=devices")}>{t["feedback.link"]}</a></p>
     </section>
+  );
+}
+
+const inspecting = (d: Device) => !!d.inspection && d.status !== "revoking";
+const inspectHref = (href: (p: string) => string, d: Device) => `${href("/devices/inspect/")}?d=${encodeURIComponent(d.id)}`;
+
+/**
+ * Where the device's inspection stands, at the bottom left of its card where "Inspect traffic" is otherwise: a mark,
+ * the state and its date, all one link to the inspection's page. Only where it stands and its dates: never what the
+ * report found ("needs a look", "known threat"), and the report is not opened on this page. The device list is what is
+ * most often seen over someone's shoulder, and a stalker who reads there that their app was found can act before the
+ * person does (toomore/anoni-net-ws#461). The report is opened on the inspection's own page, with the key in this browser.
+ */
+function InspectLink({ d }: { d: Device }) {
+  const { t, href, locale } = useCtx();
+  const state = d.inspection!;
+  // one sentence with its date where there is one; an older backend sends the state alone, and then the state alone
+  const words = state === "active" && d.inspection_ends_at && d.inspection_days
+    ? fmt(t["devices.inspectLink.active"], progress({ ends_at: d.inspection_ends_at, days: d.inspection_days }))
+    : state === "ended" && d.inspection_report_until
+      ? fmt(t["devices.inspectLink.ended"], { date: formatDate(locale, d.inspection_report_until) })
+      : t[`devices.inspect.${state}`];
+  return (
+    // which device, for a list of links all alike; starting with the shown words (WCAG 2.5.3). The mark is drawn, the
+    // words say the state.
+    <a class="foot-inspect strong" data-testid="device-inspect" data-state={state} href={inspectHref(href, d)}
+      aria-label={fmt(t["devices.inspectLinkNamed"], { label: words, name: d.name })}>
+      <span class={`inspect-mark inspect-mark--${state}`} aria-hidden="true" />
+      <span class="foot-inspect__words" data-testid="inspect-words">{words}</span>
+    </a>
+  );
+}
+
+/** Waiting for the person to open the confirmation link on the device: the one state that asks something of them, so
+ * it is a note in the card, with the link to go on. */
+function InspectNote({ d }: { d: Device }) {
+  const { t, href } = useCtx();
+  // an older backend does not send the link's time: 30 minutes, policy.INSPECT_CONFIRM_MINUTES when this was written
+  const minutes = d.inspection_confirm_minutes ?? 30;
+  return (
+    <p class="card card--flat card--warn small device-inspect" data-testid="inspect-note" data-state="confirming">
+      <span>{fmt(t["devices.inspectNote.confirming"], { minutes })}</span>
+      {/* which device, for a list of links all named alike; starting with the shown words (WCAG 2.5.3) */}
+      <a class="strong" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectGo.confirmingNamed"], { name: d.name })}>
+        {t["devices.inspectGo.confirming"]}
+      </a>
+    </p>
   );
 }
 
