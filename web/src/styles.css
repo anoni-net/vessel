@@ -767,8 +767,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .faq__item { border: 1px solid var(--ink); border-radius: var(--radius); background: var(--paper); }
 .faq__item summary { display: flex; justify-content: space-between; gap: 12px; padding: 14px 18px; min-height: 48px; box-sizing: border-box; color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
 .faq__item summary::-webkit-details-marker { display: none; }
-.faq__item summary::after { content: "+"; flex: none; font-family: var(--mono); font-weight: 600; }
-.faq__item[open] summary::after { content: "−"; }
+/* a summary already says whether it is open */
+.faq__item summary::after { content: "+" / ""; flex: none; font-family: var(--mono); font-weight: 600; }
+.faq__item[open] summary::after { content: "−" / ""; }
 .faq__item p { margin: 0; padding: 0 18px 16px; }
 .faq__more { margin: 20px 0 0; }
 /* the connection cross-section beside the home page's questions, only where there is room for it */
@@ -819,7 +820,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .legal table, .legal tbody, .legal tr, .legal td { display: block; }
   .legal tr { margin-bottom: 12px; padding-block: 6px; border: 1px solid var(--ink); border-radius: var(--radius); }
   .legal td { padding: 6px 14px; border: 0; }
-  .legal td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
+  /* the column's name over each value, for the eye: the cell already has its column header, so a screen reader would
+     say it twice (VoiceOver on iPhone did, 2026-11-11) */
+  .legal td::before { content: attr(data-label) / ""; display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
   /* screen readers still get the column names, which display: none would take away */
   .lists-page .legal thead { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
@@ -934,7 +937,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .lists-compare tr { margin-bottom: 12px; border: 1px solid var(--ink); border-radius: var(--radius); }
   .lists-compare tbody th { display: block; padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: start; }
   .lists-compare td { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border: 0; white-space: normal; }
-  .lists-compare td::before { content: attr(data-label); font-weight: 400; color: var(--text); text-align: start; }
+  .lists-compare td::before { content: attr(data-label) / ""; font-weight: 400; color: var(--text); text-align: start; }
 }
 .lists-panels { display: grid; gap: 24px; }
 @media (min-width: 960px) {
