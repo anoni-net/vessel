@@ -16,12 +16,19 @@ class FakeAnalysis:
     def __init__(self):
         self.cleared, self.down, self.reports, self.flushes, self.waiting = [], False, 0, 0, 0
         self.connected = ["sg"]
+        self.summaries: list[str] = []  # the keys each summary was sealed to
 
     def report(self, node, address, public_key):
         if self.down:
             raise NodeError("timeout")
         self.reports += 1
         return SEALED
+
+    def summary(self, node, address, public_key):
+        if self.down:
+            raise NodeError("timeout")
+        self.summaries.append(public_key)
+        return {"sealed_to": public_key}
 
     def clear(self, node, address):
         if self.down:
@@ -343,7 +350,9 @@ INSPECTION_FIELDS = ("inspection", "inspection_ends_at", "inspection_days", "ins
 
 
 def listed(client) -> dict:
-    return {k: v for k, v in client.get("/api/devices").json()[0].items() if k.startswith("inspection")}
+    """The inspection's own fields; a leader's request is in test_group_inspections.py."""
+    return {k: v for k, v in client.get("/api/devices").json()[0].items()
+            if k.startswith("inspection") and k not in ("inspection_request", "inspection_group")}
 
 
 def test_the_device_list_says_there_is_one(signed_in, node, db, device):

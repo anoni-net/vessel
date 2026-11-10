@@ -76,13 +76,16 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
     rows = conn.execute(
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
         "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
-        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status, d.throttled, i.ends_at, i.report_until "
+        "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status, d.throttled, i.ends_at, i.report_until, "
+        "g.status, g.requested_on, g.until "
         "FROM devices d JOIN regions r ON r.id = d.region_id "
         # a request whose confirmation link has run out confirms nothing, as on the inspection's own page; the worker
         # deletes it later
         "LEFT JOIN device_inspections i ON i.device_id = d.id "
         "AND NOT (i.status = 'confirming' AND i.code_at <= now() - make_interval(mins => %s)) "
         "LEFT JOIN device_usage u ON u.device_id = d.id AND u.period = date_trunc('month', current_date) "
+        # a leader's request for an inspection (app/groups.py), and whether the inspection is the one they asked for
+        "LEFT JOIN group_inspections g ON g.device_id = d.id AND g.status IN ('requested', 'started') "
         "WHERE d.account_id = %s ORDER BY d.created_on, d.id",
         (policy.INSPECT_CONFIRM_MINUTES, account_id),
     )
@@ -111,7 +114,11 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          # the last day its report is kept, once it has ended
          "inspection_report_until": r[16].isoformat() if r[16] else None,
          # while it waits for the device: how long a confirmation link is good for after it is made
-         "inspection_confirm_minutes": policy.INSPECT_CONFIRM_MINUTES if r[13] == "confirming" else None}
+         "inspection_confirm_minutes": policy.INSPECT_CONFIRM_MINUTES if r[13] == "confirming" else None,
+         # the group's leaders asked for an inspection of this device and wait for the member's answer until `until`
+         "inspection_request": {"requested_on": r[18].isoformat(), "until": r[19].isoformat()} if r[17] == "requested" else None,
+         # the inspection is one a leader asked for: the leaders get its summary
+         "inspection_group": r[17] == "started" and r[13] is not None}
         for r in rows
     ]
 

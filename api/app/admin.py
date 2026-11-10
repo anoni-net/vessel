@@ -22,10 +22,12 @@
 
   python -m app.admin groups [list]                            groups: codes, settings and totals, nothing about
                                                                their people (toomore/anoni-net-ws#464)
-  python -m app.admin groups create CODE --accounts N --ends-on YYYY-MM-DD [--devices N] [--quota-gb N]
+  python -m app.admin groups create CODE --accounts N --ends-on YYYY-MM-DD [--devices N] [--quota-gb N] [--inspections N]
                                                                --accounts is how many members it can invite;
-                                                               --devices and --quota-gb are per account
-  python -m app.admin groups set CODE [--accounts N] [--devices N] [--quota-gb N] [--ends-on YYYY-MM-DD]
+                                                               --devices and --quota-gb are per account;
+                                                               --inspections is how many device inspections its
+                                                               leaders can ask for at once (default 0, none)
+  python -m app.admin groups set CODE [--accounts N] [--devices N] [--quota-gb N] [--inspections N] [--ends-on YYYY-MM-DD]
                                                                a new end date moves its devices' date too
   python -m app.admin groups leader-invite CODE --label ALIAS [--days D]
                                                                print a code that makes a leader's account; the same
@@ -106,12 +108,14 @@ def main(argv: list[str] | None = None) -> None:
     gc.add_argument("--ends-on", type=date.fromisoformat, required=True)
     gc.add_argument("--devices", type=int, default=policy.DEVICE_LIMIT)
     gc.add_argument("--quota-gb", type=int, help="per account; personal accounts' quota if left out")
+    gc.add_argument("--inspections", type=int, default=0, help="inspections the leaders can ask for at once; 0 is none")
     gs = gr.add_parser("set")
     gs.add_argument("code")
     gs.add_argument("--accounts", type=int)
     gs.add_argument("--ends-on", type=date.fromisoformat)
     gs.add_argument("--devices", type=int)
     gs.add_argument("--quota-gb", type=int)
+    gs.add_argument("--inspections", type=int)
     gi = gr.add_parser("leader-invite")
     gi.add_argument("code")
     gi.add_argument("--label", required=True)
@@ -296,6 +300,8 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
         value = getattr(args, name, None)
         if value is not None and value <= 0:
             sys.exit(f"--{name.replace('_', '-')} must be above zero")
+    if getattr(args, "inspections", None) is not None and args.inspections < 0:
+        sys.exit("--inspections is 0 or more")
     state = None
     if args.action in ("set", "leader-invite", "close", "remove-leader"):
         state = conn.execute("SELECT closing_on, ends_on FROM groups WHERE code = %s", (args.code,)).fetchone()
@@ -315,17 +321,19 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
         if conn.execute("SELECT 1 FROM groups WHERE code = %s", (args.code,)).fetchone():
             sys.exit(f"group {args.code} already exists")
         conn.execute(
-            "INSERT INTO groups (code, account_limit, device_limit, monthly_quota_bytes, ends_on) "
-            "VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO groups (code, account_limit, device_limit, monthly_quota_bytes, ends_on, inspection_limit) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
             (args.code, args.accounts, args.devices,
-             args.quota_gb * 10**9 if args.quota_gb else policy.personal_quota(conn), args.ends_on),
+             args.quota_gb * 10**9 if args.quota_gb else policy.personal_quota(conn), args.ends_on, args.inspections),
         )
     elif args.action == "set":
         with conn.transaction():
             conn.execute(
                 "UPDATE groups SET account_limit = coalesce(%s, account_limit), device_limit = coalesce(%s, device_limit), "
-                "monthly_quota_bytes = coalesce(%s, monthly_quota_bytes), ends_on = coalesce(%s, ends_on) WHERE code = %s",
-                (args.accounts, args.devices, args.quota_gb * 10**9 if args.quota_gb else None, args.ends_on, args.code),
+                "monthly_quota_bytes = coalesce(%s, monthly_quota_bytes), ends_on = coalesce(%s, ends_on), "
+                "inspection_limit = coalesce(%s, inspection_limit) WHERE code = %s",
+                (args.accounts, args.devices, args.quota_gb * 10**9 if args.quota_gb else None, args.ends_on,
+                 args.inspections, args.code),
             )
             if args.ends_on:
                 conn.execute(
@@ -352,8 +360,8 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
             )
         print(code)
         return
-    for code, account_limit, device_limit, quota, ends_on, closing_on, members, leaders, devices, used in conn.execute(
-        "SELECT g.code, g.account_limit, g.device_limit, g.monthly_quota_bytes, g.ends_on, g.closing_on, "
+    for code, account_limit, device_limit, quota, ends_on, closing_on, inspections, members, leaders, devices, used in conn.execute(
+        "SELECT g.code, g.account_limit, g.device_limit, g.monthly_quota_bytes, g.ends_on, g.closing_on, g.inspection_limit, "
         "(SELECT count(*) FROM accounts a WHERE a.group_code = g.code AND a.group_role = 'member'), "
         "(SELECT count(*) FROM accounts a WHERE a.group_code = g.code AND a.group_role = 'leader'), "
         "(SELECT count(*) FROM devices d JOIN accounts a ON a.id = d.account_id "
@@ -366,7 +374,7 @@ def groups(conn: psycopg.Connection, args: argparse.Namespace, hmac_key: str) ->
         note = (f"  CLOSING {closing_on.isoformat()}" if closing_on
                 else "  ENDED" if left < 0 else f"  ends in {left} days" if left <= GROUP_ENDING_DAYS else "")
         print(f"{code}  members {members}/{account_limit}  leaders {leaders}  devices {devices} ({device_limit} each)  "
-              f"quota {size(quota)}  this month {size(used)}  until {ends_on.isoformat()}{note}")
+              f"quota {size(quota)}  this month {size(used)}  inspections {inspections}  until {ends_on.isoformat()}{note}")
 
 
 def notices(conn: psycopg.Connection, args: argparse.Namespace) -> None:
