@@ -192,6 +192,9 @@ export interface Device {
   blocked: number;
   /** whether the device has ever completed a handshake with its node */
   connected: boolean;
+  /** the node keeps receiving its handshakes but the connection is not made: likely the network drops the node's
+   * replies; cleared at the next handshake (missing from an older backend) */
+  failing?: boolean;
   /** made before its region moved to a new host: the config stops working after this day (or already has) */
   moved_until: string | null;
   /** the config has the private IPv6 address (anoni-net/vessel#122); without it, iOS sends IPv6 around the tunnel */

@@ -143,6 +143,7 @@
   "devices.blockedNone": "防护已开启，本月还没有遇到恶意网站",
   "devices.notConnected": "还没连接过。在 AmneziaWG 打开这个隧道之后，几分钟内这行提示就会消失。",
   "devices.notConnectedLong": "创建超过一天还没连接过。请先把 AmneziaWG 更新到最新版，打开这个隧道之后，用连接检测看看是哪里出了问题。",
+  "devices.failing": "节点收到了这台设备的连接请求，连接却一直没有建立，你目前的网络可能拦住了 Vessel 的回应。可以换一个网络试试，例如从 Wi-Fi 换成移动网络，也可以添加一台设备，选择其他城市或中继线路。",
   "devices.moved": "{city}节点换了新的主机，这台设备的配置文件 {date} 之后就无法连接。",
   "devices.movedGone": "{city}节点换了新的主机，这台设备的配置文件已经无法连接。",
   "devices.movedAdd": "请添加一台设备、导入新的配置文件，再删除这一台。",

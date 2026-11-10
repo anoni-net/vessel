@@ -77,7 +77,7 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
         "SELECT d.id, d.name, d.region_id, d.dns_filter, d.status, d.created_on, d.expires_on, "
         "coalesce(u.rx_bytes + u.tx_bytes, 0), coalesce(u.blocked + u.blocked_ads, 0), d.connected, "
         "CASE WHEN d.moved THEN r.previous_until END, d.ipv6, d.relay_id, i.status, d.throttled, i.ends_at, i.report_until, "
-        "g.status, g.requested_on, g.until "
+        "g.status, g.requested_on, g.until, d.failing "
         "FROM devices d JOIN regions r ON r.id = d.region_id "
         # a request whose confirmation link has run out confirms nothing, as on the inspection's own page; the worker
         # deletes it later
@@ -118,7 +118,9 @@ def list_devices(account_id: Account, conn: Conn) -> list[dict]:
          # the group's leaders asked for an inspection of this device and wait for the member's answer until `until`
          "inspection_request": {"requested_on": r[18].isoformat(), "until": r[19].isoformat()} if r[17] == "requested" else None,
          # the inspection is one a leader asked for: the leaders get its summary
-         "inspection_group": r[17] == "started" and r[13] is not None}
+         "inspection_group": r[17] == "started" and r[13] is not None,
+         # the node keeps receiving its handshakes, but the connection is not made (app/jobs.py, failing)
+         "failing": r[20]}
         for r in rows
     ]
 

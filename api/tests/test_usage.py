@@ -449,3 +449,26 @@ def test_report_prints_the_failing_devices(signed_in, node, db, capsys):
     db.execute("UPDATE daily_stats SET failing_devices = 3")
     admin.report(db, 2)
     assert db.execute("SELECT current_date").fetchone()[0].isoformat() + "  sg" in capsys.readouterr().out
+
+
+def test_a_device_that_keeps_failing_to_connect_says_so_until_it_connects(signed_in, node, db):
+    import time as clock
+
+    phone = create(signed_in).json()["id"]
+    node.counters[phone] = (1000, 1000)
+    worker.tick(db)
+
+    def failing() -> bool:
+        return signed_in.get("/api/devices").json()[0]["failing"]
+
+    assert failing() is False
+    node.counters[phone] = (1300, 1800)
+    worker.tick(db)
+    assert failing() is True
+    # it gives up: still said, the last try did not work
+    worker.tick(db)
+    assert failing() is True
+    # a handshake since the last reading: connected
+    node.handshakes[phone] = int(clock.time()) + 1
+    worker.tick(db)
+    assert failing() is False
