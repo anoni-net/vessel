@@ -1,0 +1,31 @@
+{
+  "categories": ["ad-network", "ad-redirect", "tracker", "phishing", "c2", "stalkerware-vendor"],
+  "sites": [
+    {
+      "domain": "magsrv.com",
+      "category": "ad-network",
+      "operator": "ExoClick",
+      "sources": ["https://docs.exoclick.com/docs/adblock-dynamic-domains-api"],
+      "reviewed": "2026-11-10"
+    },
+    {
+      "domain": "diffusedpassionquaking.com",
+      "category": "ad-network",
+      "operator": "Clickadu",
+      "sources": ["https://website.informer.com/diffusedpassionquaking.com", "https://hypestat.com/info/diffusedpassionquaking.com"],
+      "reviewed": "2026-11-10"
+    },
+    {
+      "domain": "snaptrckr.fun",
+      "category": "ad-redirect",
+      "sources": ["https://www.malwarebytes.com/blog/detections/snaptrckr-fun"],
+      "reviewed": "2026-11-10"
+    },
+    {
+      "domain": "opoxv.com",
+      "category": "ad-redirect",
+      "sources": ["https://urlscan.io/result/019af467-48a7-727f-b44c-e0afbd5d86e8/"],
+      "reviewed": "2026-11-10"
+    }
+  ]
+}

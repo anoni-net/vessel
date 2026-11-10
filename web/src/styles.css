@@ -1182,3 +1182,23 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   :lang(en) .sk-card--collect { min-height: 593px; }
   :lang(en) .sk-card--handling { min-height: 573px; }
 }
+
+/* What a site in an inspection report is (site-notes.ts): a short line, the category's sentence once under its kind. */
+.site-note { display: block; }
+.site-note a { overflow-wrap: anywhere; }
+.site-note-categories { margin-top: 4px; }
+.site-note-categories > ul { display: grid; gap: 4px; margin-top: 4px; }
+/* on a row of its own under the site's row in the table, in the page's own letters like the rest of the words */
+.inspect-table tr:has(+ .inspect-table__noterow) > td { border-bottom: 0; padding-bottom: 0; }
+.inspect-table__note { padding-bottom: 4px; font-family: var(--font); }
+/* the same notes in full on the lists page */
+.lists-notes > h3 { margin: 8px 0 0; }
+.lists-notes__categories { display: grid; gap: 12px; margin: 0; }
+.lists-notes__categories dt { font-weight: 700; }
+.lists-notes__categories dd { margin: 2px 0 0; }
+@media (min-width: 641px) {
+  .lists-notes__categories { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+}
+@media (min-width: 960px) {
+  .lists-notes__categories { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
