@@ -93,6 +93,10 @@ export function Inspect() {
   const [err, setErr] = useState<{ text: string; n: number } | null>(null);
   const [local, setLocal] = useState<Kept | null>(() => (id ? kept(id) : null));
   const [expired, setExpired] = useState(false);
+  // a leader's request is waiting, and the person chose an inspection of their own instead
+  const [own, setOwn] = useState(false);
+  // said no to a leader's request just now: the page says so above the person's own consent
+  const [saidNo, setSaidNo] = useState(false);
   // what to say when the status changes because of what the person did here, in place of what the new status says
   const said = useRef<string | null>(null);
   const seen = useRef<Inspection["status"] | undefined>(undefined);
@@ -203,11 +207,19 @@ export function Inspect() {
       {device && <DeviceLabel device={device} />}
       {error}
       {status === "none" && expired && <p class="card card--warn card--flat" data-testid="inspect-expired">{t["inspect.expired"]}</p>}
-      {status === "none" && <Consent id={id} state={state} grouped={!!me?.group} setKept={setKept} reload={load} fail={fail} />}
+      {status === "none" && state.requested && !own
+        ? <GroupConsent id={id} state={state} setKept={setKept} reload={load} fail={fail} own={() => setOwn(true)}
+            declined={() => { setSaidNo(true); announce(t["inspect.group.declined"]); toHeading(); }} />
+        : status === "none" && <Consent id={id} state={state} grouped={!!me?.group} setKept={setKept} reload={load} fail={fail} />}
+      {status === "none" && saidNo && <p class="card card--tint card--flat" data-testid="inspect-declined">{t["inspect.group.declined"]}</p>}
+      {status !== "none" && state.group && <p class="card card--tint card--flat small" data-testid="inspect-group-note">{t["inspect.group.note"]}</p>}
       {status === "confirming" && <Confirming id={id} state={state} local={local} setKept={setKept} reload={load} fail={fail} stop={stop} />}
       {status === "active" && <Running state={state} local={local} setKept={setKept} name={name} stop={stop} />}
       {status === "ending" && <p class="card card--tint card--flat">{t["inspect.ending"]}</p>}
       {status === "ended" && <Ended state={state} local={local} setKept={setKept} name={name} stop={stop} />}
+      {status === "none" && state.requested && own && (
+        <p class="small"><button class="link-button" type="button" onClick={() => setOwn(false)}>{t["inspect.group.back"]}</button></p>
+      )}
       {back}
     </section>
   );
@@ -261,6 +273,80 @@ function InspectSkeleton({ consent }: { consent: boolean }) {
         </>
       ) : <SkCard size="device" lines={["mid", "full", "long"]} />}
     </div>
+  );
+}
+
+/**
+ * A group's leader asked for an inspection of this device (toomore/anoni-net-ws#483). The same collection as one of the
+ * person's own, and what the leaders will see of it: the verdict and the kinds of finding, never the sites, the counts
+ * or the times. Saying no is as easy as saying yes, and the person can still have an inspection of their own instead.
+ */
+function GroupConsent({ state, id, setKept, reload, fail, own, declined }: {
+  state: Inspection; id: string; setKept: (k: Kept) => void; reload: () => Promise<void>; fail: (x: unknown) => void;
+  own: () => void; declined: () => void;
+}) {
+  const { t, href } = useCtx();
+  const [sure, setSure] = useState(false);
+  const [busy, setBusy] = useState<"start" | "decline" | null>(null);
+  const start = async (e: Event) => {
+    e.preventDefault();
+    setBusy("start");
+    try {
+      const { key, publicKey } = newKey();
+      const r = await api.startInspection(id, { consent_version: state.group_consent_version!, public_key: publicKey, group: true });
+      setKept({ key, url: r.url, minutes: r.minutes });
+      await reload();
+    } catch (x) {
+      fail(x);
+    } finally {
+      setBusy(null);
+    }
+  };
+  const decline = async () => {
+    setBusy("decline");
+    try {
+      await api.declineInspection(id);
+      await reload();
+      declined();
+    } catch (x) {
+      fail(x);
+    } finally {
+      setBusy(null);
+    }
+  };
+  const items = (["names", "where", "size", "packets", "plain"] as const).map((k) => t[`inspect.collect.${k}`]);
+  const sees = (["verdict", "kinds", "days"] as const).map((k) => t[`inspect.group.sees.${k}`]);
+  return (
+    <form class="stack inspect-wide" onSubmit={start} data-testid="inspect-group-consent">
+      <p class="card card--warn card--flat">{t["inspect.group.asked"]}</p>
+      <p>{fmt(t["inspect.intro"], { days: state.days })}</p>
+      <div class="inspect-pair inspect-wide">
+        <div class="card card--flat stack">
+          <h2>{t["inspect.collect.title"]}</h2>
+          <ul class="inspect-list">{items.map((x) => <li>{x}</li>)}</ul>
+          <p class="muted small">{t["inspect.collect.not"]}</p>
+        </div>
+        <div class="card card--flat stack" data-testid="inspect-group-sees">
+          <h2>{t["inspect.group.sees.title"]}</h2>
+          <ul class="inspect-list">{sees.map((x) => <li>{x}</li>)}</ul>
+          <p class="small">{t["inspect.group.notSee"]}</p>
+          <p class="small">{fmt(t["inspect.group.yours"], { days: state.report_days })}</p>
+          <p class="small"><a href={href("/privacy/#inspection")}>{t["inspect.handling.more"]}</a></p>
+        </div>
+      </div>
+      <label class="check">
+        <input type="checkbox" checked={sure} onChange={(e) => setSure(e.currentTarget.checked)} data-testid="inspect-agree" />
+        {t["inspect.group.agree"]}
+      </label>
+      <button class="nb-button nb-button--primary" type="submit" disabled={!sure || !!busy} aria-busy={busy === "start"}>
+        {busy === "start" && <Spin />}{t["inspect.start"]}
+      </button>
+      <button class="nb-button" type="button" onClick={decline} disabled={!!busy} aria-busy={busy === "decline"} data-testid="inspect-decline">
+        {busy === "decline" && <Spin />}{t["inspect.group.decline"]}
+      </button>
+      <p class="small">{t["inspect.group.declineNote"]}</p>
+      <p class="small"><button class="link-button" type="button" onClick={own}>{t["inspect.group.own"]}</button></p>
+    </form>
   );
 }
 
@@ -430,7 +516,8 @@ function Ended({ state, local, setKept, name, stop }: {
   state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: (words?: string) => Promise<void>;
 }) {
   const { t, locale } = useCtx();
-  const remove = () => window.confirm(t["inspect.deleteConfirm"]) && stop(t["inspect.said.deleted"]);
+  // one a leader asked for: the leaders are told it was deleted, and nothing else
+  const remove = () => window.confirm(t[state.group ? "inspect.group.deleteConfirm" : "inspect.deleteConfirm"]) && stop(t["inspect.said.deleted"]);
   return (
     <div class="stack inspect-wide" data-testid="inspect-ended">
       <p class="card card--warn card--flat" data-testid="inspect-until">{fmt(t["inspect.keepUntil"], { date: formatDate(locale, state.report_until!) })}</p>

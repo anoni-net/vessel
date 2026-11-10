@@ -210,6 +210,10 @@ export interface Device {
   inspection_report_until?: string | null;
   /** while it waits for the device: how long a confirmation link is good for (missing from an older backend) */
   inspection_confirm_minutes?: number | null;
+  /** the group's leaders asked for an inspection of this device, and wait for an answer until `until` */
+  inspection_request?: { requested_on: string; until: string } | null;
+  /** the inspection is the one a leader asked for */
+  inspection_group?: boolean;
 }
 
 export interface Inspection {
@@ -226,6 +230,12 @@ export interface Inspection {
   report_until?: string | null;
   /** while it waits for the device: how long the confirmation link is still good for */
   confirm_seconds?: number;
+  /** a group's leader asked for an inspection of this device and waits for an answer (toomore/anoni-net-ws#483) */
+  requested?: boolean;
+  /** this inspection is the one a leader asked for: the leaders get its summary */
+  group?: boolean;
+  /** the consent for a leader's request, which also says what the leaders see */
+  group_consent_version?: string;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */
@@ -333,9 +343,11 @@ export const api = {
     }),
   deleteDevice: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}`),
   inspection: (id: string) => call<Inspection>("GET", `/devices/${encodeURIComponent(id)}/inspection`).then((r) => r.data),
-  startInspection: (id: string, body: { consent_version: string; public_key: string }) =>
+  startInspection: (id: string, body: { consent_version: string; public_key: string; group?: boolean }) =>
     call<{ code: string; url: string; minutes: number }>("POST", `/devices/${encodeURIComponent(id)}/inspection`, body).then((r) => r.data),
   stopInspection: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}/inspection`),
+  /** says no to a leader's request; using Vessel goes on as before */
+  declineInspection: (id: string) => call("POST", `/devices/${encodeURIComponent(id)}/inspection/decline`),
   renewInspection: (id: string) =>
     call<{ code: string; url: string; minutes: number }>("POST", `/devices/${encodeURIComponent(id)}/inspection/code`).then((r) => r.data),
   deleteAccount: () => call("DELETE", "/account"),
