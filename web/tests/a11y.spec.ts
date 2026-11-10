@@ -1,5 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import axe from "axe-core";
+import { FULL_REPORT, KEY, seal } from "./inspect-fixtures.ts";
 
 // WCAG 2.2 AA. axe-core checks what a tool can (names, roles, labels, contrast where it can tell the background);
 // the tests after it cover what it cannot: the focus ring on the footer's dark blue, the narrowest phone, and
@@ -283,4 +284,161 @@ test.skip("the FAQ's cross-section moves for five seconds, then holds still", as
   const later = await frame();
   await page.waitForTimeout(1000);
   expect(await frame()).toBe(later);
+});
+
+// The device inspection (/devices/inspect/) in each of its states. Its parts come and go with the status, so the page
+// is checked once per state: what the checks above do for a page, and what only this page has.
+
+const INSPECT_BASE = { consent_version: "2026-11-10b", days: 7, report_days: 7 };
+const ENDED = { ...INSPECT_BASE, status: "ended", report_until: "2026-11-18", started_at: "2026-11-09T00:00:00Z", ends_at: "2026-11-11T00:00:00Z" };
+const LINK = "https://confirm.vessel.anoni.net/c/ABCDEFGHJKLMNPQR";
+type InspectState = { inspection: object | "hang" | "error"; kept?: object; ready: string; act?: (page: Page) => Promise<void> };
+const INSPECT: Record<string, InspectState> = {
+  loading: { inspection: "hang", ready: 'main [aria-busy="true"]' },
+  "could not load": { inspection: "error", ready: '[role="alert"]' },
+  consent: { inspection: { ...INSPECT_BASE, status: "none" }, ready: '[data-testid="inspect-consent"]' },
+  waiting: { inspection: { ...INSPECT_BASE, status: "confirming", confirm_seconds: 1800 }, kept: { key: KEY, url: LINK, minutes: 30 }, ready: '[data-testid="inspect-url"]' },
+  "link about to run out": { inspection: { ...INSPECT_BASE, status: "confirming", confirm_seconds: 200 }, kept: { key: KEY, url: LINK, minutes: 30 }, ready: '[data-testid="inspect-soon"]' },
+  "link not here": { inspection: { ...INSPECT_BASE, status: "confirming", confirm_seconds: 1800 }, ready: '[data-testid="inspect-lost"]' },
+  running: { inspection: { ...INSPECT_BASE, status: "active", report: seal(FULL_REPORT), ends_at: "2026-11-16T00:00:00Z" }, kept: { key: KEY }, ready: '[data-testid="inspect-report"]' },
+  ending: { inspection: { ...INSPECT_BASE, status: "ending" }, ready: "main .card--tint" },
+  report: { inspection: { ...ENDED, report: seal(FULL_REPORT) }, kept: { key: KEY }, ready: '[data-testid="inspect-report"]' },
+  "report with nothing found": { inspection: { ...ENDED, report: seal({ ...FULL_REPORT, findings: [], more: {} }) }, kept: { key: KEY }, ready: '[data-testid="inspect-clean"]' },
+  "nothing recorded": { inspection: { ...ENDED, report: seal({ empty: true }) }, kept: { key: KEY }, ready: '[data-testid="inspect-empty"]' },
+  "asking for the key": {
+    inspection: { ...ENDED, report: seal(FULL_REPORT) }, ready: '[data-testid="inspect-locked"]',
+    act: async (page) => {
+      await page.getByTestId("inspect-key-input").fill("not a key");
+      await page.getByTestId("inspect-key-input").press("Enter");
+      await page.getByRole("alert").waitFor();
+    },
+  },
+};
+
+async function openInspection(page: Page, state: InspectState) {
+  await backend(page, true);
+  await page.route("**/api/devices/*/inspection", (route) => {
+    if (state.inspection === "hang") return;
+    if (state.inspection === "error") return route.fulfill({ status: 503, json: { error: "inspection_unavailable" } });
+    return route.fulfill({ json: state.inspection });
+  });
+  // set or cleared every time: scripts added earlier on the same page still run, before this one
+  await page.addInitScript((k) => {
+    if (k) localStorage.setItem("vessel-inspection:d-a", JSON.stringify(k));
+    else localStorage.removeItem("vessel-inspection:d-a");
+  }, state.kept ?? null);
+  await page.goto("/devices/inspect/?d=d-a");
+  await page.locator(state.ready).first().waitFor();
+  await state.act?.(page);
+  // the folded parts too: the lists of sites, the table of hours
+  await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+}
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const [name, state] of Object.entries(INSPECT)) {
+    test(`axe finds nothing on the inspection, ${name}, ${scheme}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await openInspection(page, state);
+      await page.evaluate(axe.source);
+      const found = await page.evaluate(async () => {
+        const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {
+          runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
+        });
+        return res.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
+      });
+      expect(found).toEqual([]);
+    });
+  }
+
+  // axe leaves out what is hidden from screen readers, as the hours are: the signs on them are still read by eye
+  test(`the signs on the hours stand out from their colour at 4.5:1, ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await openInspection(page, INSPECT.report);
+    const marks = await page.locator(".tile:not(:empty)").evaluateAll((tiles) => tiles.map((e) => {
+      const lum = (c: string) => {
+        const [r, g, b] = (c.match(/[\d.]+/g) ?? []).map(Number).map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+      };
+      const s = getComputedStyle(e);
+      const [hi, lo] = [lum(s.color), lum(s.backgroundColor)].sort((a, b) => b - a);
+      return { mark: e.textContent, ratio: Math.round(((hi! + 0.05) / (lo! + 0.05)) * 100) / 100 };
+    }));
+    expect(marks.length).toBeGreaterThan(2);
+    for (const m of marks) expect(m.ratio, m.mark!).toBeGreaterThanOrEqual(4.5);
+  });
+}
+
+test("on the inspection, every stop of the keyboard shows a ring, in sight and not covered", async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const [name, state] of Object.entries(INSPECT)) {
+    if (state.inspection === "hang") continue;
+    await page.unrouteAll();
+    await page.goto("about:blank");
+    await openInspection(page, state);
+    await page.locator("body").focus();
+    const seen = new Set<string>();
+    const bad: string[] = [];
+    for (let i = 0; i < 150; i++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const e = document.activeElement as HTMLElement | null;
+        if (!e || e === document.body) return null;
+        const s = getComputedStyle(e);
+        const r = e.getBoundingClientRect();
+        const ring = (s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0) || s.boxShadow !== "none";
+        const inView = r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+        const at = inView ? document.elementFromPoint(r.left + r.width / 2, Math.min(Math.max(r.top + r.height / 2, 1), innerHeight - 1)) : null;
+        const covered = !!at && !e.contains(at) && !at.contains(e);
+        const name = `${e.tagName.toLowerCase()} "${(e.getAttribute("aria-label") ?? e.textContent ?? "").trim().slice(0, 24)}"`;
+        return { key: `${name}@${Math.round(r.top + scrollY)}`, name, ring, inView, covered };
+      });
+      if (!stop) continue;
+      if (seen.has(stop.key)) break;
+      seen.add(stop.key);
+      if (!stop.ring || !stop.inView || stop.covered) bad.push(`${stop.name} ring=${stop.ring} inView=${stop.inView} covered=${stop.covered}`);
+    }
+    expect(seen.size, name).toBeGreaterThan(3);
+    expect(bad, name).toEqual([]);
+  }
+});
+
+test.describe("the inspection with the text spacing of WCAG 1.4.12, and on a 320px screen", () => {
+  test.use({ bypassCSP: true });
+  test("nothing is cut off and nothing scrolls sideways", async ({ page }) => {
+    test.setTimeout(120_000);
+    for (const width of [320, 1280]) {
+      await page.setViewportSize({ width, height: 640 });
+      for (const [name, state] of Object.entries(INSPECT)) {
+        if (state.inspection === "hang") continue;
+        await page.unrouteAll();
+        await page.goto("about:blank");
+        await openInspection(page, state);
+        await page.addStyleTag({ content: "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }" });
+        const found = await page.evaluate(() => {
+          const cut: string[] = [];
+          for (const e of document.querySelectorAll<HTMLElement>("main *")) {
+            const s = getComputedStyle(e);
+            if (!/hidden|clip/.test(`${s.overflowX} ${s.overflowY}`) || !e.textContent?.trim() || e.offsetParent === null) continue;
+            if (e.clientWidth <= 1 || e.clientHeight <= 1) continue;
+            if (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1) cut.push(`${e.tagName.toLowerCase()}.${e.className}`);
+          }
+          return { cut, sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+        });
+        expect(found, `${name} at ${width}px`).toEqual({ cut: [], sideways: 0 });
+      }
+    }
+  });
+});
+
+// WCAG 2.2.2: the link is good for half an hour and the report takes minutes, with buttons beside them; nothing turns
+// all that time
+test("nothing moves on its own while the inspection waits", async ({ page }) => {
+  for (const name of ["waiting", "link about to run out", "ending"]) {
+    await page.unrouteAll();
+    await page.goto("about:blank");
+    await openInspection(page, INSPECT[name]!);
+    const forever = await page.evaluate(() =>
+      document.getAnimations().filter((a) => a.effect?.getTiming().iterations === Infinity).map((a) => ((a.effect as KeyframeEffect).target as Element).className));
+    expect(forever, name).toEqual([]);
+  }
 });
