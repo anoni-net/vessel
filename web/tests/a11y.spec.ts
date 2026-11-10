@@ -565,3 +565,37 @@ for (const scheme of ["light", "dark"] as const) {
     expect([...new Set(low)]).toEqual([]);
   });
 }
+
+// A table laid out as blocks on a phone keeps its meaning only through its roles: WebKit has dropped a table's
+// semantics once its display changes. Every part of such a table says what it is (WCAG 1.3.1).
+test("a table laid out as blocks on a phone says what each part is", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  const found: string[] = [];
+  let tables = 0;
+  for (const path of ["/privacy/", "/terms/", "/dns/lists/"]) {
+    await page.unrouteAll();
+    await backend(page, false);
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+    const result = await page.evaluate(() => {
+      const want: Record<string, string[]> = { TABLE: ["table"], THEAD: ["rowgroup"], TBODY: ["rowgroup"], TFOOT: ["rowgroup"], TR: ["row"],
+        TH: ["columnheader", "rowheader"], TD: ["cell"] };
+      const missing: string[] = [];
+      let n = 0;
+      for (const table of document.querySelectorAll("main table")) {
+        if (getComputedStyle(table).display === "table") continue;
+        n++;
+        for (const e of [table, ...table.querySelectorAll("thead, tbody, tfoot, tr, th, td")]) {
+          if (!want[e.tagName]!.includes(e.getAttribute("role") ?? "")) missing.push(`${table.getAttribute("data-testid") ?? table.className} ${e.tagName.toLowerCase()}`);
+        }
+      }
+      return { n, missing };
+    });
+    tables += result.n;
+    found.push(...result.missing.map((m) => `${path}: ${m}`));
+  }
+  // the privacy policy's table and the lists page's ones
+  expect(tables).toBeGreaterThanOrEqual(4);
+  expect([...new Set(found)]).toEqual([]);
+});
