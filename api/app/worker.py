@@ -21,7 +21,7 @@ def tick(conn: psycopg.Connection, usage: bool = True) -> None:
     jobs.close_groups(conn)
     if usage:
         jobs.poll_usage(conn)
-        jobs.enforce_quota(conn, policy.MONTHLY_QUOTA_BYTES)
+        jobs.enforce_quota(conn, policy.personal_quota(conn))
         jobs.poll_reach(conn)
         jobs.reconcile_peers(conn)
     inspections.tick(conn, usage)

@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-09",
+  updated: "2026-11-10",
   blocks: [
     { h: "The service" },
     { p: "Vessel is a free VPN set up by the anoni.net anonymous network community and run by volunteers, made up of the portal (vessel.anoni.net) and nodes in several cities. It is in testing: no network is guaranteed to work, and the service may be interrupted. We may change the allowance, nodes and features, or end the service, and will try to announce changes in advance." },
@@ -24,7 +24,7 @@ export default {
     { h: "Allowance and expiry" },
     {
       ul: [
-        "50 GB per account per month, shared by its devices and paused until the next month once used up",
+        "A monthly data allowance per account, shared by its devices and shown with this month's use on the devices page; devices pause until the next month once it is used up",
         "Up to 3 devices per account",
         "Even if you stay connected, devices expire when the account has not opened the portal for 30 days; signing in, or opening the portal while signed in, extends them by 30 days",
       ],

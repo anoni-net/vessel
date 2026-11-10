@@ -48,6 +48,7 @@ def db(schema):
         conn.execute("UPDATE settings SET value = '0' WHERE key = 'account_cap'")
         conn.execute("UPDATE settings SET value = 'false' WHERE key = 'redeem_paused'")
         conn.execute("UPDATE settings SET value = '0' WHERE key = 'user_invites'")
+        conn.execute("UPDATE settings SET value = '50' WHERE key = 'monthly_quota_gb'")
         yield conn
 
 
