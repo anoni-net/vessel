@@ -1,10 +1,16 @@
+import datetime as dt
+
 from conftest import needs_db
 
 from app import jobs
 
 pytestmark = needs_db
 
-CHECK = {"checked_at": "2026-11-08T04:20:53+00:00", "sites": {"mvdis": "blocked", "bot": "challenge", "signal": "ok"}}
+# Relative to now: reach_history keeps 48 hours, so a fixed date stops being kept two days after it was written
+NOW = dt.datetime.now(dt.UTC).replace(microsecond=0)
+FIRST = (NOW - dt.timedelta(hours=1)).isoformat()
+LATER = NOW.isoformat()
+CHECK = {"checked_at": FIRST, "sites": {"mvdis": "blocked", "bot": "challenge", "signal": "ok"}}
 
 
 def regions(db):
@@ -33,7 +39,7 @@ def test_it_reads_a_node_again_only_after_half_an_hour(db, node):
     jobs.poll_reach(db)
     assert node.reach_calls == 2
     db.execute("UPDATE reach SET fetched_at = now() - interval '31 minutes' WHERE region_id = 'jp'")
-    node.reach_result = {"checked_at": "2026-11-08T05:20:00+00:00", "sites": {"mvdis": "ok"}}
+    node.reach_result = {"checked_at": LATER, "sites": {"mvdis": "ok"}}
     jobs.poll_reach(db)
     assert node.reach_calls == 3
     # the new check replaces the old one
@@ -51,7 +57,7 @@ def test_a_node_without_a_check_or_with_a_bad_one_keeps_the_last(db, node):
     jobs.poll_reach(db)
     assert len(rows(db)) == 6
     # states and names it does not know are dropped
-    node.reach_result = {"checked_at": "2026-11-08T05:20:00+00:00",
+    node.reach_result = {"checked_at": LATER,
                          "sites": {"mvdis": "down", "Bad Name": "ok", "signal": "ok"}}
     jobs.poll_reach(db)
     assert [r for r in rows(db) if r[0] == "jp"] == [("jp", "signal", "ok")]
@@ -86,7 +92,7 @@ def test_every_new_check_is_kept_for_two_days(db, node):
     jobs.poll_reach(db)
     assert len(history_rows(db)) == 6
     db.execute("UPDATE reach SET fetched_at = now() - interval '31 minutes'")
-    node.reach_result = {"checked_at": "2026-11-08T05:20:00+00:00", "sites": {"mvdis": "ok"}}
+    node.reach_result = {"checked_at": LATER, "sites": {"mvdis": "ok"}}
     jobs.poll_reach(db)
     assert ("jp", "mvdis", "ok") in history_rows(db) and len(history_rows(db)) == 8
     db.execute("UPDATE reach_history SET checked_at = now() - interval '49 hours' WHERE state = 'challenge'")
