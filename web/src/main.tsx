@@ -17,6 +17,9 @@ import "./styles.css";
 // replacing it; elsewhere (404.html in another language, a path without its trailing slash) start over.
 // A legal page's text is loaded first, so the first render matches what was prerendered.
 const root = document.getElementById("app")!;
+// iOS Safari honours touch-action: manipulation (styles.css) only for a tap on something that responds to clicks, so
+// tapping twice on plain text still zoomed. On #app because WebKit does not count a listener on <body> or higher.
+root.addEventListener("click", () => undefined);
 const [locale, rest] = splitLocale(location.pathname);
 const path = normalizePath(rest);
 // the bare address goes to the language this browser picked before (langpref.ts); a reload of the other
