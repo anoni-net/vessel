@@ -310,7 +310,7 @@ test("starting says the link is ready, and focus goes to the top", async ({ page
 
 for (const [name, inspection, kept, button, after, words] of [
   ["cancelling", { ...BASE, status: "confirming", confirm_seconds: 1800 }, false, "取消這次檢測", { ...BASE, status: "none" }, "已取消這次檢測。"],
-  ["ending", { ...BASE, status: "active", report: SEALED, ends_at: "2026-11-16T00:00:00Z" }, true, "結束檢測", { ...BASE, status: "ending" }, "正在結束檢測、整理報告，通常 5 分鐘內完成。"],
+  ["ending", { ...BASE, status: "active", report: SEALED, ends_at: "2026-11-16T00:00:00Z" }, true, "提早結束", { ...BASE, status: "ending" }, "正在結束檢測、整理報告，通常 5 分鐘內完成。"],
   ["deleting", { ...BASE, status: "ended", report: SEALED, report_until: "2026-11-18" }, true, "現在刪除報告", { ...BASE, status: "none" }, "報告已刪除。"],
 ] as const) {
   test(`${name} says so, and focus goes to the top`, async ({ page }) => {
