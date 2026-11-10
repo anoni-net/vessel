@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, type Device, type Inspection, type Me, api, last } from "../api.ts";
 import { announce } from "../announce.ts";
@@ -177,7 +178,7 @@ export function Inspect() {
       <section class="wrap narrow stack inspect-page" aria-busy="true">
         <AccountNav />
         <h1>{t["inspect.title"]}</h1>
-        <InspectSkeleton consent={!known?.inspection} />
+        <InspectSkeleton status={known?.inspection ?? null} />
         <Busy />
       </section>
     );
@@ -204,7 +205,12 @@ export function Inspect() {
     <section class="wrap narrow stack inspect-page">
       <AccountNav leader={me?.group?.role === "leader"} />
       <h1>{t["inspect.title"]}</h1>
-      {device && <DeviceLabel device={device} />}
+      {status === "active" ? (
+        <div class="inspect-pair inspect-wide">
+          {device && <DeviceLabel device={device} />}
+          <RunningStatus state={state} stop={stop} />
+        </div>
+      ) : device && <DeviceLabel device={device} />}
       {error}
       {status === "none" && expired && <p class="card card--warn card--flat" data-testid="inspect-expired">{t["inspect.expired"]}</p>}
       {status === "none" && state.requested && !own
@@ -214,7 +220,7 @@ export function Inspect() {
       {status === "none" && saidNo && <p class="card card--tint card--flat" data-testid="inspect-declined">{t["inspect.group.declined"]}</p>}
       {status !== "none" && state.group && <p class="card card--tint card--flat small" data-testid="inspect-group-note">{t["inspect.group.note"]}</p>}
       {status === "confirming" && <Confirming id={id} state={state} local={local} setKept={setKept} reload={load} fail={fail} stop={stop} />}
-      {status === "active" && <Running state={state} local={local} setKept={setKept} name={name} stop={stop} />}
+      {status === "active" && <Running state={state} local={local} setKept={setKept} name={name} />}
       {status === "ending" && <p class="card card--tint card--flat">{t["inspect.ending"]}</p>}
       {status === "ended" && <Ended state={state} local={local} setKept={setKept} name={name} stop={stop} />}
       {status === "none" && state.requested && own && (
@@ -253,15 +259,21 @@ function DeviceLabel({ device }: { device: Device }) {
   );
 }
 
-/** The page while it loads, in the shape of the consent page unless this tab knows the device has an inspection. */
-function InspectSkeleton({ consent }: { consent: boolean }) {
+/**
+ * The page while it loads, in the shape of the consent page unless this tab knows the device has an inspection; one that
+ * is running has its status beside the device.
+ */
+function InspectSkeleton({ status }: { status: Device["inspection"] }) {
+  const plate = (cls: string) => (
+    <div class={cls}>
+      <p class="inspect-device__name"><SkLine w="mid" big /></p>
+      <div class="inspect-device__facts small"><SkLine w="long" /></div>
+    </div>
+  );
   return (
     <div class="stack inspect-wide" aria-hidden="true">
-      <div class="inspect-device">
-        <p class="inspect-device__name"><SkLine w="mid" big /></p>
-        <div class="inspect-device__facts small"><SkLine w="long" /></div>
-      </div>
-      {consent ? (
+      {status === "active" ? <div class="inspect-pair inspect-wide">{plate("inspect-device")}{plate("inspect-device inspect-status")}</div> : plate("inspect-device")}
+      {!status ? (
         <>
           <div class="sk-intro stack"><SkLine /><SkLine /><SkLine w="long" /></div>
           <div class="inspect-pair inspect-wide">
@@ -491,23 +503,31 @@ function Confirming({ id, state, local, setKept, reload, fail, stop }: {
   );
 }
 
-function Running({ state, local, setKept, name, stop }: {
-  state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: (words?: string) => Promise<void>;
-}) {
+/**
+ * How far along a running inspection is, in the same frame as the device's label and beside it on a wide screen: the day
+ * large, then under the hairline when it ends and the way to end it sooner. The frame says STATUS to the eye only.
+ */
+function RunningStatus({ state, stop }: { state: Inspection; stop: (words?: string) => Promise<void> }) {
   const { t, locale } = useCtx();
   const end = () => window.confirm(fmt(t["inspect.endConfirm"], { days: state.report_days })) && stop();
   const { day } = progress(state);
   return (
-    <div class="stack inspect-wide" data-testid="inspect-running">
-      <div class="card card--tint card--flat inspect-status" data-testid="inspect-status">
-        <p class="strong">{fmt(t["inspect.runningDay"], { day, days: state.days })}</p>
-        <div class="inspect-status__row">
-          <span>{fmt(t["inspect.running"], { date: formatDay(locale, state.ends_at!) })}</span>
-          <button class="link-button" type="button" onClick={end}>{t["inspect.end"]}</button>
-        </div>
+    <div class="inspect-device inspect-status" data-testid="inspect-status">
+      <p class="inspect-device__name">{fmt(t["inspect.runningDay"], { day, days: state.days })}</p>
+      <div class="inspect-device__facts inspect-status__row small">
+        <span>{fmt(t["inspect.running"], { date: formatDay(locale, state.ends_at!) })}</span>
+        <button class="link-button" type="button" onClick={end}>{t["inspect.end"]}</button>
       </div>
-      {state.report ? <Opened state={state} local={local} setKept={setKept} name={name} partial /> : <p class="muted">{t["inspect.noneYet"]}</p>}
-      {local && <CopyKey value={local.key} />}
+    </div>
+  );
+}
+
+function Running({ state, local, setKept, name }: { state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string }) {
+  const { t } = useCtx();
+  const key = local && <CopyKey value={local.key} />;
+  return (
+    <div class="stack inspect-wide" data-testid="inspect-running">
+      {state.report ? <Opened state={state} local={local} setKept={setKept} name={name} partial aside={key} /> : <><p class="muted">{t["inspect.noneYet"]}</p>{key}</>}
     </div>
   );
 }
@@ -527,8 +547,13 @@ function Ended({ state, local, setKept, name, stop }: {
   );
 }
 
-/** The report, once a key opens it; asks for the key where this browser has none. */
-function Opened({ state, local, setKept, name, partial }: { state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; partial?: boolean }) {
+/**
+ * The report, once a key opens it; asks for the key where this browser has none. `aside`: the card with the key, which
+ * results so far put beside what is said under them.
+ */
+function Opened({ state, local, setKept, name, partial, aside }: {
+  state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; partial?: boolean; aside?: ComponentChildren;
+}) {
   const { t, locale } = useCtx();
   const [report, setReport] = useState<Report | null>(null);
   const [wrong, setWrong] = useState(false);
@@ -552,7 +577,7 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
   }, [report, wrong]);
 
   // the key is here and the report is being opened: not the moment to ask for a key
-  if (!report && local && !wrong) return <SkCard size="device" lines={["mid", "full", "long"]} />;
+  if (!report && local && !wrong) return <><SkCard size="device" lines={["mid", "full", "long"]} />{aside}</>;
   if (!report) {
     return (
       <form class="card card--flat stack" data-testid="inspect-locked" onSubmit={(e) => {
@@ -575,6 +600,13 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
   const download = () => {
     const css = [...document.styleSheets].flatMap((s) => [...s.cssRules].map((r) => r.cssText)).join("\n");
     const body = area.current!.cloneNode(true) as HTMLElement;
+    // results so far say what a report cannot tell beside the key on the page; the file keeps it at the report's end
+    if (partial) {
+      const limits = document.createElement("p");
+      limits.className = "muted small";
+      limits.textContent = t["inspect.report.limits"];
+      body.querySelector(".inspect-report")!.append(limits);
+    }
     body.querySelectorAll("details").forEach((d) => d.setAttribute("open", ""));
     // the file opens from the disk: a link to a page of the site keeps the site's address
     body.querySelectorAll<HTMLAnchorElement>('a[href^="/"]').forEach((a) => a.setAttribute("href", a.href));
@@ -600,16 +632,21 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
     saveFile(partial ? `vessel-inspection-${day}-${at}-in-progress.html` : `vessel-inspection-${day}.html`,
       new Blob([`<!doctype html>${doc.documentElement.outerHTML}`], { type: "text/html" }));
   };
-  if (report.empty) return <p class="muted" data-testid="inspect-empty">{t["inspect.noneYet"]}</p>;
+  if (report.empty) return <><p class="muted" data-testid="inspect-empty">{t["inspect.noneYet"]}</p>{aside}</>;
   return (
     <div class="stack inspect-wide">
       {!partial && <button class="nb-button nb-button--primary" type="button" onClick={download} data-testid="inspect-download">{t["inspect.download"]}</button>}
-      <div ref={area} class="inspect-wide"><ReportView report={report} locale={locale} span={spanOf(state, partial)} /></div>
+      <div ref={area} class="inspect-wide"><ReportView report={report} locale={locale} span={spanOf(state, partial)} limits={!partial} /></div>
       {partial && (
-        // below the report, as a link: the results so far are there to read, and ending early stays the one thing at the top
-        <div class="inspect-partial">
-          <p class="muted small" data-testid="inspect-delay">{t["inspect.partial"]}</p>
-          <button class="link-button" type="button" onClick={download} data-testid="inspect-download">{t["inspect.downloadPartial"]}</button>
+        // below the report, as a link: the results so far are there to read, and ending early stays the one thing at the top.
+        // The key first, on the left of a wide screen, then these words: in the order they are seen, on a phone too
+        <div class="inspect-pair inspect-pair--top inspect-wide">
+          {aside}
+          <div class="inspect-partial" data-testid="inspect-notes">
+            <p class="muted small">{t["inspect.report.limits"]}</p>
+            <p class="muted small" data-testid="inspect-delay">{t["inspect.partial"]}</p>
+            <button class="link-button" type="button" onClick={download} data-testid="inspect-download">{t["inspect.downloadPartial"]}</button>
+          </div>
         </div>
       )}
     </div>
@@ -856,7 +893,8 @@ const period = (hour: number) => (hour < 6 ? "night" : hour < 12 ? "morning" : h
 // sentences end in their own full stop, so they are only put side by side (a space between them in English)
 const join = (a: string, b: string) => (b ? `${a}${/[.!?]$/.test(a) ? " " : ""}${b}` : a);
 
-function ReportView({ report, locale, span }: { report: Report; locale: ReturnType<typeof useCtx>["locale"]; span: Span }) {
+/** `limits`: what a report cannot tell, at its end; results so far say it beside the key instead. */
+function ReportView({ report, locale, span, limits = true }: { report: Report; locale: ReturnType<typeof useCtx>["locale"]; span: Span; limits?: boolean }) {
   const { t, href } = useCtx();
   const [picked, setPicked] = useState("");
   const { cells, level } = hourGrid(report.hours ?? []);
@@ -1159,7 +1197,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
           </dl>
         </details>
       </div>
-      <p class="muted small">{t["inspect.report.limits"]}</p>
+      {limits && <p class="muted small">{t["inspect.report.limits"]}</p>}
     </div>
   );
 }

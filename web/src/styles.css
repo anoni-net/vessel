@@ -1022,10 +1022,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-list { margin: 0; padding-inline-start: 1.3em; display: grid; gap: 6px; }
 .inspect-key { display: block; padding: 8px 10px; background: var(--grey); overflow-wrap: anywhere; user-select: all; }
 .inspect-link { margin: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: 15px; }
-.inspect-status { gap: 0; padding-block: 14px 6px; }
-.inspect-status p { margin: 0; }
-.inspect-status__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: 16px; }
-.inspect-partial { display: flex; flex-direction: column; align-items: flex-start; }
+.inspect-partial { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .inspect-partial p { margin: 0; }
 .inspect-qr { max-width: 220px; padding: 8px; background: #fff; }
 .tiles { display: grid; }
@@ -1075,6 +1072,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-device__facts > div { display: flex; align-items: center; gap: 10px; }
 .inspect-device__facts dt { color: var(--muted); }
 .inspect-device__facts dd { margin: 0; color: var(--text); }
+/* how far along a running inspection is, in the same frame, with STATUS written into its top edge */
+.inspect-status::before { content: "STATUS" / ""; }
+.inspect-status__row { justify-content: space-between; column-gap: 16px; }
+/* the link keeps its 44px target, reaching into the padding around the row, so the row is as tall as the device's */
+.inspect-status__row .link-button { margin-block: -9px; }
 /* two cards that sit side by side on a wide screen (below); one above the other, as the page's other blocks, on a phone */
 .inspect-pair { display: flex; flex-direction: column; gap: 16px; }
 .inspect-verdict__main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
