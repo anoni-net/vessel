@@ -1064,7 +1064,7 @@
   "inspect.handling.where": "存放位置",
   "inspect.handling.whereValue": "社群的分析主機，位於日本東京",
   "inspect.handling.packets": "複製的資料",
-  "inspect.handling.packetsValue": "最多存放約 20 分鐘，分析完立刻刪除。留下的只有流量統計、符合惡意網站名單的網站名稱，以及查詢不到的網站名稱，你連過的其他網站不會留下紀錄",
+  "inspect.handling.packetsValue": "最多存放約 20 分鐘，分析完立刻刪除。留下的只有流量統計，以及符合惡意網站名單的網站名稱與出現的時段，你連過的其他網站不會留下紀錄",
   "inspect.handling.report": "報告",
   "inspect.handling.reportValue": "上鎖保存，只有這個瀏覽器或你保存的報告鑰匙可以打開，我們也無法讀取。檢測結束後保存 {days} 天，請記得下載。到期後刪除，備份裡無法打開的副本在 14 天內消失",
   "inspect.handling.stop": "結束",

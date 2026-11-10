@@ -8,8 +8,9 @@
   analyze.py clear --node N --address A
   analyze.py purge --days D
 
-What is kept for a device: traffic per hour, DNS totals, names that hit a list, names that do not exist. The sites it
-visited are not kept: a report that lists them would be a tool for whoever holds someone else's phone (#461)."""
+What is kept for a device: traffic per hour, DNS totals, and the list entries it hit with the hours they came up in.
+The sites it visited are not kept, nor the names that did not exist: a report that lists them would be a tool for
+whoever holds someone else's phone (#461)."""
 
 import argparse
 import base64
@@ -35,7 +36,6 @@ TZ = dt.timezone(dt.timedelta(hours=8))
 IDLE_HOURS = range(1, 6)
 AD_BLOCK_TARGET = "blocked.vessel"
 AD_BLOCK_WIRE = b"\x07blocked\x06vessel\x00"  # the name as it appears in an answer
-MAX_NX_NAMES = 500
 MAX_FINDINGS = 30  # of each kind in a report, the most frequent; the rest are only counted
 SOURCES = {
     "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
@@ -43,6 +43,15 @@ SOURCES = {
     "cti": "https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
+# One visit to a site looks a listed name up as A, AAAA and HTTPS, and then connects with SNI: a hit seen again this
+# soon after it was last counted is the same visit (toomore/anoni-net-ws#480)
+VISIT_SECONDS = 60
+# Names that never leave the device's own network or the operating system: reverse lookups, Bonjour's
+# lb._dns-sd._udp.<address>.in-addr.arpa and DDR's _dns.resolver.arpa (all under .arpa), mDNS and home-router names,
+# the reserved test and invalid names, onion addresses, and Tailscale's MagicDNS. They say nothing about the sites a
+# device reaches, most of them do not exist on purpose, and their names give away the person's own network, so they
+# are left out of the DNS counts and are not compared with the lists. A name without a dot is a search-domain guess.
+SYSTEM_SUFFIXES = ("arpa", "local", "localdomain", "internal", "lan", "home", "invalid", "test", "onion", "ts.net")
 THREAT = {"stalkerware"}
 FLAGGED = ("stalkerware", "malware", "cti")
 
@@ -89,6 +98,11 @@ def listed(name, names):
 def match(name, lists):
     """(kind, list entry) of the first flagged list that covers a name, or None."""
     return next(((kind, entry) for kind in FLAGGED if (entry := entry_of(name, lists[kind]))), None)
+
+
+def system_name(name):
+    name = name.lower().rstrip(".")
+    return "." not in name or any(name == s or name.endswith("." + s) for s in SYSTEM_SUFFIXES)
 
 
 def hour_of(ts):
@@ -191,10 +205,17 @@ def state_path(node, address):
 
 def load_state(node, address):
     path = state_path(node, address)
-    if path.exists():
-        return json.loads(path.read_text())
-    return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0}, "nx_names": {},
-            "hits": {}, "bypass": 0, "first": None, "last": None}
+    if not path.exists():
+        return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
+                "hits": {}, "bypass": 0, "first": None, "last": None}
+    state = json.loads(path.read_text())
+    # an older state kept the names that did not exist; they go with the next write
+    state.pop("nx_names", None)
+    for hit in state["hits"].values():
+        hit.setdefault("last", hit["first"])
+        hit.setdefault("hours", [hour_of(hit["first"])])
+        hit.setdefault("counted", hit["last"])
+    return state
 
 
 def save_state(state):
@@ -223,15 +244,24 @@ def merge(node, totals, logs, lists):
         if sign == "x" or state["marks"].get(hour) != "x":
             state["marks"][hour] = sign
 
+    candidates = []
+
     def note_hit(row, name, how):
-        matched = match(name, lists)
-        if not matched:
-            return
-        kind, entry = matched
-        state = get(row["id.orig_h"])
-        hit = state["hits"].setdefault(f"{kind}|{entry}", {"kind": kind, "name": entry, "how": how, "count": 0, "first": row["ts"]})
-        hit["count"] += 1
-        mark(state, row["ts"], "x" if kind in THREAT else "!")
+        if not system_name(name) and (matched := match(name, lists)):
+            candidates.append((row["ts"], row["id.orig_h"], *matched, how))
+
+    def count_hit(ts, address, kind, entry, how):
+        """A visit counts once: Zeek's rows come in no set order, so they are sorted before they get here."""
+        state = get(address)
+        hit = state["hits"].setdefault(f"{kind}|{entry}", {"kind": kind, "name": entry, "how": how, "count": 0, "first": ts,
+                                                           "last": ts, "hours": [], "counted": None})
+        if hit["counted"] is None or abs(ts - hit["counted"]) >= VISIT_SECONDS:
+            hit["count"] += 1
+            hit["counted"] = max(hit["counted"] or ts, ts)
+        hit["first"] = min(hit["first"], ts)
+        hit["last"] = max(hit["last"], ts)
+        hit["hours"] = sorted(set(hit["hours"]) | {hour_of(ts)})
+        mark(state, ts, "x" if kind in THREAT else "!")
 
     def ours(row):
         return row.get("id.orig_h", "").startswith(SUBNET) and row.get("id.orig_h") not in RESOLVERS
@@ -248,12 +278,11 @@ def merge(node, totals, logs, lists):
         seen(state, row["ts"])
         name = row["query"].lower()
         # the ad list's answer points here, and some devices then look it up: Vessel's own name, not the device's lookup
-        if name == AD_BLOCK_TARGET:
+        if name == AD_BLOCK_TARGET or system_name(name):
             continue
         state["dns"]["total"] += 1
         if row.get("rcode_name") == "NXDOMAIN" and (row["id.orig_h"], name) not in logs.get("blocked", ()):
             state["dns"]["nx"] += 1
-            state["nx_names"][name] = state["nx_names"].get(name, 0) + 1
         if listed(name, lists["ads"]):
             state["dns"]["ads"] += 1
         note_hit(row, name, "DNS")
@@ -261,6 +290,9 @@ def merge(node, totals, logs, lists):
         for row in logs[log]:
             if ours(row) and row.get(field):
                 note_hit(row, row[field].lower(), how)
+    # sorted() keeps DNS ahead of SNI and HTTP at the same moment, so a visit's first row names how it was seen
+    for candidate in sorted(candidates, key=lambda c: c[0]):
+        count_hit(*candidate)
     for row in logs["conn"]:
         if not ours(row):
             continue
@@ -270,8 +302,6 @@ def merge(node, totals, logs, lists):
             state["bypass"] += 1
             mark(state, row["ts"], "!")
     for state in states.values():
-        if len(state["nx_names"]) > MAX_NX_NAMES:
-            state["nx_names"] = dict(collections.Counter(state["nx_names"]).most_common(MAX_NX_NAMES))
         save_state(state)
 
 
@@ -314,7 +344,8 @@ def report(node, address):
         found[hit["kind"]] += hit["count"]
         entries[hit["kind"]] += 1
         if entries[hit["kind"]] <= MAX_FINDINGS:
-            findings.append({"severity": "threat" if hit["kind"] in THREAT else "check", **hit})
+            findings.append({"severity": "threat" if hit["kind"] in THREAT else "check",
+                             **{k: hit[k] for k in ("kind", "name", "how", "count", "first", "last", "hours")}})
     if state["bypass"]:
         findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"]})
     checks = [{"id": kind, "count": found[kind]} for kind in FLAGGED] + [{"id": "bypass_dns", "count": state["bypass"]}]
@@ -326,7 +357,6 @@ def report(node, address):
         "idle_share": idle / total if total else 0,
         "checks": checks, "findings": findings,
         "more": {kind: n - MAX_FINDINGS for kind, n in entries.items() if n > MAX_FINDINGS},
-        "nx_names": [{"name": n, "count": c} for n, c in collections.Counter(state["nx_names"]).most_common(50)],
     }
 
 
