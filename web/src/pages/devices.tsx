@@ -285,7 +285,7 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
                 <Added key={added.n} until={nextAt} items={plusOf(t, locale, added.devices.get(d.id)!.used, d.dns_filter === "none" ? 0 : added.devices.get(d.id)!.blocked)} />
               )}
               <div class="row device-head">
-                <h2 class="big device-head__name"><LiveDot d={d} />{d.name}</h2>
+                <h2 class="big device-head__name">{d.name}</h2>
                 <span class={`badge badge--${d.status}`}>{t[`status.${d.status}`]}</span>
               </div>
               {/* the device as a spec sheet: one line per fact, the name of each on the left */}
@@ -444,12 +444,23 @@ function RequestNote({ d }: { d: Device }) {
 }
 
 /** A dot before the device's name for whether it was in use in the last read; nothing until the tab has seen two. */
-function LiveDot({ d }: { d: Device }) {
+/**
+ * Whether the device had traffic between the last two reads, in words on the spec sheet: the dot beside them only
+ * repeats it, so it is not told by colour alone or by a tooltip (WCAG 1.4.1). Nothing until two reads have been seen.
+ */
+function Recent({ d }: { d: Device }) {
   const { t } = useCtx();
   const active = d.status === "active" ? inUse.get(d.id) : undefined;
   if (active === undefined) return null;
-  const words = t[active ? "devices.inUse" : "devices.idle"];
-  return <span class={`live-dot${active ? " live-dot--on" : ""}`} title={words}><span class="sr-only">{words}</span></span>;
+  return (
+    <>
+      <dt>{t["devices.spec.recent"]}</dt>
+      <dd class="spec__with-icon" data-testid="device-recent" data-state={active ? "on" : "off"}>
+        <span class={`live-dot${active ? " live-dot--on" : ""}`} aria-hidden="true" />
+        <span>{t[active ? "devices.recent.on" : "devices.recent.off"]}</span>
+      </dd>
+    </>
+  );
 }
 
 /** This month's traffic and, with a filter, the lookups its lists blocked: two lines of the spec sheet. */
@@ -461,6 +472,7 @@ function DeviceNumbers({ d }: { d: Device }) {
     <>
       <dt>{t["devices.spec.month"]}</dt>
       <dd class="spec__figure" data-testid="device-usage">{formatBytes(locale, used)}</dd>
+      <Recent d={d} />
       {d.dns_filter !== "none" && (
         <>
           <dt>{t["devices.spec.blocked"]}</dt>

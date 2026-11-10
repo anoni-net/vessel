@@ -53,14 +53,15 @@ export function NextRead({ from, dueAt, label }: { from: number; dueAt: number; 
   const span = Math.max(1, dueAt - from);
   const done = Math.min(span, Math.max(0, Date.now() - from));
   return (
-    <span class="next-read" title={label}>
+    <span class="next-read">
       <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
         <circle class="next-read__track" cx="10" cy="10" r="7.5" />
         {/* a negative delay starts the fill where it would be now; `key` restarts it after each read */}
         <circle key={from} class="next-read__fill" cx="10" cy="10" r="7.5" pathLength={100}
           style={{ animationDuration: `${span}ms`, animationDelay: `-${done}ms` }} />
       </svg>
-      <span class="sr-only">{label}</span>
+      {/* in words beside the ring, not in a tooltip that a keyboard or a finger cannot open */}
+      <span>{label}</span>
     </span>
   );
 }

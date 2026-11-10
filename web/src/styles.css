@@ -576,8 +576,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @keyframes added-out { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .added { animation-name: added-fade-in, added-out; } }
 @keyframes added-fade-in { from { opacity: 0; } }
-.usage-as-of { display: inline-flex; align-items: center; gap: 6px; }
-.next-read { display: inline-flex; flex: none; }
+.usage-as-of { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.next-read { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .next-read svg { transform: rotate(-90deg); }
 .next-read circle { fill: none; stroke-width: 3; }
 .next-read__track { stroke: var(--accent); }
@@ -588,6 +588,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the dot before a device's name, on the name's first line */
 .live-dot { display: inline-block; width: 10px; height: 10px; margin-inline-end: 10px; vertical-align: .12em; border: 2px solid var(--line); border-radius: 50%; }
 .live-dot--on { border-color: var(--accent-strong); background: var(--accent-strong); }
+/* on the spec sheet, beside the words it repeats */
+.spec .live-dot { margin-inline-end: 0; vertical-align: baseline; }
 /* two pulses when a device turns out to be in use; the filled dot then says it on its own */
 @media (prefers-reduced-motion: no-preference) { .live-dot--on { animation: live-pulse 2.4s ease-out 2; } }
 @keyframes live-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ink) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 8px transparent; } }
