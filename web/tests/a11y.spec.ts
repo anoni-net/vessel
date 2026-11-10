@@ -599,3 +599,37 @@ test("a table laid out as blocks on a phone says what each part is", async ({ pa
   expect(tables).toBeGreaterThanOrEqual(4);
   expect([...new Set(found)]).toEqual([]);
 });
+
+// Words a stylesheet adds over a cell (its column's name) or beside a summary (+, −) are for the eye: the cell has its
+// column header and the summary says whether it is open, so a screen reader would say them twice (VoiceOver on iPhone
+// did, 2026-11-11). Each one gives an empty alternative, `content: … / ""`.
+test("words a stylesheet adds are not read out a second time", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  const loud: string[] = [];
+  let seen = 0;
+  for (const path of ["/privacy/", "/dns/lists/", "/faq/"]) {
+    await page.unrouteAll();
+    await backend(page, false);
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    const result = await page.evaluate(() => {
+      const out: string[] = [];
+      let n = 0;
+      for (const e of document.querySelectorAll("main *")) {
+        for (const pseudo of ["::before", "::after"]) {
+          const content = getComputedStyle(e, pseudo).content;
+          // nothing drawn, or only shapes and lines (an empty string)
+          if (!content || content === "none" || content === "normal" || content === '""') continue;
+          n++;
+          if (!/\/\s*""$/.test(content)) out.push(`${e.tagName.toLowerCase()}.${[...e.classList].join(".")}${pseudo} ${content}`);
+        }
+      }
+      return { n, out };
+    });
+    seen += result.n;
+    loud.push(...result.out.map((m) => `${path}: ${m}`));
+  }
+  // the cells' column names and the questions' + signs, so the check is not passing on an empty page
+  expect(seen).toBeGreaterThan(10);
+  expect([...new Set(loud)]).toEqual([]);
+});
