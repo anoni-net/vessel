@@ -89,8 +89,26 @@ class Checks(Base):
     def test_a_stalkerware_name_is_a_threat_and_marks_the_hour(self):
         r = self.run_one(dns=[dns("api.tracker.example")])
         self.assertEqual(r["findings"][0]["severity"], "threat")
-        self.assertEqual(r["findings"][0]["name"], "api.tracker.example")
+        self.assertEqual(r["findings"][0]["name"], "tracker.example")
         self.assertEqual(r["hours"][0]["mark"], "x")
+
+    def test_the_subdomains_of_a_listed_name_are_one_line(self):
+        r = self.run_one(dns=[dns(f"x{i}.cdn.tracker.example") for i in range(500)])
+        self.assertEqual(len(r["findings"]), 1)
+        self.assertEqual((r["findings"][0]["name"], r["findings"][0]["count"]), ("tracker.example", 500))
+
+    def test_a_report_lists_the_most_frequent_of_each_kind_and_counts_all_of_them(self):
+        (analyze.HOME / "lists" / "cti.txt").write_text("".join(f"e{i}.example\n" for i in range(40)))
+        (analyze.HOME / "lists" / "malware.txt").write_text("".join(f"m{i}.example\n" for i in range(3)))
+        self.lists = analyze.load_lists()
+        queries = [dns(f"e{i}.example") for i in range(40) for _ in range(i + 1)] + [dns("m0.example")]
+        r = self.run_one(dns=queries)
+        cti = [f for f in r["findings"] if f["kind"] == "cti"]
+        self.assertEqual(len(cti), analyze.MAX_FINDINGS)
+        self.assertEqual((cti[0]["name"], cti[-1]["name"]), ("e39.example", "e10.example"))
+        self.assertEqual(r["more"], {"cti": 10})
+        self.assertEqual({c["id"]: c["count"] for c in r["checks"]}["cti"], sum(range(1, 41)))
+        self.assertEqual(len([f for f in r["findings"] if f["kind"] == "malware"]), 1)
 
     def test_other_lists_ask_for_a_check(self):
         r = self.run_one(ssl=[{"ts": T0, "id.orig_h": "10.8.1.3", "server_name": "bad.example"}])
@@ -122,7 +140,7 @@ class Checks(Base):
         analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]},
                       {**logs(dns=rows), "blocked": {("10.8.1.3", "api.tracker.example")}}, self.lists)
         r = analyze.report("n1", "10.8.1.3")
-        self.assertEqual(r["findings"][0]["name"], "api.tracker.example")
+        self.assertEqual(r["findings"][0]["name"], "tracker.example")
         self.assertEqual(r["nx_names"], [])
 
     def test_the_name_the_ad_list_points_to_is_not_counted(self):

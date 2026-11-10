@@ -35,6 +35,7 @@ TZ = dt.timezone(dt.timedelta(hours=8))
 IDLE_HOURS = range(1, 6)
 AD_BLOCK_TARGET = "blocked.vessel"
 MAX_NX_NAMES = 500
+MAX_FINDINGS = 30  # of each kind in a report, the most frequent; the rest are only counted
 SOURCES = {
     "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
     "malware": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/tif.mini.txt",
@@ -73,13 +74,20 @@ def load_lists():
     return lists
 
 
-def listed(name, names):
+def entry_of(name, names):
+    """The widest entry of a list that covers a name: what a person can look up, and the one line that a tracker's
+    thousands of subdomains come to."""
     labels = (name or "").lower().rstrip(".").split(".")
-    return any(".".join(labels[i:]) in names for i in range(len(labels) - 1))
+    return next((entry for i in range(len(labels) - 2, -1, -1) if (entry := ".".join(labels[i:])) in names), None)
 
 
-def kind_of(name, lists):
-    return next((kind for kind in FLAGGED if listed(name, lists[kind])), None)
+def listed(name, names):
+    return entry_of(name, names) is not None
+
+
+def match(name, lists):
+    """(kind, list entry) of the first flagged list that covers a name, or None."""
+    return next(((kind, entry) for kind in FLAGGED if (entry := entry_of(name, lists[kind]))), None)
 
 
 def hour_of(ts):
@@ -210,11 +218,12 @@ def merge(node, totals, logs, lists):
             state["marks"][hour] = sign
 
     def note_hit(row, name, how):
-        kind = kind_of(name, lists)
-        if not kind:
+        matched = match(name, lists)
+        if not matched:
             return
+        kind, entry = matched
         state = get(row["id.orig_h"])
-        hit = state["hits"].setdefault(f"{kind}|{name}", {"kind": kind, "name": name, "how": how, "count": 0, "first": row["ts"]})
+        hit = state["hits"].setdefault(f"{kind}|{entry}", {"kind": kind, "name": entry, "how": how, "count": 0, "first": row["ts"]})
         hit["count"] += 1
         mark(state, row["ts"], "x" if kind in THREAT else "!")
 
@@ -293,10 +302,13 @@ def report(node, address):
         span = int((high - low).total_seconds() // 3600) + 1
     dns = state["dns"]
     found = collections.Counter()
+    entries = collections.Counter()
     findings = []
     for hit in sorted(state["hits"].values(), key=lambda h: (h["kind"] not in THREAT, -h["count"])):
         found[hit["kind"]] += hit["count"]
-        findings.append({"severity": "threat" if hit["kind"] in THREAT else "check", **hit})
+        entries[hit["kind"]] += 1
+        if entries[hit["kind"]] <= MAX_FINDINGS:
+            findings.append({"severity": "threat" if hit["kind"] in THREAT else "check", **hit})
     if state["bypass"]:
         findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"]})
     checks = [{"id": kind, "count": found[kind]} for kind in FLAGGED] + [{"id": "bypass_dns", "count": state["bypass"]}]
@@ -307,6 +319,7 @@ def report(node, address):
                 "ads_share": dns["ads"] / dns["total"] if dns["total"] else 0},
         "idle_share": idle / total if total else 0,
         "checks": checks, "findings": findings,
+        "more": {kind: n - MAX_FINDINGS for kind, n in entries.items() if n > MAX_FINDINGS},
         "nx_names": [{"name": n, "count": c} for n, c in collections.Counter(state["nx_names"]).most_common(50)],
     }
 

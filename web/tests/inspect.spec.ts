@@ -1,4 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
+import { createCipheriv, hkdfSync, randomBytes } from "node:crypto";
+import { x25519 } from "@noble/curves/ed25519.js";
 
 // made with inspect/analyze.py's `seal`, so that the page and the analysis host are checked against each other
 const KEY = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=";
@@ -144,6 +146,73 @@ test("opens a report sealed by the analysis host, with a reminder to download it
   expect(html).toContain("tracker.example");
   expect(html).toContain("<style>");
   expect(html).not.toContain(KEY);
+});
+
+/** The same sealing as inspect/analyze.py's `seal`, for reports too large to keep in this file. */
+function seal(report: object) {
+  const secret = randomBytes(32);
+  const shared = x25519.getSharedSecret(secret, x25519.getPublicKey(Buffer.from(KEY, "base64")));
+  const key = Buffer.from(hkdfSync("sha256", shared, new Uint8Array(0), "vessel-inspection-report", 32));
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ct = Buffer.concat([cipher.update(JSON.stringify(report)), cipher.final(), cipher.getAuthTag()]);
+  return { epk: Buffer.from(x25519.getPublicKey(secret)).toString("base64"), iv: iv.toString("base64"), ct: ct.toString("base64") };
+}
+
+const big = (findings: object[], extra: object = {}) => ({
+  ...ended,
+  report: seal({
+    first: 1762128000, last: 1762214400, hours: [{ hour: "2026-11-09T01", up: 1000, down: 2000, mark: "x" }], coverage: { active_hours: 1, total_hours: 1 },
+    dns: { total: 100, nx_share: 0, ads_share: 0 }, idle_share: 0, checks: [{ id: "stalkerware", count: 7 }, { id: "cti", count: 5000 }], findings, ...extra,
+  }),
+});
+const site = (kind: string, severity: string, i: number) => ({ severity, kind, name: `s${i}.example`, how: "DNS", count: 5000 - i, first: 1762128000 });
+const threatsAndMany = (n: number) => [site("stalkerware", "threat", 0), site("stalkerware", "threat", 1), ...Array.from({ length: n }, (_, i) => site("cti", "check", i + 2))];
+
+test("a report full of sites still says first what was found and what to do", async ({ page }) => {
+  // stored before the analysis host listed only the top ones
+  await backend(page, big(threatsAndMany(2000)));
+  await withKey(page);
+  await goto(page);
+  const summary = page.getByTestId("inspect-summary");
+  await expect(summary).toContainText("2 個網站，共 7 次");
+  await expect(summary).toContainText("2,000 個網站，共 5,000 次");
+  const [threats, others] = [page.getByTestId("inspect-group").nth(0), page.getByTestId("inspect-group").nth(1)];
+  await expect(threats).toHaveJSProperty("open", true);
+  await expect(others).toHaveJSProperty("open", false);
+  await expect(others.getByTestId("inspect-finding")).toHaveCount(30);
+  await expect(others.getByTestId("inspect-not-listed")).toContainText("另有 1,970 個網站");
+  // what to do is on the first screens, ahead of the list and of the hours
+  const next = page.getByRole("heading", { name: "接下來可以做" });
+  const [at, list, tiles] = await Promise.all([next.boundingBox(), page.getByTestId("inspect-group").first().boundingBox(), page.getByTestId("inspect-tiles").boundingBox()]);
+  expect(at!.y).toBeLessThan(page.viewportSize()!.height * 1.5);
+  expect(at!.y).toBeLessThan(list!.y);
+  expect(list!.y).toBeLessThan(tiles!.y);
+  // the download has the closed groups open
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("inspect-download").click()]);
+  const chunks: Buffer[] = [];
+  for await (const c of await download.createReadStream()) chunks.push(c as Buffer);
+  const html = Buffer.concat(chunks).toString();
+  expect(html).toContain("s31.example");
+  expect(html).not.toContain("s32.example");
+  expect(html.match(/<details[^>]*inspect-group[^>]*>/g)!.every((tag) => /\bopen\b/.test(tag))).toBe(true);
+});
+
+test("the sites a report leaves out are counted", async ({ page }) => {
+  await backend(page, big(threatsAndMany(30), { more: { cti: 12 } }));
+  await withKey(page);
+  await goto(page);
+  await expect(page.getByTestId("inspect-summary")).toContainText("42 個網站");
+  await expect(page.getByTestId("inspect-group").nth(1).getByTestId("inspect-not-listed")).toContainText("另有 12 個網站");
+});
+
+test("something found without a site has a line and no list", async ({ page }) => {
+  await backend(page, big([{ severity: "check", kind: "bypass_dns", count: 9 }]));
+  await withKey(page);
+  await goto(page);
+  await expect(page.getByTestId("inspect-summary")).toContainText("9 次");
+  await expect(page.getByTestId("inspect-group")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "接下來可以做" })).toHaveCount(0);
 });
 
 test("without the key it asks for it, and rejects a wrong one", async ({ page }) => {
