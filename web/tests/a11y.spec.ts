@@ -496,3 +496,72 @@ test("nothing moves on its own while the inspection waits", async ({ page }) => 
     expect(forever, name).toEqual([]);
   }
 });
+
+// axe does not read text drawn by CSS: the NOTE on a warning, the DEVICE on the device under inspection, the + and − of
+// the FAQ, the numbers of a to-do list, the column names a table shows as cards on a phone. At their size they need
+// 4.5:1 against what they are written on, as any other small text (WCAG 1.4.3). Every page and every state of the
+// inspection, on a phone too, where the column names appear.
+for (const scheme of ["light", "dark"] as const) {
+  test(`the text drawn by CSS stands out at 4.5:1, ${scheme}`, async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.emulateMedia({ colorScheme: scheme });
+    const opens: [string, () => Promise<void>][] = [
+      ...PAGES.map(([path, signedIn]) => [path, async () => {
+        await backend(page, signedIn);
+        await page.goto(path);
+        await page.waitForLoadState("networkidle");
+        await page.evaluate(() => document.querySelectorAll("details").forEach((d) => { d.open = true; }));
+      }] as [string, () => Promise<void>]),
+      ...Object.entries(INSPECT).filter(([, state]) => state.inspection !== "hang")
+        .map(([name, state]) => [`inspection, ${name}`, () => openInspection(page, state)] as [string, () => Promise<void>]),
+    ];
+    const seen = new Set<string>();
+    const low: string[] = [];
+    for (const [name, open] of opens) {
+      await page.unrouteAll();
+      await page.goto("about:blank");
+      await open();
+      const labels = await page.evaluate(() => {
+        const parse = (c: string) => { const m = (c.match(/[\d.]+/g) ?? []).map(Number); return { rgb: m.slice(0, 3), a: m[3] ?? 1 }; };
+        const lum = (rgb: number[]) => {
+          const [r, g, b] = rgb.map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+        };
+        // what the content writes: a string, an attribute, or a counter's number (its value is not readable here)
+        const words = (e: Element, content: string) => {
+          if (content === "none" || content === "normal") return "";
+          const quoted = content.match(/^"([^"]*)"/);
+          if (quoted) return quoted[1]!.trim();
+          const attr = content.match(/^attr\(([\w-]+)\)/);
+          if (attr) return (e.getAttribute(attr[1]!) ?? "").trim() && `attr(${attr[1]})`;
+          return /^counters?\(/.test(content) ? "counter" : "";
+        };
+        const out: { text: string; where: string; ratio: number; need: number }[] = [];
+        for (const e of document.querySelectorAll("body *")) {
+          if (!e.getClientRects().length) continue;
+          for (const which of ["::before", "::after"]) {
+            const s = getComputedStyle(e, which);
+            const text = words(e, s.content);
+            if (!text || s.display === "none" || s.visibility === "hidden") continue;
+            // the text's own paper, or what is behind its box
+            let bg = parse(s.backgroundColor);
+            for (let p: Element | null = e; bg.a < 1 && p; p = p.parentElement) bg = parse(getComputedStyle(p).backgroundColor);
+            const [hi, lo] = [lum(parse(s.color).rgb), lum(bg.a < 1 ? [255, 255, 255] : bg.rgb)].sort((x, y) => y - x);
+            const size = parseFloat(s.fontSize);
+            const need = size >= 24 || (parseInt(s.fontWeight) >= 700 && size >= 18.66) ? 3 : 4.5;
+            const where = `${e.tagName.toLowerCase()}.${[...e.classList].join(".")}${which}`;
+            out.push({ text, where, ratio: Math.round(((hi! + 0.05) / (lo! + 0.05)) * 100) / 100, need });
+          }
+        }
+        return out;
+      });
+      for (const l of labels) {
+        seen.add(l.text);
+        if (l.ratio < l.need) low.push(`${name}: ${l.where} "${l.text}" ${l.ratio}:1`);
+      }
+    }
+    // the check finds what it is meant to, at any width: the folded parts are open, so the FAQ shows its −
+    expect([...seen]).toEqual(expect.arrayContaining(["NOTE", "DEVICE", "−", "counter"]));
+    expect([...new Set(low)]).toEqual([]);
+  });
+}
