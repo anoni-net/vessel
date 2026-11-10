@@ -150,3 +150,31 @@ export const ONE_DAY_ADS_REPORT = {
   ...ONCE_ADS_REPORT,
   findings: ONCE_ADS_REPORT.findings.map((f, i) => ({ ...f, hours: [`2026-11-09T${18 + (i % 4)}`], last: Date.parse(`2026-11-09T${18 + (i % 4)}:10:00Z`) / 1000 })),
 };
+
+// The notes on sites (src/data/site-notes.json) describe the sites the maintainer's own first day had: two of ad
+// networks and two ad redirects. These are their domains, in the public file too.
+export const NOTED = ["magsrv.com", "diffusedpassionquaking.com", "snaptrckr.fun", "opoxv.com"] as const;
+const named = (f: Finding, name: string) => ({ ...f, name });
+
+/**
+ * The first day with those four sites, one of them seen under a name below its domain, and two that only look like
+ * one: a name that merely ends the same way, and one without a note at all.
+ */
+export const NOTES_REPORT = {
+  ...ONCE_ADS_REPORT,
+  findings: ONCE_ADS_REPORT.findings.slice(0, 6).map((f, i) =>
+    named(f, ["magsrv.com", "diffusedpassionquaking.com", "s10.snaptrckr.fun", "opoxv.com", "notmagsrv.com", "pixel.example"][i])),
+  checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 6 }, { id: "cti", count: 3 }, { id: "bypass_dns", count: 0 }],
+};
+
+/** Every site of the first day an ad network's, with a note: the report must still say it needs a check. */
+export const AD_NETWORK_REPORT = {
+  ...ONCE_ADS_REPORT,
+  findings: ONCE_ADS_REPORT.findings.slice(0, 4).map((f, i) => named(f, ["magsrv.com", "a.magsrv.com", "diffusedpassionquaking.com", "s.magsrv.com"][i])),
+  checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 6 }, { id: "cti", count: 0 }, { id: "bypass_dns", count: 0 }],
+};
+/** The same report with names no note has: what the verdict is without any note. */
+export const AD_NETWORK_UNNOTED = {
+  ...AD_NETWORK_REPORT,
+  findings: AD_NETWORK_REPORT.findings.map((f, i) => named(f, `unnoted${i}.example`)),
+};

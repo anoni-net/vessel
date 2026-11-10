@@ -31,11 +31,13 @@
 
 入口網站取得的報告是用使用者瀏覽器產生的 X25519 公鑰加密的（`report --seal`），入口網站的資料庫存的只有密文。
 
+團體的負責人提出、成員同意的檢測，另外替每位負責人產生一份摘要（`summary --seal`，規劃見 toomore/anoni-net-ws#483），用負責人瀏覽器產生的公鑰加密。摘要只有判定（`clean`、`check`、`threat`，跟報告頁的判定相同）、命中的類別與嚴重程度、第一筆與最後一筆資料的時間，以及涵蓋率，不含網域、次數、出現的時段與流量。加密時 HKDF 的 `info` 用 `vessel-inspection-summary`，跟報告分開，摘要無法被當成報告打開。
+
 `clear` 刪除某台裝置的結果，通道位址重複使用時，新的檢測要從空的開始。
 
 ## 入口網站的呼叫
 
-入口網站用 SSH 連到分析主機，金鑰綁定 `inspect-remote`，只能取得加密的報告、清除結果、查詢狀態，以及在檢測結束時要 `recv.py` 立刻切檔：
+入口網站用 SSH 連到分析主機，金鑰綁定 `inspect-remote`，只能取得加密的報告與負責人的摘要、清除結果、查詢狀態，以及在檢測結束時要 `recv.py` 立刻切檔：
 
 ```
 command="/opt/vessel-inspect-app/inspect-remote",restrict,from="<入口主機的 tailnet IP>" ssh-ed25519 AAAA... vessel-portal

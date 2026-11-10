@@ -29,6 +29,8 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 
 首頁「Vessel 的做法」的四張圖（FIG. 02 到 05）由 `web/scripts/hero-figures.py` 產生，寫進 `web/src/hero-figures-data.ts`，要改圖時改腳本再執行 `python3 web/scripts/hero-figures.py`，不要手改資料檔。標籤的寬度取自三個語系的文字，改了圖上標籤的文字也要重新執行，CI 會用 `--check` 確認資料檔與腳本畫出的一致。
 
+檢測報告的網站說明在 `web/src/data/site-notes.json`，跟著前端打包，報告在使用者的瀏覽器裡比對命中的網站，不逐一查詢伺服器。說明只補充，不影響報告的判斷，名單頁（`/dns/lists/#site-notes`）公開整份資料。新增一筆時寫上網域、類別、營運者（選填）、至少一個 `https://` 來源與審查日期，新的類別要在三個語系補上 `notes.<類別>.name` 與 `.about`。說明有增減時，在名單頁的變動紀錄（`web/src/pages/dns-lists.tsx` 的 `LOG`）加一行。CI 用 `node web/scripts/site-notes.mjs` 檢查格式，審查日期超過一年會失敗，重新確認來源後更新日期。
+
 `npm run build` 建置之後會預先渲染每一頁（`web/scripts/prerender.mjs`），每個語系、每個頁面各有一份帶著自己標題、描述與連結預覽的 HTML，另外產生 `404.html`、`robots.txt` 與 `sitemap.xml`。正式網站的 nginx 只回應這些檔案，其他路徑回 404，所以新增頁面時要加進 `web/src/seo.ts` 的 `PUBLIC_PAGES`（可以被搜尋到）或 `PRIVATE_PAGES`（要登入，標成 `noindex`），清單跟 App 的路由對不上時建置會失敗。
 
 開發時前端用 `npm run dev`，`/api/` 會轉到 `127.0.0.1:8090` 的後端。前端的 Playwright 測試用 `page.route` 模擬後端，只需要建置好的前端，在桌機與手機兩種尺寸各執行一次。改了畫面之後，在手機尺寸實際截圖看過再送出。
@@ -61,8 +63,7 @@ repo 是公開的。下面這些只放在主機上：
 - 不記錄誰邀請了誰。使用者在帳號頁產生的邀請碼（`app/invites.py`，每個帳號的組數是設定 `user_invites`，0 是關閉）只在還沒被使用時記著是哪個帳號產生的，兌換或過期之後就清掉，帳號只留「已經有幾位使用」的計數
 - passkey 是帳號號碼以外的登入方式（`app/passkeys.py`），RP ID 是 `vessel.anoni.net`。後端只存公鑰、簽章計數、使用者取的名稱與加入日期，不存 AAGUID，`user.id` 是替帳號另外產生的隨機值。換一組帳號號碼一定要當下用這個帳號的 passkey 簽一次，換完之後其他登入中的 session 一律刪除。加上或刪除 passkey、刪除帳號要在登入後 10 分鐘內，超過時先用 passkey 或帳號號碼再確認一次（`app/auth.py` 的 `require_recent`、`web/src/pages/reverify.tsx`），短暫拿到已登入瀏覽器的人無法加上自己的 passkey 再換掉號碼
 - 入口網站、API 與節點都不記錄存取紀錄、連線的目的地與時間，節點的 DNS 解析器不記錄查詢。唯一的例外是使用者自己開啟的裝置檢測
-- 裝置檢測（`app/inspections.py`、`web/src/pages/inspect.tsx`，規劃見 toomore/anoni-net-ws#480）只在使用者同意蒐集項目，並在那台裝置上打開確認連結之後開始，節點由通道位址認出裝置，最長 7 天。節點把連線複製到分析主機（`inspect/`），封包分析完立刻刪除。報告用使用者瀏覽器產生的鑰匙加密，資料庫只有密文，檢測結束後保存 7 天，到期刪除，同意的紀錄只留版本與日期。使用者自己開啟的檢測，負責人看不到報告，也不知道有人開啟檢測。改了蒐集的項目時，要一起改 `policy.INSPECT_CONSENT_VERSION`、同意頁與隱私權政策的「裝置檢測」
-- 負責人可以請成員檢測團體裡的裝置（`app/groups.py`、`web/src/pages/group-inspect.tsx`，規劃見 toomore/anoni-net-ws#483），成員一樣要同意並在裝置上確認，也可以拒絕。負責人看到的摘要用負責人瀏覽器產生的鑰匙加密，只有判定、命中的類別與涵蓋的時數，不含網域、次數、時段與流量，不記錄是哪位負責人提出的。成員刪除報告時摘要一起刪除。改了負責人看得到的內容時，要一起改 `policy.GROUP_INSPECT_CONSENT_VERSION`、`inspect/analyze.py` 的 `summary`、團體版的同意頁與隱私權政策的「團體」
+- 裝置檢測（`app/inspections.py`、`web/src/pages/inspect.tsx`，規劃見 toomore/anoni-net-ws#480）只在使用者同意蒐集項目，並在那台裝置上打開確認連結之後開始，節點由通道位址認出裝置，最長 7 天。節點把連線複製到分析主機（`inspect/`），封包分析完立刻刪除。報告用使用者瀏覽器產生的鑰匙加密，資料庫只有密文，檢測結束後保存 7 天，到期刪除，同意的紀錄只留版本與日期。負責人看不到報告，也不知道有人開啟檢測。改了蒐集的項目時，要一起改 `policy.INSPECT_CONSENT_VERSION`、同意頁與隱私權政策的「裝置檢測」
 - 團體的負責人看得到帳號代稱、裝置名稱、城市、過濾等級與異常類別，看不到流量、擋下次數、連線時間與帳號號碼。異常狀態只回傳類別，帳號頁讓成員看到負責人看到的同一份內容（`/api/group/mine`）
 - 頁面不載入第三方的腳本與字型。統計送到社群自架的 Umami（`web/src/analytics.ts`），只有公開頁面的瀏覽，以及兌換、登入、建立裝置每一步的結果。事件只能帶 `EVENTS` 列出的欄位與值。資料庫記著帳號的建立日期，Umami 又替每個事件加上由 IP 推算的國家，所以事件不帶資料庫裡也有的欄位，例如帳號號碼、裝置名稱、城市與網域過濾，避免兩邊的資料能互相對照
 

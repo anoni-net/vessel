@@ -227,7 +227,8 @@ test("WCAG 1.4.10 and 1.4.12: at 320 px with wider text spacing nothing runs off
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
   });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  const cut = await page.locator(".lists-page *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && e.tagName !== "rect" && e.tagName !== "pattern" && !e.closest(".lists-compare thead")).map((e) => e.tagName + "." + e.getAttribute("class")).slice(0, 5));
+  // the column names of the tables shown as cards are clipped to a pixel for screen readers, and not drawn
+  const cut = await page.locator(".lists-page *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && e.tagName !== "rect" && e.tagName !== "pattern" && !e.closest(".lists-compare thead, .legal thead")).map((e) => e.tagName + "." + e.getAttribute("class")).slice(0, 5));
   expect(cut).toEqual([]);
 });
 
@@ -254,7 +255,8 @@ test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is a
   await page.goto("/dns/lists/");
   await expect(page.getByTestId("lists-groups")).toHaveAttribute("aria-busy", "true");
   await openMore(page);
-  await expect(page.getByRole("table")).toHaveCount(2);
+  // the comparison, the notes on sites in inspection reports, and the excluded domains
+  await expect(page.getByRole("table")).toHaveCount(3);
   await expect(page.getByTestId("lists-compare").getByRole("columnheader")).toHaveCount(4);
   await expect(page.getByTestId("lists-excluded").getByRole("columnheader")).toHaveCount(2);
 });
