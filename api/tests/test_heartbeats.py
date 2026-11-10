@@ -184,3 +184,79 @@ def test_an_exit_already_listed_on_the_first_run_is_notified(tmp_path, monkeypat
     monkeypatch.setattr(health_warn, "notify", lambda *args: sent.append(args))
     health_warn.watch_dnsbl({"exits": [{"region": "sg", "ip": "192.0.2.20", "previous": False}]})
     assert len(sent) == 1
+
+
+GB = 10**9
+
+
+def usage(db, rx: int, tx: int, group: str | None = None) -> None:
+    account = db.execute("INSERT INTO accounts (number_hash, group_code, group_role, group_label) "
+                         "VALUES (uuid_send(gen_random_uuid()), %s, %s, %s) RETURNING id",
+                         (group, group and "member", group and "M")).fetchone()[0]
+    db.execute("INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes) "
+               "VALUES (%s, date_trunc('month', current_date), %s, %s)", (account, rx, tx))
+
+
+def test_health_counts_unusual_accounts(client, db):
+    # the personal quota is 50 GB in the tests
+    usage(db, 2 * GB, 1 * GB)               # sends more than it receives
+    usage(db, GB // 2, GB // 10)            # also, but too little to say anything
+    usage(db, 1 * GB, 50 * GB - 1 * GB - 1)  # one byte short of the quota: the month's rate goes over it
+    usage(db, 1 * GB, 10 * GB)              # a fifth of the quota: too early to tell
+    db.execute("INSERT INTO groups (code, account_limit, device_limit, monthly_quota_bytes, ends_on) "
+               "VALUES ('g1', 10, 5, 1000, current_date + 30)")
+    usage(db, 100, 2000, group="g1")         # over its group's quota
+    db.execute("INSERT INTO account_usage (account_id, period, rx_bytes, tx_bytes) "
+               "SELECT id, date_trunc('month', current_date) - interval '1 month', %s, 1 FROM accounts LIMIT 1", (9 * GB,))
+    assert health(client)["usage_flags"] == {"upload": 1, "pace": 1, "quota": 1}
+
+
+def test_the_worker_keeps_the_node_totals(signed_in, node, db):
+    worker.tick(db)
+    # a node from before the totals: nothing kept
+    assert health(signed_in)["node_totals"] == {}
+    node.totals = {"bt-dht": 0, "new-connections": 40}
+    worker.tick(db)
+    assert health(signed_in)["node_totals"] == {"sg": {"since": node.started, "counts": {"bt-dht": 0, "new-connections": 40}}}
+    # replaced as a whole: a counter the node no longer has goes
+    node.totals = {"over-device-limit": 2}
+    worker.tick(db)
+    assert health(signed_in)["node_totals"]["sg"]["counts"] == {"over-device-limit": 2}
+
+
+def test_a_rise_in_unusual_usage_is_notified(tmp_path, monkeypatch):
+    sent = []
+    monkeypatch.setattr(health_warn, "USAGE_STATE", tmp_path / "usage.state")
+    monkeypatch.setattr(health_warn, "notify", lambda title, body, priority, tags: sent.append(body))
+
+    def data(upload=0, pace=0, quota=0, dht=0, new=50):
+        return {"usage_flags": {"upload": upload, "pace": pace, "quota": quota},
+                "node_totals": {"sg": {"since": "2026-11-09T02:07:26.7Z",
+                                       "counts": {"bt-dht": dht, "new-connections": new}}}}
+
+    # nothing unusual on the first run: only remembered
+    health_warn.watch_usage(data())
+    assert sent == [] and (tmp_path / "usage.state").read_text() == "pace=0\nquota=0\nupload=0\n"
+    health_warn.watch_usage(data(upload=1))
+    assert sent == [("- 本月上傳超過下載（上傳至少 1 GB）的帳號：1 個（上次 0 個）\n\n只有總數。帳號的細節在 m6 上查 "
+                    "account_usage，處理方式見 deploy/README.md 的「濫用的跡象」。")]
+    # the same or fewer: nothing
+    health_warn.watch_usage(data(upload=1, new=900))
+    health_warn.watch_usage(data())
+    assert len(sent) == 1
+    # P2P on a node is told once while it keeps counting
+    health_warn.watch_usage(data(dht=3))
+    assert len(sent) == 2 and "- sg 節點的BitTorrent DHT 查詢的封包：3 次（節點 2026-11-09T02:07 UTC 啟動以來，新出現）" in sent[1]
+    health_warn.watch_usage(data(dht=80))
+    assert len(sent) == 2
+    # a node restart puts it back to zero; the next P2P is told again
+    health_warn.watch_usage(data())
+    health_warn.watch_usage(data(dht=1))
+    assert len(sent) == 3
+
+
+def test_an_older_backend_sends_no_usage_notice(tmp_path, monkeypatch):
+    monkeypatch.setattr(health_warn, "USAGE_STATE", tmp_path / "usage.state")
+    monkeypatch.setattr(health_warn, "notify", lambda *args: (_ for _ in ()).throw(AssertionError("sent")))
+    health_warn.watch_usage({"worker_age": 3})
+    assert not (tmp_path / "usage.state").exists()

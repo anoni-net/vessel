@@ -43,7 +43,7 @@ def schema():
 def db(schema):
     with psycopg.connect(DB_URL, autocommit=True) as conn:
         conn.execute(
-            "TRUNCATE groups, accounts, invites, sessions, regions, relays, devices, account_usage, device_counters, jobs, heartbeats CASCADE"
+            "TRUNCATE groups, accounts, invites, sessions, regions, relays, devices, account_usage, device_counters, jobs, heartbeats, node_totals CASCADE"
         )
         conn.execute("UPDATE settings SET value = '0' WHERE key = 'account_cap'")
         conn.execute("UPDATE settings SET value = 'false' WHERE key = 'redeem_paused'")
@@ -89,6 +89,7 @@ class FakeNode:
         # what node/host/vessel-reach.py last wrote, or None before its first run
         self.reach_result: dict | None = None
         self.reach_calls = 0
+        self.totals = None  # the node's own counts in usage; None like a node from before they were added
         # device inspection
         self.inspecting: dict[str, int] = {}
         self.confirms: list[dict] = []
@@ -175,7 +176,7 @@ class FakeNode:
                 "peers": [{"name": n, "rx": self.counters.get(n, (0, 0))[0], "tx": self.counters.get(n, (0, 0))[1],
                            "latest_handshake": self.handshakes.get(n, 0), "blocked": self.blocked.get(n, 0),
                            "blocked_ads": self.blocked_ads.get(n, 0), "throttled": n in self.throttled}
-                          for n in self.peers]}
+                          for n in self.peers], **({} if self.totals is None else {"totals": self.totals})}
 
 
 @pytest.fixture
