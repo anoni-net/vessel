@@ -1034,6 +1034,9 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-verdict--threat { border-color: var(--danger); background: var(--bad-fill); }
 .inspect-verdict--check { border-color: var(--caution); }
 .inspect-verdict--clean { background: var(--tint); }
+/* two cards that sit side by side on a wide screen (below); one above the other, as the page's other blocks, on a phone */
+.inspect-pair { display: flex; flex-direction: column; gap: 16px; }
+.inspect-verdict__main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .inspect-verdict__state { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 24px; line-height: 1.3; color: var(--text); }
 .inspect-verdict__state .icon { flex: none; }
 .inspect-verdict--threat .inspect-verdict__state .icon { color: var(--danger); }
@@ -1071,6 +1074,35 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .hit-row__cells { grid-column: 2; grid-row: 1; }
   .hit-row__words { grid-column: 1 / -1; }
 }
+/* A wide screen (toomore/anoni-net-ws#480): the page takes the width, in every state, so its heading does not move when the
+   status does. Blocks that read best at the narrow width keep it, left-aligned: anything in the page or in a container
+   marked .inspect-wide that is not itself wide. The two cards of the consent page and of the confirmation sit side by side.
+   The report reads in rows, in the order of the page (and of the keyboard and screen readers): what it comes to across
+   the top with the days beside it, the sites the full width, then the hours beside the checks. */
+@media (min-width: 960px) {
+  .inspect-page { max-width: 1120px; }
+  .inspect-page > :not(nav, h1, .inspect-wide), .inspect-wide:not(.inspect-pair, .inspect-report) > :not(.inspect-wide, .inspect-report) { max-width: 520px; }
+  .inspect-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+  /* the key beside the link is a short card: as tall as it is, not as the one with the QR code */
+  .inspect-pair--top { align-items: start; }
+  .inspect-report { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .inspect-report > * { grid-column: 1 / -1; }
+  .inspect-report > .inspect-hours { grid-column: 1; }
+  .inspect-report > .inspect-checkcard { grid-column: 2; }
+  .inspect-report > p { max-width: 720px; }
+  .inspect-verdict { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px 40px; align-items: start; }
+  .inspect-verdict .inspect-cover { margin-top: 0; padding-top: 0; padding-inline-start: 40px; border-top: 0; border-inline-start: 1px solid var(--line);
+    margin-inline-start: -40px; }
+  .inspect-verdict__main > p, .inspect-verdict__main > ol { max-width: 640px; }
+  /* the sites: the name, the week and the words on one line */
+  .hit-row { grid-template-columns: minmax(0, 1fr) 336px minmax(0, 1.2fr); }
+  .hit-row__words { grid-column: 3; grid-row: 1; }
+  .hits__grid { width: 100%; gap: 4px; }
+  .hit { height: 20px; }
+  .tile { font-size: 12px; }
+  .tiles__row { font-size: 12px; }
+}
+
 /* what was checked, a line each: the icon and the sentence say the same, the figures are folded below */
 .inspect-checks { display: grid; gap: 8px; }
 .inspect-check { display: flex; align-items: flex-start; gap: 8px; }

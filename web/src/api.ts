@@ -173,6 +173,8 @@ export interface Inspection {
   report_days: number;
   started_at?: string | null;
   ends_at?: string | null;
+  /** when copying stopped, once it has: before ends_at for one ended early (absent from portals before anoni-net/vessel#247) */
+  stopped_at?: string | null;
   /** ciphertext, for the key this browser made */
   report?: { epk: string; iv: string; ct: string } | null;
   report_until?: string | null;

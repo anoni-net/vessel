@@ -53,9 +53,15 @@ export interface Span {
   days: number;
 }
 
-/** The inspection's days from what the portal says about it; the report's own hours fill in what it does not. */
+/**
+ * The inspection's days from what the portal says about it; the report's own hours fill in what it does not. One ended
+ * early ends where copying stopped (`stopped_at`, from portals that send it), so the days after it are not drawn as days
+ * without a connection.
+ */
 export function spanOf(state: Inspection, partial = false): Span {
-  const end = state.ends_at ? new Date(state.ends_at) : null;
+  const planned = state.ends_at ? new Date(state.ends_at) : null;
+  const stopped = !partial && state.stopped_at ? new Date(state.stopped_at) : null;
+  const end = planned && stopped && stopped < planned ? stopped : planned ?? stopped;
   const start = state.started_at ? new Date(state.started_at) : end ? new Date(end.getTime() - state.days * 86_400_000) : null;
   return { start, end, days: state.days, ...(partial && end ? { now: new Date(), day: progress(state).day } : {}) };
 }
@@ -203,13 +209,15 @@ export function Inspect() {
 /** The page while it loads, in the shape of the consent page unless this tab knows the device has an inspection. */
 function InspectSkeleton({ consent }: { consent: boolean }) {
   return (
-    <div class="stack" aria-hidden="true">
+    <div class="stack inspect-wide" aria-hidden="true">
       <div class="sk-lead"><SkLine w="mid" big /></div>
       {consent ? (
         <>
           <div class="sk-intro stack"><SkLine /><SkLine /><SkLine w="long" /></div>
-          <SkCard size="collect" lines={["mid", "full", "long", "full", "long"]} />
-          <SkCard size="handling" lines={["mid", "full", "long", "full", "long"]} />
+          <div class="inspect-pair inspect-wide">
+            <SkCard size="collect" lines={["mid", "full", "long", "full", "long"]} />
+            <SkCard size="handling" lines={["mid", "full", "long", "full", "long"]} />
+          </div>
           <SkLine w="long" />
           <SkButton />
         </>
@@ -240,24 +248,27 @@ function Consent({ state, grouped, id, setKept, reload, fail }: {
   };
   const items = (["names", "where", "size", "packets", "plain"] as const).map((k) => t[`inspect.collect.${k}`]);
   return (
-    <form class="stack" onSubmit={start} data-testid="inspect-consent">
+    <form class="stack inspect-wide" onSubmit={start} data-testid="inspect-consent">
       <p>{fmt(t["inspect.intro"], { days: state.days })}</p>
-      <div class="card card--flat stack">
-        <h2>{t["inspect.collect.title"]}</h2>
-        <ul class="inspect-list">{items.map((x) => <li>{x}</li>)}</ul>
-        <p class="muted small">{t["inspect.collect.not"]}</p>
-      </div>
-      <div class="card card--flat stack">
-        <h2>{t["inspect.handling.title"]}</h2>
-        <dl class="spec small">
-          <dt>{t["inspect.handling.who"]}</dt><dd>{t["inspect.handling.whoValue"]}</dd>
-          <dt>{t["inspect.handling.where"]}</dt><dd>{t["inspect.handling.whereValue"]}</dd>
-          <dt>{t["inspect.handling.packets"]}</dt><dd>{t["inspect.handling.packetsValue"]}</dd>
-          <dt>{t["inspect.handling.report"]}</dt><dd>{fmt(t["inspect.handling.reportValue"], { days: state.report_days })}</dd>
-          <dt>{t["inspect.handling.stop"]}</dt><dd>{t["inspect.handling.stopValue"]}</dd>
-        </dl>
-        {grouped && <p class="small" data-testid="inspect-group">{t["inspect.handling.group"]}</p>}
-        <p class="small"><a href={href("/privacy/#inspection")}>{t["inspect.handling.more"]}</a></p>
+      {/* side by side on a wide screen: what is collected, then how it is handled, read left to right */}
+      <div class="inspect-pair inspect-wide">
+        <div class="card card--flat stack">
+          <h2>{t["inspect.collect.title"]}</h2>
+          <ul class="inspect-list">{items.map((x) => <li>{x}</li>)}</ul>
+          <p class="muted small">{t["inspect.collect.not"]}</p>
+        </div>
+        <div class="card card--flat stack">
+          <h2>{t["inspect.handling.title"]}</h2>
+          <dl class="spec small">
+            <dt>{t["inspect.handling.who"]}</dt><dd>{t["inspect.handling.whoValue"]}</dd>
+            <dt>{t["inspect.handling.where"]}</dt><dd>{t["inspect.handling.whereValue"]}</dd>
+            <dt>{t["inspect.handling.packets"]}</dt><dd>{t["inspect.handling.packetsValue"]}</dd>
+            <dt>{t["inspect.handling.report"]}</dt><dd>{fmt(t["inspect.handling.reportValue"], { days: state.report_days })}</dd>
+            <dt>{t["inspect.handling.stop"]}</dt><dd>{t["inspect.handling.stopValue"]}</dd>
+          </dl>
+          {grouped && <p class="small" data-testid="inspect-group">{t["inspect.handling.group"]}</p>}
+          <p class="small"><a href={href("/privacy/#inspection")}>{t["inspect.handling.more"]}</a></p>
+        </div>
       </div>
       <label class="check">
         <input type="checkbox" checked={sure} onChange={(e) => setSure(e.currentTarget.checked)} data-testid="inspect-agree" />
@@ -328,7 +339,7 @@ function Confirming({ id, state, local, setKept, reload, fail, stop }: {
     }
   };
   return (
-    <div class="stack" data-testid="inspect-confirming">
+    <div class="stack inspect-wide" data-testid="inspect-confirming">
       {soon && (
         <div class="card card--warn card--flat stack" data-testid="inspect-soon">
           <p>{fmt(t["inspect.confirm.soon"], { minutes })}</p>
@@ -337,18 +348,20 @@ function Confirming({ id, state, local, setKept, reload, fail, stop }: {
           </button>
         </div>
       )}
-      {local?.url ? (
-        <div class="card card--tint card--flat stack">
-          <h2>{t["inspect.confirm.title"]}</h2>
-          <p>{fmt(t["inspect.confirm.body"], { minutes: local.minutes ?? 30 })}</p>
-          <p class="inspect-link"><a href={local.url} data-testid="inspect-url">{local.url}</a></p>
-          <div class="qr card inspect-qr" role="img" aria-label={t["inspect.confirm.qr"]} dangerouslySetInnerHTML={{ __html: qrSvg(local.url) }} />
-          <p class="muted small">{t["inspect.confirm.waiting"]}</p>
-        </div>
-      ) : (
-        <p class="card card--warn card--flat" data-testid="inspect-lost">{t["inspect.confirm.lost"]}</p>
-      )}
-      {local && <CopyKey value={local.key} />}
+      <div class="inspect-pair inspect-pair--top inspect-wide">
+        {local?.url ? (
+          <div class="card card--tint card--flat stack">
+            <h2>{t["inspect.confirm.title"]}</h2>
+            <p>{fmt(t["inspect.confirm.body"], { minutes: local.minutes ?? 30 })}</p>
+            <p class="inspect-link"><a href={local.url} data-testid="inspect-url">{local.url}</a></p>
+            <div class="qr card inspect-qr" role="img" aria-label={t["inspect.confirm.qr"]} dangerouslySetInnerHTML={{ __html: qrSvg(local.url) }} />
+            <p class="muted small">{t["inspect.confirm.waiting"]}</p>
+          </div>
+        ) : (
+          <p class="card card--warn card--flat" data-testid="inspect-lost">{t["inspect.confirm.lost"]}</p>
+        )}
+        {local && <CopyKey value={local.key} />}
+      </div>
       <button class="link-button" type="button" onClick={() => stop(t["inspect.said.cancelled"])}>{t["inspect.cancel"]}</button>
     </div>
   );
@@ -361,7 +374,7 @@ function Running({ state, local, setKept, name, stop }: {
   const end = () => window.confirm(fmt(t["inspect.endConfirm"], { days: state.report_days })) && stop();
   const { day } = progress(state);
   return (
-    <div class="stack" data-testid="inspect-running">
+    <div class="stack inspect-wide" data-testid="inspect-running">
       <div class="card card--tint card--flat inspect-status" data-testid="inspect-status">
         <p class="strong">{fmt(t["inspect.runningDay"], { day, days: state.days })}</p>
         <div class="inspect-status__row">
@@ -381,7 +394,7 @@ function Ended({ state, local, setKept, name, stop }: {
   const { t, locale } = useCtx();
   const remove = () => window.confirm(t["inspect.deleteConfirm"]) && stop(t["inspect.said.deleted"]);
   return (
-    <div class="stack" data-testid="inspect-ended">
+    <div class="stack inspect-wide" data-testid="inspect-ended">
       <p class="card card--warn card--flat" data-testid="inspect-until">{fmt(t["inspect.keepUntil"], { date: formatDate(locale, state.report_until!) })}</p>
       {state.report ? <Opened state={state} local={local} setKept={setKept} name={name} /> : <p class="muted">{t["inspect.noneYet"]}</p>}
       <button class="link-button" type="button" onClick={remove}>{t["inspect.delete"]}</button>
@@ -441,7 +454,7 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
     const title = fmt(t["inspect.device"], { name });
     // the results so far: the file says so in its name, its title and its first lines, so it is not taken for the full report
     const heading = partial ? t["inspect.file.partialTitle"] : t["inspect.title"];
-    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading}</title><style>${css}</style><body><main class="wrap narrow stack"><h1>${heading}</h1><p class="lead"></p>${partial ? '<p class="card card--warn card--flat" data-partial></p>' : ""}${body.outerHTML}</main></body></html>`;
+    const html = `<!doctype html><html lang="${document.documentElement.lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading}</title><style>${css}</style><body><main class="wrap narrow stack inspect-page"><h1>${heading}</h1><p class="lead"></p>${partial ? '<p class="card card--warn card--flat" data-partial></p>' : ""}${body.outerHTML}</main></body></html>`;
     const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelector(".lead")!.textContent = title;
     const now = new Date();
@@ -453,9 +466,9 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
   };
   if (report.empty) return <p class="muted" data-testid="inspect-empty">{t["inspect.noneYet"]}</p>;
   return (
-    <div class="stack">
+    <div class="stack inspect-wide">
       {!partial && <button class="nb-button nb-button--primary" type="button" onClick={download} data-testid="inspect-download">{t["inspect.download"]}</button>}
-      <div ref={area}><ReportView report={report} locale={locale} span={spanOf(state, partial)} /></div>
+      <div ref={area} class="inspect-wide"><ReportView report={report} locale={locale} span={spanOf(state, partial)} /></div>
       {partial && (
         // below the report, as a link: the results so far are there to read, and ending early stays the one thing at the top
         <div class="inspect-partial">
@@ -592,7 +605,7 @@ type Verdict = "threat" | "check" | "clean";
 export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale: ReturnType<typeof useCtx>["locale"]) {
   const groups = findingGroups(report);
   const state: Verdict = groups.some((g) => g.severity === "threat") ? "threat" : groups.length ? "check" : "clean";
-  if (state === "clean") return { state, reason: t["inspect.report.clean"] };
+  if (state === "clean") return { state, reason: t["inspect.report.clean"], next: false };
   const n = (x: number) => formatCount(locale, x);
   const named = (report.findings ?? []).filter((f) => f.name);
   const bypass = groups.find((g) => g.kind === "bypass_dns");
@@ -606,12 +619,13 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
   if (state === "threat") {
     const threats = groups.filter((g) => g.severity === "threat");
     if (!dated("threat")) {
-      return { state, reason: fmt(t["inspect.reason.threatCount"], { sites: n(threats.reduce((s, g) => s + g.sites, 0)), n: n(threats.reduce((s, g) => s + g.count, 0)) }) };
+      return { state, reason: fmt(t["inspect.reason.threatCount"], { sites: n(threats.reduce((s, g) => s + g.sites, 0)), n: n(threats.reduce((s, g) => s + g.count, 0)) }), next: true };
     }
     const hours = hoursOf("threat");
     const last = lastOf("threat");
     return {
       state,
+      next: true,
       reason: fmt(t["inspect.reason.threat"], {
         days: n(new Set(hours.map(dayOf)).size), slots: n(hours.length),
         last: last ? formatTime(locale, new Date(last * 1000).toISOString()) : formatTime(locale, hours.at(-1)!.toISOString()),
@@ -620,13 +634,14 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
   }
 
   const also = bypass ? fmt(t["inspect.reason.alsoBypass"], { n: n(bypass.count) }) : "";
-  if (!sites.length) return { state, reason: fmt(t["inspect.reason.bypass"], { n: n(bypass!.count) }) };
-  if (!dated("check")) return { state, reason: join(fmt(t["inspect.reason.count"], counted), also) };
+  if (!sites.length) return { state, reason: fmt(t["inspect.reason.bypass"], { n: n(bypass!.count) }), next: false };
+  if (!dated("check")) return { state, reason: join(fmt(t["inspect.reason.count"], counted), also), next: false };
   const hours = hoursOf("check");
   const days = [...new Set(hours.map(dayOf))];
-  if (days.length > 1) return { state, reason: join(fmt(t["inspect.reason.repeat"], { days: n(days.length), slots: n(hours.length) }), also) };
+  // seen day after day: the same steps as for a known threat, starting from the apps
+  if (days.length > 1) return { state, reason: join(fmt(t["inspect.reason.repeat"], { days: n(days.length), slots: n(hours.length) }), also), next: true };
   const date = short(days[0]);
-  if (hours.length > 3) return { state, reason: join(fmt(t["inspect.reason.oneDay"], { date, slots: n(hours.length) }), also) };
+  if (hours.length > 3) return { state, reason: join(fmt(t["inspect.reason.oneDay"], { date, slots: n(hours.length) }), also), next: false };
   const clock = hours.map((h) => h.getHours());
   const periods = [...new Set(clock.map(period))];
   const when = periods.length === 1
@@ -634,7 +649,7 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
     : fmt(t["inspect.when.range"], { date, from: `${pad(Math.min(...clock))}:00`, to: `${pad(Math.max(...clock) + 1)}:00` });
   const lastHit = hours.at(-1)!.getTime();
   const after = (report.hours ?? []).filter((h) => atHour(h.hour).getTime() > lastHit && h.up + h.down > 0).length;
-  return { state, reason: join(fmt(t[after >= QUIET_HOURS ? "inspect.reason.onceQuiet" : "inspect.reason.onceLatest"], { when }), also) };
+  return { state, reason: join(fmt(t[after >= QUIET_HOURS ? "inspect.reason.onceQuiet" : "inspect.reason.onceLatest"], { when }), also), next: false };
 }
 
 const period = (hour: number) => (hour < 6 ? "night" : hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening");
@@ -646,7 +661,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
   const [picked, setPicked] = useState("");
   const { days, cells, level } = hourGrid(report.hours ?? []);
   const groups = findingGroups(report);
-  const { state, reason } = judge(report, t, locale);
+  const { state, reason, next } = judge(report, t, locale);
   const week = inspectionDays(report, span);
   const kind = (id: string) => t[`inspect.kind.${id}` as keyof typeof t] ?? id;
   const why = (id: string) => t[`inspect.why.${id}` as keyof typeof t] as string | undefined;
@@ -699,22 +714,24 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
   const coverage = report.coverage ?? { active_hours: 0, total_hours: 0 };
 
   return (
-    <div class="stack" id="inspection-report" data-testid="inspect-report">
+    <div class="stack inspect-report" id="inspection-report" data-testid="inspect-report">
       <div class={`card card--flat inspect-verdict inspect-verdict--${state}`} data-testid="inspect-verdict" data-state={state}>
-        <p class="muted small">{t["inspect.verdict.title"]}</p>
-        <h2 class="inspect-verdict__state">
-          <Icon name={state === "threat" ? "cancel" : state === "check" ? "warning" : "ok"} />
-          <span>{t[state === "threat" ? "inspect.report.markThreat" : state === "check" ? "inspect.report.markCheck" : "inspect.verdict.clean"]}</span>
-        </h2>
-        <p data-testid="inspect-reason">{reason}</p>
-        {state === "threat" && (
-          <>
-            <h3>{t["inspect.report.next"]}</h3>
-            <ol class="inspect-list">
-              {(["apps", "admin", "ask"] as const).map((k) => <li>{t[`inspect.report.next.${k}`]}</li>)}
-            </ol>
-          </>
-        )}
+        <div class="inspect-verdict__main">
+          <p class="muted small">{t["inspect.verdict.title"]}</p>
+          <h2 class="inspect-verdict__state">
+            <Icon name={state === "threat" ? "cancel" : state === "check" ? "warning" : "ok"} />
+            <span>{t[state === "threat" ? "inspect.report.markThreat" : state === "check" ? "inspect.report.markCheck" : "inspect.verdict.clean"]}</span>
+          </h2>
+          <p data-testid="inspect-reason">{reason}</p>
+          {next && (
+            <>
+              <h3>{t["inspect.report.next"]}</h3>
+              <ol class="inspect-list">
+                {(["apps", "admin", "ask"] as const).map((k) => <li>{t[`inspect.report.next.${k}`]}</li>)}
+              </ol>
+            </>
+          )}
+        </div>
         {week.days.length > 0 && (
           <div class="inspect-cover" data-testid="inspect-cover">
             <h3>{t["inspect.cover.title"]}</h3>
@@ -751,7 +768,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
       </div>
 
       {groups.length > 0 && (
-        <div class="card card--flat stack">
+        <div class="card card--flat stack inspect-findings">
           <h2>{t["inspect.report.findings"]}</h2>
           <ul class="plain stack" data-testid="inspect-summary">
             {groups.map((g) => (
@@ -818,7 +835,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
         </div>
       )}
 
-      <div class="card card--flat stack">
+      <div class="card card--flat stack inspect-hours">
         <h2>{t["inspect.report.hours"]}</h2>
         <p class="muted small">{fmt(t["inspect.report.coverage"], { active: coverage.active_hours, total: coverage.total_hours })}</p>
         <div class="tiles" aria-hidden="true" data-testid="inspect-tiles">
@@ -867,7 +884,7 @@ function ReportView({ report, locale, span }: { report: Report; locale: ReturnTy
         </details>
       </div>
 
-      <div class="card card--flat stack">
+      <div class="card card--flat stack inspect-checkcard">
         <h2>{t["inspect.report.checks"]}</h2>
         <ul class="plain inspect-checks" data-testid="inspect-checks">
           {report.checks?.map((c) => {

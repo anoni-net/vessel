@@ -565,6 +565,9 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
     await expect(page.getByTestId("inspect-reason")).toContainText("名單上的網站在 6 天出現，共 11 個時段");
     await expect(page.getByTestId("inspect-reason")).toContainText("建議檢查最近裝了哪些不認識的 App");
+    // seen day after day: the same steps as for a known threat, in the card at the top
+    await expect(verdict(page).getByRole("heading", { name: "接下來可以做" })).toBeVisible();
+    await expect(verdict(page).locator("ol > li")).toHaveCount(3);
     await expect(page.getByTestId("inspect-cover")).toContainText("檢測期間（11/01 到 11/08）共 96 小時有連線。");
     // the device was off on 11/04 and the last morning: six days it could have been seen on, and it was on all six
     const beacon = page.getByTestId("inspect-hit").filter({ hasText: "beacon.example" });
@@ -642,5 +645,112 @@ test.describe("the report says what it comes to, and when each site was seen", (
     expect(html).toContain("cover__day--today");
     expect(html).toContain("只出現在 1 個時段");
     expect(html).toContain("tile--up");
+  });
+
+  test("one ended early ends where copying stopped, and the days after it are not drawn", async ({ page }) => {
+    // planned for 11/01 to 11/08, stopped on 11/05 in the evening
+    const report = { ...WEEK_REPORT, hours: WEEK_REPORT.hours.filter((h) => h.hour < "2026-11-05T12"), findings: [], checks: WEEK_REPORT.checks.map((c) => ({ ...c, count: 0 })) };
+    await open(page, { ...endedWith(report), stopped_at: "2026-11-05T12:30:00Z" });
+    const cover = page.getByTestId("inspect-cover");
+    await expect(cover).toContainText("檢測期間（11/01 到 11/05）");
+    await expect(cover.locator(".cover__day")).toHaveCount(5);
+    // without it (a portal from before), the planned end, as before
+    await page.unrouteAll();
+    await open(page, endedWith(report));
+    await expect(page.getByTestId("inspect-cover").locator(".cover__day")).toHaveCount(8);
+  });
+});
+
+// A wide screen: the page takes the width in every state, the report in rows in the order of the page, and a phone
+// keeps the one column.
+test.describe("on a wide screen", () => {
+  test.use({ timezoneId: "Asia/Taipei", viewport: { width: 1280, height: 800 } });
+  const box = async (page: Page, testid: string) => (await page.getByTestId(testid).first().boundingBox())!;
+  const order = (page: Page, ids: string[]) => page.evaluate((ids) => {
+    const nodes = ids.map((id) => document.querySelector(`[data-testid="${id}"]`)!);
+    return nodes.every((n, i) => i === 0 || !!(nodes[i - 1]!.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING));
+  }, ids);
+  const sideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+
+  test("the report reads in rows: what it comes to with the days beside it, the sites, then the hours beside the checks", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+    await backend(page, { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(THREAT_REPORT) });
+    await withKey(page);
+    await goto(page);
+    await expect(page.getByTestId("inspect-report")).toBeVisible();
+    const [verdict, cover, findings, hours, checks] = await Promise.all(
+      ["inspect-verdict", "inspect-cover", "inspect-summary", "inspect-tiles", "inspect-checks"].map((id) => box(page, id)));
+    const report = await box(page, "inspect-report");
+    // wider than the narrow column, and the days beside what it comes to
+    expect(report.width).toBeGreaterThan(900);
+    expect(cover.x).toBeGreaterThan(verdict.x + verdict.width / 3);
+    expect(cover.y).toBeLessThan(verdict.y + 80);
+    expect(findings.y).toBeGreaterThan(verdict.y + verdict.height);
+    // the hours and the checks side by side, below the sites
+    expect(hours.y).toBeGreaterThan(findings.y + findings.height);
+    expect(checks.x).toBeGreaterThan(hours.x + hours.width);
+    expect(Math.abs(checks.y - hours.y)).toBeLessThan(120);
+    // a site's name, its week and the words on one line
+    const row = page.getByTestId("inspect-hit").first();
+    const [name, cells, words] = await Promise.all([row.locator("code").boundingBox(), row.locator(".hits__grid").boundingBox(), row.getByTestId("inspect-hit-words").boundingBox()]);
+    expect(Math.abs(name!.y - cells!.y)).toBeLessThan(20);
+    expect(words!.x).toBeGreaterThan(cells!.x + cells!.width);
+    // what to do sits in the first card; the page, the keyboard and a screen reader meet them in the order they are seen
+    expect(await order(page, ["inspect-verdict", "inspect-summary", "inspect-tiles", "inspect-checks"])).toBe(true);
+    const next = await page.getByRole("heading", { name: "接下來可以做" }).boundingBox();
+    expect(next!.y).toBeLessThan(findings.y);
+    expect(await sideways(page)).toBe(0);
+  });
+
+  test("the downloaded report has the wide layout too", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+    await backend(page, { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(WEEK_REPORT) });
+    await withKey(page);
+    await goto(page);
+    const { html } = await downloaded(page);
+    await page.unrouteAll();
+    await page.goto("about:blank");
+    await page.setContent(html);
+    const [hours, checks] = await Promise.all([box(page, "inspect-tiles"), box(page, "inspect-checks")]);
+    expect(checks.x).toBeGreaterThan(hours.x + hours.width);
+    expect((await box(page, "inspect-report")).width).toBeGreaterThan(900);
+    expect(await sideways(page)).toBe(0);
+  });
+
+  test("the consent page puts its two cards side by side, and keeps its text and button at the narrow width", async ({ page }) => {
+    await backend(page, { ...BASE, status: "none" });
+    await goto(page);
+    const cards = page.getByTestId("inspect-consent").locator(".inspect-pair > .card");
+    const [a, b] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()]);
+    expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
+    expect(b!.x).toBeGreaterThan(a!.x + a!.width);
+    expect((await page.getByRole("button", { name: "同意並開始" }).boundingBox())!.width).toBeLessThanOrEqual(520);
+    // the heading stays where it is in every state
+    expect((await page.locator("main h1").boundingBox())!.x).toBeLessThan(a!.x + 1);
+    expect(await sideways(page)).toBe(0);
+  });
+
+  test("on a phone the consent page's cards stay one above the other, apart", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await backend(page, { ...BASE, status: "none" });
+    await goto(page);
+    const cards = page.getByTestId("inspect-consent").locator(".inspect-pair > .card");
+    const [a, b] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()]);
+    expect(b!.y - (a!.y + a!.height)).toBeGreaterThanOrEqual(16);
+    expect(Math.abs(a!.x - b!.x)).toBeLessThan(1);
+  });
+
+  test("a phone keeps the one column", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+    await backend(page, { ...BASE, status: "ended", started_at: WEEK_START, ends_at: "2026-11-08T02:00:00Z", report_until: "2026-11-15", report: seal(WEEK_REPORT) });
+    await withKey(page);
+    await goto(page);
+    await expect(page.getByTestId("inspect-report")).toBeVisible();
+    const [verdict, cover, hours, checks] = await Promise.all(["inspect-verdict", "inspect-cover", "inspect-tiles", "inspect-checks"].map((id) => box(page, id)));
+    expect(cover.y).toBeGreaterThan(verdict.y + 100);
+    expect(checks.y).toBeGreaterThan(hours.y + hours.height);
+    expect(Math.abs(checks.x - hours.x)).toBeLessThan(40);
+    expect(await sideways(page)).toBe(0);
   });
 });
