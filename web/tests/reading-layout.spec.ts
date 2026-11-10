@@ -63,3 +63,18 @@ test("tapping twice does not zoom the page, and pinching still can", async ({ pa
   expect(viewport).not.toContain("user-scalable");
   expect(viewport).not.toContain("maximum-scale");
 });
+
+test("plain text responds to clicks, without which iOS ignores touch-action, and only links keep the tap highlight", async ({ page }) => {
+  await page.addInitScript(() => {
+    const add = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (this: EventTarget, ...args: Parameters<typeof add>) {
+      if (args[0] === "click" && this instanceof Element && this.id === "app") document.documentElement.dataset.appClick = "1";
+      return add.apply(this, args);
+    };
+  });
+  await page.goto("/faq/");
+  await expect(page.locator("html")).toHaveAttribute("data-app-click", "1");
+  const highlight = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).webkitTapHighlightColor);
+  expect(await highlight("#app")).toBe("rgba(0, 0, 0, 0)");
+  expect(await highlight("a.brand")).not.toBe("rgba(0, 0, 0, 0)");
+});

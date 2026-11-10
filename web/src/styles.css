@@ -1,9 +1,12 @@
 /* Blueprint look (toomore/anoni-net-ws#433): one cobalt ink on white paper, thin rules and square corners, IBM Plex
    Mono for the wordmark, labels and figures, the system's sans-serif for Chinese and running text. Orange marks what
    needs the reader's attention and red what went wrong; nothing else adds a colour. */
-/* iOS zooms to the block tapped twice, so text in a card (narrower than the page) jumped while text outside it did not.
-   Pinching to zoom still works. */
+/* iOS zooms to the block tapped twice, so text narrower than the page (a card, a footer cell) jumped. Pinching to zoom
+   still works. WebKit only honours this for a tap on something that responds to clicks, so main.tsx listens on #app, and
+   #app itself gets no tap highlight or the whole page would flash on every tap. */
 html { touch-action: manipulation; }
+#app { -webkit-tap-highlight-color: transparent; }
+#app * { -webkit-tap-highlight-color: initial; }
 :root {
   --ink: #0b3ca8;
   --text: #17295e;
