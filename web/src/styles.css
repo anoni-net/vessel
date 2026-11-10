@@ -999,6 +999,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-status { gap: 0; padding-block: 14px 6px; }
 .inspect-status p { margin: 0; }
 .inspect-status__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: 16px; }
+.inspect-partial { display: flex; flex-direction: column; align-items: flex-start; }
+.inspect-partial p { margin: 0; }
 .inspect-qr { max-width: 220px; padding: 8px; background: #fff; }
 .tiles { display: grid; gap: 3px; }
 .tiles__row { display: grid; grid-template-columns: 3.2em repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--muted); }

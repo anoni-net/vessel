@@ -49,3 +49,14 @@ export function formatTime(locale: Locale, iso: string, now = new Date()): strin
     hourCycle: "h23",
   }).format(at);
 }
+
+/** A moment with its date, time and offset from UTC, for a file read later and maybe elsewhere: 2026/11/10 14:30 UTC+8 */
+export function formatStamp(locale: Locale, at: Date): string {
+  const when = new Intl.DateTimeFormat(HTML_LANG[locale], {
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).format(at);
+  // the browsers' own time zone names come in brackets or ahead of the time in some languages, so the offset is spelled here
+  const off = -at.getTimezoneOffset();
+  const mins = Math.abs(off) % 60;
+  return `${when} UTC${off < 0 ? "-" : "+"}${Math.floor(Math.abs(off) / 60)}${mins ? `:${String(mins).padStart(2, "0")}` : ""}`;
+}
