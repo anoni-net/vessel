@@ -1003,6 +1003,13 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .group-invite-row .nb-input { flex: 1; min-width: 0; }
 .group-message { width: 100%; box-sizing: border-box; }
 .group-view__issue { margin-top: 6px; }
+/* a device's inspection on the leader's page (pages/group-inspect.tsx): its own line under the device */
+.group-device > .group-inspection { flex: 1 1 100%; }
+.group-inspection p { margin: 0; }
+.group-inspection__actions { gap: 4px 16px; flex-wrap: wrap; justify-content: flex-start; }
+.group-summary { padding: 8px 10px; border-left: 4px solid var(--line); background: var(--grey); }
+.group-summary--check { border-left-color: var(--caution); }
+.group-summary--threat { border-left-color: var(--danger); }
 
 /* The device inspection (pages/inspect.tsx). Its hours, one cobalt from light to dark; orange and red keep their
    meaning from the rest of the site, and carry a mark so they do not depend on colour. */

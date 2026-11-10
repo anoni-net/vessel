@@ -9,6 +9,7 @@ import { passkeysSupported } from "../passkey.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { AccountNav } from "./account.tsx";
+import { DeviceInspection, LeaderKeyCard, useLeaderKey } from "./group-inspect.tsx";
 import { useReverify } from "./reverify.tsx";
 import { Spin } from "./skeleton.tsx";
 
@@ -97,6 +98,7 @@ export function GroupPage() {
   const [making, setMaking] = useState(false);
   const madeCard = useRef<HTMLDivElement>(null);
   const { guard, dialog } = useReverify(hasPasskey);
+  const leaderKey = useLeaderKey(group);
 
   const load = () => api.group().then(setGroup).catch((x) => {
     if (x instanceof ApiError && x.code === "signed_out") {
@@ -236,6 +238,20 @@ export function GroupPage() {
         <p class="muted small">{t["group.needs.note"]}</p>
       </div>
 
+      {(group.inspection_limit ?? 0) > 0 && (
+        <div class="stack account-section" data-testid="group-inspect">
+          <h2>{t["group.inspect.title"]}</h2>
+          <p>{fmt(t["group.inspect.intro"], { days: group.inspection_days ?? 7 })}</p>
+          <p class="small" data-testid="group-inspect-limit">
+            {fmt(t["group.inspect.limit"], { used: group.inspections_in_use ?? 0, limit: group.inspection_limit! })}
+          </p>
+          <LeaderKeyCard group={group} local={leaderKey.local} matches={leaderKey.matches} setLocal={leaderKey.setLocal}
+            guard={guard} reload={load} />
+          {!leaderKey.matches && <p class="muted small">{t["group.inspect.needKey"]}</p>}
+          <p class="muted small">{t["group.inspect.note"]}</p>
+        </div>
+      )}
+
       <div class="stack account-section" data-testid="group-accounts">
         <h2>{t["group.accounts.title"]}</h2>
         {[...members, ...leaders].map((a) => (
@@ -263,6 +279,8 @@ export function GroupPage() {
                       <button class="link-button" type="button" onClick={() => setAsk({ kind: "device", account: a, device: d })}
                         aria-label={`${t["group.revoke"]}: ${deviceName(a, d)}`}>{t["group.revoke"]}</button>
                     )}
+                    <DeviceInspection group={group} account={a} device={d} local={leaderKey.local} ready={leaderKey.matches}
+                      reload={load} name={deviceName(a, d)} />
                   </li>
                 ))}
               </ul>
