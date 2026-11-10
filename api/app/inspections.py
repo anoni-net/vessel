@@ -36,6 +36,14 @@ def code_hash(code: str) -> bytes:
     return crypto.keyed_hash(load().hmac_key, code)
 
 
+def new_code() -> str:
+    return "".join(secrets.choice(ALPHABET) for _ in range(16))
+
+
+def link(code: str) -> dict:
+    return {"code": code, "url": f"https://{policy.INSPECT_CONFIRM_HOST}/c/{code}", "minutes": policy.INSPECT_CONFIRM_MINUTES}
+
+
 def owned(conn, device_id: str, account_id: int, lock: str = ""):
     row = conn.execute(f"SELECT status FROM devices WHERE id = %s AND account_id = %s {lock}", (device_id, account_id)).fetchone()
     if row is None:
@@ -58,7 +66,7 @@ def start(device_id: str, body: NewInspection, account_id: Account, conn: Conn) 
         raise error(400, "consent_outdated")
     if not PUBLIC_KEY.fullmatch(body.public_key):
         raise error(400, "invalid_key")
-    code = "".join(secrets.choice(ALPHABET) for _ in range(16))
+    code = new_code()
     with conn.transaction():
         if owned(conn, device_id, account_id, "FOR UPDATE") != "active":
             raise error(409, "device_not_active")
@@ -72,17 +80,41 @@ def start(device_id: str, body: NewInspection, account_id: Account, conn: Conn) 
             "VALUES (%s, 'confirming', %s, %s, %s)",
             (device_id, code_hash(code), body.public_key, body.consent_version),
         )
-    return {"code": code, "url": f"https://{policy.INSPECT_CONFIRM_HOST}/c/{code}", "minutes": policy.INSPECT_CONFIRM_MINUTES}
+    return link(code)
+
+
+@router.post("/devices/{device_id}/inspection/code", dependencies=[Depends(require_app_header)])
+def renew(device_id: str, account_id: Account, conn: Conn) -> dict:
+    """A new confirmation link before the last one runs out (WCAG 2.2.1): the old code stops working and the time to
+    open the link starts again. Nothing else changes, the browser keeps the key it made."""
+    code = new_code()
+    with conn.transaction():
+        owned(conn, device_id, account_id, "FOR UPDATE")
+        renewed = conn.execute(
+            "UPDATE device_inspections SET code_hmac = %s, code_at = now() WHERE device_id = %s AND status = 'confirming' "
+            "AND code_at > now() - make_interval(mins => %s)",
+            (code_hash(code), device_id, policy.INSPECT_CONFIRM_MINUTES),
+        ).rowcount
+    if not renewed:
+        raise error(409, "inspection_expired")
+    return link(code)
 
 
 @router.get("/devices/{device_id}/inspection")
 def read(device_id: str, account_id: Account, conn: Conn) -> dict:
     owned(conn, device_id, account_id)
     row = conn.execute(
-        "SELECT status, started_at, ends_at, report, report_until FROM device_inspections WHERE device_id = %s", (device_id,)
+        "SELECT status, started_at, ends_at, report, report_until, "
+        "ceil(extract(epoch FROM code_at + make_interval(mins => %s) - now()))::int FROM device_inspections WHERE device_id = %s",
+        (policy.INSPECT_CONFIRM_MINUTES, device_id),
     ).fetchone()
     base = {"consent_version": policy.INSPECT_CONSENT_VERSION, "days": policy.INSPECT_DAYS, "report_days": policy.INSPECT_REPORT_DAYS}
-    return {**base, **summary(row)} if row else {**base, "status": "none"}
+    # a link past its time confirms nothing, even before the worker deletes it
+    if row is None or (row[0] == "confirming" and row[5] <= 0):
+        return {**base, "status": "none"}
+    # how long the link is still good for, so the page can say so before it runs out
+    left = {"confirm_seconds": row[5]} if row[0] == "confirming" else {}
+    return {**base, **summary(row[:5]), **left}
 
 
 @router.delete("/devices/{device_id}/inspection", dependencies=[Depends(require_app_header)])
@@ -199,7 +231,7 @@ def tick(conn, usage: bool) -> None:
     analysis = get_analysis()
     if analysis is None:
         return
-    conn.execute("DELETE FROM device_inspections WHERE status = 'confirming' AND created_at < now() - make_interval(mins => %s)",
+    conn.execute("DELETE FROM device_inspections WHERE status = 'confirming' AND code_at < now() - make_interval(mins => %s)",
                  (policy.INSPECT_CONFIRM_MINUTES,))
     # before any confirmation: a new inspection may be about to use the same address
     clear_leftovers(conn, analysis)

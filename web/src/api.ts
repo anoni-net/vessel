@@ -176,6 +176,8 @@ export interface Inspection {
   /** ciphertext, for the key this browser made */
   report?: { epk: string; iv: string; ct: string } | null;
   report_until?: string | null;
+  /** while it waits for the device: how long the confirmation link is still good for */
+  confirm_seconds?: number;
 }
 
 /** The node's answer: every config field except the private key and the preshared key. */
@@ -286,6 +288,8 @@ export const api = {
   startInspection: (id: string, body: { consent_version: string; public_key: string }) =>
     call<{ code: string; url: string; minutes: number }>("POST", `/devices/${encodeURIComponent(id)}/inspection`, body).then((r) => r.data),
   stopInspection: (id: string) => call("DELETE", `/devices/${encodeURIComponent(id)}/inspection`),
+  renewInspection: (id: string) =>
+    call<{ code: string; url: string; minutes: number }>("POST", `/devices/${encodeURIComponent(id)}/inspection/code`).then((r) => r.data),
   deleteAccount: () => call("DELETE", "/account"),
   usageMonths: () =>
     call<UsageMonths>("GET", "/usage/months").then((r) => {

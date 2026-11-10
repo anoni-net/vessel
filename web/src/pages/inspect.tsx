@@ -3,6 +3,7 @@ import { ApiError, type Inspection, type Me, api, last } from "../api.ts";
 import { announce } from "../announce.ts";
 import { useCtx } from "../context.ts";
 import { formatBytes, formatCount, formatDate, formatDay, formatTime } from "../format.ts";
+import { focusLater } from "../focus.ts";
 import { errorText, fmt } from "../i18n/index.ts";
 import { type Kept, type Sealed, forget, isKey, keep, kept, newKey, openReport } from "../inspection-key.ts";
 import { navigate } from "../router.ts";
@@ -14,6 +15,11 @@ import { Busy, SkButton, SkCard, SkLine, Spin } from "./skeleton.tsx";
 
 const WAITING_EVERY = 10_000;
 const RUNNING_EVERY = 5 * 60_000;
+/** From this much time left, the page says the confirmation link is about to run out and offers a new one (WCAG 2.2.1). */
+export const CONFIRM_WARN_SECONDS = 5 * 60;
+
+/** Where focus goes when what it was on is gone with the part of the page it was in (WCAG 2.4.3). */
+const toHeading = () => focusLater(() => document.querySelector("main h1"), true);
 
 /** What the analysis host writes (inspect/analyze.py, `report`). */
 export interface Report {
@@ -41,18 +47,28 @@ export function Inspect() {
   const known = last.devices?.find((x) => x.id === id);
   const [name, setName] = useState(known?.name ?? "");
   const [me, setMe] = useState<Me | null>(last.me ?? null);
-  const [err, setErr] = useState("");
+  // a new error is a new element, so the same words twice are read again
+  const [err, setErr] = useState<{ text: string; n: number } | null>(null);
   const [local, setLocal] = useState<Kept | null>(() => (id ? kept(id) : null));
+  const [expired, setExpired] = useState(false);
+  // what to say when the status changes because of what the person did here, in place of what the new status says
+  const said = useRef<string | null>(null);
+  const seen = useRef<Inspection["status"] | undefined>(undefined);
 
   const fail = (x: unknown) => {
     if (x instanceof ApiError && x.code === "signed_out") {
       setSignedIn(false);
       navigate(href("/login/"), true);
-    } else setErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
+      return;
+    }
+    // the page stays as it was, with the error above it, so what was filled in is still there to try again
+    setErr({ text: errorText(t, x instanceof ApiError ? x.code : "unknown"), n: Date.now() });
+    focusLater(() => document.getElementById("inspect-error"), true);
   };
   const load = async () => {
     try {
       setState(await api.inspection(id));
+      setErr(null);
     } catch (x) {
       fail(x);
     }
@@ -77,9 +93,40 @@ export function Inspect() {
     const timer = setInterval(() => document.visibilityState === "visible" && load(), status === "active" ? RUNNING_EVERY : WAITING_EVERY);
     return () => clearInterval(timer);
   }, [status]);
+  // a new status replaces most of the page: say what happened (WCAG 4.1.3), and take focus to the top of the page
+  // if it was on something that is gone, a button pressed here or a part replaced by the update
+  useEffect(() => {
+    const was = seen.current;
+    seen.current = status;
+    if (!was || !status || was === status) return;
+    // waiting for the device, then nothing, and not because of anything done here: the link ran out
+    const lapsed = was === "confirming" && status === "none" && said.current === null;
+    setExpired(lapsed);
+    const words: Record<Inspection["status"], string> = {
+      none: lapsed ? t["inspect.expired"] : t["inspect.said.deleted"],
+      confirming: t["inspect.said.confirming"],
+      active: t["inspect.said.active"],
+      ending: t["inspect.ending"],
+      ended: t["inspect.said.ended"],
+    };
+    announce(said.current ?? words[status]);
+    said.current = null;
+    toHeading();
+  }, [status]);
 
-  if (err) return <section class="wrap narrow"><p class="error" role="alert">{err}</p></section>;
+  const back = <p class="small"><a href={href("/devices/")}>{t["inspect.back"]}</a></p>;
+  const error = err && <p class="error" role="alert" id="inspect-error" key={err.n}>{err.text}</p>;
   if (!state) {
+    if (error) {
+      return (
+        <section class="wrap narrow stack inspect-page">
+          <AccountNav />
+          <h1>{t["inspect.title"]}</h1>
+          {error}
+          {back}
+        </section>
+      );
+    }
     return (
       <section class="wrap narrow stack inspect-page" aria-busy="true">
         <AccountNav />
@@ -90,11 +137,14 @@ export function Inspect() {
     );
   }
 
-  const stop = async () => {
+  /** `words`: what to say once it is done, where the new status alone would not say it. */
+  const stop = async (words?: string) => {
+    said.current = words ?? null;
     try {
       await api.stopInspection(id);
       await load();
     } catch (x) {
+      said.current = null;
       fail(x);
     }
   };
@@ -103,17 +153,18 @@ export function Inspect() {
     else forget(id);
     setLocal(next);
   };
-  const back = <p class="small"><a href={href("/devices/")}>{t["inspect.back"]}</a></p>;
 
   return (
     <section class="wrap narrow stack inspect-page">
       <AccountNav leader={me?.group?.role === "leader"} />
       <h1>{t["inspect.title"]}</h1>
       {name && <p class="lead">{fmt(t["inspect.device"], { name })}</p>}
+      {error}
+      {status === "none" && expired && <p class="card card--warn card--flat" data-testid="inspect-expired">{t["inspect.expired"]}</p>}
       {status === "none" && <Consent id={id} state={state} grouped={!!me?.group} setKept={setKept} reload={load} fail={fail} />}
-      {status === "confirming" && <Confirming local={local} stop={stop} />}
+      {status === "confirming" && <Confirming id={id} state={state} local={local} setKept={setKept} reload={load} fail={fail} stop={stop} />}
       {status === "active" && <Running state={state} local={local} setKept={setKept} name={name} stop={stop} />}
-      {status === "ending" && <p class="card card--tint card--flat"><Spin />{t["inspect.ending"]}</p>}
+      {status === "ending" && <p class="card card--tint card--flat">{t["inspect.ending"]}</p>}
       {status === "ended" && <Ended state={state} local={local} setKept={setKept} name={name} stop={stop} />}
       {back}
     </section>
@@ -214,28 +265,69 @@ function CopyKey({ value }: { value: string }) {
   );
 }
 
-function Confirming({ local, stop }: { local: Kept | null; stop: () => void }) {
+/**
+ * Waiting for the device. No turning ring: it could turn for the half hour the link is good for, next to buttons
+ * (WCAG 2.2.2). Before the link runs out, the page says so and offers a new one (WCAG 2.2.1).
+ */
+function Confirming({ id, state, local, setKept, reload, fail, stop }: {
+  id: string; state: Inspection; local: Kept | null; setKept: (k: Kept) => void; reload: () => Promise<void>; fail: (x: unknown) => void;
+  stop: (words?: string) => Promise<void>;
+}) {
   const { t } = useCtx();
+  const [busy, setBusy] = useState(false);
+  const left = state.confirm_seconds;
+  // only where the link is: elsewhere the key is not here to open the report, and starting again is the way
+  const soon = !!local?.url && left !== undefined && left <= CONFIRM_WARN_SECONDS;
+  const minutes = Math.max(1, Math.ceil((left ?? 0) / 60));
+  useEffect(() => {
+    if (soon) announce(fmt(t["inspect.confirm.soon"], { minutes }));
+  }, [soon]);
+  const renew = async () => {
+    setBusy(true);
+    try {
+      const r = await api.renewInspection(id);
+      setKept({ ...local!, url: r.url, minutes: r.minutes });
+      await reload();
+      announce(t["inspect.said.renewed"]);
+      focusLater(() => document.querySelector('[data-testid="inspect-confirming"] h2'), true);
+    } catch (x) {
+      // run out meanwhile: the page goes back to the start and says why
+      if (x instanceof ApiError && x.code === "inspection_expired") await reload();
+      else fail(x);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div class="stack" data-testid="inspect-confirming">
+      {soon && (
+        <div class="card card--warn card--flat stack" data-testid="inspect-soon">
+          <p>{fmt(t["inspect.confirm.soon"], { minutes })}</p>
+          <button class="nb-button" type="button" onClick={renew} disabled={busy} aria-busy={busy}>
+            {busy && <Spin />}{t["inspect.confirm.renew"]}
+          </button>
+        </div>
+      )}
       {local?.url ? (
         <div class="card card--tint card--flat stack">
           <h2>{t["inspect.confirm.title"]}</h2>
           <p>{fmt(t["inspect.confirm.body"], { minutes: local.minutes ?? 30 })}</p>
           <p class="inspect-link"><a href={local.url} data-testid="inspect-url">{local.url}</a></p>
           <div class="qr card inspect-qr" role="img" aria-label={t["inspect.confirm.qr"]} dangerouslySetInnerHTML={{ __html: qrSvg(local.url) }} />
-          <p class="muted small"><Spin />{t["inspect.confirm.waiting"]}</p>
+          <p class="muted small">{t["inspect.confirm.waiting"]}</p>
         </div>
       ) : (
         <p class="card card--warn card--flat" data-testid="inspect-lost">{t["inspect.confirm.lost"]}</p>
       )}
       {local && <CopyKey value={local.key} />}
-      <button class="link-button" type="button" onClick={stop}>{t["inspect.cancel"]}</button>
+      <button class="link-button" type="button" onClick={() => stop(t["inspect.said.cancelled"])}>{t["inspect.cancel"]}</button>
     </div>
   );
 }
 
-function Running({ state, local, setKept, name, stop }: { state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: () => void }) {
+function Running({ state, local, setKept, name, stop }: {
+  state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: (words?: string) => Promise<void>;
+}) {
   const { t, locale } = useCtx();
   const end = () => window.confirm(fmt(t["inspect.endConfirm"], { days: state.report_days })) && stop();
   return (
@@ -249,10 +341,10 @@ function Running({ state, local, setKept, name, stop }: { state: Inspection; loc
 }
 
 function Ended({ state, local, setKept, name, stop }: {
-  state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: () => Promise<void>;
+  state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: (words?: string) => Promise<void>;
 }) {
   const { t, locale } = useCtx();
-  const remove = () => window.confirm(t["inspect.deleteConfirm"]) && stop();
+  const remove = () => window.confirm(t["inspect.deleteConfirm"]) && stop(t["inspect.said.deleted"]);
   return (
     <div class="stack" data-testid="inspect-ended">
       <p class="card card--warn card--flat" data-testid="inspect-until">{fmt(t["inspect.keepUntil"], { date: formatDate(locale, state.report_until!) })}</p>
@@ -269,23 +361,40 @@ function Opened({ state, local, setKept, name, partial }: { state: Inspection; l
   const [wrong, setWrong] = useState(false);
   const [typed, setTyped] = useState("");
   const area = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLInputElement>(null);
+  // a key typed here: the form gives way while the report opens, so focus has to be put back somewhere
+  const tried = useRef(false);
   const sealed = state.report as unknown as Sealed;
   useEffect(() => {
     if (!local) return;
     openReport<Report>(sealed, local.key).then((r) => { setReport(r); setWrong(false); }).catch(() => setWrong(true));
   }, [state.report, local?.key]);
+  useEffect(() => {
+    if (!tried.current) return;
+    if (report) {
+      tried.current = false;
+      announce(t["inspect.said.opened"]);
+      toHeading();
+    } else if (wrong) focusLater(() => field.current, true);
+  }, [report, wrong]);
 
   // the key is here and the report is being opened: not the moment to ask for a key
   if (!report && local && !wrong) return <SkCard size="device" lines={["mid", "full", "long"]} />;
   if (!report) {
     return (
-      <form class="card card--flat stack" data-testid="inspect-locked" onSubmit={(e) => { e.preventDefault(); if (isKey(typed.trim())) setKept({ key: typed.trim() }); else setWrong(true); }}>
+      <form class="card card--flat stack" data-testid="inspect-locked" onSubmit={(e) => {
+        e.preventDefault();
+        tried.current = true;
+        if (isKey(typed.trim())) setKept({ key: typed.trim() });
+        else setWrong(true);
+      }}>
         <h2>{t["inspect.locked.title"]}</h2>
         <p class="small">{t["inspect.locked.body"]}</p>
         <label class="stack small">{t["inspect.locked.label"]}
-          <input class="nb-input" value={typed} autoComplete="off" spellcheck={false} onInput={(e) => setTyped(e.currentTarget.value)} data-testid="inspect-key-input" />
+          <input class="nb-input" ref={field} value={typed} autoComplete="off" spellcheck={false} onInput={(e) => setTyped(e.currentTarget.value)}
+            aria-invalid={wrong} aria-describedby={wrong ? "inspect-key-wrong" : undefined} data-testid="inspect-key-input" />
         </label>
-        {wrong && <p class="error" role="alert">{t["inspect.locked.wrong"]}</p>}
+        {wrong && <p class="error" role="alert" id="inspect-key-wrong">{t["inspect.locked.wrong"]}</p>}
         <button class="nb-button" type="submit">{t["inspect.locked.open"]}</button>
       </form>
     );
@@ -365,6 +474,14 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
   const withSites = groups.filter((g) => g.sites > 0);
   const kind = (id: string) => t[`inspect.kind.${id}` as keyof typeof t] ?? id;
   const percent = (n: number) => `${Math.round(n * 100)}%`;
+  // how serious, in words as well as in the colour of the edge (WCAG 1.4.1)
+  const severity = (s: "threat" | "check") => (
+    <span class="strong" data-testid="inspect-severity">
+      <span aria-hidden="true">{s === "threat" ? "× " : "! "}</span>
+      {t[s === "threat" ? "inspect.report.markThreat" : "inspect.report.markCheck"]}
+    </span>
+  );
+  const dot = <span aria-hidden="true"> · </span>;
   const line = (f: NonNullable<Report["findings"]>[number]) => (
     <li class={`inspect-finding inspect-finding--${f.severity}`} data-testid="inspect-finding">
       <code>{f.name}</code>
@@ -384,6 +501,7 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
               <li class={`inspect-finding inspect-finding--${g.severity}`}>
                 <span class="strong">{kind(g.kind)}</span>
                 <span class="muted small">
+                  {severity(g.severity)}{dot}
                   {g.sites
                     ? fmt(t["inspect.report.sites"], { sites: formatCount(locale, g.sites), n: formatCount(locale, g.count) })
                     : fmt(t["inspect.seen"], { n: formatCount(locale, g.count) })}
@@ -402,7 +520,7 @@ function ReportView({ report, locale }: { report: Report; locale: ReturnType<typ
           {withSites.length > 0 && <h3>{t["inspect.report.list"]}</h3>}
           {withSites.map((g) => (
             <details key={g.kind} class="inspect-group small" open={g.severity === "threat"} data-testid="inspect-group">
-              <summary>{kind(g.kind)} <span class="muted">{fmt(t["inspect.report.siteCount"], { n: formatCount(locale, g.sites) })}</span></summary>
+              <summary>{kind(g.kind)} <span class="muted">{severity(g.severity)}{dot}{fmt(t["inspect.report.siteCount"], { n: formatCount(locale, g.sites) })}</span></summary>
               <ul class="plain stack">{g.listed.map(line)}</ul>
               {g.hidden > 0 && <p class="muted" data-testid="inspect-not-listed">{fmt(t["inspect.report.notListed"], { n: formatCount(locale, g.hidden), limit: MAX_LISTED })}</p>}
             </details>

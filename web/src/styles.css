@@ -1003,7 +1003,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .tile { display: grid; place-items: center; aspect-ratio: 1; border-radius: 2px; background: var(--tile-0); font: 700 10px/1 var(--mono); color: #fff; }
 .tile--1 { background: var(--tile-1); } .tile--2 { background: var(--tile-2); } .tile--3 { background: var(--tile-3); }
 .tile--4 { background: var(--tile-4); } .tile--5 { background: var(--tile-5); }
-.tile--check { background: var(--caution); } .tile--threat { background: #b3261e; }
+/* the "!" is dark on the orange, which white does not stand out from (WCAG 1.4.3) */
+.tile--check { background: var(--caution); color: #000; } .tile--threat { background: #b3261e; }
 .inspect-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0; }
 .inspect-legend .tile { width: 14px; height: 14px; }
 .inspect-finding { display: grid; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--caution); }

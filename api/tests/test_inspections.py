@@ -108,9 +108,55 @@ def test_a_code_is_not_stored_as_it_is(signed_in, db, device):
 
 def test_an_unconfirmed_request_goes_away(signed_in, db, device):
     start(signed_in, device)
-    db.execute("UPDATE device_inspections SET created_at = now() - interval '31 minutes'")
-    worker.tick(db)
+    db.execute("UPDATE device_inspections SET code_at = now() - interval '31 minutes'")
+    # past its time it is gone for the page at once, and from the database at the next tick
     assert read(signed_in, device)["status"] == "none"
+    worker.tick(db)
+    assert db.execute("SELECT count(*) FROM device_inspections").fetchone()[0] == 0
+
+
+def test_the_page_is_told_how_long_the_link_is_good_for(signed_in, db, device):
+    start(signed_in, device)
+    assert policy.INSPECT_CONFIRM_MINUTES * 60 - 5 < read(signed_in, device)["confirm_seconds"] <= policy.INSPECT_CONFIRM_MINUTES * 60
+    db.execute("UPDATE device_inspections SET code_at = now() - interval '28 minutes'")
+    assert 100 < read(signed_in, device)["confirm_seconds"] <= 120
+
+
+def renew(client, device_id):
+    return client.post(f"/api/devices/{device_id}/inspection/code", headers=HEADERS)
+
+
+def test_a_new_link_replaces_the_old_one_and_starts_the_time_again(signed_in, node, db, device):
+    old = start(signed_in, device).json()["code"]
+    db.execute("UPDATE device_inspections SET code_at = now() - interval '28 minutes'")
+    created, consented = db.execute("SELECT created_at, consented_on FROM device_inspections").fetchone()
+    r = renew(signed_in, device).json()
+    assert r["code"] != old and r["url"] == f"https://{policy.INSPECT_CONFIRM_HOST}/c/{r['code']}"
+    assert r["minutes"] == policy.INSPECT_CONFIRM_MINUTES
+    assert read(signed_in, device)["confirm_seconds"] > policy.INSPECT_CONFIRM_MINUTES * 60 - 5
+    # when it was asked for and agreed to stay as they were
+    assert db.execute("SELECT created_at, consented_on FROM device_inspections").fetchone() == (created, consented)
+    # the old link confirms nothing, the new one does
+    node.confirms.append({"code": old, "address": "10.8.1.2"})
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "confirming" and old in node.acked
+    node.confirms.append({"code": r["code"], "address": "10.8.1.2"})
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "active"
+
+
+def test_a_link_past_its_time_cannot_be_renewed(signed_in, db, device):
+    start(signed_in, device)
+    db.execute("UPDATE device_inspections SET code_at = now() - interval '31 minutes'")
+    r = renew(signed_in, device)
+    assert r.status_code == 409 and r.json() == {"error": "inspection_expired"}
+
+
+def test_only_a_link_waiting_to_be_opened_is_renewed(signed_in, node, db, device):
+    assert renew(signed_in, device).json() == {"error": "inspection_expired"}
+    confirm(signed_in, device, node, db)
+    assert renew(signed_in, device).json() == {"error": "inspection_expired"}
+    assert db.execute("SELECT code_hmac FROM device_inspections").fetchone()[0] is None
 
 
 def test_the_node_down_at_confirmation_is_tried_again(signed_in, node, db, device):
@@ -147,6 +193,7 @@ def test_only_the_devices_account(signed_in, db, device):
     assert start(other, device).status_code == 404
     assert other.get(f"/api/devices/{device}/inspection").status_code == 404
     assert other.delete(f"/api/devices/{device}/inspection", headers=HEADERS).status_code == 404
+    assert renew(other, device).status_code == 404
 
 
 def test_one_at_a_time(signed_in, node, db, device):
