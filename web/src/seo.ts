@@ -53,9 +53,10 @@ const OG_IMAGE: Record<Locale, string> = {
 
 const OG_LOCALE: Record<Locale, string> = { "zh-TW": "zh_TW", "zh-CN": "zh_CN", en: "en_US" };
 
-/** Title for a known page, or null for one the app does not have. */
+/** Title for a known page, or null for one the app does not have. The home page says what Vessel is, so a search
+ * result or a shared link reads as more than the name. */
 export function titleOf(locale: Locale, path: string): string | null {
-  if (path === "/") return "Vessel";
+  if (path === "/") return `Vessel · ${messagesOf(locale)["meta.homeTitle"]}`;
   const key = TITLES[path];
   return key ? `${messagesOf(locale)[key]} · Vessel` : null;
 }
