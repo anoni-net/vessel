@@ -94,4 +94,9 @@ def internal_health(conn: Conn) -> dict:
         "usage_flags": usage_flags(conn),
         # each open node's totals since its container started, as the worker last read them (node/awgctl, node_totals)
         "node_totals": totals,
+        # today's most devices at once, per open region, whose handshakes reach the node without connecting (jobs.failing)
+        "failing": dict(conn.execute(
+            "SELECT s.region_id, s.failing_devices FROM daily_stats s JOIN regions r ON r.id = s.region_id "
+            "WHERE r.is_open AND s.day = current_date ORDER BY 1"
+        ).fetchall()),
     }
