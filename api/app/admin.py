@@ -3,8 +3,9 @@
   python -m app.admin invites create [--count N] [--days D]   print new invite codes, one per line
   python -m app.admin settings [KEY VALUE]                     show or change a setting
   python -m app.admin stats                                    counts only, no per-account data
-  python -m app.admin report [--days N]                        totals for reviewing the test, and the daily
-                                                               stats of the last N days (default 14)
+  python -m app.admin report [--days N]                        totals for reviewing the test (it reads the nodes
+                                                               for the accounts connected in the last 24 hours),
+                                                               and the daily stats of the last N days (default 14)
   python -m app.admin regions [set ID --node-host HOST (--open|--closed) [--exit-ip IP]]
                                                                list regions, or add/change one; the exit IP
                                                                is the node's public address, for /api/exit
@@ -56,12 +57,14 @@ portal and the worker within minutes; a group keeps the quota it was made with).
 import argparse
 import re
 import sys
+import time
 from datetime import date, timedelta
 
 import psycopg
 
 from app import auth, crypto, policy
 from app.config import load
+from app.nodes import NodeError, get_node
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -420,6 +423,22 @@ def counts(conn: psycopg.Connection, sql: str) -> str:
 MONTH = "date_trunc('month', current_date)"
 
 
+def connected_lately(conn: psycopg.Connection, seconds: int = 86400) -> tuple[int, list[str]]:
+    """How many accounts have a device whose last handshake, as its node tells it now, is within `seconds`; and the
+    regions whose node could not be read. Read from the nodes when asked, as the worker does for the daily stats:
+    no handshake time is kept for a device."""
+    owner = dict(conn.execute("SELECT id, account_id FROM devices").fetchall())
+    node, since, accounts, unread = get_node(), time.time() - seconds, set(), []
+    for region, host in conn.execute("SELECT id, node_host FROM regions ORDER BY id").fetchall():
+        try:
+            peers = node.usage(host)["peers"]
+        except NodeError:
+            unread.append(region)
+            continue
+        accounts |= {owner[p["name"]] for p in peers if p["name"] in owner and p.get("latest_handshake", 0) >= since}
+    return len(accounts), unread
+
+
 def report(conn: psycopg.Connection, days: int) -> None:
     """Totals only, for the weekly review of the test: nothing here names or singles out an account or device."""
     accounts = one(conn, "SELECT count(*) FROM accounts")
@@ -459,6 +478,10 @@ def report(conn: psycopg.Connection, days: int) -> None:
     with_device = one(conn, f"SELECT count(DISTINCT account_id) FROM devices WHERE {live}")
     connected = one(conn, f"SELECT count(DISTINCT account_id) FROM devices WHERE {live} AND connected")
     print(f"accounts: with a device {with_device}, with a device that connected {connected}, of {accounts}")
+    used = one(conn, f"SELECT count(*) FROM account_usage WHERE period = {MONTH} AND rx_bytes + tx_bytes > 0")
+    recent, unread = connected_lately(conn)
+    print(f"active accounts: with traffic this month {used}, connected in the last 24 hours {recent}"
+          + (f" (nodes not read: {', '.join(unread)})" if unread else ""))
     rows = conn.execute(
         "SELECT d.region_id, sum(u.rx_bytes + u.tx_bytes) FROM device_usage u JOIN devices d ON d.id = u.device_id "
         f"WHERE u.period = {MONTH} GROUP BY 1 ORDER BY 1"

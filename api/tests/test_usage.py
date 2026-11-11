@@ -329,6 +329,8 @@ def test_report_prints_totals_only(signed_in, node, db, capsys):
     assert "devices older than a day with no traffic this month: 1" in out
     assert "traffic this month: sg 3.0 MB (total 3.0 MB)" in out
     assert "phone" not in out and "laptop" not in out  # no device names
+    # the phone had traffic this month, and its last handshake is long ago
+    assert "active accounts: with traffic this month 1, connected in the last 24 hours 0\n" in out
 
 
 def test_devices_remember_that_they_connected(signed_in, node, db):
@@ -472,3 +474,27 @@ def test_a_device_that_keeps_failing_to_connect_says_so_until_it_connects(signed
     node.handshakes[phone] = int(clock.time()) + 1
     worker.tick(db)
     assert failing() is False
+
+
+def test_report_counts_the_accounts_connected_in_the_last_day(signed_in, node, db, capsys):
+    import time as clock
+
+    from app import admin
+
+    phone = create(signed_in).json()["id"]
+    laptop = create(signed_in, name="laptop").json()["id"]
+    # another account, whose device connected two days ago
+    other = db.execute("INSERT INTO accounts (number_hash) VALUES ('\\x01') RETURNING id").fetchone()[0]
+    db.execute("INSERT INTO devices (id, account_id, region_id, name, public_key, tunnel_address, dns_filter, status, "
+               "expires_on) SELECT 'd-otheraccount', %s, region_id, 'tablet', 'k', '10.8.1.99', dns_filter, 'active', "
+               "expires_on FROM devices WHERE id = %s", (other, phone))
+    node.peers["d-otheraccount"] = {}
+    now = int(clock.time())
+    node.handshakes.update({phone: now - 60, laptop: now - 3600, "d-otheraccount": now - 2 * 86400})
+    assert admin.connected_lately(db) == (1, [])
+    node.handshakes["d-otheraccount"] = now - 100
+    assert admin.connected_lately(db) == (2, [])
+    # a node that does not answer is named, and what it would have said is not counted
+    node.down = True
+    admin.report(db, 1)
+    assert "connected in the last 24 hours 0 (nodes not read: jp, sg)" in capsys.readouterr().out
