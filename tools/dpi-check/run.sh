@@ -16,7 +16,8 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
 OUT=$(mkdir -p "${1:-$HERE/out}" && cd "${1:-$HERE/out}" && pwd)
-AWG=amneziavpn/amneziawg-go:latest   # the base of node/Dockerfile
+AWG=$(sed -n 's/^FROM \(amneziavpn\/amneziawg-go:[^ ]*\) AS awg$/\1/p' "$ROOT/node/Dockerfile")  # what the nodes run
+[ -n "$AWG" ] || { echo "no amneziavpn/amneziawg-go stage in node/Dockerfile" >&2; exit 1; }
 TOOLS=${DPI_TOOLS_IMAGE:-vessel-dpi:latest}
 PORT=443
 WORK=$(mktemp -d)
