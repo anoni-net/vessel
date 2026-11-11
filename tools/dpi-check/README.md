@@ -8,7 +8,7 @@ tools/dpi-check/run.sh            # 結果寫在 tools/dpi-check/out/，不進 r
 
 ## 做法
 
-腳本執行兩輪，每輪在兩個容器裡各起一個 AmneziaWG 伺服器與用戶端：
+腳本執行兩輪，每輪用 `node/Dockerfile` 固定的 AmneziaWG 版本，在兩個容器裡各起一個伺服器與用戶端：
 
 - 一般 WireGuard：不帶任何混淆參數，伺服器一樣在 UDP 443，當作對照
 - Vessel：伺服器用 `node/setup.sh` 的參數，用戶端用 `node/awgctl` 的 `client_params()` 產生，測的就是節點實際在用的邏輯
