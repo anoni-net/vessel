@@ -55,12 +55,14 @@ iptables -I FORWARD 1 -i awg0 -m connbytes --connbytes 0:4 --connbytes-dir origi
 # for scale: every new connection from the tunnel
 iptables -I FORWARD 1 -i awg0 -m conntrack --ctstate NEW -j VESSEL-NEW
 
-# --- traffic to the node itself from clients: DNS only ---
+# --- traffic to the node itself from clients: DNS, and the inspection confirm page ---
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -i awg0 -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
-# the page a device opens to confirm an inspection (host/vessel-inspect-confirm.py)
-iptables -A INPUT -i awg0 -p tcp --dport 443 -j ACCEPT
+# the page a device opens to confirm an inspection (host/vessel-inspect-confirm.py). It listens on 10.8.1.1 only
+# (VESSEL_CONFIRM_LISTEN), so only that address is opened: a service listening on 443 at another address in this
+# namespace, such as a filter resolver's, stays behind the DROP below.
+iptables -A INPUT -i awg0 -d 10.8.1.1 -p tcp --dport 443 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
 # A TCP SYN carrying IPv4 options (Record Route, Timestamp) can trigger a use-after-free in the kernel's handshake
 # code (CVE-2026-98432), and a client reaches the resolvers' TCP port 53. Nothing legitimate sends those options;
