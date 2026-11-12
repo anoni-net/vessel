@@ -423,6 +423,80 @@ class StalkerwareApps(Base):
         self.assertEqual(analyze.load_apps()["tracker.example"], "RenamedSpy")
 
 
+class Addresses(Base):
+    """Servers a list knows by address: a device may reach one without looking a name up."""
+
+    CSV = ("type,indicator,app\n"
+           "domain,tracker.example,FakeSpy\n"
+           "ipv4,203.0.113.7,FakeSpy\n"
+           "ipv4,203.0.113.8,\n"
+           "ipv4,192.168.1.1,HomeSpy\n"
+           "ipv4,203.0.113.0/24,RangeSpy\n"
+           "ipv6,2001:db8::7,FakeSpy\n")
+
+    def setUp(self):
+        super().setUp()
+        (analyze.HOME / "lists" / "stalkerware-apps.csv").write_text(self.CSV)
+        self.lists = analyze.load_lists()
+
+    def conn(self, ip, ts=T0, port=443):
+        return {"ts": ts, "uid": f"C{ts}{ip}", "id.orig_h": "10.8.1.3", "id.resp_h": ip, "id.resp_p": port}
+
+    def report(self, **kw):
+        analyze.merge("n1", {}, logs(**kw), self.lists)
+        return analyze.report("n1", "10.8.1.3")
+
+    def test_only_addresses_on_the_internet_are_read(self):
+        self.assertEqual(self.lists[analyze.ADDRESSES], {"stalkerware": {"203.0.113.7": "FakeSpy", "203.0.113.8": None}})
+        for word in ("10.0.0.1", "172.16.0.1", "192.168.0.1", "127.0.0.1", "169.254.1.1", "100.64.0.1", "224.0.0.1", "0.0.0.0",
+                     "1.2.3", "1.2.3.4.5", "256.1.1.1", "1.2.3.4/32", "a.b.c.d", ""):
+            self.assertIsNone(analyze.address(word), word)
+        self.assertEqual(analyze.address(" 203.000.113.007 "), "203.0.113.7")
+
+    def test_a_connection_to_a_listed_address_is_a_threat_with_its_app(self):
+        r = self.report(conn=[self.conn("203.0.113.7", port=8080)])
+        self.assertEqual(r["findings"], [{"severity": "threat", "kind": "stalkerware", "name": "203.0.113.7", "how": "IP", "count": 1,
+                                          "first": T0, "last": T0, "hours": [analyze.hour_of(T0)], "lists": ["stalkerware"], "app": "FakeSpy"}])
+        self.assertEqual([c["count"] for c in r["checks"] if c["id"] == "stalkerware"], [1])
+        self.assertEqual(analyze.load_state("n1", "10.8.1.3")["marks"], {analyze.hour_of(T0): "x"})
+
+    def test_an_address_without_a_name_in_the_table_has_no_app(self):
+        self.assertNotIn("app", self.report(conn=[self.conn("203.0.113.8")])["findings"][0])
+
+    def test_connections_a_minute_apart_count_again(self):
+        r = self.report(conn=[self.conn("203.0.113.7"), self.conn("203.0.113.7", T0 + 30), self.conn("203.0.113.7", T0 + 90)])
+        self.assertEqual(r["findings"][0]["count"], 2)
+
+    def test_the_address_behind_a_listed_name_is_the_same_visit(self):
+        r = self.report(dns=[dns("api.tracker.example")], conn=[self.conn("203.0.113.7", T0 + 1)])
+        self.assertEqual([(f["name"], f["count"]) for f in r["findings"]], [("tracker.example", 1)])
+
+    def test_an_address_reached_long_after_the_name_is_listed_too(self):
+        r = self.report(dns=[dns("api.tracker.example")], conn=[self.conn("203.0.113.7", T0 + 600)])
+        self.assertEqual(sorted(f["name"] for f in r["findings"]), ["203.0.113.7", "tracker.example"])
+
+    def test_other_addresses_are_not_kept(self):
+        r = self.report(conn=[self.conn("198.51.100.9"), self.conn("192.168.1.1")])
+        self.assertEqual(r["findings"], [])
+        self.assertNotIn("198.51.100.9", (analyze.HOME / "state" / "n1" / "10.8.1.3.json").read_text())
+
+    def test_someone_elses_connection_is_not_this_devices(self):
+        row = {**self.conn("10.8.1.3"), "id.orig_h": "203.0.113.7"}
+        analyze.merge("n1", {}, logs(conn=[row]), self.lists)
+        self.assertTrue(analyze.report("n1", "203.0.113.7").get("empty"))
+
+    def test_without_the_table_no_address_is_compared(self):
+        (analyze.HOME / "lists" / "stalkerware-apps.csv").unlink()
+        self.lists = analyze.load_lists()
+        self.assertEqual(self.report(conn=[self.conn("203.0.113.7")])["findings"], [])
+
+    def test_a_leaders_summary_has_the_kind_and_not_the_address(self):
+        self.report(conn=[self.conn("203.0.113.7")])
+        summary = analyze.summary("n1", "10.8.1.3")
+        self.assertEqual((summary["verdict"], summary["kinds"]), ("threat", [{"kind": "stalkerware", "severity": "threat"}]))
+        self.assertNotIn("203.0.113.7", json.dumps(summary))
+
+
 class SystemNames(Base):
     NAMES = ["lb._dns-sd._udp.0.1.168.192.in-addr.arpa", "_dns.resolver.arpa", "b.a.ip6.arpa", "router.home.arpa",
              "iPhone.local", "nas.localdomain", "db.internal", "printer.lan", "box.home", "x.invalid", "a.test",
