@@ -8,6 +8,7 @@ import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { flagOf, relayEntry } from "../regions.ts";
 import { progress } from "../inspection-progress.ts";
+import { forget, forgetOtherDevices } from "../kept-keys.ts";
 import { AccountNav } from "./account.tsx";
 import { Layers } from "./layers.tsx";
 import { loadNewDevice, whenIdle } from "./lazy.ts";
@@ -95,6 +96,8 @@ export function Devices() {
           setAdded((x) => ({ n: (x?.n ?? 0) + 1, ...a }));
         }
       }
+      // a device deleted elsewhere, or by a leader: its report is gone, and its key goes from this browser too
+      forgetOtherDevices(d.map((x) => x.id));
       shown.current = { me: m, devices: d };
       setMe(m);
       setDevices(d);
@@ -157,6 +160,8 @@ export function Devices() {
     announce(t["busy.delete"]);
     try {
       await api.deleteDevice(d.id);
+      // its inspection report went with it; the key does not stay in this browser
+      forget(d.id);
       announce(fmt(t["devices.deleted"], { name: d.name }));
     } catch (x) {
       setDeleteErr(errorText(t, x instanceof ApiError ? x.code : "unknown"));
