@@ -60,6 +60,8 @@ class Base(unittest.TestCase):
         (analyze.HOME / "lists" / "cti.txt").write_text("evil.example\n")
         (analyze.HOME / "lists" / "ads.txt").write_text("ad.example CNAME .\n")
         (analyze.HOME / "lists" / "stalkerware-apps.csv").write_text("type,indicator,app\n")
+        (analyze.HOME / "lists" / "spyware.csv").write_text(
+            "type,indicator,app\ndomain,spy.example,FakeGroup Spy\ndomain,shared.example,FakeGroup Spy\nipv4,203.0.113.99,OtherSpy\n")
         (analyze.HOME / "lists" / "doh.txt").write_text(
             "$TTL 3600\n@ SOA localhost. root.localhost. 1 2 3 4 5\n  NS  localhost.\n; a comment\n"
             "doh.example CNAME .\n*.doh.example CNAME .\ndoh.dns.apple.com CNAME .\nmask.icloud.com CNAME .\n")
@@ -447,7 +449,7 @@ class Addresses(Base):
         return analyze.report("n1", "10.8.1.3")
 
     def test_only_addresses_on_the_internet_are_read(self):
-        self.assertEqual(self.lists[analyze.ADDRESSES], {"stalkerware": {"203.0.113.7": "FakeSpy", "203.0.113.8": None}})
+        self.assertEqual(self.lists[analyze.ADDRESSES]["stalkerware"], {"203.0.113.7": "FakeSpy", "203.0.113.8": None})
         for word in ("10.0.0.1", "172.16.0.1", "192.168.0.1", "127.0.0.1", "169.254.1.1", "100.64.0.1", "224.0.0.1", "0.0.0.0",
                      "1.2.3", "1.2.3.4.5", "256.1.1.1", "1.2.3.4/32", "a.b.c.d", ""):
             self.assertIsNone(analyze.address(word), word)
@@ -495,6 +497,129 @@ class Addresses(Base):
         summary = analyze.summary("n1", "10.8.1.3")
         self.assertEqual((summary["verdict"], summary["kinds"]), ("threat", [{"kind": "stalkerware", "severity": "threat"}]))
         self.assertNotIn("203.0.113.7", json.dumps(summary))
+
+
+class Spyware(Base):
+    """Mercenary spyware, from the investigations the Mobile Verification Toolkit's index lists."""
+
+    INDEX = """indicators:
+  -
+    type: github
+    name: FakeGroup Spy Indicators of Compromise
+    sources:
+      - Somebody
+    references:
+      - https://example.org/report
+    github:
+      owner: mvt-project
+      repo: mvt-indicators
+      branch: main
+      path: fake/fakegroup.stix2
+
+  -
+    type: github
+    name: Stalkerware Indicators of Compromise
+    github:
+      owner: AssoEchap
+      repo: stalkerware-indicators
+      branch: master
+      path: generated/stalkerware.stix2
+
+  -
+    type: github
+    name: "OtherSpy Indicators of Compromise"
+    github:
+      owner: AmnestyTech
+      repo: investigations
+      branch: master
+      path: 2024-01-01_other/other.stix2
+"""
+    FILES = {
+        "https://raw.githubusercontent.com/mvt-project/mvt-indicators/main/fake/fakegroup.stix2":
+            [f"[domain-name:value='c{i}.spy.example']" for i in range(120)] + ["[domain-name:value='Spy.Example.']", "[file:path='/tmp/x']",
+                                                                           "[process:name='spyd']", "[domain-name:value='not a name']"],
+        "https://raw.githubusercontent.com/AmnestyTech/investigations/master/2024-01-01_other/other.stix2":
+            ["[ipv4-addr:value='203.0.113.99']", "[ipv4-addr:value='10.0.0.1']", "[domain-name:value='other.example']"],
+    }
+
+    @classmethod
+    def urlopen(cls, url, timeout):
+        if url == analyze.SPYWARE_INDEX:
+            return io.BytesIO(cls.INDEX.encode())
+        objects = [{"type": "malware", "name": "x"}, *({"type": "indicator", "pattern": p} for p in cls.FILES[url])]
+        return io.BytesIO(json.dumps({"type": "bundle", "objects": objects}).encode())
+
+    def report(self, **kw):
+        analyze.merge("n1", {}, logs(**kw), self.lists)
+        return analyze.report("n1", "10.8.1.3")
+
+    def test_the_index_names_each_investigation_and_its_file_and_leaves_out_stalkerware(self):
+        self.assertEqual(analyze.spyware_sources(self.INDEX), [("FakeGroup Spy", next(iter(self.FILES))), ("OtherSpy", list(self.FILES)[1])])
+
+    def test_an_index_that_points_somewhere_else_is_refused(self):
+        for path in ("../../../evil/repo/main/x.stix2", "a/../b.stix2", "x.stix2?token=1", "a b.stix2", "/etc/passwd"):
+            with self.assertRaises(ValueError, msg=path):
+                analyze.spyware_sources(self.INDEX.replace("fake/fakegroup.stix2", path))
+        with self.assertRaises(ValueError):
+            analyze.spyware_sources(self.INDEX.replace("owner: mvt-project", "owner: evil.example/x"))
+
+    def test_the_table_has_the_domains_and_addresses_with_the_investigations_name(self):
+        with mock.patch.object(analyze.urllib.request, "urlopen", side_effect=self.urlopen):
+            rows = analyze.spyware_rows(analyze.SPYWARE_INDEX)
+        self.assertEqual(len(rows), 123)
+        self.assertIn(("domain", "spy.example", "FakeGroup Spy"), rows)
+        self.assertEqual(rows[-2:], [("ipv4", "203.0.113.99", "OtherSpy"), ("domain", "other.example", "OtherSpy")])
+
+    def test_one_investigation_missing_keeps_the_table_it_had(self):
+        before = (analyze.HOME / "lists" / "spyware.csv").read_text()
+
+        def urlopen(url, timeout):
+            if "AmnestyTech" in url:
+                raise OSError("offline")
+            return self.urlopen(url, timeout) if url == analyze.SPYWARE_INDEX or url.endswith(".stix2") else io.BytesIO(b"0.0.0.0 a.example\n" * 80)
+
+        with mock.patch.object(analyze.urllib.request, "urlopen", side_effect=urlopen), mock.patch.object(analyze.sys, "stderr"):
+            self.assertEqual(analyze.update_lists(), ["spyware.csv"])
+        self.assertEqual((analyze.HOME / "lists" / "spyware.csv").read_text(), before)
+
+    def test_a_download_replaces_the_table(self):
+        def urlopen(url, timeout):
+            return self.urlopen(url, timeout) if url == analyze.SPYWARE_INDEX or url.endswith(".stix2") else io.BytesIO(b"0.0.0.0 a.example\n" * 80)
+
+        with mock.patch.object(analyze.urllib.request, "urlopen", side_effect=urlopen):
+            self.assertEqual(analyze.update_lists(), [])
+        lists = analyze.load_lists()
+        self.assertIn("other.example", lists["spyware"])
+        self.assertEqual(lists[analyze.NAMES]["spyware"]["c7.spy.example"], "FakeGroup Spy")
+
+    def test_a_spyware_name_is_a_threat_named_after_its_investigation_and_comes_first(self):
+        r = self.report(dns=[dns("api.tracker.example"), dns("c2.spy.example", ts=T0 + 5)])
+        self.assertEqual([(f["kind"], f["severity"], f["name"], f.get("app")) for f in r["findings"]],
+                         [("spyware", "threat", "spy.example", "FakeGroup Spy"), ("stalkerware", "threat", "tracker.example", None)])
+        self.assertEqual([c["id"] for c in r["checks"]], ["spyware", "stalkerware", "malware", "cti", "bypass_dns"])
+        self.assertEqual(r["findings"][0]["lists"], ["spyware"])
+        self.assertEqual(analyze.load_state("n1", "10.8.1.3")["marks"], {analyze.hour_of(T0): "x"})
+
+    def test_a_spyware_server_is_known_by_its_address(self):
+        conn = [{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "id.resp_h": "203.0.113.99", "id.resp_p": 443}]
+        hit = self.report(conn=conn)["findings"][0]
+        self.assertEqual((hit["kind"], hit["name"], hit["how"], hit["app"]), ("spyware", "203.0.113.99", "IP", "OtherSpy"))
+
+    def test_excluded_names_do_not_count(self):
+        self.assertEqual(self.report(dns=[dns("shared.example")])["findings"], [])
+
+    def test_without_the_table_nothing_is_spyware(self):
+        (analyze.HOME / "lists" / "spyware.csv").unlink()
+        self.lists = analyze.load_lists()
+        r = self.report(dns=[dns("spy.example")])
+        self.assertEqual(r["findings"], [])
+        self.assertEqual(r["checks"][0], {"id": "spyware", "count": 0})
+
+    def test_a_leaders_summary_has_the_kind_alone(self):
+        self.report(dns=[dns("spy.example")])
+        summary = analyze.summary("n1", "10.8.1.3")
+        self.assertEqual((summary["verdict"], summary["kinds"]), ("threat", [{"kind": "spyware", "severity": "threat"}]))
+        self.assertNotIn("FakeGroup", json.dumps(summary))
 
 
 class SystemNames(Base):
@@ -689,6 +814,8 @@ class ListAge(Base):
         def urlopen(url, timeout):
             if url == analyze.SOURCES["cti"]:
                 raise OSError("offline")
+            if url == analyze.SPYWARE_INDEX or url.endswith(".stix2"):
+                return Spyware.urlopen(url, timeout)
             return io.BytesIO(b"0.0.0.0 tracker.example\n" * 60)
 
         with mock.patch.object(analyze.urllib.request, "urlopen", side_effect=urlopen), mock.patch.object(analyze.sys, "stderr"):

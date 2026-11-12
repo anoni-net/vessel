@@ -42,10 +42,10 @@ export interface Report {
    * A site on a list, or `bypass_dns` (no name, no hours). Reports made since 2026-11-10 count visits and add `hours`
    * (the UTC hours it was seen in, `YYYY-MM-DDTHH`, sorted) and `last`; older ones, still stored, have `first` instead.
    * Reports made since the lists were compared one by one add `lists`: every list the site's names are on, its own `kind`
-   * and the ad list included (`stalkerware`, `malware`, `cti`, `ads`, sorted). Without it, nothing is said about other lists.
+   * and the ad list included (`spyware`, `stalkerware`, `malware`, `cti`, `ads`, sorted). Without it, nothing is said about other lists.
    * A site's `name` is a list's entry: a domain, or since 2026-11-12 the address of a server a list knows by address alone.
-   * A stalkerware site may also have `app`, the stalkerware it belongs to in Echap's stalkerware-indicators: a name from
-   * outside, only ever put on the page as text.
+   * A stalkerware site may also have `app`, the stalkerware it belongs to in Echap's stalkerware-indicators, and a spyware
+   * site the investigation its indicator is from in MVT's index: names from outside, only ever put on the page as text.
    */
   findings?: {
     severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[]; lists?: string[]; app?: string;
@@ -790,7 +790,9 @@ export function seenWhen(f: NonNullable<Report["findings"]>[number]) {
 }
 
 /** The lists a report can name, in the order they are written out: analyze.py's SOURCES. */
-export const LISTS = ["stalkerware", "malware", "cti", "ads"] as const;
+export const LISTS = ["spyware", "stalkerware", "malware", "cti", "ads"] as const;
+/** The kinds that are a known threat when found: analyze.py's THREAT. */
+export const THREAT_KINDS: readonly string[] = ["spyware", "stalkerware"];
 type ListId = (typeof LISTS)[number];
 
 /** The other lists a site is on, besides the one it was found on; none for a report from before `lists`. */
@@ -812,9 +814,17 @@ export function alsoOn(f: NonNullable<Report["findings"]>[number], t: ReturnType
 export const APPS_SOURCE = "https://github.com/AssoEchap/stalkerware-indicators";
 export const APPS_LICENSE = "https://creativecommons.org/licenses/by/4.0/";
 
-/** The stalkerware a report's threats belong to, where every one of them it lists says, and it lists them all. */
-function threatApps(report: Report) {
-  const threats = (report.findings ?? []).filter((f) => f.severity === "threat" && f.name);
+/** Where the spyware indicators come from: the index the Mobile Verification Toolkit keeps of published investigations. */
+export const SPYWARE_SOURCE = "https://github.com/mvt-project/mvt-indicators";
+/** Who to ask about a spyware indicator: Access Now's Digital Security Helpline, free for civil society. */
+export const SPYWARE_HELP = "https://www.accessnow.org/help/";
+
+/**
+ * The stalkerware (or, for spyware, the investigations) a report's threats of one kind belong to, where every one of
+ * them it lists says, and it lists them all.
+ */
+function threatApps(report: Report, kind: string) {
+  const threats = (report.findings ?? []).filter((f) => f.severity === "threat" && f.name && f.kind === kind);
   const left = Object.entries(report.more ?? {}).some(([kind, n]) => n > 0 && threats.some((f) => f.kind === kind));
   if (left || !threats.length || !threats.every((f) => f.app)) return [];
   return [...new Set(threats.map((f) => f.app!))];
@@ -840,6 +850,8 @@ const withDay = (locale: ReturnType<typeof useCtx>["locale"], iso: string) => fo
 const hitLevel = (n: number) => (n <= 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : 3);
 
 type Verdict = "threat" | "check" | "clean";
+/** The steps under the verdict: looking through the apps, getting help with a spyware indicator, or none. */
+type Next = false | "apps" | "help";
 
 /**
  * What the report comes to, and why, in a sentence. Where the report says when each site was seen, the sentence tells a
@@ -857,30 +869,37 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
   const groups = findingGroups(report);
   // decided here once, from the severities; nothing below changes it
   const state: Verdict = groups.some((g) => g.severity === "threat") ? "threat" : groups.length ? "check" : "clean";
-  if (state === "clean") return { state, reason: t["inspect.report.clean"], next: false };
+  if (state === "clean") return { state, reason: t["inspect.report.clean"], next: false as Next };
   const n = (x: number) => formatCount(locale, x);
   const named = (report.findings ?? []).filter((f) => f.name);
   const bypass = groups.find((g) => g.kind === "bypass_dns");
   const sites = groups.filter((g) => g.kind !== "bypass_dns");
   const counted = { sites: n(sites.reduce((s, g) => s + g.sites, 0)), n: n(sites.reduce((s, g) => s + g.count, 0)) };
   // the hours the sites of one severity were seen in, on the reader's clock
-  const hoursOf = (severity: "threat" | "check") => [...new Set(named.filter((f) => f.severity === severity).flatMap((f) => f.hours ?? []))].sort().map(atHour);
-  const lastOf = (severity: "threat" | "check") => Math.max(...named.filter((f) => f.severity === severity).map((f) => f.last ?? 0));
+  const hoursOf = (severity: "threat" | "check", kind?: string) =>
+    [...new Set(named.filter((f) => f.severity === severity && (!kind || f.kind === kind)).flatMap((f) => f.hours ?? []))].sort().map(atHour);
+  const lastOf = (severity: "threat" | "check", kind?: string) => Math.max(...named.filter((f) => f.severity === severity && (!kind || f.kind === kind)).map((f) => f.last ?? 0));
   const dated = (severity: "threat" | "check") => groups.filter((g) => g.severity === severity && g.kind !== "bypass_dns").every((g) => g.dated);
 
   if (state === "threat") {
     const threats = groups.filter((g) => g.severity === "threat");
     if (!dated("threat")) {
-      return { state, reason: fmt(t["inspect.reason.threatCount"], { sites: n(threats.reduce((s, g) => s + g.sites, 0)), n: n(threats.reduce((s, g) => s + g.count, 0)) }), next: true };
+      return { state, reason: fmt(t["inspect.reason.threatCount"], { sites: n(threats.reduce((s, g) => s + g.sites, 0)), n: n(threats.reduce((s, g) => s + g.count, 0)) }), next: "apps" as Next };
     }
-    const hours = hoursOf("threat");
-    const last = lastOf("threat");
-    // named after the stalkerware where the report knows it for every site: one by its name, more by how many
-    const apps = threatApps(report);
-    const words = apps.length === 1 ? "inspect.reason.threatApp" : apps.length > 1 ? "inspect.reason.threatApps" : "inspect.reason.threat";
+    // spyware first where there is any: it is the one to get help with, and the sentence and the steps are its own.
+    // Stalkerware found beside it is listed below with the rest.
+    const spy = threats.some((g) => g.kind === "spyware");
+    const top = spy ? "spyware" : "stalkerware";
+    const hours = hoursOf("threat", top);
+    const last = lastOf("threat", top);
+    // named after the stalkerware (or the investigation) where the report knows it for every site: one by its name,
+    // more by how many
+    const apps = threatApps(report, top);
+    const base = spy ? "inspect.reason.spy" : "inspect.reason.threat";
+    const words = apps.length === 1 ? `${base}App` as const : apps.length > 1 ? `${base}Apps` as const : base;
     return {
       state,
-      next: true,
+      next: (spy ? "help" : "apps") as Next,
       reason: fmt(t[words], {
         days: n(new Set(hours.map(dayOf)).size), slots: n(hours.length), app: apps[0] ?? "", apps: n(apps.length),
         last: last ? withDay(locale, new Date(last * 1000).toISOString()) : withDay(locale, hours.at(-1)!.toISOString()),
@@ -889,16 +908,16 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
   }
 
   const also = bypass ? fmt(t["inspect.reason.alsoBypass"], { n: n(bypass.count) }) : "";
-  if (!sites.length) return { state, reason: fmt(t["inspect.reason.bypass"], { n: n(bypass!.count) }), next: false };
-  if (!dated("check")) return { state, reason: join(fmt(t["inspect.reason.count"], counted), also), next: false };
+  if (!sites.length) return { state, reason: fmt(t["inspect.reason.bypass"], { n: n(bypass!.count) }), next: false as Next };
+  if (!dated("check")) return { state, reason: join(fmt(t["inspect.reason.count"], counted), also), next: false as Next };
   const hours = hoursOf("check");
   const days = [...new Set(hours.map(dayOf))];
   // seen day after day: the same steps as for a known threat, starting from the apps
-  if (days.length > 1) return { state, reason: join(fmt(t["inspect.reason.repeat"], { days: n(days.length), slots: n(hours.length) }), also), next: true };
+  if (days.length > 1) return { state, reason: join(fmt(t["inspect.reason.repeat"], { days: n(days.length), slots: n(hours.length) }), also), next: "apps" as Next };
   const date = short(days[0]);
   // seen on one day only, and every one of them on the ad list too: one more sentence, the same state
   const ads = allOnAdList(report) ? t[sites.reduce((s, g) => s + g.sites, 0) === 1 ? "inspect.reason.alsoAdsOne" : "inspect.reason.alsoAds"] : "";
-  if (hours.length > 3) return { state, reason: join(join(fmt(t["inspect.reason.oneDay"], { date, slots: n(hours.length) }), ads), also), next: false };
+  if (hours.length > 3) return { state, reason: join(join(fmt(t["inspect.reason.oneDay"], { date, slots: n(hours.length) }), ads), also), next: false as Next };
   const clock = hours.map((h) => h.getHours());
   const periods = [...new Set(clock.map(period))];
   const when = periods.length === 1
@@ -907,7 +926,7 @@ export function judge(report: Report, t: ReturnType<typeof useCtx>["t"], locale:
   const lastHit = hours.at(-1)!.getTime();
   const after = (report.hours ?? []).filter((h) => atHour(h.hour).getTime() > lastHit && h.up + h.down > 0).length;
   const once = fmt(t[after >= QUIET_HOURS ? "inspect.reason.onceQuiet" : "inspect.reason.onceLatest"], { when });
-  return { state, reason: join(join(once, ads), also), next: false };
+  return { state, reason: join(join(once, ads), also), next: false as Next };
 }
 
 const period = (hour: number) => (hour < 6 ? "night" : hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening");
@@ -934,6 +953,8 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
     </span>
   );
   const dot = <span aria-hidden="true"> · </span>;
+  // a name from outside: a text node, never markup
+  const appWords = (f: NonNullable<Report["findings"]>[number]) => fmt(t[f.kind === "spyware" ? "inspect.app.spyware" : "inspect.app"], { app: f.app! });
   const line = (f: NonNullable<Report["findings"]>[number]) => (
     <li class={`inspect-finding inspect-finding--${f.severity}`} data-testid="inspect-finding">
       <code>{f.name}</code>
@@ -941,7 +962,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         {fmt(t["inspect.seen"], { n: formatCount(locale, f.count) })}
         {f.first ? ` ${fmt(t["inspect.firstSeen"], { time: withDay(locale, new Date(f.first * 1000).toISOString()) })}` : ""}
       </span>
-      {f.app && <span class="small" data-testid="inspect-hit-app">{fmt(t["inspect.app"], { app: f.app })}</span>}
+      {f.app && <span class="small" data-testid="inspect-hit-app">{appWords(f)}</span>}
       {alsoOn(f, t) && <span class="small" data-testid="inspect-hit-lists">{alsoOn(f, t)}</span>}
       {noteFor(f.name) && <NoteLine note={noteFor(f.name)!} t={t} class="small" />}
     </li>
@@ -973,7 +994,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         <span class="hit-row__words small">
           <span data-testid="inspect-hit-words">{words}{last && <>{dot}<span class="muted">{last}</span></>}</span>
           {/* a name from outside: a text node, never markup */}
-          {f.app && <span class="hit-row__lists" data-testid="inspect-hit-app">{fmt(t["inspect.app"], { app: f.app })}</span>}
+          {f.app && <span class="hit-row__lists" data-testid="inspect-hit-app">{appWords(f)}</span>}
           {lists && <span class="hit-row__lists" data-testid="inspect-hit-lists">{lists}</span>}
           {/* what the site is, from the notes bundled with the page: matched here, in the browser */}
           {note && <NoteLine note={note} t={t} class="hit-row__lists" />}
@@ -1003,9 +1024,17 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
           {next && (
             <>
               <h3>{t["inspect.report.next"]}</h3>
-              <ol class="inspect-list">
-                {(["apps", "admin", "ask"] as const).map((k) => <li>{t[`inspect.report.next.${k}`]}</li>)}
-              </ol>
+              {next === "help" ? (
+                <ol class="inspect-list" data-testid="inspect-next-help">
+                  <li>{t["inspect.report.next.keep"]}</li>
+                  <li>{t["inspect.report.next.help"]}<a href={SPYWARE_HELP} target="_blank" rel="noopener">{t["inspect.report.next.helpName"]}</a>{t["inspect.report.next.helpAfter"]}</li>
+                  <li>{t["inspect.report.next.other"]}</li>
+                </ol>
+              ) : (
+                <ol class="inspect-list">
+                  {(["apps", "admin", "ask"] as const).map((k) => <li>{t[`inspect.report.next.${k}`]}</li>)}
+                </ol>
+              )}
             </>
           )}
         </div>
@@ -1081,7 +1110,12 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
                 )}
                 {/* the categories of this kind's notes, each said once */}
                 <NoteCategories notes={g.listed.map((f) => noteFor(f.name)).filter((n): n is SiteNote => !!n)} order={NOTE_CATEGORIES} t={t} />
-                {g.listed.some((f) => f.app) && (
+                {g.kind === "spyware" && (
+                  <p class="muted small" data-testid="inspect-spyware-source">
+                    {t["inspect.spyware.source"]}<a href={SPYWARE_SOURCE} target="_blank" rel="noopener">{t["inspect.spyware.sourceName"]}</a>{t["inspect.spyware.end"]}
+                  </p>
+                )}
+                {g.kind !== "spyware" && g.listed.some((f) => f.app) && (
                   <p class="muted small" data-testid="inspect-app-source">
                     {t["inspect.apps.source"]}<a href={APPS_SOURCE} target="_blank" rel="noopener">{t["inspect.apps.sourceName"]}</a>
                     {t["inspect.apps.license"]}<a href={APPS_LICENSE} target="_blank" rel="noopener">CC BY 4.0</a>{t["inspect.apps.end"]}
@@ -1192,7 +1226,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         <ul class="plain inspect-checks" data-testid="inspect-checks">
           {report.checks?.map((c) => {
             const found = c.count > 0;
-            const sev = !found ? "ok" : c.id === "stalkerware" ? "threat" : "check";
+            const sev = !found ? "ok" : THREAT_KINDS.includes(c.id) ? "threat" : "check";
             const words = t[`inspect.check.${found ? "hit" : "ok"}.${c.id}` as keyof typeof t] ?? `${kind(c.id)}: ${found ? fmt(t["inspect.seen"], { n: c.count }) : t["inspect.report.notFound"]}`;
             return (
               <li class={`inspect-check inspect-check--${sev}`} data-testid="inspect-check" data-state={sev}>
