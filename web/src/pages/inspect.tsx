@@ -645,12 +645,14 @@ function Opened({ state, local, setKept, name, partial, aside }: {
       <div ref={area} class="inspect-wide"><ReportView report={report} locale={locale} span={spanOf(state, partial)} limits={!partial} /></div>
       {partial && (
         // below the report, as a link: the results so far are there to read, and ending early stays the one thing at the top.
-        // The key first, on the left of a wide screen, then these words: in the order they are seen, on a phone too
-        <div class="inspect-pair inspect-pair--top inspect-wide">
+        // The key first, on the left of a wide screen, then these words: in the order they are seen, on a phone too. Two
+        // cards of a height: the key white, what to do; these tinted, what to know
+        <div class="inspect-pair inspect-wide">
           {aside}
-          <div class="inspect-partial" data-testid="inspect-notes">
-            <p class="muted small">{t["inspect.report.limits"]}</p>
-            <p class="muted small" data-testid="inspect-delay">{t["inspect.partial"]}</p>
+          <div class="card card--tint card--flat stack inspect-partial" data-testid="inspect-notes">
+            <h2>{t["inspect.partial.title"]}</h2>
+            <p class="small" data-testid="inspect-delay">{t["inspect.partial"]}</p>
+            <p class="small">{t["inspect.report.limits"]}</p>
             <button class="link-button" type="button" onClick={download} data-testid="inspect-download">{t["inspect.downloadPartial"]}</button>
           </div>
         </div>

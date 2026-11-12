@@ -1185,6 +1185,7 @@
   "inspect.endConfirm": "现在结束检测吗？结束之后报告会保存 {days} 天。",
   "inspect.ending": "正在结束检测、整理报告，通常 5 分钟内完成。",
   "inspect.noneYet": "还没有数据。设备连上 Vessel 使用一段时间之后，这里会出现结果，数据大约延迟 30 分钟，最久约 1 小时。",
+  "inspect.partial.title": "关于这些结果",
   "inspect.partial": "这是目前为止的结果，数据大约延迟 30 分钟，最久约 1 小时。检测结束后可以下载完整报告。",
   "inspect.keepUntil": "报告保存到 {date}，请记得下载。到期后报告与检测数据都不再保留。",
   "inspect.download": "下载报告",

@@ -1185,6 +1185,7 @@
   "inspect.endConfirm": "End the inspection now? The report is kept for {days} days afterwards.",
   "inspect.ending": "Ending the inspection and preparing the report. This usually takes up to 5 minutes.",
   "inspect.noneYet": "Nothing yet. Results appear here once the device has used Vessel for a while. The data is about 30 minutes behind, and at most about 1 hour.",
+  "inspect.partial.title": "About these results",
   "inspect.partial": "These are the results so far. The data is about 30 minutes behind, and at most about 1 hour. The full report can be downloaded when the inspection ends.",
   "inspect.keepUntil": "The report is kept until {date}. Please download it: after that neither the report nor any inspection data is kept.",
   "inspect.download": "Download report",

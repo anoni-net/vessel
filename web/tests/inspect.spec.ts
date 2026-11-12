@@ -1121,6 +1121,9 @@ test.describe("on a wide screen", () => {
       if (width > 960) {
         expect(notes.x).toBeGreaterThan(key.x + key.width);
         expect(Math.abs(notes.y - key.y)).toBeLessThan(2);
+        // two cards of a height, the words tinted beside the white card of the key
+        expect(Math.abs(notes.height - key.height)).toBeLessThan(2);
+        await expect(page.getByTestId("inspect-notes")).toHaveClass(/card--tint/);
       } else {
         expect(notes.y).toBeGreaterThan(key.y + key.height);
       }
