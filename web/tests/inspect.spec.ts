@@ -999,6 +999,8 @@ test.describe("on a wide screen", () => {
     // wider than the narrow column, and the days beside what it comes to
     expect(report.width).toBeGreaterThan(900);
     expect(cover.x).toBeGreaterThan(verdict.x + verdict.width / 3);
+    // two halves: the line between them, the days' left edge, is in the middle of the card
+    expect(Math.abs(cover.x - (verdict.x + verdict.width / 2))).toBeLessThan(4);
     expect(cover.y).toBeLessThan(verdict.y + 80);
     expect(findings.y).toBeGreaterThan(verdict.y + verdict.height);
     // the hours and the checks side by side, below the sites

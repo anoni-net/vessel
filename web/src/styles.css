@@ -1155,9 +1155,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .inspect-report > .inspect-hours { grid-column: 1; }
   .inspect-report > .inspect-checkcard { grid-column: 2; }
   .inspect-report > p { max-width: 720px; }
-  .inspect-verdict { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px 40px; align-items: start; }
-  .inspect-verdict .inspect-cover { margin-top: 0; padding-top: 0; padding-inline-start: 40px; border-top: 0; border-inline-start: 1px solid var(--line);
-    margin-inline-start: -40px; }
+  /* two halves, the line between them in the middle of the gap: under the gap between the two cards above */
+  .inspect-verdict { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 40px; align-items: start; }
+  .inspect-verdict .inspect-cover { margin-top: 0; padding-top: 0; padding-inline-start: 20px; border-top: 0; border-inline-start: 1px solid var(--line);
+    margin-inline-start: -20px; }
   .inspect-verdict__main > p, .inspect-verdict__main > ol { max-width: 640px; }
   /* the sites: the name, the week and the words on one line */
   .hit-row { grid-template-columns: minmax(0, 1fr) 336px minmax(0, 1.2fr); }
