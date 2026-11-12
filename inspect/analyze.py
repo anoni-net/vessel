@@ -220,8 +220,15 @@ def blocked_answers(path):
     return found
 
 
+def clear_work():
+    """Zeek's logs name every site a device looked up; they live for one capture, under work/. A batch that was killed
+    (out of memory, a reboot, systemd's timeout) leaves its directory behind, and nothing else would ever delete it."""
+    shutil.rmtree(HOME / "work", ignore_errors=True)
+
+
 def zeek_logs(path):
-    with tempfile.TemporaryDirectory(dir=HOME) as work:
+    (HOME / "work").mkdir(mode=0o700, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=HOME / "work") as work:
         subprocess.run(
             ["docker", "run", "--rm", "--network", "none", "-v", f"{path.parent}:/p:ro", "-v", f"{work}:/logs", "-w", "/logs",
              ZEEK_IMAGE, "zeek", "-C", "-r", f"/p/{path.name}", "local", "LogAscii::use_json=T"],
@@ -351,12 +358,14 @@ def merge(node, totals, logs, lists):
 
 
 def batch():
+    # one batch at a time (the systemd unit), so whatever is in work/ now was left by one that did not finish
+    clear_work()
     lists = load_lists()
     for path in sorted((HOME / "spool").glob("*/*.pcap")):
         node = path.parent.name
         try:
             merge(node, traffic(path), {**zeek_logs(path), "blocked": blocked_answers(path)}, lists)
-        except (subprocess.CalledProcessError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - whatever one capture does wrong, the ones after it are still analysed
             # left in place for the next run; purge deletes what never succeeds
             print(f"{path.name}: {e}", file=sys.stderr)
             continue
@@ -472,6 +481,7 @@ def update_lists():
 
 
 def purge(days):
+    clear_work()
     limit = time.time() - days * 86400
     for path in (HOME / "state").glob("*/*.json"):
         if path.stat().st_mtime < limit:
