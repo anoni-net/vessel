@@ -79,7 +79,7 @@ awgctl throttle on <名稱>                     # 額度用完：限速到上傳
 awgctl throttle off <名稱>                    # 恢復全速
 awgctl show <名稱>
 awgctl remove <名稱>
-awgctl inspect on <名稱> <結束時間的 epoch 秒數>  # 開始檢測，最長 8 天
+awgctl inspect on <名稱> <結束時間的 epoch 秒數> <確認碼>  # 開始檢測，最長 8 天，要有那台裝置的確認紀錄
 awgctl inspect off <名稱>                     # 立刻停止
 awgctl inspect status --json                  # 檢測中的裝置
 ```
@@ -267,6 +267,8 @@ VPN 使用者只能上網：
 打開連結只顯示說明與「確認」按鈕，按下之後才留下紀錄。按鈕送出的表單帶著這一頁才有的值，其他網站送來的表單不會被接受，頁面也不能被嵌進其他網頁。
 
 確認紀錄放在 `/opt/vessel-node/inspect-confirm/`，每個通道位址一個檔案，內容是確認碼，同一台裝置再確認一次會取代原本的那一筆。入口網站用 `awgctl inspect confirms --json` 讀取，用完 `inspect ack` 刪除，超過 1 小時的自動刪除，裝置移除或位址交給新的裝置時也會刪除。
+
+`awgctl inspect on` 要帶確認碼，節點自行核對那台裝置的通道位址在 1 小時內確認過同一組確認碼，沒有紀錄就不開始。入口網站只負責轉達，裝置沒有確認過的檢測，從入口網站或在節點上手動執行都無法開啟。
 
 每條連線的 TLS 握手與每次讀取限時 10 秒，每個通道位址同時最多 4 條連線，全部最多 128 條。
 

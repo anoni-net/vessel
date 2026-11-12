@@ -166,6 +166,25 @@ def test_only_a_link_waiting_to_be_opened_is_renewed(signed_in, node, db, device
     assert db.execute("SELECT code_hmac FROM device_inspections").fetchone()[0] is None
 
 
+def test_the_node_is_given_the_code_the_device_confirmed(signed_in, node, db, device):
+    """The node starts only when it holds the code as confirmed by the device (node/awgctl, confirmed)."""
+    code = start(signed_in, device).json()["code"]
+    node.confirms.append({"code": code, "address": "10.8.1.2"})
+    original, seen = node.inspect_on, []
+    node.inspect_on = lambda host, device_id, until, code: (seen.append(code), original(host, device_id, until, code))[1]
+    worker.tick(db)
+    assert seen == [code] and read(signed_in, device)["status"] == "active"
+
+
+def test_a_node_that_does_not_hold_the_confirmation_starts_nothing(signed_in, node, db, device):
+    code = start(signed_in, device).json()["code"]
+    node.confirms.append({"code": code, "address": "10.8.1.2"})
+    original = node.inspect_on
+    node.inspect_on = lambda host, device_id, until, code: original(host, device_id, until, "ZZZZZZZZ23456789")
+    worker.tick(db)
+    assert read(signed_in, device)["status"] == "confirming" and device not in node.inspecting
+
+
 def test_the_node_down_at_confirmation_is_tried_again(signed_in, node, db, device):
     code = start(signed_in, device).json()["code"]
     node.confirms.append({"code": code, "address": "10.8.1.2"})

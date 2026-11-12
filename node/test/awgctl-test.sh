@@ -72,22 +72,42 @@ awgctl add-pubkey d-8 "$pub" "$(key)" none 2> /dev/null && fail "add reused a su
 addr() { awk '/^AllowedIPs/ { sub("/32,", "", $3); print $3 }' "$N/peers/$1.conf"; }
 rules() { grep -c "vessel-inspect:$1 " "$TMP/mangle" || true; }
 until=$(( $(date +%s) + 3600 ))
+code=ABCDEFGH23456789
 awgctl add-pubkey i-1 "$(key)" "$(key)" none > /dev/null
 ip=$(addr i-1)
-awgctl inspect on i-1 "$until" > /dev/null
+# the node starts only for a device that confirmed the code itself, within the hour
+mkdir -p "$N/inspect-confirm"
+awgctl inspect on i-1 "$until" "$code" 2> /dev/null && fail "inspect on passed without a confirmation"
+awgctl inspect on i-1 "$until" 2> /dev/null && fail "inspect on passed without a code"
+echo -n ZZZZZZZZ23456789 > "$N/inspect-confirm/$ip"
+awgctl inspect on i-1 "$until" "$code" 2> /dev/null && fail "inspect on passed with another code confirmed"
+rm "$N/inspect-confirm/$ip"; echo -n "$code" > "$N/inspect-confirm/${ip}0"
+awgctl inspect on i-1 "$until" "$code" 2> /dev/null && fail "inspect on passed with the code confirmed from another address"
+rm "$N/inspect-confirm/${ip}0"; echo -n "$code" > "$N/inspect-confirm/$ip"; touch -d "2 hours ago" "$N/inspect-confirm/$ip"
+awgctl inspect on i-1 "$until" "$code" 2> /dev/null && fail "inspect on passed with an old confirmation"
+awgctl inspect on i-1 "$until" "../$ip" 2> /dev/null && fail "inspect on took a path for a code"
+[ "$(rules "$ip")" = 0 ] || fail "a refused inspect on left rules"
+confirm() { echo -n "$code" > "$N/inspect-confirm/$ip"; }
+confirm
+awgctl inspect on i-1 "$until" "$code" > /dev/null
 [ "$(rules "$ip")" = 4 ] || fail "inspect on did not add four rules for $ip"
 grep -q -- "-s $ip/32 .*--nflog-group 42" "$TMP/mangle" || fail "no rule for packets from the device"
 grep -q -- "-d $ip/32 .*--nflog-group 42" "$TMP/mangle" || fail "no rule for packets to the device"
 grep -q -- "--datestop .*--nflog-size 128" "$TMP/mangle" || fail "the rules do not cut packets, or have no end time"
 [ "$(grep -c -- '--datestop' "$TMP/mangle")" = 4 ] || fail "a rule has no end time"
-awgctl inspect on i-1 "$until" > /dev/null
+# a try whose answer was lost is made again with the same code
+awgctl inspect on i-1 "$until" "$code" > /dev/null
 [ "$(rules "$ip")" = 4 ] || fail "turning inspection on twice doubled the rules"
 awgctl inspect status --json | python3 -c 'import json,sys; r=json.load(sys.stdin); assert len(r)==1 and r[0]["name"]=="i-1" and r[0]["active"] is True' || fail "status"
+# after the portal's ack the code starts nothing more
+awgctl inspect ack "$code"
+awgctl inspect on i-1 "$until" "$code" 2> /dev/null && fail "inspect on passed with a code already acked"
+confirm
 
-awgctl inspect on i-1 1000 2> /dev/null && fail "accepted an end time in the past"
-awgctl inspect on i-1 "$(( $(date +%s) + 90 * 86400 ))" 2> /dev/null && fail "accepted an end time months away"
-awgctl inspect on i-1 "1;reboot" 2> /dev/null && fail "accepted a malformed end time"
-awgctl inspect on nobody "$until" 2> /dev/null && fail "accepted a device that does not exist"
+awgctl inspect on i-1 1000 "$code" 2> /dev/null && fail "accepted an end time in the past"
+awgctl inspect on i-1 "$(( $(date +%s) + 90 * 86400 ))" "$code" 2> /dev/null && fail "accepted an end time months away"
+awgctl inspect on i-1 "1;reboot" "$code" 2> /dev/null && fail "accepted a malformed end time"
+awgctl inspect on nobody "$until" "$code" 2> /dev/null && fail "accepted a device that does not exist"
 
 # off stops this address only, also where one address starts with the other (.2 and .20)
 echo "-A PREROUTING -i awg0 -s ${ip}0/32 -m comment --comment vessel-inspect:${ip}0 -m time --datestop 2030-01-01T00:00:00 -j NFLOG --nflog-group 42" >> "$TMP/mangle"
@@ -98,12 +118,12 @@ sed -i "/vessel-inspect:${ip}0 /d" "$TMP/mangle"
 
 # one direction alone would be a wrong report: a failed add leaves nothing
 touch "$TMP/ipt-add-fail"
-awgctl inspect on i-1 "$until" 2> /dev/null && fail "inspect on passed although adding failed"
+awgctl inspect on i-1 "$until" "$code" 2> /dev/null && fail "inspect on passed although adding failed"
 rm "$TMP/ipt-add-fail"
 [ "$(rules "$ip")" = 0 ] || fail "a failed inspect on left rules"
 
 # the address goes to the next device: removing clears, and a removal that could not clear can be tried again
-awgctl inspect on i-1 "$until" > /dev/null
+awgctl inspect on i-1 "$until" "$code" > /dev/null
 touch "$TMP/ipt-fail"
 awgctl remove i-1 2> /dev/null && fail "remove passed although clearing the rules failed"
 rm "$TMP/ipt-fail"

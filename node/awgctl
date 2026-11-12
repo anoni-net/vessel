@@ -17,8 +17,10 @@
 #   awgctl apply                                rebuild awg0.conf and sync it to the running interface
 #   awgctl p2p                                  whole-node counts of BitTorrent-like packets, and of connections refused
 #                                               over the per-device limit, since the container started
-#   awgctl inspect on <name> <until>            copy a device's packets to the inspection stream until <until> (epoch
-#                                               seconds); the node stops by itself at that time (toomore/anoni-net-ws#480)
+#   awgctl inspect on <name> <until> <code>     copy a device's packets to the inspection stream until <until> (epoch
+#                                               seconds); the node stops by itself at that time (toomore/anoni-net-ws#480).
+#                                               <code> is the confirmation the device itself made on the confirmation
+#                                               page: without it the node does not start, whoever asks
 #   awgctl inspect off <name>                   stop at once
 #   awgctl inspect status --json                the devices being inspected
 #   awgctl inspect confirms --json              confirmation codes opened on devices (host/vessel-inspect-confirm.py)
@@ -153,7 +155,15 @@ inspect_add() { # chain, match words, ipv4, end time
     -m comment --comment "$mark" -m time --datestop "$stop" -j NFLOG --nflog-group $INSPECT_GROUP --nflog-size $INSPECT_SNAP
 }
 
-inspect_on() { # name, until (epoch seconds)
+# Whether the device at this tunnel address confirmed this code on the confirmation page within the hour
+# (host/vessel-inspect-confirm.py writes a file per address). The node checks this itself: the portal says a device
+# agreed, and the node takes that only from the device.
+confirmed() { # ipv4, code
+  local c=$D/inspect-confirm/$1
+  [ -f "$c" ] && [ "$(cat "$c")" = "$2" ] && [ -n "$(find "$c" -mmin -60)" ]
+}
+
+inspect_on() { # name, until (epoch seconds), confirmation code
   local f=$D/peers/$1.conf ip now stop
   [ -e "$f" ] || f=$D/suspended/$1.conf
   [ -e "$f" ] || die "$1 not found"
@@ -161,6 +171,9 @@ inspect_on() { # name, until (epoch seconds)
   now=$(date +%s)
   (( $2 > now && $2 <= now + INSPECT_MAX_SECONDS )) || die "until must be in the future, within $(( INSPECT_MAX_SECONDS / 86400 )) days"
   ip=$(peer_ip "$f")
+  [[ ${3:-} =~ ^[A-Z0-9]{16}$ ]] || die "not a confirmation code"
+  # The record stays until the portal's ack or its hour is up, so a try whose answer was lost can be made again
+  confirmed "$ip" "$3" || die "$1 has not confirmed this on the device"
   stop=$(date -u -d "@$2" +%Y-%m-%dT%H:%M:%S)
   inspect_clear "$ip" || die "could not read or clear the inspection rules"
   if ! { inspect_add PREROUTING "-i awg0 -s $ip/32" "$ip" "$stop" && inspect_add POSTROUTING "-o awg0 -d $ip/32" "$ip" "$stop"; }; then
@@ -497,7 +510,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     ;;
   inspect)
     case $name in
-      on) valid_name "${3:-}"; inspect_on "$3" "${4:-}" ;;
+      on) valid_name "${3:-}"; inspect_on "$3" "${4:-}" "${5:-}" ;;
       off) valid_name "${3:-}"; inspect_off "$3" ;;
       status) inspect_status ;;
       confirms) inspect_confirms ;;
@@ -505,7 +518,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
         [[ ${3:-} =~ ^[A-Z0-9]{16}$ ]] || die "not a confirmation code"
         inspect_ack "$3"
         ;;
-      *) die "inspect on <name> <until> | off <name> | status --json" ;;
+      *) die "inspect on <name> <until> <code> | off <name> | status --json" ;;
     esac
     ;;
   *)

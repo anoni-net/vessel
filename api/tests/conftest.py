@@ -139,9 +139,12 @@ class FakeNode:
             raise NodeError("timeout")
         self.throttled.discard(device_id)
 
-    def inspect_on(self, host, device_id, until):
+    def inspect_on(self, host, device_id, until, code):
         if self.down:
             raise NodeError("timeout")
+        # as the node does: only with a code a device confirmed there
+        if not any(c["code"] == code for c in self.confirms):
+            raise NodeError(f"awgctl: {device_id} has not confirmed this on the device")
         self.inspecting[device_id] = until
 
     def inspect_off(self, host, device_id):
