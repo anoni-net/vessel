@@ -7,6 +7,23 @@ EnvironmentFile=/etc/vessel-inspect.env
 ExecStart=/usr/bin/python3 -I /opt/vessel-inspect-app/recv.py
 Restart=always
 RestartSec=10
+# It listens to the nodes and writes spool files, nothing else: no capability, no other address family, and the rest of
+# the system read-only. The directory is VESSEL_INSPECT_HOME in /etc/vessel-inspect.env; change both together.
+ReadWritePaths=/var/lib/vessel-inspect
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

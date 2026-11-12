@@ -16,6 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import analyze
 import recv
 
+# other tests swap analyze.zeek_logs for a stand-in; this is the real one
+ZEEK_LOGS = analyze.zeek_logs
+
 T0 = 1794220032
 
 
@@ -560,6 +563,47 @@ class Batch(Base):
         analyze.zeek_logs = fail
         analyze.batch()
         self.assertEqual(len(list(spool.iterdir())), 1)
+
+
+class Leftovers(Base):
+    def test_what_a_killed_batch_left_goes_at_the_next_batch_and_at_purge(self):
+        for run in (analyze.batch, lambda: analyze.purge(8)):
+            left = analyze.HOME / "work" / "tmpkilled"
+            left.mkdir(parents=True)
+            (left / "dns.log").write_text('{"query": "secret.example"}')
+            run()
+            self.assertFalse(left.exists())
+
+    def test_zeek_works_under_the_directory_that_is_cleared(self):
+        seen = []
+
+        def fake(cmd, **kw):
+            seen.append(next(a for a in cmd if a.endswith(":/logs")).split(":")[0])
+            return analyze.subprocess.CompletedProcess(cmd, 0)
+
+        with mock.patch.object(analyze.subprocess, "run", fake):
+            ZEEK_LOGS(analyze.HOME / "spool" / "n" / "a.pcap")
+        self.assertEqual(Path(seen[0]).parent, analyze.HOME / "work")
+        self.assertFalse(Path(seen[0]).exists())
+
+    def test_a_capture_that_breaks_the_analysis_does_not_hold_back_the_ones_after_it(self):
+        spool = analyze.HOME / "spool" / "n"
+        spool.mkdir(parents=True)
+        for name in ("a.pcap", "b.pcap"):
+            (spool / name).write_bytes(pcap(101, [(T0, ip("10.8.1.3", "1.1.1.1", 100))]))
+        good = analyze.zeek_logs
+
+        def logs(path):
+            if path.name == "a.pcap":
+                raise KeyError("ts")  # a row of Zeek's without a field the analysis reads
+            return {name: [] for name in ("conn", "dns", "ssl", "quic", "http")}
+
+        analyze.zeek_logs = logs
+        try:
+            analyze.batch()
+        finally:
+            analyze.zeek_logs = good
+        self.assertEqual([f.name for f in spool.iterdir()], ["a.pcap"])
 
 
 class Recv(Base):
