@@ -281,7 +281,9 @@ quic_initial_i1() {
     $(( 0xc0 + RANDOM % 16 )) $(( 0x4000 | rest )) "$rest"
 }
 
-# [Interface] lines for a client, without Address/DNS/PrivateKey/MTU
+# [Interface] lines for a client, without Address/DNS/PrivateKey/MTU. Jmax is always above Jmin and every <r N> in I1
+# is positive: amneziawg-go takes a Jmin above Jmax or a negative length without an error and panics on the next
+# handshake (amnezia-vpn/amneziawg-go#189), and the clients embed the same code. node/test/awg-params-test.sh checks it.
 client_params() {
   local jmin
   jmin=$(shuf -i 8-40 -n1)

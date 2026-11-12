@@ -73,6 +73,9 @@ jobs:
       # concurrent adds, a failed apply tried again, flows of a reused address
       - name: awgctl
         run: bash node/test/awgctl-test.sh
+      # the values that stay clear of two open upstream defects
+      - name: AmneziaWG parameters
+        run: bash node/test/awg-params-test.sh
       # only the lists that changed are transferred
       - name: pull-lists
         run: bash node/test/pull-lists-test.sh

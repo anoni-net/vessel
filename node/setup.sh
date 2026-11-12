@@ -19,6 +19,10 @@ docker build -q -t vessel-node:latest $D/build
 key() { docker run --rm --entrypoint awg vessel-node:latest genkey </dev/null; }
 PRIV=$(key); HPK=$(key)
 
+# S1-S4 equal, H1-H4 at 1 to 4 and a HeaderProtectionKey go together with RandomTrailers: with paddings that differ, or
+# H1-H3 as ranges, amneziawg-go reads some data packets as broken handshake messages and drops them without a log line
+# or a counter (amnezia-vpn/amneziawg-go#186, still open in v3.1.20260828). 12 is the least header protection takes.
+# node/test/awg-params-test.sh fails on a change that leaves these values; see "AmneziaWG 的參數" in README.md.
 SHARED="S1 = 12
 S2 = 12
 S3 = 12
