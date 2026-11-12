@@ -39,7 +39,8 @@ export interface Report {
   /** Reports made before 2026-11-12 also have `idle_share`, counted on Taiwan's clock; the share is now counted here. */
   checks?: { id: string; count: number }[];
   /**
-   * A site on a list, or `bypass_dns` (no name, no hours). Reports made since 2026-11-10 count visits and add `hours`
+   * A site on a list, or `bypass_dns` (no name; reports made since 2026-11-13 add its `hours` and `last`, as a site's).
+   * Reports made since 2026-11-10 count visits and add `hours`
    * (the UTC hours it was seen in, `YYYY-MM-DDTHH`, sorted) and `last`; older ones, still stored, have `first` instead.
    * Reports made since the lists were compared one by one add `lists`: every list the site's names are on, its own `kind`
    * and the ad list included (`spyware`, `stalkerware`, `malware`, `cti`, `ads`, sorted). Without it, nothing is said about other lists.
@@ -995,8 +996,20 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
     const off = week.future(day) || !week.connected.get(day);
     return <span class={`hit hit--${n ? hitLevel(n) : off ? "off" : 0}`} />;
   });
+  // the days over each kind's rows
+  const daysHead = () => (
+    <div class="hit-row hit-row--head" aria-hidden="true">
+      <span class="hit-row__cells hits__grid">{week.days.map((day) => <span class="hits__day">{dayTag(day)}</span>)}</span>
+    </div>
+  );
+  const seenWords = (f: NonNullable<Report["findings"]>[number]) => {
+    const { words, last } = seenText(f);
+    return <>{words}{last && <>{dot}<span class="muted">{last}</span></>}</>;
+  };
+  // the lookups around Vessel, in reports that say in which hours: drawn by day like a site, with no name
+  const bypassHit = (report.findings ?? []).find((f) => f.kind === "bypass_dns" && f.hours?.length);
   const hitRow = (f: NonNullable<Report["findings"]>[number]) => {
-    const { words, last, w } = seenText(f);
+    const { w } = seenText(f);
     const lists = alsoOn(f, t);
     const note = noteFor(f.name);
     return (
@@ -1004,7 +1017,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         <code class="hit-row__name">{f.name}</code>
         <span class="hit-row__cells hits__grid" aria-hidden="true">{hitCells(w.perDay)}</span>
         <span class="hit-row__words">
-          <span data-testid="inspect-hit-words">{words}{last && <>{dot}<span class="muted">{last}</span></>}</span>
+          <span data-testid="inspect-hit-words">{seenWords(f)}</span>
           {/* a name from outside: a text node, never markup */}
           {f.app && <span class="hit-row__lists" data-testid="inspect-hit-app">{appWords(f)}</span>}
           {lists && <span class="hit-row__lists" data-testid="inspect-hit-lists">{lists}</span>}
@@ -1101,11 +1114,21 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
                   </span>
                 </div>
                 {why(g.kind) && <p class="inspect-kind__why" data-testid="inspect-why">{why(g.kind)}</p>}
-                {g.dated ? (
+                {g.kind === "bypass_dns" && bypassHit ? (
+                  // no site to name: the one row says on which days and in how many hours, as a site's would
+                  <div class="hits" data-testid="inspect-bypass-hits">
+                    {daysHead()}
+                    <ul class="plain hits__rows">
+                      <li class="hit-row" data-testid="inspect-bypass-row">
+                        <span class="hit-row__name muted">{t["inspect.hits.noName"]}</span>
+                        <span class="hit-row__cells hits__grid" aria-hidden="true">{hitCells(seenWhen(bypassHit).perDay)}</span>
+                        <span class="hit-row__words" data-testid="inspect-hit-words">{seenWords(bypassHit)}</span>
+                      </li>
+                    </ul>
+                  </div>
+                ) : g.dated ? (
                   <div class="hits" data-testid="inspect-hits">
-                    <div class="hit-row hit-row--head" aria-hidden="true">
-                      <span class="hit-row__cells hits__grid">{week.days.map((day) => <span class="hits__day">{dayTag(day)}</span>)}</span>
-                    </div>
+                    {daysHead()}
                     <ul class="plain hits__rows">{g.listed.slice(0, TOP_ROWS).map(hitRow)}</ul>
                     {g.listed.length > TOP_ROWS && (
                       <details class="hits__more" data-testid="inspect-hits-more">
@@ -1143,7 +1166,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
               {t["inspect.notes.by"]}<a href={href("/dns/lists/#site-notes")}>{t["inspect.notes.byLink"]}</a>{t["inspect.notes.byAfter"]}
             </p>
           )}
-          {datedGroups.length > 0 && (
+          {(datedGroups.length > 0 || bypassHit) && (
             <>
               <p class="inspect-legend small muted" data-testid="inspect-hits-legend">
                 {(["off", "0", "1", "2", "3"] as const).map((k) => (
@@ -1155,12 +1178,12 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
                 <summary>{t["inspect.report.table"]}</summary>
                 <table class="inspect-table" data-testid="inspect-hits-table">
                   <thead><tr><th>{t["inspect.hits.tableSite"]}</th><th class="inspect-table__when">{t["inspect.hits.tableWhen"]}</th><th class="inspect-table__when">{t["inspect.hits.tableLast"]}</th></tr></thead>
-                  <tbody>{datedGroups.flatMap((g) => [
+                  <tbody>{[...datedGroups, ...(bypassHit ? [{ kind: "bypass_dns", listed: [bypassHit] }] : [])].flatMap((g) => [
                     <tr><th colSpan={3} scope="colgroup">{kind(g.kind)}</th></tr>,
                     ...g.listed.flatMap((f) => {
                       const w = seenWhen(f);
                       const row = (
-                        <tr><td class="inspect-table__site"><code>{f.name}</code></td>
+                        <tr><td class="inspect-table__site">{f.name ? <code>{f.name}</code> : <span class="muted">{t["inspect.hits.noName"]}</span>}</td>
                           {/* a day to a line, each kept whole, so the site's name is what wraps on a phone */}
                           <td class="inspect-table__when">{[...w.perDay].map(([day, n]) => <span>{`${dayLabel(day)} (${n})`}</span>)}</td>
                           <td class="inspect-table__when">{w.last && <span>{withDay(locale, w.last.toISOString())}</span>}</td></tr>

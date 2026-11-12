@@ -1270,6 +1270,7 @@
   "inspect.cover.tableDay": "日期",
   "inspect.cover.tableHours": "有连接的小时数",
   "inspect.hits.note": "每一行是一个网站，每一格是一天，颜色越深表示当天出现的时段越多，一小时算一个时段。",
+  "inspect.hits.noName": "不记录网站名称",
   "inspect.hits.once": "只出现在 1 个时段",
   "inspect.hits.oneDay": "只在 1 天出现，共 {slots} 个时段",
   "inspect.hits.days": "有连接的 {total} 天中 {days} 天出现，共 {slots} 个时段",

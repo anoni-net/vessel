@@ -1270,6 +1270,7 @@
   "inspect.cover.tableDay": "日期",
   "inspect.cover.tableHours": "有連線的小時數",
   "inspect.hits.note": "每一列是一個網站，每一格是一天，顏色越深表示當天出現的時段越多，一小時算一個時段。",
+  "inspect.hits.noName": "不記錄網站名稱",
   "inspect.hits.once": "只出現在 1 個時段",
   "inspect.hits.oneDay": "只在 1 天出現，共 {slots} 個時段",
   "inspect.hits.days": "有連線的 {total} 天中 {days} 天出現，共 {slots} 個時段",
