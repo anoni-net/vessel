@@ -38,8 +38,6 @@ EXCLUDE = Path(os.environ.get("VESSEL_INSPECT_EXCLUDE", Path(__file__).resolve()
 ZEEK_IMAGE = "zeek/zeek@sha256:524cb0ce29f26a6a954fb9c357a8f92b95812476d8240f0ece26617ace249dd0"
 SUBNET = "10.8.1."
 RESOLVERS = {"10.8.1.1", "10.8.1.253", "10.8.1.254"}
-TZ = dt.timezone(dt.timedelta(hours=8))
-IDLE_HOURS = range(1, 6)
 AD_BLOCK_TARGET = "blocked.vessel"
 AD_BLOCK_WIRE = b"\x07blocked\x06vessel\x00"  # the name as it appears in an answer
 MAX_FINDINGS = 30  # of each kind in a report, the most frequent; the rest are only counted
@@ -477,13 +475,9 @@ def report(node, address):
     if not state["hours"] and not state["first"]:
         return {"node": node, "address": address, "empty": True}
     hours = []
-    idle = total = 0
+    # the hours stay in UTC: the share of the night is counted in the reader's browser, on the reader's clock
     for hour, (up, down) in sorted(state["hours"].items()):
         hours.append({"hour": hour, "up": up, "down": down, "mark": state["marks"].get(hour)})
-        total += up + down
-        local = dt.datetime.strptime(hour, "%Y-%m-%dT%H").replace(tzinfo=dt.UTC).astimezone(TZ)
-        if local.hour in IDLE_HOURS:
-            idle += up + down
     names = sorted(state["hours"])
     span = 1
     if names:
@@ -508,7 +502,6 @@ def report(node, address):
         "coverage": {"active_hours": len(hours), "total_hours": span},
         "dns": {"total": dns["total"], "nx_share": dns["nx"] / dns["total"] if dns["total"] else 0,
                 "ads_share": dns["ads"] / dns["total"] if dns["total"] else 0},
-        "idle_share": idle / total if total else 0,
         "lists_at": lists_at(),
         "checks": checks, "findings": findings,
         "more": {kind: n - MAX_FINDINGS for kind, n in entries.items() if n > MAX_FINDINGS},

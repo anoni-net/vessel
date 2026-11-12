@@ -26,7 +26,7 @@ export const FULL_REPORT = {
     return { hour: `2026-11-${String(day).padStart(2, "0")}T${String(i % 24).padStart(2, "0")}`, up, down: up * 3, mark: i % 24 === 7 ? "x" : i % 24 === 13 ? "!" : null };
   }),
   coverage: { active_hours: 48, total_hours: 48 },
-  dns: { total: 12000, nx_share: 0.12, ads_share: 0.3 }, idle_share: 0.4,
+  dns: { total: 12000, nx_share: 0.12, ads_share: 0.3 },
   checks: [{ id: "stalkerware", count: 7 }, { id: "malware", count: 0 }, { id: "cti", count: 500 }, { id: "bypass_dns", count: 9 }],
   findings: [site("stalkerware", "threat", 0), site("stalkerware", "threat", 1), ...Array.from({ length: 4 }, (_, i) => site("cti", "check", i + 2)),
     { severity: "check", kind: "bypass_dns", count: 9 }],
@@ -58,7 +58,7 @@ export const ONCE_REPORT = {
   first: epoch("2026-11-09T18", 2), last: epoch("2026-11-10T06", 40),
   hours: traffic(onceHours, { "2026-11-09T18": "!" }, ["2026-11-10T03"]),
   coverage: { active_hours: 13, total_hours: 13 },
-  dns: { total: 2300, nx_share: 0.04, ads_share: 0.31 }, idle_share: 0.94,
+  dns: { total: 2300, nx_share: 0.04, ads_share: 0.31 },
   checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 6 }, { id: "cti", count: 5 }, { id: "bypass_dns", count: 0 }],
   findings: [
     hit("malware", "check", "ads-redirect.example", 2, ["2026-11-09T18"], 3), hit("malware", "check", "popunder.example", 2, ["2026-11-09T18"], 4),
@@ -79,7 +79,7 @@ export const WEEK_REPORT = {
   first: epoch("2026-11-01T00"), last: epoch("2026-11-07T15", 50),
   hours: traffic(weekHours, Object.fromEntries(beacon.map((h) => [h, "!"]))),
   coverage: { active_hours: weekHours.length, total_hours: 160 },
-  dns: { total: 41000, nx_share: 0.03, ads_share: 0.22 }, idle_share: 0.02,
+  dns: { total: 41000, nx_share: 0.03, ads_share: 0.22 },
   checks: [{ id: "stalkerware", count: 0 }, { id: "malware", count: 1 }, { id: "cti", count: 31 }, { id: "bypass_dns", count: 0 }],
   findings: [hit("cti", "check", "beacon.example", 30, beacon), hit("cti", "check", "rare.example", 1, ["2026-11-03T05"]),
     hit("malware", "check", "ads-redirect.example", 1, ["2026-11-02T12"])],

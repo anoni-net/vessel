@@ -207,11 +207,12 @@ class Checks(Base):
         self.assertNotIn("private-site", text)
         self.assertNotIn("secret.example", text)
 
-    def test_idle_hours_in_taipei(self):
-        two_am = 1794247200  # 18:00 UTC is 02:00 in Taipei
+    def test_the_hours_stay_in_utc(self):
+        two_am = 1794247200  # 18:00 UTC, 02:00 in Taipei: the reader's browser puts it on the reader's clock
         analyze.merge("n1", {("10.8.1.3", analyze.hour_of(two_am)): [30, 70]}, logs(), self.lists)
-        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [50, 50]}, logs(), self.lists)
-        self.assertEqual(analyze.report("n1", "10.8.1.3")["idle_share"], 0.5)
+        r = analyze.report("n1", "10.8.1.3")
+        self.assertEqual([h["hour"] for h in r["hours"]], ["2026-11-09T18"])
+        self.assertNotIn("idle_share", r)
 
     def test_clear_means_a_reused_address_starts_empty(self):
         self.run_one(dns=[dns("api.tracker.example")])
