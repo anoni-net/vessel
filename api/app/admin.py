@@ -2,6 +2,10 @@
 
   python -m app.admin invites create [--count N] [--days D]   print new invite codes, one per line
   python -m app.admin settings [KEY VALUE]                     show or change a setting
+  python -m app.admin pickups [list]                           requests for an invite waiting for a decision
+                                                               (toomore/anoni-net-ws#441): what each asked for
+  python -m app.admin pickups approve ID [ID ...]              the number becomes an invite, good for 14 days
+  python -m app.admin pickups decline ID [ID ...]              the number says declined for 14 days, then goes
   python -m app.admin stats                                    counts only, no per-account data
   python -m app.admin report [--days N]                        totals for reviewing the test (it reads the nodes
                                                                for the accounts connected in the last 24 hours),
@@ -51,7 +55,8 @@
 
 Settings: account_cap (0 means no cap), redeem_paused (true/false), user_invites (how many invites each account
 may make, 0 turns it off; toomore/anoni-net-ws#458), monthly_quota_gb (personal accounts' monthly quota, read by the
-portal and the worker within minutes; a group keeps the quota it was made with).
+portal and the worker within minutes; a group keeps the quota it was made with), pickup_open (true/false: whether
+/pickup/ takes requests; numbers already given still work when it is false).
 """
 
 import argparse
@@ -76,6 +81,10 @@ def main(argv: list[str] | None = None) -> None:
     st = sub.add_parser("settings")
     st.add_argument("key", nargs="?")
     st.add_argument("value", nargs="?")
+    pk = sub.add_parser("pickups").add_subparsers(dest="action")
+    pk.add_parser("list")
+    for name in ("approve", "decline"):
+        pk.add_parser(name).add_argument("ids", type=int, nargs="+")
     sub.add_parser("stats")
     rp = sub.add_parser("report")
     rp.add_argument("--days", type=int, default=14)
@@ -159,8 +168,10 @@ def main(argv: list[str] | None = None) -> None:
                 print(code)
         elif args.cmd == "settings":
             if args.key and args.value is not None:
-                if args.key not in ("account_cap", "redeem_paused", "user_invites", "monthly_quota_gb"):
+                if args.key not in ("account_cap", "redeem_paused", "user_invites", "monthly_quota_gb", "pickup_open"):
                     sys.exit(f"unknown setting {args.key}")
+                if args.key in ("redeem_paused", "pickup_open") and args.value not in ("true", "false"):
+                    sys.exit(f"{args.key} is true or false")
                 if args.key in ("account_cap", "user_invites", "monthly_quota_gb") and not args.value.isdigit():
                     sys.exit(f"{args.key} is a number")
                 if args.key == "monthly_quota_gb" and int(args.value) <= 0:
@@ -201,6 +212,8 @@ def main(argv: list[str] | None = None) -> None:
             ):
                 line = f"{rid}  {host}  {'open' if is_open else 'closed'}  exit {exit_ip or '-'}"
                 print(line + (f"  previous {prev} until {until}" if prev and until else ""))
+        elif args.cmd == "pickups":
+            pickups(conn, args)
         elif args.cmd == "stats":
             queries = {
                 "accounts": "SELECT count(*) FROM accounts",
@@ -423,6 +436,32 @@ def counts(conn: psycopg.Connection, sql: str) -> str:
 MONTH = "date_trunc('month', current_date)"
 
 
+def pickups(conn: psycopg.Connection, args: argparse.Namespace) -> None:
+    """The requests on /pickup/ waiting for a decision, oldest first, and deciding them (app/pickups.py). Deciding deletes
+    what the person wrote: once decided there is nothing left to read."""
+    if args.action in ("approve", "decline"):
+        state = "approved" if args.action == "approve" else "declined"
+        with conn.transaction():
+            done = [r[0] for r in conn.execute(
+                "UPDATE invites SET pickup_state = %s, expires_at = now() + make_interval(days => %s) "
+                "WHERE id = ANY(%s) AND pickup_state = 'waiting' AND expires_at > now() RETURNING id",
+                (state, policy.PICKUP_KEEP_DAYS, args.ids),
+            ).fetchall()]
+            conn.execute("DELETE FROM pickup_requests WHERE invite_id = ANY(%s)", (done,))
+        missed = sorted(set(args.ids) - set(done))
+        print(f"{state}: {' '.join(map(str, sorted(done))) or '-'}"
+              + (f"; not waiting (decided already, run out, or no such request): {' '.join(map(str, missed))}" if missed else ""))
+        return
+    rows = conn.execute(
+        "SELECT i.id, i.created_at::date, r.purpose, r.network, r.note FROM invites i "
+        "JOIN pickup_requests r ON r.invite_id = i.id WHERE i.pickup_state = 'waiting' AND i.expires_at > now() "
+        "ORDER BY i.id"
+    ).fetchall()
+    for rid, day, purpose, network, note in rows:
+        print(f"{rid}  {day.isoformat()}  {purpose:11}  {network:11}  {note}")
+    print(f"{len(rows)} waiting; requests {'open' if auth.setting(conn, 'pickup_open') == 'true' else 'closed'}")
+
+
 def connected_lately(conn: psycopg.Connection, seconds: int = 86400) -> tuple[int, list[str]]:
     """How many accounts have a device whose last handshake, as its node tells it now, is within `seconds`; and the
     regions whose node could not be read. Read from the nodes when asked, as the worker does for the daily stats:
@@ -452,8 +491,14 @@ def report(conn: psycopg.Connection, days: int) -> None:
     ))
     state = ("SELECT CASE WHEN redeemed_at IS NOT NULL THEN 'redeemed' WHEN expires_at <= now() THEN 'expired' "
              "ELSE 'unused' END AS k, count(*) FROM invites WHERE {} GROUP BY k ORDER BY k")
-    print("invites from maintainers: " + counts(conn, state.format("NOT from_account")))
+    print("invites from maintainers: " + counts(conn, state.format("NOT from_account AND pickup_state IS NULL")))
     print("invites from accounts: " + counts(conn, state.format("from_account")))
+    # pickup numbers (app/pickups.py): the worker deletes those that run out, so only the ones still there
+    print("pickup numbers: " + counts(
+        conn,
+        "SELECT CASE WHEN redeemed_at IS NOT NULL THEN 'redeemed' ELSE pickup_state END AS k, count(*) FROM invites "
+        "WHERE pickup_state IS NOT NULL GROUP BY k ORDER BY k",
+    ))
     made = one(conn, "SELECT count(*) FROM invites WHERE from_account")
     if made:
         redeemed = one(conn, "SELECT count(*) FROM invites WHERE from_account AND redeemed_at IS NOT NULL")
