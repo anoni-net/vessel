@@ -15,7 +15,7 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
@@ -50,7 +50,7 @@ jobs:
       run:
         working-directory: api
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - run: uv sync --frozen
       - run: uv run ruff check .
@@ -59,7 +59,7 @@ jobs:
   node:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: shell syntax
         run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh; do bash -n "$f"; done
       - name: shellcheck
@@ -83,7 +83,7 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: install
         run: pip install cryptography
       - name: unit tests
@@ -94,7 +94,7 @@ jobs:
   relay:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: shellcheck
         run: shellcheck -S warning relay/vessel-relay relay/test/netns-test.sh
       - name: nftables
