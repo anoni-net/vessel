@@ -149,7 +149,7 @@ export function App({ url }: { url?: string } = {}) {
   }
 
   return (
-    <LocaleContext.Provider value={{ locale, t, href }}>
+    <LocaleContext.Provider value={{ locale, t, href, path }}>
       {/* the first stop for the keyboard, seen only when it has focus: past the header to the page */}
       <a class="skip-link" href="#main">{t["nav.skip"]}</a>
       {route && <LangHint locale={locale} path={path} />}
