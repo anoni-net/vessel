@@ -42,13 +42,16 @@ SOURCES = {
     "twmoda": "https://www-api.moda.gov.tw/OpenData/Files/16352",
     # Echap's stalkerware indicators, a name a line (CC BY 4.0)
     "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
-    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only); only those on hosting platforms are used
+    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only); the whole list up to CTI_MAX_NAMES, past
+    # that only the names on hosting platforms, as on the nodes
     "cti": "https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
-# the private section of this list is the hosting platforms, which CTI is cut down to as on the nodes
+# every name in this list is one that many sites share, which CTI never lists as a whole; its private section is the
+# hosting platforms, which a CTI list too long for the nodes is cut down to (deploy/rpz/lists.sh)
 PUBLIC_SUFFIXES = "https://raw.githubusercontent.com/publicsuffix/list/main/public_suffix_list.dat"
 MIN_PLATFORMS = 1000
+CTI_MAX_NAMES = 450_000
 REFRESH_SECONDS = 8 * 3600
 # the MODA server refuses Python's default User-Agent; every download says what it is
 USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
@@ -69,6 +72,7 @@ def excluded_names(text: str) -> frozenset[str]:
 EXCLUDED = excluded_names(Path(__file__).with_name("blocklist_exclude.txt").read_text(encoding="utf-8"))
 
 _platforms: frozenset[str] = frozenset()
+_suffixes: frozenset[str] = frozenset()
 _lists: dict[str, frozenset[str]] = {}
 _loaded_at: float | None = None
 _summary: dict = {}
@@ -135,6 +139,27 @@ def parse_platforms(text: str) -> frozenset[str]:
     return frozenset(names)
 
 
+def parse_suffixes(text: str) -> frozenset[str]:
+    """Every name in the Public Suffix List, the registries' and the platforms': names that many sites share."""
+    lines = (line.strip() for line in text.splitlines())
+    return frozenset(line.split()[0].lower().removeprefix("!").removeprefix("*.") for line in lines if line and not line.startswith("//"))
+
+
+def cti_names(names: frozenset[str], platforms: frozenset[str], suffixes: frozenset[str]) -> frozenset[str]:
+    """DNSBunker's list as the nodes load it: without the public suffixes, and whole while it fits a node's memory.
+    A longer list is cut down to the names on hosting platforms. A name under another listed one counts once, as on
+    the nodes, where the parent's wildcard already blocks it."""
+    names = names - suffixes
+
+    def covered(name: str) -> bool:
+        labels = name.split(".")
+        return any(".".join(labels[i:]) in names for i in range(1, len(labels) - 1))
+
+    if sum(1 for n in names if not covered(n)) > CTI_MAX_NAMES:
+        return frozenset(n for n in names if on_platform(n, platforms))
+    return names
+
+
 def on_platform(name: str, platforms: frozenset[str]) -> bool:
     """Is this name a subdomain of a hosting platform? The platform's own name is not."""
     labels = name.split(".")
@@ -199,20 +224,21 @@ def _read(url: str, name: str) -> str:
 
 
 def _download() -> None:
-    global _platforms
+    global _platforms, _suffixes
     try:
-        platforms = parse_platforms(_read(PUBLIC_SUFFIXES, "platforms"))
+        text = _read(PUBLIC_SUFFIXES, "platforms")
+        platforms, suffixes = parse_platforms(text), parse_suffixes(text)
     except (OSError, ValueError):
-        platforms = frozenset()
-    # a failed or cut-off download keeps the last copy; with none yet, CTI comes up short below and keeps what it had
+        platforms = suffixes = frozenset()
+    # a failed or cut-off download keeps the last copy; with none yet, CTI is empty below and keeps what it had
     if len(platforms) >= MIN_PLATFORMS:
-        _platforms = platforms
+        _platforms, _suffixes = platforms, suffixes
     fresh = {}
     for name, url in SOURCES.items():
         try:
             names = PARSERS.get(name, parse)(_read(url, name)) - EXCLUDED
             if name == "cti":
-                names = frozenset(n for n in names if on_platform(n, _platforms))
+                names = cti_names(names, _platforms, _suffixes) if _platforms else frozenset()
         except (OSError, ValueError):
             names = frozenset()
         # one failed list keeps its previous copy instead of emptying it

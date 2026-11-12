@@ -205,20 +205,43 @@ def _serve(monkeypatch, files: dict[str, str]) -> None:
     monkeypatch.setattr(blocklists.urllib.request, "urlopen", lambda request, **_: Response(request.full_url))
 
 
-def test_only_the_names_on_a_hosting_platform_are_used_from_cti(monkeypatch):
-    platforms = "// ===BEGIN PRIVATE DOMAINS===\npages.dev\n" + "".join(f"p{i}.example\n" for i in range(1000))
-    cti = "".join(f"site{i}.pages.dev\n" for i in range(60000)) + "own-site.example\npages.dev\n"
+def test_every_public_suffix_is_both_sections():
+    text = "// ===BEGIN ICANN DOMAINS===\ncom\nco.uk\n// ===END ICANN DOMAINS===\n// ===BEGIN PRIVATE DOMAINS===\n// a platform\n" \
+           "pages.dev\n*.Compute.Example-Cloud.com\n!exception.other-cloud.com\n// ===END PRIVATE DOMAINS===\n"
+    assert blocklists.parse_suffixes(text) == frozenset(
+        {"com", "co.uk", "pages.dev", "compute.example-cloud.com", "exception.other-cloud.com"})
+
+
+PSL = "// ===BEGIN ICANN DOMAINS===\ncom\nco.uk\n// ===END ICANN DOMAINS===\n// ===BEGIN PRIVATE DOMAINS===\npages.dev\n" \
+      + "".join(f"p{i}.example\n" for i in range(1000))
+
+
+def test_the_whole_cti_list_is_used_without_the_public_suffixes(monkeypatch):
+    cti = "".join(f"site{i}.pages.dev\n" for i in range(60000)) + "own-site.example\nshop.co.uk\npages.dev\nco.uk\n"
     monkeypatch.setattr(blocklists, "SOURCES", {"cti": "https://lists.example/cti"})
     monkeypatch.setattr(blocklists, "_platforms", frozenset())
-    _serve(monkeypatch, {blocklists.PUBLIC_SUFFIXES: platforms, "https://lists.example/cti": cti})
+    _serve(monkeypatch, {blocklists.PUBLIC_SUFFIXES: PSL, "https://lists.example/cti": cti})
     blocklists._download()
     try:
         assert blocklists.blocked_by("site1.pages.dev") == {"cti": True}
-        assert blocklists.blocked_by("own-site.example") == {"cti": False}
-        assert blocklists.blocked_by("pages.dev") == {"cti": False}
+        assert blocklists.blocked_by("www.own-site.example") == {"cti": True}
+        assert blocklists.blocked_by("shop.co.uk") == {"cti": True}
+        # a platform or a registry's suffix is never listed as a whole
+        assert blocklists.blocked_by("other.pages.dev") == {"cti": False}
+        assert blocklists.blocked_by("other.co.uk") == {"cti": False}
     finally:
         blocklists.set_lists({}, at=None)
         blocklists._loaded_at = None
+
+
+def test_a_cti_list_too_long_for_the_nodes_is_cut_down_to_the_hosting_platforms(monkeypatch):
+    platforms, suffixes = frozenset({"pages.dev"}), frozenset({"pages.dev", "com"})
+    names = frozenset({"a.pages.dev", "login.a.pages.dev", "b.pages.dev", "own-site.example", "pages.dev"})
+    # three names once a name under a listed one is left out, as the nodes count them
+    monkeypatch.setattr(blocklists, "CTI_MAX_NAMES", 3)
+    assert blocklists.cti_names(names, platforms, suffixes) == names - {"pages.dev"}
+    monkeypatch.setattr(blocklists, "CTI_MAX_NAMES", 2)
+    assert blocklists.cti_names(names, platforms, suffixes) == frozenset({"a.pages.dev", "login.a.pages.dev", "b.pages.dev"})
 
 
 def test_cti_keeps_what_it_had_without_the_hosting_platforms(monkeypatch):

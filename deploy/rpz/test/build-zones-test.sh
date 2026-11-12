@@ -48,8 +48,8 @@ open(f"{up}/pro.txt", "w").write(rpz([f"a{i}.example" for i in range(700)] + ["s
 open(f"{up}/download", "w", encoding="utf-8").write("網域\n" + "".join(f"t{i}.example\n" for i in range(700)))
 json.dump([{"網域名稱": f"mo{i}.example", "偽冒網址": f"https://mo{i}.example/"} for i in range(700)], open(f"{up}/16352", "w", encoding="utf-8"))
 open(f"{up}/hosts", "w").write("".join(f"s{i}.example\n" for i in range(300)))
-open(f"{up}/domains.txt", "w").write("".join(f"c{i}.pages.dev\n" for i in range(60000)) + "own-site.example\n")
-open(f"{up}/public_suffix_list.dat", "w").write("// ===BEGIN PRIVATE DOMAINS===\npages.dev\n" + "".join(f"p{i}.example\n" for i in range(1000)) + "// ===END PRIVATE DOMAINS===\n")
+open(f"{up}/domains.txt", "w").write("".join(f"c{i}.pages.dev\n" for i in range(60000)) + "own-site.example\nsuffix.example\npages.dev\n")
+open(f"{up}/public_suffix_list.dat", "w").write("// ===BEGIN ICANN DOMAINS===\ncom\nsuffix.example\n// ===END ICANN DOMAINS===\n// ===BEGIN PRIVATE DOMAINS===\npages.dev\n" + "".join(f"p{i}.example\n" for i in range(1000)) + "// ===END PRIVATE DOMAINS===\n")
 PY
 cat > "$TMP/bin/curl" <<SH
 #!/bin/bash
@@ -74,7 +74,9 @@ for z in malware tw165 twmoda stalkerware cti ads; do [ -s "$R/zones/$z.zone" ] 
 [ "$(grep -c 'reload' "$TMP/docker.log")" = 6 ] || fail "every zone reloads on the first build"
 grep -q 'shared-mal.example' "$R/zones/malware.zone" || fail "the earlier list lost its entry"
 grep -q 'c1.pages.dev' "$R/zones/cti.zone" || fail "cti lost a name on a hosting platform"
-if grep -q 'own-site.example' "$R/zones/cti.zone"; then fail "cti kept a name that is not on a hosting platform"; fi
+grep -qx 'own-site.example CNAME .' "$R/zones/cti.zone" || fail "cti lost a name that is not on a hosting platform"
+if grep -qE '^(\*\.)?(suffix\.example|pages\.dev) ' "$R/zones/cti.zone"; then fail "cti listed a public suffix"; fi
+grep -qx 'suffix.example' "$R/suffixes.txt" || fail "the public suffixes were not kept"
 if grep -q 'shared-mal.example' "$R/zones/ads.zone"; then fail "the later list kept what an earlier one answers"; fi
 grep -q 'shared-mal.example' "$R/zones/raw/ads.zone" || fail "the raw list must keep it"
 if grep -q 'kept-out.example' "$R/zones/ads.zone"; then fail "exclude.txt was ignored"; fi
@@ -114,6 +116,7 @@ rm "$TMP/fail"
 printf '// ===BEGIN PRIVATE DOMAINS===\nother.example\n' > "$TMP/up/public_suffix_list.dat"
 build && fail "a short list of platforms should end non-zero"
 grep -qx 'pages.dev' "$R/platforms.txt" || fail "a short list of platforms replaced the last copy"
-[ -z "$(find "$R" -maxdepth 1 -name 'platforms.?*' ! -name platforms.txt)" ] || fail "temporary platform files left behind"
+grep -qx 'suffix.example' "$R/suffixes.txt" || fail "a short list of platforms replaced the public suffixes"
+[ -z "$(find "$R" -maxdepth 1 \( -name 'platforms.?*' -o -name 'suffixes.?*' \) ! -name platforms.txt ! -name suffixes.txt)" ] || fail "temporary platform files left behind"
 
 echo "build-zones: all checks passed"
