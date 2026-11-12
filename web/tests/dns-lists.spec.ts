@@ -315,7 +315,7 @@ test("the page compares with other services in the open, weak points included", 
   await expect(panels.nth(0).getByRole("img", { name: "Cloudflare 1.1.1.2 87%" })).toBeVisible();
   await expect(panels.nth(2).getByRole("img", { name: "Vessel 擋惡意網站 32%" })).toBeVisible();
   await expect(page.getByText("在那個來源的比例會偏高")).toBeVisible();
-  await expect(page.getByText("DNSBunker CTI 沒有擋到測試清單")).toBeAttached();
+  await expect(page.getByText("這個部分沒有擋到測試清單")).toBeAttached();
 });
 
 test("the comparison fits a narrow phone with its column names beside the values", async ({ page }) => {
