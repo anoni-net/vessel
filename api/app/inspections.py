@@ -221,7 +221,7 @@ def poll_confirms(conn, analysis) -> None:
                     until = dt.datetime.now(dt.UTC) + dt.timedelta(days=policy.INSPECT_DAYS)
                     # the address may have been someone else's: start from nothing
                     analysis.clear(region, address)
-                    node.inspect_on(host, row[0], int(until.timestamp()))
+                    node.inspect_on(host, row[0], int(until.timestamp()), code)
                     jobs.beat(conn, "analysis")
                     jobs.beat(conn, f"stream:{region}")
                     conn.execute(
