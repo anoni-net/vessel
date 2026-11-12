@@ -7,6 +7,7 @@ from app import (
     auth,
     blocklists,
     check,
+    crypto,
     devices,
     groups,
     health,
@@ -50,6 +51,12 @@ def http_error(_, exc: HTTPException) -> JSONResponse:
     # errors are {"error": "<code>"}; the frontend turns the code into text in the reader's language
     detail = exc.detail if isinstance(exc.detail, dict) else {"error": str(exc.detail)}
     return JSONResponse(detail, status_code=exc.status_code, headers={"Cache-Control": "no-store"})
+
+
+@app.exception_handler(crypto.Busy)
+def busy(_, exc: crypto.Busy) -> JSONResponse:
+    # too many sign-ins at once (app/crypto.py): the same answer as too many from one address, try again in a minute
+    return JSONResponse({"error": "too_many_attempts"}, status_code=429, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/health")
