@@ -159,10 +159,16 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
         # one redemption at a time, so the account cap holds under concurrent requests
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('vessel-redeem'))")
         invite = conn.execute(
-            "SELECT id, from_account, created_by, group_code, group_role, group_label FROM invites "
+            "SELECT id, from_account, created_by, group_code, group_role, group_label, pickup_state FROM invites "
             "WHERE code_hmac = %s AND redeemed_at IS NULL AND expires_at > now() FOR UPDATE",
             (crypto.keyed_hash(settings.hmac_key, code),),
         ).fetchone()
+        # a pickup number (app/pickups.py) is an invite once a maintainer has approved it: until then it says so, and a
+        # declined one is like a code that does not exist
+        if invite is not None and invite[6] == "waiting":
+            raise error(400, "pickup_waiting")
+        if invite is not None and invite[6] == "declined":
+            invite = None
         # a group's places are its own (toomore/anoni-net-ws#464): the pause and the cap are about everyone else
         if invite is None or invite[3] is None:
             if setting(conn, "redeem_paused") == "true":
@@ -172,7 +178,7 @@ def redeem(body: RedeemBody, request: Request, response: Response, conn: Conn) -
                 raise error(409, "full")
         if invite is None:
             raise error(400, "invalid_invite")
-        group_code, group_role, group_label = invite[3:]
+        group_code, group_role, group_label = invite[3:6]
         # checked here, under the lock, because a duplicate alias would look like a taken number to the loop below
         if group_code and conn.execute(
             "SELECT 1 FROM accounts WHERE group_code = %s AND group_label = %s", (group_code, group_label)

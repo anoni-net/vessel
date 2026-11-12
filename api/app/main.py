@@ -14,6 +14,7 @@ from app import (
     invites,
     network,
     passkeys,
+    pickups,
     status,
 )
 from app.db import close_pool
@@ -33,6 +34,7 @@ app = FastAPI(title="Vessel", docs_url=None, redoc_url=None, openapi_url=None, l
 app.include_router(auth.router)
 app.include_router(passkeys.router)
 app.include_router(invites.router)
+app.include_router(pickups.router)
 app.include_router(devices.router)
 app.include_router(groups.router)
 app.include_router(inspections.router)

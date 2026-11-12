@@ -12,6 +12,16 @@ SESSION_DAYS = 30
 INVITE_DAYS = 30
 USER_INVITE_DAYS = 7        # an invite an account makes works this long (toomore/anoni-net-ws#458)
 INVITE_AFTER_DAYS = 14      # and an account may make them this many days after it was made
+# Pickup numbers (app/pickups.py, toomore/anoni-net-ws#441): how long a request waits for a decision, and how long an
+# approved or declined number stays before the worker deletes it
+PICKUP_WAIT_DAYS = 30
+PICKUP_KEEP_DAYS = 14
+# requests taken in a day, and waiting at once, before new ones are turned away: one maintainer reads them all
+PICKUP_DAILY = 20
+PICKUP_WAITING = 50
+PICKUP_NOTE = 200
+PICKUP_PURPOSES = ("travel", "school_work", "public_wifi", "privacy", "other")
+PICKUP_NETWORKS = ("home", "mobile", "school_work", "public", "other")
 PASSKEY_LIMIT = 5           # passkeys per account: a phone, a computer, a security key, and spares
 # Adding or removing a passkey and deleting the account need a person who just proved it is them: signing in counts
 # for this long, then they confirm again with a passkey or the account number (app/auth.py, require_recent)
