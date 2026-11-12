@@ -6,7 +6,8 @@ import { IS_ONION } from "./site.ts";
 // Umami script is not loaded; this posts straight to /api/send, and the CSP allows only that URL.
 //
 // Two kinds are sent. Page views, only for the paths in PUBLIC. Events for each step of redeeming,
-// signing in and creating a device, with their results, so problems along that path show up. An
+// signing in and creating a device, with their results, so problems along that path show up, and
+// one when the connection check finds a network that does not let UDP out (see EVENTS). An
 // event may carry only the fields and values in EVENTS, or nothing is sent. The database keeps each
 // account's creation date and Umami adds a country to every event, so events never carry what the
 // database also has: no account number, device name, region, DNS filter or key. The platform the
@@ -42,6 +43,10 @@ export const EVENTS: Record<string, Record<string, readonly string[]>> = {
   "device-step": { step: ["install", "region", "name", "filter", "config"], platform: PLATFORMS },
   "device-create": { result: RESULTS, platform: PLATFORMS },
   "device-config": { how: ["download", "qr", "text", "done"] },
+  // The connection check, off Vessel, got no answer over UDP (pages/check.tsx): the networks Vessel cannot be reached
+  // from, which the nodes never see. It carries nothing, and a check that passed or could not tell sends nothing:
+  // the count is of blocked networks met, to decide whether a way in over TCP is worth building (toomore/anoni-net-ws#437).
+  "check-udp-blocked": {},
 };
 
 /** The data back when it has exactly the listed fields with listed values, otherwise null. */

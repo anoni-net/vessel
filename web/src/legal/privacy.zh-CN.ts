@@ -60,7 +60,7 @@ export default {
     { h: "域名过滤" },
     { p: "创建设备时可以选择是否拦截恶意网站与广告。过滤在节点的解析器上进行，不记录被拦截的域名。拦截恶意网站使用 HaGeZi 的 Threat Intelligence Feeds（mini），台湾警政署 165 与台湾数位产业署停止解析的诈骗网站，法国的协会 Echap 整理的跟踪软件域名，以及德国的非商业项目 DNSBunker 公开的恶意域名（CTI）里托管平台上的部分，屏蔽广告再加上 HaGeZi Multi PRO。恶意网站的名单每 8 小时更新一次，DNSBunker 的 CTI 名单每 6 小时更新一次，广告的名单每天更新一次，内容公开在 [HaGeZi 的 GitHub](https://github.com/hagezi/dns-blocklists) 、[台湾的政府资料开放平台](https://data.gov.tw/dataset/176455)、[Echap 的 GitHub](https://github.com/AssoEchap/stalkerware-indicators) 与 [DNSBunker 的 GitHub](https://github.com/DNSBunker/CTI)。两份台湾的名单依台湾的政府资料开放授权条款第 1 版使用，Echap 的名单依 CC BY 4.0 使用，排除了其中 2 个共享的主机名，DNSBunker 的 CTI 名单依 GPL-2.0-only 使用，排除的域名列在域名过滤的名单页。" },
     { h: "统计" },
-    { p: "公开页面的浏览次数，以及兑换、登录、创建设备每一步的结果，会发送到 anoni.net 自架的 Umami，用来找出流程中出问题的步骤。每条数据只有页面的路径、语言、取到百位数的屏幕尺寸与步骤的结果，账号号码、设备的名称与设置、密钥都不发送。Umami 根据 IP 推算国家与城市，但不保存 IP。" },
+    { p: "公开页面的浏览次数，以及兑换、登录、创建设备每一步的结果，会发送到 anoni.net 自架的 Umami，用来找出流程中出问题的步骤。连接检测发现当前的网络发不出 UDP 时，也会记一条，用来了解有多少网络连不上 Vessel。每条数据只有页面的路径、语言、取到百位数的屏幕尺寸与步骤的结果，账号号码、设备的名称与设置、密钥都不发送。Umami 根据 IP 推算国家与城市，但不保存 IP。" },
     { p: "浏览器开启 Do Not Track 或 Global Privacy Control 时不发送，也可以在页脚选择不要记录。" },
     { p: "反馈页提交的内容保存在 anoni.net 自建的表单服务器，只记录提交时所在的国家与浏览器种类，不记录 IP 地址，也不会与 Vessel 的账号关联。留下的联系方式在处理完之后删除。" },
     { h: "处理数据的第三方" },

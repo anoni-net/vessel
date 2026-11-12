@@ -11,6 +11,7 @@ import { type CheckState, type Exit, dnsState, encodeCheck, exitCheck, exitState
 import { type Verdict, runCheck } from "../dnscheck.ts";
 import { sitesHere } from "../reach.ts";
 import { CLEARNET, IS_ONION } from "../site.ts";
+import { track } from "../analytics.ts";
 import { type UdpResult, udpCheck } from "../udpcheck.ts";
 
 type Result = { exit: Exit; dns: Verdict };
@@ -165,12 +166,18 @@ function NetworkChecks() {
   );
 }
 
-/** Sends UDP to a public STUN server, see udpcheck.ts. The result stays on the page. */
+/**
+ * Sends UDP to a public STUN server, see udpcheck.ts. The result stays on the page; a fail is also counted, as an event
+ * that carries nothing else (analytics.ts).
+ */
 function UdpSection({ server }: { server: string }) {
   const { t } = useCtx();
   const [result, setResult] = useState<UdpResult | null>(null);
   useEffect(() => {
-    udpCheck(server).then(setResult, () => setResult("unknown"));
+    udpCheck(server).then((r) => {
+      setResult(r);
+      if (r === "fail") track("check-udp-blocked");
+    }, () => setResult("unknown"));
   }, [server]);
   return (
     <section class="stack check-network" data-testid="check-udp" aria-busy={result === null}>
