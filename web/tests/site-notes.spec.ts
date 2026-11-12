@@ -337,7 +337,7 @@ test.describe("on the lists page", () => {
   test("the change log has a line for the notes", async ({ page }) => {
     await go(page);
     await page.getByTestId("lists-more").locator("summary").click();
-    await expect(page.getByTestId("lists-log").locator("li").first()).toHaveText("2026-11-10 新增檢測報告的網站說明，第一批 4 筆：2 個廣告聯播網與 2 個廣告轉址網域");
+    await expect(page.getByTestId("lists-log").locator("li").filter({ hasText: "2026-11-10" })).toHaveText("2026-11-10 新增檢測報告的網站說明，第一批 4 筆：2 個廣告聯播網與 2 個廣告轉址網域");
   });
 
   test("the table stays a table on a phone, and nothing runs off the page", async ({ page }) => {

@@ -175,7 +175,7 @@ test("the charts carry the numbers, with labels for screen readers", async ({ pa
     await expect(overlap.locator(".lists-bar__head").filter({ hasText: name })).toHaveCount(1);
   }
   // largest first
-  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^託管平台上確認活躍/, /^廣告與追蹤/, /^惡意程式與釣魚網站/, /^假投資/, /^電商通報/, /^跟蹤軟體/]);
+  await expect(overlap.locator(".lists-chart__bars > li")).toHaveText([/^確認活躍的惡意網站/, /^廣告與追蹤/, /^惡意程式與釣魚網站/, /^假投資/, /^電商通報/, /^跟蹤軟體/]);
   // rounded down, so 99.8% does not read as nothing shared
   await expect(overlap.locator(".lists-chart__bars > li").filter({ hasText: "假投資" })).toContainText("獨有 99%");
   await expect(overlap.locator(".lists-chart__bars > li").filter({ hasText: "惡意程式與釣魚網站" })).toContainText("獨有 46%");

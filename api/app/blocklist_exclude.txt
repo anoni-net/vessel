@@ -20,3 +20,28 @@ top4top.io  # a file and image host for anyone's uploads, on DNSBunker's CTI lis
 craftum.io  # a website builder for customers' sites, on DNSBunker's CTI list
 eporner.com  # an adult video site: content is not a reason to block, on DNSBunker's CTI list
 pmvhaven.com  # an adult video site: content is not a reason to block, on DNSBunker's CTI list
+3322.org  # a dynamic DNS domain anyone can get a name under, on DNSBunker's CTI list
+8866.org  # the same dynamic DNS service as 3322.org, on DNSBunker's CTI list
+f3322.net  # the same dynamic DNS service as 3322.org, on DNSBunker's CTI list
+zzux.com  # a dynamic DNS domain anyone can get a name under, on DNSBunker's CTI list
+fartit.com  # a dynamic DNS domain anyone can get a name under, on DNSBunker's CTI list
+esy.es  # a free web host's shared parent: its sites belong to different people, on DNSBunker's CTI list
+hol.es  # a free web host's shared parent: its sites belong to different people, on DNSBunker's CTI list
+oast.live  # a public server for security testing, where each tester gets a name, on DNSBunker's CTI list
+oast.me  # a public server for security testing, where each tester gets a name, on DNSBunker's CTI list
+encurtador.dev  # a URL shortener: its links belong to different people, on DNSBunker's CTI list
+icpnet.pl  # the host names of an internet provider's customers, on DNSBunker's CTI list
+casinoplus.com.ph  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+okbet.com  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+bet88.ph  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+playtime.ph  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+winzir.ph  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+filbet.com  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+okplay.ph  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+crowncoinscasino.com  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+afun.mx  # a gambling site: content is not a reason to block, on DNSBunker's CTI list
+magsrv.com  # an ad network (ExoClick): ads are blocked only for those who chose it, on DNSBunker's CTI list
+orbsrv.com  # an ad network (ExoClick): ads are blocked only for those who chose it, on DNSBunker's CTI list
+maroc.ma  # a government portal: the whole site is not blocked on a list's entry alone, on DNSBunker's CTI list
+kasneb.or.ke  # a public examinations body: the whole site is not blocked on a list's entry alone, on DNSBunker's CTI list
+breaknews.com  # a news site: the whole site is not blocked on a list's entry alone, on DNSBunker's CTI list

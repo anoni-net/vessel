@@ -47,6 +47,31 @@ export const EXCLUDED = [
   ["craftum.io", "hosting"],
   ["eporner.com", "content"],
   ["pmvhaven.com", "content"],
+  ["3322.org", "hosting"],
+  ["8866.org", "hosting"],
+  ["f3322.net", "hosting"],
+  ["zzux.com", "hosting"],
+  ["fartit.com", "hosting"],
+  ["esy.es", "hosting"],
+  ["hol.es", "hosting"],
+  ["oast.live", "hosting"],
+  ["oast.me", "hosting"],
+  ["encurtador.dev", "hosting"],
+  ["icpnet.pl", "hosting"],
+  ["casinoplus.com.ph", "gambling"],
+  ["okbet.com", "gambling"],
+  ["bet88.ph", "gambling"],
+  ["playtime.ph", "gambling"],
+  ["winzir.ph", "gambling"],
+  ["filbet.com", "gambling"],
+  ["okplay.ph", "gambling"],
+  ["crowncoinscasino.com", "gambling"],
+  ["afun.mx", "gambling"],
+  ["magsrv.com", "ads"],
+  ["orbsrv.com", "ads"],
+  ["maroc.ma", "site"],
+  ["kasneb.or.ke", "site"],
+  ["breaknews.com", "site"],
 ] as const;
 // Measured, not live: update these with the text around them when a measurement is repeated. Each row is the share
 // blocked by Vessel's malware filter and its ads filter, Quad9 included, and by Cloudflare (1.1.1.2).
@@ -69,6 +94,7 @@ const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line, and so does every note on sites added or taken out
 // (src/data/site-notes.json)
 const LOG = [
+  ["2026-11-12", "20261112cti"],
   ["2026-11-10", "20261110notes"],
   ["2026-11-09", "20261109c"],
   ["2026-11-09", "20261109b"],
