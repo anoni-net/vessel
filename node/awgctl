@@ -179,20 +179,33 @@ inspect_off() { # name
   echo "stopped inspecting $1"
 }
 
-# what host/vessel-inspect-confirm.py wrote; an old one is of no use to anybody
+# what host/vessel-inspect-confirm.py wrote: a file per tunnel address, holding the code confirmed from it. An old
+# one is of no use to anybody
 inspect_confirms() {
   [ -d $D/inspect-confirm ] || { echo '[]'; return; }
   find $D/inspect-confirm -maxdepth 1 -type f -mmin +60 -delete
   python3 -c '
-import json, os, sys
+import json, os, re, sys
 d = sys.argv[1]
 out = []
-for code in sorted(os.listdir(d)):
-    if not code.startswith("."):
-        with open(os.path.join(d, code)) as f:
-            out.append({"code": code, "address": f.read().strip()})
+for address in sorted(os.listdir(d)):
+    if re.fullmatch(r"[0-9.]+", address):
+        with open(os.path.join(d, address)) as f:
+            code = f.read().strip()
+        if re.fullmatch(r"[A-Z0-9]{16}", code):
+            out.append({"code": code, "address": address})
 print(json.dumps(out))
 ' $D/inspect-confirm
+}
+
+# forget a confirmation the portal has read
+inspect_ack() { # code
+  local f
+  [ -d $D/inspect-confirm ] || return 0
+  for f in $D/inspect-confirm/*; do
+    [ -f "$f" ] && [ "$(cat "$f")" = "$1" ] && rm -f "$f"
+  done
+  return 0
 }
 
 inspect_status() {
@@ -289,6 +302,8 @@ new_peer() { # name filter pubkey psk
   forget_flows "$ip"
   # nor may the previous holder's inspection carry over to whoever gets the address next
   inspect_clear "$ip" || die "could not clear the inspection rules of $ip"
+  # nor a confirmation the previous holder made and the portal never read
+  rm -f "$D/inspect-confirm/$ip"
   # and a speed limit belongs to the device that used up its quota, not to the address
   throttle_clear "$ip" || die "could not clear the speed limit of $ip"
   umask 077
@@ -428,6 +443,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     if [ -n "$ip" ]; then
       inspect_clear "$ip" || die "could not clear the inspection rules of $name"
       throttle_clear "$ip" || die "could not clear the speed limit of $name"
+      rm -f "$D/inspect-confirm/$ip"
     fi
     rm -f $D/peers/$name.conf $D/clients/$name.conf $D/suspended/$name.conf
     # apply even when the files are already gone: a try that deleted them and then failed to apply left the peer on
@@ -487,7 +503,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
       confirms) inspect_confirms ;;
       ack)
         [[ ${3:-} =~ ^[A-Z0-9]{16}$ ]] || die "not a confirmation code"
-        rm -f "$D/inspect-confirm/$3"
+        inspect_ack "$3"
         ;;
       *) die "inspect on <name> <until> | off <name> | status --json" ;;
     esac
