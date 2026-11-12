@@ -1,4 +1,7 @@
 import { x25519 } from "@noble/curves/ed25519.js";
+import { LEADER_SLOT, slot } from "./kept-keys.ts";
+
+export { forget } from "./kept-keys.ts";
 
 // A device inspection's report is sealed to a key made here (anoni-net/vessel inspect/analyze.py, `seal`): the
 // portal stores only ciphertext. The private key stays in this browser, and the person can copy it to read the
@@ -6,11 +9,9 @@ import { x25519 } from "@noble/curves/ed25519.js";
 
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
 const unb64 = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
-const slot = (deviceId: string) => `vessel-inspection:${deviceId}`;
 const INFO = new TextEncoder().encode("vessel-inspection-report");
 // a group leader's summary is sealed with its own info (inspect/analyze.py, SUMMARY_INFO), so one cannot pass for the other
 const SUMMARY_INFO = new TextEncoder().encode("vessel-inspection-summary");
-const LEADER_SLOT = "vessel-leader-key";
 
 export interface Sealed { epk: string; iv: string; ct: string }
 export interface Kept { key: string; url?: string; minutes?: number }
@@ -37,14 +38,6 @@ export function kept(deviceId: string): Kept | null {
     return JSON.parse(localStorage.getItem(slot(deviceId)) ?? "null");
   } catch {
     return null;
-  }
-}
-
-export function forget(deviceId: string) {
-  try {
-    localStorage.removeItem(slot(deviceId));
-  } catch {
-    /* nothing was kept */
   }
 }
 

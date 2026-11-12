@@ -5,6 +5,7 @@ import { formatDate } from "../format.ts";
 import { errorText } from "../i18n/index.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
+import { forgetAllKeys, keysHeld } from "../kept-keys.ts";
 import { Months, monthsSince } from "./months.tsx";
 import { Invites } from "./invites.tsx";
 import { GroupView } from "./group-view.tsx";
@@ -23,6 +24,11 @@ export function AccountNav({ leader = false }: { leader?: boolean }) {
   const [failed, setFailed] = useState(false);
   const logout = async () => {
     if (leaving) return;
+    // signing out clears the keys this browser holds; say so first, the reports cannot be opened here afterwards
+    const held = keysHeld();
+    const warning = held.reports && held.leader ? t["nav.logoutKeys.both"] : held.reports ? t["nav.logoutKeys.report"]
+      : held.leader ? t["nav.logoutKeys.leader"] : "";
+    if (warning && !window.confirm(warning)) return;
     setLeaving(true);
     setFailed(false);
     try {
@@ -36,6 +42,7 @@ export function AccountNav({ leader = false }: { leader?: boolean }) {
         return;
       }
     }
+    forgetAllKeys();
     setSignedIn(false);
     navigate(href("/"));
   };
@@ -96,6 +103,8 @@ export function Account() {
     setDeleting(true);
     try {
       await guard(() => api.deleteAccount());
+      // the reports went with the account; their keys do not stay in this browser
+      forgetAllKeys();
       // the header and the home page no longer offer "My devices", and the home page says it is done
       setSignedIn(false);
       announce(t["account.deleted"]);
