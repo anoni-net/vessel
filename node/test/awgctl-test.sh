@@ -124,16 +124,27 @@ awgctl add-pubkey i-3 "$(key)" "$(key)" none > /dev/null 2>&1 && fail "add passe
 rm "$TMP/ipt-fail"
 [ ! -e "$N/peers/i-3.conf" ] || fail "a failed add left a peer"
 
-# confirmations: what the page wrote, read once, and gone after an ack
+# confirmations: what the page wrote, a file per address holding the code, read once, and gone after an ack
 [ "$(awgctl inspect confirms --json)" = "[]" ] || fail "confirms with nothing written"
-mkdir -p "$N/inspect-confirm"; echo -n 10.8.1.7 > "$N/inspect-confirm/ABCDEFGH23456789"; touch "$N/inspect-confirm/.tmpx"
+mkdir -p "$N/inspect-confirm"; echo -n ABCDEFGH23456789 > "$N/inspect-confirm/10.8.1.7"; touch "$N/inspect-confirm/.tmpx"
+# what is not a code, or not under an address, is left out
+echo -n '$(id)' > "$N/inspect-confirm/10.8.1.8"; echo -n ABCDEFGH23456789 > "$N/inspect-confirm/OLDFORMAT2345678"
 awgctl inspect confirms --json | python3 -c 'import json,sys; assert json.load(sys.stdin)==[{"code":"ABCDEFGH23456789","address":"10.8.1.7"}]' || fail "confirms"
+rm "$N/inspect-confirm/10.8.1.8" "$N/inspect-confirm/OLDFORMAT2345678"
 awgctl inspect ack "../../etc" 2> /dev/null && fail "ack took a path"
+echo -n ZZZZZZZZ23456789 > "$N/inspect-confirm/10.8.1.9"
 awgctl inspect ack ABCDEFGH23456789
-[ ! -e "$N/inspect-confirm/ABCDEFGH23456789" ] || fail "ack did not forget the code"
-touch -d "2 hours ago" "$N/inspect-confirm/OLDOLDOLDOLD2345"
+[ ! -e "$N/inspect-confirm/10.8.1.7" ] || fail "ack did not forget the code"
+[ -e "$N/inspect-confirm/10.8.1.9" ] || fail "ack forgot another device's code"
+touch -d "2 hours ago" "$N/inspect-confirm/10.8.1.9"
 awgctl inspect confirms --json > /dev/null
-[ ! -e "$N/inspect-confirm/OLDOLDOLDOLD2345" ] || fail "an old confirmation stayed"
+[ ! -e "$N/inspect-confirm/10.8.1.9" ] || fail "an old confirmation stayed"
+# a confirmation does not pass to whoever gets the address next
+awgctl add-pubkey c-1 "$(key)" "$(key)" none > /dev/null
+cip=$(grep -oE '10\.8\.1\.[0-9]+' "$N/peers/c-1.conf" | head -1)
+echo -n ABCDEFGH23456789 > "$N/inspect-confirm/$cip"
+awgctl remove c-1 > /dev/null
+[ ! -e "$N/inspect-confirm/$cip" ] || fail "a removed device's confirmation stayed"
 
 # over the quota: both directions of the device's address are held to a rate, and only while it has the address
 trules() { grep -c "vessel-throttle:$1 " "$TMP/filter" || true; }

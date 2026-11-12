@@ -368,7 +368,7 @@ test("starting says the link is ready, and focus goes to the top", async ({ page
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("inspect-url")).toBeVisible();
-  await expect(said(page)).toHaveText("已產生確認連結，請在要檢測的裝置上打開。");
+  await expect(said(page)).toHaveText("已產生確認連結，請在要檢測的裝置上打開並按下確認。");
   await expect.poll(() => focused(page)).toBe(H1);
 });
 

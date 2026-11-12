@@ -262,7 +262,13 @@ VPN 使用者只能上網：
 
 ### 確認頁
 
-開啟檢測時要在該裝置上打開確認連結，只知道帳號號碼的人無法遠端開啟。`host/vessel-inspect-confirm.py` 只聽通道內的 `10.8.1.1:443`，節點用連線的通道位址判斷是哪台裝置，WireGuard 不允許 peer 用別人的位址傳送。入口網站用 `awgctl inspect confirms --json` 讀取，用完 `inspect ack` 刪除，超過 1 小時的自動刪除。
+開啟檢測時要在該裝置上打開確認連結並按下確認，只知道帳號號碼的人無法遠端開啟。`host/vessel-inspect-confirm.py` 只聽通道內的 `10.8.1.1:443`，節點用連線的通道位址判斷是哪台裝置，WireGuard 不允許 peer 用別人的位址傳送。
+
+打開連結只顯示說明與「確認」按鈕，按下之後才留下紀錄。按鈕送出的表單帶著這一頁才有的值，其他網站送來的表單不會被接受，頁面也不能被嵌進其他網頁。
+
+確認紀錄放在 `/opt/vessel-node/inspect-confirm/`，每個通道位址一個檔案，內容是確認碼，同一台裝置再確認一次會取代原本的那一筆。入口網站用 `awgctl inspect confirms --json` 讀取，用完 `inspect ack` 刪除，超過 1 小時的自動刪除，裝置移除或位址交給新的裝置時也會刪除。
+
+每條連線的 TLS 握手與每次讀取限時 10 秒，每個通道位址同時最多 4 條連線，全部最多 128 條。
 
 網域 `confirm.vessel.anoni.net` 由節點的解析器解析到 `10.8.1.1`，憑證放在 `/opt/vessel-node/confirm/`（`fullchain.pem`、`privkey.pem`），沒有憑證時服務不會啟動。
 
