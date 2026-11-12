@@ -562,7 +562,12 @@ class Batch(Base):
 
 
 class Recv(Base):
-    def stream(self, data):
+    def setUp(self):
+        super().setUp()
+        recv.NODES.clear()
+        recv.NODES.update({"100.64.0.1": "node-1", "100.64.0.2": "n"})
+
+    def stream(self, data, peer="100.64.0.1"):
         async def go():
             reader = asyncio.StreamReader()
             reader.feed_data(data)
@@ -571,6 +576,9 @@ class Recv(Base):
             class W:
                 def close(self):
                     pass
+
+                def get_extra_info(self, name):
+                    return (peer, 40000)
 
             await recv.handle(reader, W())
 
@@ -589,7 +597,7 @@ class Recv(Base):
         files = self.stream(b"vessel-inspect node-1\n" + one + struct.pack("<IIII", T0, 0, 100, 100) + b"xx")
         self.assertEqual(files[0].read_bytes(), one)
 
-    def hold_open(self, check):
+    def hold_open(self, check, peer="100.64.0.1"):
         """A stream that has sent one packet and stays connected."""
         body = pcap(239, [(T0, nflog(ip("10.8.1.3", "1.1.1.1", 100)))])
 
@@ -603,6 +611,9 @@ class Recv(Base):
             class W:
                 def close(self):
                     pass
+
+                def get_extra_info(self, name):
+                    return (peer, 40000)
 
             task = asyncio.create_task(recv.handle(reader, W()))
             await asyncio.sleep(0.01)
@@ -655,7 +666,8 @@ class Recv(Base):
             await asyncio.wait_for(task, 5)
             writer.close()
 
-        with mock.patch.dict(os.environ, {"VESSEL_INSPECT_LISTEN": f"127.0.0.1:{port}"}):
+        with mock.patch.dict(os.environ, {"VESSEL_INSPECT_LISTEN": f"127.0.0.1:{port}",
+                                          "VESSEL_INSPECT_NODES": "node-1=127.0.0.1"}):
             asyncio.run(go())
         files = sorted((analyze.HOME / "spool").glob("*/*"))
         self.assertEqual([f.suffix for f in files], [".pcap"])
@@ -665,8 +677,35 @@ class Recv(Base):
         self.assertEqual(self.stream(b"vessel-inspect ../etc\n" + bytes(24)), [])
 
     def test_a_silly_packet_length_ends_the_stream(self):
-        files = self.stream(b"vessel-inspect n\n" + bytes(24) + struct.pack("<IIII", T0, 0, 10**9, 10))
+        files = self.stream(b"vessel-inspect n\n" + bytes(24) + struct.pack("<IIII", T0, 0, 10**9, 10), peer="100.64.0.2")
         self.assertEqual(len(files), 0)
+
+    def test_only_a_node_is_listened_to(self):
+        body = pcap(239, [(T0, nflog(ip("10.8.1.3", "1.1.1.1", 100)))])
+        for peer in ("100.64.0.9", "127.0.0.1", "::1", None):
+            self.assertEqual(self.stream(b"vessel-inspect node-1\n" + body, peer=peer), [], peer)
+        self.assertFalse((analyze.HOME / "spool" / "node-1").exists())
+
+    def test_a_node_cannot_send_in_the_name_of_another(self):
+        body = pcap(239, [(T0, nflog(ip("10.8.1.3", "1.1.1.1", 100)))])
+        self.assertEqual(self.stream(b"vessel-inspect node-1\n" + body, peer="100.64.0.2"), [])
+        self.assertEqual([f.parent.name for f in self.stream(b"vessel-inspect n\n" + body, peer="100.64.0.2")], ["n"])
+
+    def test_a_node_reaching_us_over_a_mapped_address_is_still_that_node(self):
+        body = pcap(239, [(T0, nflog(ip("10.8.1.3", "1.1.1.1", 100)))])
+        self.assertEqual(len(self.stream(b"vessel-inspect node-1\n" + body, peer="::ffff:100.64.0.1")), 1)
+
+    def test_the_list_of_nodes_is_read_strictly(self):
+        self.assertEqual(recv.parse_nodes("sg=100.64.0.1  jp=100.64.0.2"), {"100.64.0.1": "sg", "100.64.0.2": "jp"})
+        self.assertEqual(recv.parse_nodes(""), {})
+        for bad in ("sg", "sg=", "sg=nowhere", "../x=100.64.0.1", "sg=100.64.0.1 sg=100.64.0.2", "sg=100.64.0.1 jp=100.64.0.1"):
+            with self.assertRaises(SystemExit, msg=bad):
+                recv.parse_nodes(bad)
+
+    def test_without_a_list_of_nodes_the_service_does_not_start(self):
+        with mock.patch.dict(os.environ, {"VESSEL_INSPECT_LISTEN": "127.0.0.1:1"}), self.assertRaises(SystemExit):
+            os.environ.pop("VESSEL_INSPECT_NODES", None)
+            asyncio.run(recv.main())
 
 
 if __name__ == "__main__":
