@@ -108,7 +108,26 @@ test("the page lists the same names as node/exclude.txt", async ({ page }) => {
   await backend(page);
   await page.goto("/dns/lists/");
   await openMore(page);
-  await expect(page.getByTestId("lists-excluded").locator("tbody code")).toHaveText(names);
+  await expect(page.getByTestId("lists-excluded").locator("code")).toHaveCount(names.length);
+  const shown = await page.getByTestId("lists-excluded").locator("code").allTextContents();
+  expect([...shown].sort()).toEqual([...names].sort());
+});
+
+test("the excluded domains are grouped by reason, each reason said once, the largest group first", async ({ page }) => {
+  await backend(page);
+  await page.goto("/dns/lists/");
+  await openMore(page);
+  const groups = page.getByTestId("lists-excluded").locator(".lists-exclude__group");
+  const reasons = await groups.evaluateAll((els) => els.map((el) => el.getAttribute("data-reason")));
+  expect(new Set(reasons).size).toBe(reasons.length);
+  const sizes = await groups.evaluateAll((els) => els.map((el) => el.querySelectorAll("code").length));
+  expect(sizes).toEqual([...sizes].sort((a, b) => b - a));
+  await expect(groups.first().locator("dt")).toHaveText("託管、架站、動態 DNS 或基礎設施服務的共用網域，底下的網站屬於不同的人，擋了會連帶擋到無關的網站");
+  await expect(groups.first().locator("code").first()).toHaveText("3322.org");
+  await expect(page.getByTestId("lists-excluded").locator("xpath=preceding-sibling::p[1]")).toContainText(`仍然可能被擋。目前排除 ${sizes.reduce((a, b) => a + b)} 個網域，依排除的理由分組。`);
+  await page.goto("/en/dns/lists/");
+  await openMore(page);
+  await expect(page.getByTestId("lists-excluded").locator("xpath=preceding-sibling::p[1]")).toContainText(`can still be blocked. ${sizes.reduce((a, b) => a + b)} domains are left out`);
 });
 
 test("every language has the page, and the DNS filter page links to it", async ({ page }) => {
@@ -248,17 +267,17 @@ test("WCAG 2.1.1 and 2.4.7: the folded parts and links are reached by keyboard w
   await expect(page.getByTestId("lists-more")).toHaveAttribute("open");
 });
 
-test("WCAG 1.3.1: the excluded domains stay a table on a phone, and loading is announced as busy", async ({ page }) => {
+test("WCAG 1.3.1: the tables keep their headers on a phone, and loading is announced as busy", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
   await page.route("**/api/blocklist/lists", () => {});
   await page.goto("/dns/lists/");
   await expect(page.getByTestId("lists-groups")).toHaveAttribute("aria-busy", "true");
   await openMore(page);
-  // the comparison, the notes on sites in inspection reports, and the excluded domains
-  await expect(page.getByRole("table")).toHaveCount(3);
+  // the comparison and the notes on sites in inspection reports; the excluded domains are a list of reasons and names
+  await expect(page.getByRole("table")).toHaveCount(2);
   await expect(page.getByTestId("lists-compare").getByRole("columnheader")).toHaveCount(4);
-  await expect(page.getByTestId("lists-excluded").getByRole("columnheader")).toHaveCount(2);
+  await expect(page.getByTestId("lists-notes-table").getByRole("columnheader")).toHaveCount(5);
 });
 
 test("the page can be reached from the footer, the FAQ and the DNS filter page, and step by anchor", async ({ page }) => {

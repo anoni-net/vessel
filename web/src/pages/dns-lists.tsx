@@ -73,6 +73,12 @@ export const EXCLUDED = [
   ["kasneb.or.ke", "site"],
   ["breaknews.com", "site"],
 ] as const;
+/** The names by reason, the reasons with the most names first, the names in alphabetical order. */
+const EXCLUDED_GROUPS = (() => {
+  const groups = new Map<(typeof EXCLUDED)[number][1], string[]>();
+  for (const [name, reason] of EXCLUDED) groups.set(reason, [...(groups.get(reason) ?? []), name]);
+  return [...groups].map(([reason, names]) => [reason, names.sort()] as const).sort((a, b) => b[1].length - a[1].length);
+})();
 // Measured, not live: update these with the text around them when a measurement is repeated. Each row is the share
 // blocked by Vessel's malware filter and its ads filter, Quad9 included, and by Cloudflare (1.1.1.2).
 const COMPARE = [
@@ -473,26 +479,19 @@ export function DnsLists() {
             <p>
               {t["lists.exclude.body"]}<a href={EXCLUDE_FILE} target="_blank" rel="noopener">{t["lists.exclude.file"]}</a>
               {t["lists.exclude.after"]}
+              {/* sentences end in their own full stop, so they are only put side by side (a space between them in English) */}
+              {/[.!?]$/.test(t["lists.exclude.after"]) ? " " : ""}
+              {fmt(t["lists.exclude.total"], { n: String(EXCLUDED.length) })}
             </p>
-            <div class="table-wrap legal">
-              {/* explicit roles: on phones the CSS makes the rows blocks, and browsers then drop the table's semantics */}
-              <table role="table" data-testid="lists-excluded">
-                <thead role="rowgroup">
-                  <tr role="row">
-                    <th role="columnheader" scope="col">{t["lists.exclude.col.domain"]}</th>
-                    <th role="columnheader" scope="col">{t["lists.exclude.col.reason"]}</th>
-                  </tr>
-                </thead>
-                <tbody role="rowgroup">
-                  {EXCLUDED.map(([domain, reason]) => (
-                    <tr role="row">
-                      <td role="cell" data-label={t["lists.exclude.col.domain"]}><code>{domain}</code></td>
-                      <td role="cell" data-label={t["lists.exclude.col.reason"]}>{t[`lists.exclude.${reason}`]}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {/* one reason to a group, said once, with its names under it: the reasons repeat, and a row a name grew too long */}
+            <dl class="lists-exclude" data-testid="lists-excluded">
+              {EXCLUDED_GROUPS.map(([reason, names]) => (
+                <div class="lists-exclude__group" data-reason={reason}>
+                  <dt>{t[`lists.exclude.${reason}`]}</dt>
+                  <dd><ul class="lists-exclude__names">{names.map((name) => <li><code>{name}</code></li>)}</ul></dd>
+                </div>
+              ))}
+            </dl>
 
             <h2>{t["lists.log.title"]}</h2>
             <ul class="plain stack" data-testid="lists-log">
