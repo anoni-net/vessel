@@ -1016,13 +1016,14 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .group-summary--check { border-left-color: var(--caution); }
 .group-summary--threat { border-left-color: var(--danger); }
 
-/* The device inspection (pages/inspect.tsx). Its hours, one cobalt from light to dark; orange and red keep their
+/* The device inspection (pages/inspect.tsx). Its hours, one cobalt from light to dark, the steps even in OKLab lightness
+   (0.87 to 0.34, 0.42 to 0.92 in the dark) so each reads apart from the next; orange and red keep their
    meaning from the rest of the site, and carry a mark so they do not depend on colour. */
-:root { --tile-0: var(--grey); --tile-1: #d6e2fb; --tile-2: #a5bcf2; --tile-3: #5f85ea; --tile-4: #2f5fd4; --tile-5: #0b3ca8;
+:root { --tile-0: var(--grey); --tile-1: #c1d4fd; --tile-2: #89a9f1; --tile-3: #537de2; --tile-4: #2a52c1; --tile-5: #102c84;
   /* the night hours' band: a warm grey, apart from the cobalt steps so an empty night hour does not read as a quiet one */
   --night: #ebe6dc; }
 @media (prefers-color-scheme: dark) {
-  :root { --tile-1: #2a4478; --tile-2: #3f64ad; --tile-3: #6088da; --tile-4: #93b0ef; --tile-5: #d6e2fb; --night: #3a3550; }
+  :root { --tile-1: #304b83; --tile-2: #486dbb; --tile-3: #6c93e5; --tile-4: #9bbcfd; --tile-5: #d8e5ff; --night: #3a3550; }
 }
 .inspect-list { margin: 0; padding-inline-start: 1.3em; display: grid; gap: 6px; }
 .inspect-key { display: block; padding: 8px 10px; background: var(--grey); overflow-wrap: anywhere; user-select: all; }

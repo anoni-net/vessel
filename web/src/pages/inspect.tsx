@@ -686,6 +686,10 @@ export const TOP_ROWS = 3;
 /** At most this many sites of a kind: analyze.py's MAX_FINDINGS, and older reports, still stored, list all of theirs. */
 const MAX_LISTED = 30;
 
+/** The decades of bytes an hour's colours span, at most and at least: 3.5 is about 3,000 times between the ends. */
+const SCALE_MAX = 3.5;
+const SCALE_MIN = 2;
+
 /** The report's hours on the reader's clock: a row a day, a cell an hour. */
 export function hourGrid(hours: NonNullable<Report["hours"]>) {
   const cells = new Map<string, Map<number, { total: number; up: number; down: number; mark: "x" | "!" | null; heavy: boolean; at: Date }>>();
@@ -695,12 +699,17 @@ export function hourGrid(hours: NonNullable<Report["hours"]>) {
     if (!cells.has(day)) cells.set(day, new Map());
     cells.get(day)!.set(at.getHours(), { total: h.up + h.down, up: h.up, down: h.down, mark: h.mark, heavy: upHeavy(h), at });
   }
-  // a phone's hours run from a few KB to some GB, so the five steps are even on a log scale, between this report's
-  // quietest and busiest hour
+  // a phone's hours run from a few KB to some GB, so the five steps are even on a log scale, up to this report's busiest
+  // hour. The scale reaches down at most SCALE_MAX decades: a few hours of background KB would otherwise stretch it until
+  // 7 MB and 120 MB share a colour. It spans at least SCALE_MIN decades, centred on the hours, so a device whose hours
+  // are all about the same size is drawn in one colour rather than in all five.
   const logs = hours.map((h) => h.up + h.down).filter((n) => n > 0).map(Math.log10);
-  const low = Math.min(...logs);
-  const span = Math.max(...logs) - low;
-  const level = (total: number) => (total <= 0 ? 0 : span === 0 ? 3 : Math.max(1, Math.ceil(((Math.log10(total) - low) / span) * 5)));
+  let high = Math.max(...logs);
+  let low = Math.max(Math.min(...logs), high - SCALE_MAX);
+  const pad = Math.max(0, SCALE_MIN - (high - low)) / 2;
+  low -= pad;
+  high += pad;
+  const level = (total: number) => (total <= 0 ? 0 : Math.min(5, Math.max(1, Math.ceil(((Math.log10(total) - low) / (high - low)) * 5))));
   return { days: [...cells.keys()].sort(), cells, level };
 }
 
