@@ -51,6 +51,22 @@ def test_usage_is_per_account_and_survives_device_deletion(signed_in, node, db):
     assert used(signed_in) == 2 * GB
 
 
+def test_a_node_speaks_for_its_own_devices_only(signed_in, node, db):
+    """What the node of another region says of a device counts for nothing: not its usage, not that it connected."""
+    device_id = create(signed_in).json()["id"]  # on sg
+    node.counters[device_id] = (GB, GB)
+    node.handshakes = getattr(node, "handshakes", {})
+    original = node.usage
+    empty = {**original("node-sg"), "peers": []}
+    node.usage = lambda host: original(host) if host == "node-jp" else empty
+    worker.tick(db)
+    assert used(signed_in) == 0
+    assert db.execute("SELECT count(*) FROM device_counters").fetchone()[0] == 0
+    node.usage = original
+    worker.tick(db)
+    assert used(signed_in) == 2 * GB
+
+
 def test_unknown_peers_and_down_nodes_are_skipped(signed_in, node, db):
     node.peers["phone"] = {}
     node.counters["phone"] = (GB, GB)

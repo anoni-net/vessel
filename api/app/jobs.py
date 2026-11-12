@@ -267,6 +267,10 @@ def poll_usage(conn: psycopg.Connection) -> None:
                 ).fetchone()
                 if device is None:
                     continue  # peers created outside the portal, or already deleted here
+                if device[1] != region_id:
+                    # a node speaks for its own devices only: what it says of another region's would otherwise count
+                    # against that device's account, and slow it down
+                    continue
                 handshake = peer.get("latest_handshake", 0)
                 if device[1] == region_id and handshake >= day_start:
                     active += 1

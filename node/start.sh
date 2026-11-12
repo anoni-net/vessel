@@ -8,6 +8,10 @@ SUBNET=10.8.1.0/24
 SUBNET6=fd60:f74e:973c::
 NODE_IP=${NODE_IP:?NODE_IP is required}
 
+# Nothing is forwarded until the rules below say so: set before the tunnel comes up, so there is no moment in which
+# devices could reach each other or a private address.
+iptables -P FORWARD DROP
+ip6tables -P FORWARD DROP
 awg-quick up "$CONF"
 # extra resolver addresses: .1 none (from awg0.conf), .253 and .254 the filter resolver
 ip addr add 10.8.1.253/32 dev awg0
