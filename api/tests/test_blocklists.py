@@ -216,8 +216,26 @@ PSL = "// ===BEGIN ICANN DOMAINS===\ncom\nco.uk\n// ===END ICANN DOMAINS===\n// 
       + "".join(f"p{i}.example\n" for i in range(1000))
 
 
-def test_the_whole_cti_list_is_used_without_the_public_suffixes(monkeypatch):
+def test_only_the_names_on_a_hosting_platform_are_used_from_cti(monkeypatch):
+    cti = "".join(f"site{i}.pages.dev\n" for i in range(60000)) + "own-site.example\nshop.co.uk\npages.dev\n"
+    monkeypatch.setattr(blocklists, "SOURCES", {"cti": "https://lists.example/cti"})
+    monkeypatch.setattr(blocklists, "_platforms", frozenset())
+    _serve(monkeypatch, {blocklists.PUBLIC_SUFFIXES: PSL, "https://lists.example/cti": cti})
+    blocklists._download()
+    try:
+        assert blocklists.CTI_MAX_NAMES == 0
+        assert blocklists.blocked_by("site1.pages.dev") == {"cti": True}
+        assert blocklists.blocked_by("own-site.example") == {"cti": False}
+        assert blocklists.blocked_by("shop.co.uk") == {"cti": False}
+        assert blocklists.blocked_by("pages.dev") == {"cti": False}
+    finally:
+        blocklists.set_lists({}, at=None)
+        blocklists._loaded_at = None
+
+
+def test_the_whole_cti_list_is_used_without_the_public_suffixes_where_it_is_turned_on(monkeypatch):
     cti = "".join(f"site{i}.pages.dev\n" for i in range(60000)) + "own-site.example\nshop.co.uk\npages.dev\nco.uk\n"
+    monkeypatch.setattr(blocklists, "CTI_MAX_NAMES", 450_000)
     monkeypatch.setattr(blocklists, "SOURCES", {"cti": "https://lists.example/cti"})
     monkeypatch.setattr(blocklists, "_platforms", frozenset())
     _serve(monkeypatch, {blocklists.PUBLIC_SUFFIXES: PSL, "https://lists.example/cti": cti})

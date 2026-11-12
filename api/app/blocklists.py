@@ -42,16 +42,18 @@ SOURCES = {
     "twmoda": "https://www-api.moda.gov.tw/OpenData/Files/16352",
     # Echap's stalkerware indicators, a name a line (CC BY 4.0)
     "stalkerware": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
-    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only); the whole list up to CTI_MAX_NAMES, past
-    # that only the names on hosting platforms, as on the nodes
+    # DNSBunker's active malicious domains, a name a line (GPL-2.0-only); only those on hosting platforms are used,
+    # as on the nodes (CTI_MAX_NAMES)
     "cti": "https://raw.githubusercontent.com/DNSBunker/CTI/refs/heads/main/domains.txt",
     "ads": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/pro.txt",
 }
 # every name in this list is one that many sites share, which CTI never lists as a whole; its private section is the
-# hosting platforms, which a CTI list too long for the nodes is cut down to (deploy/rpz/lists.sh)
+# hosting platforms, which the CTI list is cut down to (deploy/rpz/lists.sh)
 PUBLIC_SUFFIXES = "https://raw.githubusercontent.com/publicsuffix/list/main/public_suffix_list.dat"
 MIN_PLATFORMS = 1000
-CTI_MAX_NAMES = 450_000
+# The same as lists.sh on the maintainers' host, so that a lookup says what the nodes do. 0: only CTI's names on hosting
+# platforms. A number: the whole list while it has no more names than this, and the hosting platforms past it.
+CTI_MAX_NAMES = 0
 REFRESH_SECONDS = 8 * 3600
 # the MODA server refuses Python's default User-Agent; every download says what it is
 USER_AGENT = "Vessel blocklist updater (+https://vessel.anoni.net/dns/)"
@@ -146,9 +148,9 @@ def parse_suffixes(text: str) -> frozenset[str]:
 
 
 def cti_names(names: frozenset[str], platforms: frozenset[str], suffixes: frozenset[str]) -> frozenset[str]:
-    """DNSBunker's list as the nodes load it: without the public suffixes, and whole while it fits a node's memory.
-    A longer list is cut down to the names on hosting platforms. A name under another listed one counts once, as on
-    the nodes, where the parent's wildcard already blocks it."""
+    """DNSBunker's list as the nodes load it: without the public suffixes, and only the names on hosting platforms
+    unless CTI_MAX_NAMES says how long a whole list may be. A name under another listed one counts once, as on the
+    nodes, where the parent's wildcard already blocks it."""
     names = names - suffixes
 
     def covered(name: str) -> bool:
