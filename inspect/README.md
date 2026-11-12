@@ -10,7 +10,7 @@
 |---|---|
 | `recv.py` | 接收節點的串流，切成 spool 檔案，寫完才改成正式檔名 |
 | `analyze.py` | 用 Zeek 分析封包、累計到每台裝置，封包隨即刪除，也負責更新名單、輸出結果與清除資料 |
-| `systemd/` | 接收服務與每 5 分鐘分析一次的計時器 |
+| `systemd/` | 接收服務、每 5 分鐘分析一次的計時器，以及每 6 小時更新名單的計時器 |
 
 節點端的 `node/host/vessel-inspect-stream.sh` 在容器的網路空間讀 NFLOG，由主機上的 `vessel-inspect-send.py` 開連線送出，走主機本來就有的 Tailscale。分析主機關閉連線、當機或斷網時，一分鐘內服務會結束並重新連線。節點的 `node.env` 沒有設定 `INSPECT_SINK` 時，服務不會做任何事。
 
@@ -30,6 +30,8 @@
 系統與私有網路的查詢不計入 DNS 的統計，也不比對名單：`.arpa`（反查、iOS 的 Bonjour 與 DDR）、`.local`、`.localdomain`、`.internal`、`.lan`、`.home`、`.invalid`、`.test`、`.onion`、Tailscale 的 `.ts.net`，以及沒有點的名稱。這些查詢跟裝置連往的網站無關，多半本來就查不到，名稱又會透露使用者自己的網路，留著只會把查無此網域的比例拉高。
 
 報告不列瀏覽紀錄，取得別人手機的人才不會藉此得知對方連了哪些網站。流量由封包表頭的長度計算，封包被截斷時仍然準確，Zeek 對 QUIC 的流量統計在截斷時會低估。
+
+分析只看 IPv4。節點不轉送通道裡的 IPv6（`node/README.md` 的「IPv6 一律拒絕」），裝置經過 Vessel 的連線都是 IPv4。
 
 入口網站取得的報告是用使用者瀏覽器產生的 X25519 公鑰加密的（`report --seal`），入口網站的資料庫存的只有密文。
 
@@ -56,11 +58,18 @@ printf 'VESSEL_INSPECT_LISTEN=<tailnet IP>:9400\nVESSEL_INSPECT_NODES=sg=<sg 節
 install -d -m 700 /var/lib/vessel-inspect
 python3 -I /opt/vessel-inspect-app/analyze.py update-lists
 cp inspect/systemd/* /etc/systemd/system/ && systemctl daemon-reload
-systemctl enable --now vessel-inspect-recv.service vessel-inspect-batch.timer
+systemctl enable --now vessel-inspect-recv.service vessel-inspect-batch.timer vessel-inspect-lists.timer
 
 # 節點：node.env 加上 INSPECT_SINK=<分析主機的 tailnet IP>:9400
 cp node/host/vessel-inspect-stream.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now vessel-inspect-stream.service
 ```
 
-名單用排程執行 `analyze.py update-lists` 更新，四份名單之外也下載跟蹤軟體的 App 名稱表（`lists/stalkerware-apps.csv`），下載失敗時保留上一份。沒有這份表時照常分析，只是報告不寫 App 名稱。
+## 名單的更新
+
+`vessel-inspect-lists.timer` 每 6 小時執行一次 `analyze.py update-lists`（UTC 05:40、11:40、17:40、23:40，各延後最多 10 分鐘），主機當時關機的話開機後補做。四份名單之外也下載跟蹤軟體的 App 名稱表（`lists/stalkerware-apps.csv`）。某一份下載失敗時保留上一份，其他照常更新，指令以失敗結束，`systemctl status vessel-inspect-lists.service` 看得到是哪一份。沒有 App 名稱表時照常分析，只是報告不寫 App 名稱。
+
+封包只跟分析當下的名單比對，分析完就刪除，名單停止更新的那段時間事後無法補比對。所以名單的時間有兩處看得到：
+
+- `status` 回報最舊一份名單的下載時間（`lists_at`，有名單還沒下載時是 `null`）。有裝置在檢測時，worker 把它記下來，`deploy/health_warn.py` 在超過 24 小時沒有更新時推播
+- 報告帶著產生當下的 `lists_at`，報告頁寫出名單更新的時間，超過一天時提醒這段期間新增的網站沒有比對到

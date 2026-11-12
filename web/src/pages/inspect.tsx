@@ -49,6 +49,11 @@ export interface Report {
   findings?: {
     severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[]; lists?: string[]; app?: string;
   }[];
+  /**
+   * When the oldest of the lists the device was compared with was downloaded (epoch seconds), as the report was made;
+   * absent from older reports, and null while a list was missing.
+   */
+  lists_at?: number | null;
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -686,6 +691,12 @@ export const TOP_ROWS = 3;
 /** At most this many sites of a kind: analyze.py's MAX_FINDINGS, and older reports, still stored, list all of theirs. */
 const MAX_LISTED = 30;
 
+/**
+ * Lists older than this when the report was made are said to be old: they are downloaded every 6 hours, and a capture is
+ * only ever compared with the lists of the moment it was analysed.
+ */
+export const LISTS_OLD_SECONDS = 86_400;
+
 /** The decades of bytes an hour's colours span, at most and at least: 3.5 is about 3,000 times between the ends. */
 const SCALE_MAX = 3.5;
 const SCALE_MIN = 2;
@@ -975,6 +986,8 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   // days still to come are left out
   const hourDays = week.days.filter((d) => !week.future(d));
   const coverage = report.coverage ?? { active_hours: 0, total_hours: 0 };
+  // against the last moment the report has data for: the report itself does not say when it was made
+  const listsOld = !!report.lists_at && (report.last ?? 0) - report.lists_at > LISTS_OLD_SECONDS;
 
   return (
     <div class="stack inspect-report" id="inspection-report" data-testid="inspect-report">
@@ -1188,6 +1201,11 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             );
           })}
         </ul>
+        {report.lists_at && (
+          <p class="muted small" data-testid="inspect-lists-at">
+            {join(fmt(t["inspect.report.listsAt"], { time: withDay(locale, new Date(report.lists_at * 1000).toISOString()) }), listsOld ? t["inspect.report.listsOld"] : "")}
+          </p>
+        )}
         <details class="small" data-testid="inspect-figures">
           <summary>{t["inspect.check.details"]}</summary>
           <dl class="spec spec--figures">

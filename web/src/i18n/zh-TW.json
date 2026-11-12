@@ -1225,6 +1225,8 @@
   "inspect.report.ads": "查詢廣告與追蹤服務的比例",
   "inspect.report.idle": "半夜的流量比例（台灣、香港時間凌晨 1 點到 6 點）",
   "inspect.report.limits": "報告只涵蓋檢測期間的連線。沒有發現問題，不代表裝置一定安全，符合名單也可能是誤判。我們無法分辨連線是哪個 App 發出的，也無法看到加密的內容。",
+  "inspect.report.listsAt": "比對用的名單更新於 {time}。",
+  "inspect.report.listsOld": "名單超過一天沒有更新，這段期間新增的可疑網站沒有比對到。",
   "inspect.why.stalkerware": "收錄已知跟蹤軟體回傳資料用的網站，一般瀏覽網頁很少連到，出現時請優先處理。",
   "inspect.why.malware": "收錄散布惡意程式、詐騙與釣魚的網站。瀏覽網頁時的廣告或轉址也可能連到，只出現一次多半是這個原因。",
   "inspect.why.cti": "收錄資安研究者回報的可疑網域，其中也有廣告、追蹤與短網址服務，誤判比較多。",

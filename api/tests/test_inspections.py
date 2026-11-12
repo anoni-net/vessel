@@ -1,4 +1,7 @@
 import datetime as dt
+import importlib.util
+import time
+from pathlib import Path
 
 import pytest
 from conftest import HEADERS, create, key, make_invite, needs_db
@@ -9,6 +12,9 @@ from app.main import app
 from app.nodes import NodeError, set_analysis
 
 pytestmark = needs_db
+spec = importlib.util.spec_from_file_location("health_warn", Path(__file__).parents[2] / "deploy" / "health_warn.py")
+health_warn = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(health_warn)
 SEALED = {"epk": "e", "iv": "i", "ct": "c"}
 
 
@@ -16,6 +22,7 @@ class FakeAnalysis:
     def __init__(self):
         self.cleared, self.down, self.reports, self.flushes, self.waiting = [], False, 0, 0, 0
         self.connected = ["sg"]
+        self.lists_at = int(time.time()) - 3600
         self.summaries: list[str] = []  # the keys each summary was sealed to
 
     def report(self, node, address, public_key):
@@ -38,7 +45,9 @@ class FakeAnalysis:
     def status(self):
         if self.down:
             raise NodeError("timeout")
-        return {"last_batch": 1, "waiting": self.waiting, "connected": self.connected}
+        status = {"last_batch": 1, "waiting": self.waiting, "connected": self.connected}
+        # an analysis host from before it said how old its lists are has no "lists_at" at all
+        return status if self.lists_at is False else {**status, "lists_at": self.lists_at}
 
     def flush(self):
         if self.down:
@@ -437,6 +446,36 @@ def test_health_says_how_long_ago_a_node_under_inspection_was_connected(client, 
     analysis.connected = ["sg"]
     worker.tick(db, usage=True)
     assert client.get("/internal/health").json()["stream_age"]["sg"] < 60
+
+
+def test_health_says_how_old_the_lists_are_while_something_is_inspected(client, signed_in, node, db, device, analysis):
+    assert client.get("/internal/health").json()["lists_age"] is None
+    confirm(signed_in, device, node, db)
+    worker.tick(db, usage=True)
+    data = client.get("/internal/health").json()
+    assert 3600 <= data["lists_age"] < 3700 and health_warn.evaluate(data)[0] == "ok"
+    analysis.lists_at = int(time.time()) - 2 * 86400
+    worker.tick(db, usage=True)
+    data = client.get("/internal/health").json()
+    assert data["lists_age"] >= 2 * 86400
+    state, lines = health_warn.evaluate(data)
+    assert state == "lists" and "48 小時" in lines[0]
+
+
+def test_a_list_that_was_never_downloaded_is_stale(client, signed_in, node, db, device, analysis):
+    analysis.lists_at = None
+    confirm(signed_in, device, node, db)
+    worker.tick(db, usage=True)
+    state, lines = health_warn.evaluate(client.get("/internal/health").json())
+    assert state == "lists" and "還沒下載過" in lines[0]
+
+
+def test_an_older_analysis_host_says_nothing_about_its_lists(client, signed_in, node, db, device, analysis):
+    analysis.lists_at = False
+    confirm(signed_in, device, node, db)
+    worker.tick(db, usage=True)
+    data = client.get("/internal/health").json()
+    assert data["lists_age"] is None and health_warn.evaluate(data)[0] == "ok"
 
 
 def test_nothing_happens_without_an_analysis_host(db, node):

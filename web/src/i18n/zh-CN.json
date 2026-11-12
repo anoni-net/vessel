@@ -1225,6 +1225,8 @@
   "inspect.report.ads": "查询广告与追踪服务的比例",
   "inspect.report.idle": "半夜的流量比例（北京时间凌晨 1 点到 6 点）",
   "inspect.report.limits": "报告只涵盖检测期间的连接。没有发现问题，不代表设备一定安全，符合名单也可能是误判。我们无法分辨连接是哪个 App 发出的，也无法看到加密的内容。",
+  "inspect.report.listsAt": "比对用的名单更新于 {time}。",
+  "inspect.report.listsOld": "名单超过一天没有更新，这段期间新增的可疑网站没有比对到。",
   "inspect.why.stalkerware": "收录已知跟踪软件回传数据用的网站，一般浏览网页很少连到，出现时请优先处理。",
   "inspect.why.malware": "收录散布恶意程序、诈骗与钓鱼的网站。浏览网页时的广告或跳转也可能连到，只出现一次多半是这个原因。",
   "inspect.why.cti": "收录安全研究者报告的可疑域名，其中也有广告、追踪与短链接服务，误判比较多。",

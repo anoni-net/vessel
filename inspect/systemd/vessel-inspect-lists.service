@@ -1,0 +1,9 @@
+[Unit]
+Description=Vessel inspection: download the lists the captures are compared with
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/vessel-inspect.env
+ExecStart=/usr/bin/python3 -I /opt/vessel-inspect-app/analyze.py update-lists

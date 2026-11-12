@@ -399,6 +399,7 @@ def report(node, address):
         "dns": {"total": dns["total"], "nx_share": dns["nx"] / dns["total"] if dns["total"] else 0,
                 "ads_share": dns["ads"] / dns["total"] if dns["total"] else 0},
         "idle_share": idle / total if total else 0,
+        "lists_at": lists_at(),
         "checks": checks, "findings": findings,
         "more": {kind: n - MAX_FINDINGS for kind, n in entries.items() if n > MAX_FINDINGS},
     }
@@ -440,20 +441,35 @@ def seal(payload: bytes, public_key: str, info: bytes = b"vessel-inspection-repo
             "ct": base64.b64encode(AESGCM(key).encrypt(iv, payload, None)).decode()}
 
 
+def list_files():
+    """Every file update-lists downloads, and where it comes from."""
+    return {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE}
+
+
+def lists_at():
+    """When the oldest of the lists was last downloaded, or None while one of them is missing. A capture is compared
+    with the lists as they are when it is analysed and then deleted, so a list that stopped updating is not made up for
+    later: the portal's health check warns about it, and a report says how old its lists were."""
+    paths = [HOME / "lists" / name for name in list_files()]
+    return min(int(p.stat().st_mtime) for p in paths) if all(p.exists() for p in paths) else None
+
+
 def status():
-    """For the portal's health check: when the analysis last ran, and how full the disk is."""
+    """For the portal's health check: when the analysis last ran, how full the disk is, and how old the lists are."""
     usage = shutil.disk_usage(HOME)
     stamp = HOME / "last-batch"
     connected = HOME / "connected"
     return {"last_batch": stamp.stat().st_mtime if stamp.exists() else None, "disk_used": usage.used / usage.total,
             "waiting": sum(1 for _ in (HOME / "spool").glob("*/*.pcap")),
-            "connected": connected.read_text().split() if connected.exists() else []}
+            "connected": connected.read_text().split() if connected.exists() else [],
+            "lists_at": lists_at()}
 
 
 def update_lists():
+    """Download the lists; a list that could not be downloaded keeps its previous copy. Returns the files that failed."""
     (HOME / "lists").mkdir(parents=True, exist_ok=True, mode=0o700)
-    downloads = {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE}
-    for name, url in downloads.items():
+    failed = []
+    for name, url in list_files().items():
         path = HOME / "lists" / name
         part = path.with_suffix(".part")
         try:
@@ -465,8 +481,10 @@ def update_lists():
             # the previous copy stays
             print(f"{name}: {e}", file=sys.stderr)
             part.unlink(missing_ok=True)
+            failed.append(name)
             continue
         os.replace(part, path)
+    return failed
 
 
 def purge(days):
@@ -495,7 +513,8 @@ def main():
     sub.add_parser("purge").add_argument("--days", type=int, required=True)
     args = parser.parse_args()
     if args.cmd == "update-lists":
-        update_lists()
+        # a failure shows in the timer's unit; the lists that did download are in place
+        sys.exit(1 if update_lists() else 0)
     elif args.cmd == "batch":
         batch()
     elif args.cmd == "report":

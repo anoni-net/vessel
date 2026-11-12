@@ -1225,6 +1225,8 @@
   "inspect.report.ads": "Lookups for ad and tracking services",
   "inspect.report.idle": "Traffic in the middle of the night (1 to 6 am, Taiwan and Hong Kong time)",
   "inspect.report.limits": "The report covers only the connections made during the inspection. Finding nothing does not prove a device is safe, and a match can be a false positive. We cannot tell which app made a connection, and cannot see encrypted content.",
+  "inspect.report.listsAt": "The lists it was compared with were last updated {time}.",
+  "inspect.report.listsOld": "They had not been updated for over a day, so suspicious sites added since then were not compared.",
   "inspect.why.stalkerware": "Sites that known stalkerware sends its data to. Ordinary browsing rarely reaches them, so deal with this first.",
   "inspect.why.malware": "Sites that spread malware, scams and phishing. Ads and redirects met while browsing can reach them too, which is the usual reason when one shows up only once.",
   "inspect.why.cti": "Suspicious domains reported by security researchers. Some are ad, tracking or link-shortening services, so false positives are more common.",

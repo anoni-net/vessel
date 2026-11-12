@@ -56,6 +56,7 @@ class Base(unittest.TestCase):
         (analyze.HOME / "lists" / "malware.txt").write_text("bad.example CNAME .\n")
         (analyze.HOME / "lists" / "cti.txt").write_text("evil.example\n")
         (analyze.HOME / "lists" / "ads.txt").write_text("ad.example CNAME .\n")
+        (analyze.HOME / "lists" / "stalkerware-apps.csv").write_text("type,indicator,app\n")
         self.lists = analyze.load_lists()
 
     def tearDown(self):
@@ -537,6 +538,48 @@ class Status(Base):
         self.assertIsNone(analyze.status()["last_batch"])
         analyze.batch()
         self.assertIsNotNone(analyze.status()["last_batch"])
+
+
+class ListAge(Base):
+    def age(self, name, seconds):
+        at = T0 - seconds
+        os.utime(analyze.HOME / "lists" / name, (at, at))
+
+    def test_the_lists_are_as_old_as_the_oldest_of_them(self):
+        for name in analyze.list_files():
+            self.age(name, 3600)
+        self.age("cti.txt", 3 * 86400)
+        self.assertEqual(analyze.lists_at(), T0 - 3 * 86400)
+        self.assertEqual(analyze.status()["lists_at"], T0 - 3 * 86400)
+
+    def test_a_missing_list_has_no_age(self):
+        (analyze.HOME / "lists" / "malware.txt").unlink()
+        self.assertIsNone(analyze.lists_at())
+
+    def test_a_report_says_how_old_its_lists_were(self):
+        for name in analyze.list_files():
+            self.age(name, 7200)
+        analyze.merge("n1", {}, logs(dns=[dns("ok.example")]), self.lists)
+        self.assertEqual(analyze.report("n1", "10.8.1.3")["lists_at"], T0 - 7200)
+
+    def test_a_failed_download_is_named_and_keeps_its_age(self):
+        for name in analyze.list_files():
+            self.age(name, 7200)
+
+        def urlopen(url, timeout):
+            if url == analyze.SOURCES["cti"]:
+                raise OSError("offline")
+            return io.BytesIO(b"0.0.0.0 tracker.example\n" * 60)
+
+        with mock.patch.object(analyze.urllib.request, "urlopen", side_effect=urlopen), mock.patch.object(analyze.sys, "stderr"):
+            self.assertEqual(analyze.update_lists(), ["cti.txt"])
+        self.assertEqual(analyze.lists_at(), T0 - 7200)
+
+    def test_the_command_fails_when_a_download_did(self):
+        with mock.patch.object(analyze, "update_lists", return_value=["cti.txt"]), \
+                mock.patch.object(analyze.sys, "argv", ["analyze.py", "update-lists"]), self.assertRaises(SystemExit) as stop:
+            analyze.main()
+        self.assertEqual(stop.exception.code, 1)
 
 
 class Batch(Base):

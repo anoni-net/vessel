@@ -640,6 +640,21 @@ test.describe("the report says what it comes to, and when each site was seen", (
     for (const c of await page.getByTestId("inspect-check").all()) await expect(c).toHaveAttribute("data-state", "ok");
   });
 
+  test("says when the lists it was compared with were updated, and when they were old", async ({ page }) => {
+    // the week's last data is 2026-11-07; lists downloaded an hour before it
+    const last = WEEK_REPORT.last;
+    await open(page, endedWith({ ...CLEAN_REPORT, lists_at: last - 3600 }));
+    await expect(page.getByTestId("inspect-lists-at")).toHaveText(/^比對用的名單更新於 11\/\d+ \d\d:\d\d。$/);
+    // two days old when the report was made: said, in the same line
+    await open(page, endedWith({ ...CLEAN_REPORT, lists_at: last - 2 * 86_400 }));
+    await expect(page.getByTestId("inspect-lists-at")).toContainText("名單超過一天沒有更新，這段期間新增的可疑網站沒有比對到。");
+    // a report from before it said so, or made while a list was missing, has no line
+    await open(page, endedWith(CLEAN_REPORT));
+    await expect(page.getByTestId("inspect-lists-at")).toHaveCount(0);
+    await open(page, endedWith({ ...CLEAN_REPORT, lists_at: null }));
+    await expect(page.getByTestId("inspect-lists-at")).toHaveCount(0);
+  });
+
   test("a report from before the hours were added says what and how much, and draws no times", async ({ page }) => {
     await open(page, endedWith(FULL_REPORT));
     await expect(verdict(page)).toHaveAttribute("data-state", "threat");

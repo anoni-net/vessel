@@ -4,7 +4,7 @@
 2026-10-27 worker 跟資料庫的連線斷了，一直拿斷掉的連線重試，一個多小時沒有讀到任何用量，
 容器與 API 都是健康的，直到使用者發現用量一直是 0。這支腳本從 cron 定時讀後端的
 /internal/health，worker 太久沒有完成一輪、某個節點的用量太久沒有讀到、某個節點的網站自測
-太久沒有更新、有工作卡住，或後端沒有回應時，推播到 ntfy。
+太久沒有更新、有工作卡住、檢測用的名單超過一天沒有更新，或後端沒有回應時，推播到 ntfy。
 
 只在狀態改變時推播：開始出問題推一次、問題的組合有變化推一次、恢復再推一次。
 上一次的狀態記在 VESSEL_HEALTH_STATE。做法跟 Pulse 的 tools/freshness_warn.py 相同。
@@ -82,6 +82,8 @@ USAGE_STALE = 20 * 60
 # the nodes check common sites every hour (node/host/vessel-reach.py); three hours without a check means the timer stopped
 REACH_STALE = 3 * 3600
 STREAM_STALE = 900  # 秒，worker 每 5 分鐘確認一次，節點斷線後 15 秒內會重連
+# 分析主機每 6 小時下載一次比對用的名單（inspect/systemd/vessel-inspect-lists.timer），一天沒有更新代表連續失敗
+LISTS_STALE = 24 * 3600
 
 
 def evaluate(data: dict) -> tuple[str, list[str]]:
@@ -103,6 +105,12 @@ def evaluate(data: dict) -> tuple[str, list[str]]:
     if analysis is not None and analysis > 1800:
         problems.append("analysis")
         lines.append(f"- 分析主機超過 {analysis // 60} 分鐘沒有回應，檢測中的裝置這段時間沒有資料")
+    lists = data.get("lists_age")
+    if lists is not None and lists > LISTS_STALE:
+        problems.append("lists")
+        # a list that was never downloaded is recorded as 1970
+        how = "有名單還沒下載過" if lists > 20 * 365 * 86400 else f"最舊的一份 {lists // 3600} 小時沒有更新"
+        lines.append(f"- 分析主機比對用的名單：{how}，檢測中的裝置是跟舊名單比對的")
     for region, age in sorted(data.get("stream_age", {}).items()):
         if age is None or age > STREAM_STALE:
             problems.append(f"stream:{region}")
@@ -130,6 +138,8 @@ def check(data: dict | str) -> tuple[str, str]:
         return state, "worker、各節點的用量讀取與網站自測都正常。"
     if "worker" in state:
         hint = "worker 停了或連不上資料庫：sudo docker compose logs --tail 50 worker，必要時 restart worker。"
+    elif state == "lists":
+        hint = "在分析主機上看 systemctl status vessel-inspect-lists.timer vessel-inspect-lists.service，手動更新用 analyze.py update-lists。"
     elif "usage:" in state or "jobs" in state:
         hint = "worker 正常但連不上節點：從 m6 經 tailnet 連節點，看 awgctl list 與 worker 的 log。"
     else:
