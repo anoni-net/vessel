@@ -329,7 +329,23 @@ export interface NewDevice {
   relay?: string;
 }
 
+/** /pickup/: whether a request can be made now, and the form's choices (app/pickups.py) */
+export interface PickupInfo {
+  open: boolean;
+  purposes: string[];
+  networks: string[];
+  note_max: number;
+}
+
+export type PickupState = "waiting" | "approved" | "declined" | "used" | "unknown";
+
 export const api = {
+  pickupInfo: () => call<PickupInfo>("GET", "/pickup").then((r) => r.data),
+  askPickup: (purpose: string, network: string, note: string) =>
+    call<{ number: string }>("POST", "/pickup", { purpose, network, note }).then((r) => r.data),
+  /** `until` is the last day an approved number can be redeemed */
+  pickupStatus: (number: string) =>
+    call<{ state: PickupState; until: string | null }>("POST", "/pickup/status", { number }).then((r) => r.data),
   redeem: (code: string) => call<{ account_number: string; group_role?: string | null }>("POST", "/redeem", { code }).then((r) => r.data),
   login: (accountNumber: string) => call("POST", "/login", { account_number: accountNumber }),
   logout: () => call("POST", "/logout"),

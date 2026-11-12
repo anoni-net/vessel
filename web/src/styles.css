@@ -772,6 +772,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .faq__item[open] summary::after { content: "−" / ""; }
 .faq__item p { margin: 0; padding: 0 18px 16px; }
 .faq__more { margin: 20px 0 0; }
+/* /pickup/: a number saved earlier, under the form; the forget link sits apart from the actions */
+.pickup-lookup { margin-top: 16px; }
+.pickup-lookup form { padding: 0 18px 18px; }
+.pickup-forget { align-self: flex-start; }
 /* the connection cross-section beside the home page's questions, only where there is room for it */
 .faq-art { display: none; }
 @media (min-width: 1100px) {
