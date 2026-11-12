@@ -16,10 +16,11 @@ import { focusHeading } from "../focus.ts";
 import { announce } from "../announce.ts";
 import { passkeysSupported } from "../passkey.ts";
 import { useReverify } from "./reverify.tsx";
+import { Icon } from "../icons.tsx";
 
 /** Links shown on the signed-in pages. `leader`: the account leads a group, so its page is among them. */
 export function AccountNav({ leader = false }: { leader?: boolean }) {
-  const { t, href } = useCtx();
+  const { t, href, path } = useCtx();
   const [leaving, setLeaving] = useState(false);
   const [failed, setFailed] = useState(false);
   const logout = async () => {
@@ -46,16 +47,24 @@ export function AccountNav({ leader = false }: { leader?: boolean }) {
     setSignedIn(false);
     navigate(href("/"));
   };
+  // the page shown is marked, for the eye and for screen readers; adding or inspecting a device is under the devices
+  const link = (to: string, label: string, under = false) => {
+    const current = under ? path.startsWith(to) : path === to;
+    return <a href={href(to)} class={current ? "is-current" : undefined} aria-current={current ? "page" : undefined}>{label}</a>;
+  };
   return (
     <>
-      <nav class="subnav" aria-label={t["nav.account"]}>
-        <a href={href("/devices/")}>{t["nav.devices"]}</a>
-        <a href={href("/account/")}>{t["nav.account"]}</a>
-        {(leader || last.me?.group?.role === "leader") && <a href={href("/group/")}>{t["nav.group"]}</a>}
-        <button class="link-button" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
-          {leaving ? <><Spin />{t["busy.logout"]}</> : t["nav.logout"]}
+      {/* the pages on the left, as tabs over a line; signing out, an action and not a page, apart on the right */}
+      <div class="account-bar">
+        <nav class="subnav" aria-label={t["nav.account"]}>
+          {link("/devices/", t["nav.devices"], true)}
+          {link("/account/", t["nav.account"])}
+          {(leader || last.me?.group?.role === "leader") && link("/group/", t["nav.group"])}
+        </nav>
+        <button class="link-button account-bar__logout" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
+          {leaving ? <Spin /> : <Icon name="logout" />}{t[leaving ? "busy.logout" : "nav.logout"]}
         </button>
-      </nav>
+      </div>
       {failed && <p class="error" role="alert">{t["nav.logoutFailed"]}</p>}
     </>
   );

@@ -454,8 +454,13 @@ test("signed-in pages keep their shape while loading and reuse what they saw", a
   await expect(page.getByTestId("device-list").getByText("phone")).toBeVisible();
   await expect(main.locator(".sk")).toHaveCount(0);
 
+  // the page shown is the one marked, and signing out sits apart from the pages
+  await expect(page.locator(".subnav").getByRole("link", { name: "我的裝置" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".subnav").getByRole("button")).toHaveCount(0);
   await page.locator(".subnav").getByRole("link", { name: "帳號" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("帳號");
+  await expect(page.locator(".subnav").getByRole("link", { name: "帳號" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".subnav").getByRole("link", { name: "我的裝置" })).not.toHaveAttribute("aria-current");
   await expect(page.locator(".facts dd").first()).not.toBeEmpty();
   await page.locator(".subnav").getByRole("link", { name: "我的裝置" }).click();
   await expect(page.getByTestId("device-list").getByText("laptop")).toBeVisible();

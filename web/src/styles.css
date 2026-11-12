@@ -673,7 +673,17 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .region-map--live .region-map__line { animation: region-map-flow 1.2s linear 4; }
 }
 @keyframes region-map-flow { to { stroke-dashoffset: -14; } }
-.subnav { display: flex; flex-wrap: wrap; gap: 4px 20px; font-weight: 700; align-items: center; }
+/* the signed-in pages: their links as tabs over a line, the page shown underlined in ink; signing out apart on the right */
+.account-bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0 16px;
+  border-bottom: 1px solid var(--line); }
+.subnav { display: flex; flex-wrap: wrap; gap: 0 24px; font-weight: 700; }
+.subnav a { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: -1px; border-bottom: 3px solid transparent;
+  color: var(--muted); text-decoration: none; }
+.subnav a:hover { color: var(--ink); border-bottom-color: var(--line); }
+.subnav a.is-current { color: var(--ink); border-bottom-color: var(--ink); }
+.account-bar__logout { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; font-weight: 600;
+  text-decoration: none; }
+.account-bar__logout:hover { color: var(--ink); text-decoration: underline; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
 .facts dt { font-weight: 700; color: var(--ink); }
 .facts dd { margin: 0; }
@@ -1160,7 +1170,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
    the top with the days beside it, the sites the full width, then the hours beside the checks. */
 @media (min-width: 960px) {
   .inspect-page { max-width: 1120px; }
-  .inspect-page > :not(nav, h1, .inspect-wide), .inspect-wide:not(.inspect-pair, .inspect-report) > :not(.inspect-wide, .inspect-report) { max-width: 520px; }
+  .inspect-page > :not(nav, h1, .account-bar, .inspect-wide), .inspect-wide:not(.inspect-pair, .inspect-report) > :not(.inspect-wide, .inspect-report) { max-width: 520px; }
   .inspect-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
   /* the key beside the link is a short card: as tall as it is, not as the one with the QR code */
   .inspect-pair--top { align-items: start; }
