@@ -51,6 +51,18 @@ SOURCES = {
 # stalkerware hit, with where it comes from (toomore/anoni-net-ws#480)
 APPS = "stalkerware-apps"
 APPS_SOURCE = "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/network.csv"
+# Encrypted DNS servers (DoH, DoT, DoQ), by name and by address, from HaGeZi's list of them: a browser's "secure DNS"
+# or an app with its own resolver reaches these over port 443, where it looks like any other HTTPS. Its lookups go
+# around the node's resolver as the ones to port 53 and 853 do, so they are counted with them.
+DOH = "doh"
+DOH_SOURCES = {
+    "doh.txt": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/doh.txt",
+    "doh-ips.txt": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/ips/doh.txt",
+}
+# Apple's own resolvers and iCloud Private Relay are on that list too. An iPhone reaches them by itself: nothing the
+# person or an app set up, and nothing to look for in the settings, so they are left out. 17.0.0.0/8 is Apple's.
+DOH_SYSTEM = ("apple.com", "aaplimg.com", "icloud.com")
+DOH_SYSTEM_ADDRESSES = "17."
 # One visit to a site looks a listed name up as A, AAAA and HTTPS, and then connects with SNI: a hit seen again this
 # soon after it was last counted is the same visit (toomore/anoni-net-ws#480)
 VISIT_SECONDS = 60
@@ -91,7 +103,25 @@ def load_lists():
                     names.add(name)
         lists[kind] = names - excluded
     lists[APPS] = load_apps()
+    lists[DOH], lists[DOH + "_ips"] = load_doh()
     return lists
+
+
+def load_doh():
+    """The names and the addresses of encrypted DNS servers; empty where they have not been downloaded."""
+    names, addresses = set(), set()
+    path = HOME / "lists" / "doh.txt"
+    if path.exists():
+        for parts in words(path):
+            name = clean(parts[0])
+            if name and not any(name == s or name.endswith("." + s) for s in DOH_SYSTEM):
+                names.add(name)
+    path = HOME / "lists" / "doh-ips.txt"
+    if path.exists():
+        for parts in words(path):
+            if parts[0].count(".") == 3 and parts[0].replace(".", "").isdigit() and not parts[0].startswith(DOH_SYSTEM_ADDRESSES):
+                addresses.add(parts[0])
+    return names, addresses
 
 
 def load_apps():
@@ -315,6 +345,11 @@ def merge(node, totals, logs, lists):
         hit["hours"] = sorted(set(hit["hours"]) | {hour_of(ts)})
         mark(state, ts, "x" if kind in THREAT else "!")
 
+    def bypassed(row):
+        state = get(row["id.orig_h"])
+        state["bypass"] += 1
+        mark(state, row["ts"], "!")
+
     def ours(row):
         return row.get("id.orig_h", "").startswith(SUBNET) and row.get("id.orig_h") not in RESOLVERS
 
@@ -338,10 +373,20 @@ def merge(node, totals, logs, lists):
         if listed(name, lists["ads"]):
             state["dns"]["ads"] += 1
         note_hit(row, name, "DNS")
+    # connections to an encrypted DNS server: by the name the connection asks for, once each
+    around = set()
+    named = set()
     for log, field, how in (("ssl", "server_name", "SNI"), ("quic", "server_name", "SNI"), ("http", "host", "HTTP")):
         for row in logs[log]:
             if ours(row) and row.get(field):
                 note_hit(row, row[field].lower(), how)
+                if how == "SNI":
+                    # Zeek's id for the connection, the same in its conn log
+                    uid = row.get("uid") or object()
+                    named.add(uid)
+                    if listed(row[field].lower(), lists.get(DOH, ())) and uid not in around:
+                        around.add(uid)
+                        bypassed(row)
     # sorted() keeps DNS ahead of SNI and HTTP at the same moment, so a visit's first row names how it was seen
     for candidate in sorted(candidates, key=lambda c: c[0]):
         count_hit(*candidate)
@@ -351,8 +396,10 @@ def merge(node, totals, logs, lists):
         state = get(row["id.orig_h"])
         seen(state, row["ts"])
         if row.get("id.resp_p") in (53, 853) and row.get("id.resp_h") not in RESOLVERS:
-            state["bypass"] += 1
-            mark(state, row["ts"], "!")
+            bypassed(row)
+        # or by its address, where the connection gave no name: an address with a name may be a site next to the server
+        elif row.get("id.resp_p") == 443 and row.get("id.resp_h") in lists.get(DOH + "_ips", ()) and row.get("uid") not in named:
+            bypassed(row)
     for state in states.values():
         save_state(state)
 
@@ -454,7 +501,7 @@ def seal(payload: bytes, public_key: str, info: bytes = b"vessel-inspection-repo
 
 def list_files():
     """Every file update-lists downloads, and where it comes from."""
-    return {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE}
+    return {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE, **DOH_SOURCES}
 
 
 def lists_at():

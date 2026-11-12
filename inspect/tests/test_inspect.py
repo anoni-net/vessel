@@ -60,6 +60,10 @@ class Base(unittest.TestCase):
         (analyze.HOME / "lists" / "cti.txt").write_text("evil.example\n")
         (analyze.HOME / "lists" / "ads.txt").write_text("ad.example CNAME .\n")
         (analyze.HOME / "lists" / "stalkerware-apps.csv").write_text("type,indicator,app\n")
+        (analyze.HOME / "lists" / "doh.txt").write_text(
+            "$TTL 3600\n@ SOA localhost. root.localhost. 1 2 3 4 5\n  NS  localhost.\n; a comment\n"
+            "doh.example CNAME .\n*.doh.example CNAME .\ndoh.dns.apple.com CNAME .\nmask.icloud.com CNAME .\n")
+        (analyze.HOME / "lists" / "doh-ips.txt").write_text("# a comment\n192.0.2.53\n17.132.82.11\n2001:db8::53\n")
         self.lists = analyze.load_lists()
 
     def tearDown(self):
@@ -131,6 +135,45 @@ class Checks(Base):
                 {"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "10.8.1.1", "id.resp_p": 53}]
         r = self.run_one(conn=conn)
         self.assertEqual([c["count"] for c in r["checks"] if c["id"] == "bypass_dns"], [1])
+
+    def bypasses(self, **kw):
+        return next(c["count"] for c in self.run_one(**kw)["checks"] if c["id"] == "bypass_dns")
+
+    def test_a_connection_to_an_encrypted_dns_server_is_a_bypass_once(self):
+        tls = {"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 443, "server_name": "dns.doh.example"}
+        conn = [{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 443}]
+        # by its name, and not again by its address or for the same connection seen twice
+        self.assertEqual(self.bypasses(ssl=[tls], quic=[tls], conn=conn), 1)
+
+    def test_it_marks_the_hour_and_names_no_site(self):
+        tls = {"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}
+        r = self.run_one(ssl=[tls])
+        self.assertEqual(r["findings"], [{"severity": "check", "kind": "bypass_dns", "count": 1}])
+        self.assertNotIn("doh.example", json.dumps(r) + (analyze.HOME / "state" / "n1" / "10.8.1.3.json").read_text())
+
+    def test_an_address_of_one_counts_only_without_a_name(self):
+        conn = [{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 443},
+                {"ts": T0, "uid": "C2", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 443},
+                {"ts": T0, "uid": "C3", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 8443},
+                {"ts": T0, "uid": "C4", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.54", "id.resp_p": 443}]
+        # C2 asked for a site that shares the address; C3 is another port, C4 another address
+        site = {"ts": T0, "uid": "C2", "id.orig_h": "10.8.1.3", "server_name": "blog.example"}
+        self.assertEqual(self.bypasses(conn=conn, ssl=[site]), 1)
+
+    def test_apples_own_resolvers_and_private_relay_are_not_a_bypass(self):
+        rows = [{"ts": T0, "uid": f"C{i}", "id.orig_h": "10.8.1.3", "server_name": name}
+                for i, name in enumerate(["doh.dns.apple.com", "mask.icloud.com", "a.mask.icloud.com"])]
+        conn = [{"ts": T0, "uid": "C9", "id.orig_h": "10.8.1.3", "id.resp_h": "17.132.82.11", "id.resp_p": 443}]
+        self.assertEqual(self.bypasses(ssl=rows, conn=conn), 0)
+
+    def test_without_the_list_of_servers_only_the_dns_ports_count(self):
+        (analyze.HOME / "lists" / "doh.txt").unlink()
+        (analyze.HOME / "lists" / "doh-ips.txt").unlink()
+        self.lists = analyze.load_lists()
+        tls = {"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}
+        conn = [{"ts": T0, "uid": "C2", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 443},
+                {"ts": T0, "uid": "C3", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 853}]
+        self.assertEqual(self.bypasses(ssl=[tls], conn=conn), 1)
 
     def test_a_name_the_nodes_lists_stopped_is_not_a_name_that_does_not_exist(self):
         rows = [dns("blocked.example", rcode="NXDOMAIN"), dns("gone.example", rcode="NXDOMAIN"), dns("a.example")]
