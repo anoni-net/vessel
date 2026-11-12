@@ -1270,6 +1270,7 @@
   "inspect.cover.tableDay": "Date",
   "inspect.cover.tableHours": "Hours with connections",
   "inspect.hits.note": "One row per site, one square per day. The darker the square, the more hours the site was seen in that day.",
+  "inspect.hits.noName": "No site name is kept",
   "inspect.hits.once": "Seen in 1 hour only",
   "inspect.hits.oneDay": "Seen on 1 day only, in {slots} hours",
   "inspect.hits.days": "Seen on {days} of the {total} days with connections, in {slots} hours",

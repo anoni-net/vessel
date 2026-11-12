@@ -97,6 +97,18 @@ export const THREAT_REPORT = {
 /** The same week with nothing found. */
 export const CLEAN_REPORT = { ...WEEK_REPORT, hours: traffic(weekHours), checks: WEEK_REPORT.checks.map((c) => ({ ...c, count: 0 })), findings: [], more: {} };
 
+/**
+ * The week with nothing on the lists, but lookups that went around Vessel on two days, in the format analyze.py writes
+ * since 2026-11-13: their hours and when last, and no name.
+ */
+const bypassHours = ["2026-11-02T03", "2026-11-02T04", "2026-11-06T09"];
+export const BYPASS_REPORT = {
+  ...CLEAN_REPORT,
+  hours: traffic(weekHours, Object.fromEntries(bypassHours.map((h) => [h, "!"]))),
+  checks: CLEAN_REPORT.checks.map((c) => (c.id === "bypass_dns" ? { ...c, count: 12 } : c)),
+  findings: [{ severity: "check", kind: "bypass_dns", count: 12, hours: bypassHours, last: epoch("2026-11-06T09", 21) }],
+};
+
 /** More sites of one kind than the page draws before folding the rest away. */
 export const MANY_REPORT = {
   ...WEEK_REPORT,

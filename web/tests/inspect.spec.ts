@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  BYPASS_REPORT, CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -630,6 +630,25 @@ test.describe("the report says what it comes to, and when each site was seen", (
     expect(at!.y).toBeLessThan(kinds!.y);
     await expect(page.getByTestId("inspect-check").first()).toHaveAttribute("data-state", "threat");
     await expect(page.getByTestId("inspect-check").last()).toHaveText("有些查詢沒有經過 Vessel");
+  });
+
+  test("lookups around Vessel are drawn by day like a site, with no name, and the key and the table say them too", async ({ page }) => {
+    await open(page, endedWith(BYPASS_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-reason")).toHaveText("有 12 次查詢沒有經過 Vessel，可能是裝置、瀏覽器或 App 指定了其他 DNS 伺服器。");
+    const row = page.getByTestId("inspect-bypass-row");
+    await expect(row.locator(".hit-row__name")).toHaveText("不記錄網站名稱");
+    // a square a day of the week, the two days with them filled
+    await expect(row.locator(".hit")).toHaveCount(8);
+    await expect(row.locator(".hit--1, .hit--2")).toHaveCount(2);
+    await expect(row.getByTestId("inspect-hit-words")).toHaveText("有連線的 6 天中 2 天出現，共 3 個時段 · 最後一次在 11/06 17:21");
+    await expect(page.getByTestId("inspect-hits-legend")).toBeVisible();
+    const table = page.getByTestId("inspect-hits-table");
+    await expect(table.locator("th[scope=colgroup]")).toHaveText(["沒有經過 Vessel 查詢網站"]);
+    await expect(table.locator("tbody tr").nth(1).locator("td").first()).toHaveText("不記錄網站名稱");
+    // a report from before the hours were kept: the count alone, as it was
+    await open(page, endedWith(THREAT_REPORT));
+    await expect(page.getByTestId("inspect-bypass-row")).toHaveCount(0);
   });
 
   test("nothing found: said first, and every check passed", async ({ page }) => {

@@ -150,8 +150,23 @@ class Checks(Base):
     def test_it_marks_the_hour_and_names_no_site(self):
         tls = {"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}
         r = self.run_one(ssl=[tls])
-        self.assertEqual(r["findings"], [{"severity": "check", "kind": "bypass_dns", "count": 1}])
+        self.assertEqual(r["findings"], [{"severity": "check", "kind": "bypass_dns", "count": 1, "hours": [analyze.hour_of(T0)], "last": T0}])
+        self.assertEqual(r["hours"][0]["mark"], "!")
         self.assertNotIn("doh.example", json.dumps(r) + (analyze.HOME / "state" / "n1" / "10.8.1.3.json").read_text())
+
+    def test_the_hours_of_lookups_around_vessel_are_not_in_a_leaders_summary(self):
+        self.run_one(ssl=[{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}])
+        s = analyze.summary("n1", "10.8.1.3")
+        self.assertEqual(s["kinds"], [{"kind": "bypass_dns", "severity": "check"}])
+        self.assertNotIn(analyze.hour_of(T0), json.dumps(s))
+
+    def test_a_state_from_before_the_hours_of_lookups_around_vessel_counts_them_without_hours(self):
+        self.run_one(ssl=[{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}])
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        del old["bypass_hours"], old["bypass_last"]
+        path.write_text(json.dumps(old))
+        self.assertEqual(analyze.report("n1", "10.8.1.3")["findings"], [{"severity": "check", "kind": "bypass_dns", "count": 1}])
 
     def test_an_address_of_one_counts_only_without_a_name(self):
         conn = [{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 443},
@@ -264,7 +279,7 @@ class Visits(Base):
     def test_a_finding_has_exactly_the_reported_fields(self):
         r = self.merge_one(dns=[dns("api.tracker.example")], conn=[{"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "8.8.8.8", "id.resp_p": 53}])
         self.assertEqual(set(self.hit(r)), {"severity", "kind", "name", "how", "count", "first", "last", "hours", "lists"})
-        self.assertEqual(r["findings"][-1], {"severity": "check", "kind": "bypass_dns", "count": 1})
+        self.assertEqual(r["findings"][-1], {"severity": "check", "kind": "bypass_dns", "count": 1, "hours": [analyze.hour_of(T0)], "last": T0})
 
     def test_an_older_state_file_still_loads(self):
         hour = analyze.hour_of(T0)
@@ -342,7 +357,7 @@ class HitLists(Base):
         conn = [{"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "8.8.8.8", "id.resp_p": 53}]
         analyze.merge("n1", {}, logs(conn=conn, dns=[dns("evil.example")]), self.lists)
         bypass = analyze.report("n1", "10.8.1.3")["findings"][-1]
-        self.assertEqual(bypass, {"severity": "check", "kind": "bypass_dns", "count": 1})
+        self.assertEqual(bypass, {"severity": "check", "kind": "bypass_dns", "count": 1, "hours": [analyze.hour_of(T0)], "last": T0})
 
     def test_an_ad_name_alone_is_not_a_finding(self):
         self.assertEqual(self.report({"dns": [dns("ad.example")]}), {})

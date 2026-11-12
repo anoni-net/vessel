@@ -10,7 +10,7 @@
   analyze.py purge --days D
 
 What is kept for a device: traffic per hour, DNS totals, and the list entries it hit (names, and the server addresses
-a list knows) with the hours they came up in.
+a list knows) with the hours they came up in, and how often and in which hours its lookups went around Vessel.
 The sites it visited are not kept, nor the names that did not exist: a report that lists them would be a tool for
 whoever holds someone else's phone (#461)."""
 
@@ -318,10 +318,13 @@ def load_state(node, address):
     path = state_path(node, address)
     if not path.exists():
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
-                "hits": {}, "bypass": 0, "first": None, "last": None}
+                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
     state.pop("nx_names", None)
+    # an older state counted the lookups around Vessel without their hours; they start from the next capture
+    state.setdefault("bypass_hours", [])
+    state.setdefault("bypass_last", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -385,6 +388,9 @@ def merge(node, totals, logs, lists):
     def bypassed(row):
         state = get(row["id.orig_h"])
         state["bypass"] += 1
+        # the hours are the ones already marked on the device's hours: kept apart, they are drawn by day like a site's
+        state["bypass_hours"] = sorted(set(state["bypass_hours"]) | {hour_of(row["ts"])})
+        state["bypass_last"] = max(state["bypass_last"] or 0, row["ts"])
         mark(state, row["ts"], "!")
 
     def ours(row):
@@ -495,7 +501,8 @@ def report(node, address):
                              **{k: hit[k] for k in ("kind", "name", "how", "count", "first", "last", "hours", "lists")},
                              **({"app": hit["app"]} if hit.get("app") else {})})
     if state["bypass"]:
-        findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"]})
+        findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"],
+                         **({"hours": state["bypass_hours"], "last": state["bypass_last"]} if state["bypass_hours"] else {})})
     checks = [{"id": kind, "count": found[kind]} for kind in FLAGGED] + [{"id": "bypass_dns", "count": state["bypass"]}]
     return {
         "node": node, "address": address, "first": state["first"], "last": state["last"], "hours": hours,
