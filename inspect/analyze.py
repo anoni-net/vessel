@@ -9,7 +9,8 @@
   analyze.py clear --node N --address A
   analyze.py purge --days D
 
-What is kept for a device: traffic per hour, DNS totals, and the list entries it hit with the hours they came up in.
+What is kept for a device: traffic per hour, DNS totals, and the list entries it hit (names, and the server addresses
+a list knows) with the hours they came up in.
 The sites it visited are not kept, nor the names that did not exist: a report that lists them would be a tool for
 whoever holds someone else's phone (#461)."""
 
@@ -63,6 +64,7 @@ DOH_SOURCES = {
 # person or an app set up, and nothing to look for in the settings, so they are left out. 17.0.0.0/8 is Apple's.
 DOH_SYSTEM = ("apple.com", "aaplimg.com", "icloud.com")
 DOH_SYSTEM_ADDRESSES = "17."
+ADDRESSES = "addresses"
 # One visit to a site looks a listed name up as A, AAAA and HTTPS, and then connects with SNI: a hit seen again this
 # soon after it was last counted is the same visit (toomore/anoni-net-ws#480)
 VISIT_SECONDS = 60
@@ -102,7 +104,9 @@ def load_lists():
                 if name:
                     names.add(name)
         lists[kind] = names - excluded
-    lists[APPS] = load_apps()
+    lists[APPS], addresses = load_table(APPS)
+    # the servers a list knows by address alone, by kind: a device that reaches one without looking a name up
+    lists[ADDRESSES] = {"stalkerware": addresses}
     lists[DOH], lists[DOH + "_ips"] = load_doh()
     return lists
 
@@ -126,16 +130,36 @@ def load_doh():
 
 def load_apps():
     """Domain to stalkerware name, from Echap's network.csv; empty where it has not been downloaded."""
-    path = HOME / "lists" / f"{APPS}.csv"
-    apps = {}
+    return load_table(APPS)[0]
+
+
+def address(word):
+    """An IPv4 address on the internet as it is written in a list, or None: a range, a private address or anything
+    else is not one. A list that named a private address would match a home router."""
+    parts = word.strip().split(".")
+    if len(parts) != 4 or not all(p.isdigit() and len(p) <= 3 and int(p) <= 255 for p in parts):
+        return None
+    a, b = int(parts[0]), int(parts[1])
+    private = a in (0, 10, 127) or a >= 224 or (a == 100 and 64 <= b <= 127) or (a == 169 and b == 254) \
+        or (a == 172 and 16 <= b <= 31) or (a == 192 and b == 168)
+    return None if private else ".".join(str(int(p)) for p in parts)
+
+
+def load_table(name):
+    """(domain to name, address to name) from a `type,indicator,app` table like Echap's network.csv: the names a
+    report gives its hits, and the server addresses the list knows, which no file of names has. An address without
+    a name is kept with None."""
+    path = HOME / "lists" / f"{name}.csv"
+    names, addresses = {}, {}
     if path.exists():
         with open(path, encoding="utf-8", errors="replace", newline="") as f:
             for row in csv.DictReader(f):
-                name = clean(row.get("indicator") or "")
                 app = (row.get("app") or "").strip()
-                if row.get("type") == "domain" and name and app:
-                    apps.setdefault(name, app)
-    return apps
+                if row.get("type") == "domain" and (domain := clean(row.get("indicator") or "")) and app:
+                    names.setdefault(domain, app)
+                elif row.get("type") == "ipv4" and (ip := address(row.get("indicator") or "")):
+                    addresses.setdefault(ip, app or None)
+    return names, addresses
 
 
 def app_of(name, apps):
@@ -387,6 +411,18 @@ def merge(node, totals, logs, lists):
                     if listed(row[field].lower(), lists.get(DOH, ())) and uid not in around:
                         around.add(uid)
                         bypassed(row)
+    # A server a list knows by its address. A device that looked up a listed name and then connected has the name's
+    # hit already: the address is the same visit, and is not listed as a second site.
+    by_name = collections.defaultdict(list)
+    for ts, device, kind, *_ in candidates:
+        by_name[(device, kind)].append(ts)
+    for row in logs["conn"]:
+        if not ours(row):
+            continue
+        for kind, addresses in lists.get(ADDRESSES, {}).items():
+            ip = row.get("id.resp_h")
+            if ip in addresses and not any(abs(row["ts"] - ts) < VISIT_SECONDS for ts in by_name[(row["id.orig_h"], kind)]):
+                candidates.append((row["ts"], row["id.orig_h"], kind, ip, "IP", {kind}, addresses[ip] if kind == "stalkerware" else None))
     # sorted() keeps DNS ahead of SNI and HTTP at the same moment, so a visit's first row names how it was seen
     for candidate in sorted(candidates, key=lambda c: c[0]):
         count_hit(*candidate)

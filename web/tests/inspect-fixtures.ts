@@ -136,6 +136,15 @@ export const THREAT_APP_REPORT = {
   findings: THREAT_REPORT.findings.map((f) => (f.kind === "stalkerware" ? { ...onLists(f), app: "FakeSpy" } : f)),
 };
 
+/** Stalkerware known by its server's address alone, beside one known by name. */
+export const THREAT_ADDRESS_REPORT = {
+  ...THREAT_REPORT,
+  checks: [{ id: "stalkerware", count: 12 }, ...THREAT_REPORT.checks.slice(1)],
+  findings: [{ ...onLists(THREAT_REPORT.findings[0]), app: "FakeSpy" },
+    { ...hit("stalkerware", "threat", "203.0.113.7", 3, ["2026-11-02T03", "2026-11-05T03"]), how: "IP", lists: ["stalkerware"], app: "FakeSpy" },
+    THREAT_REPORT.findings[1]],
+};
+
 /** Two sites of two apps, one of them with markup in its name, which the page shows as it is. */
 export const THREAT_APPS_REPORT = {
   ...THREAT_REPORT,

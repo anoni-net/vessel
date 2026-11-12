@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -826,6 +826,18 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(repo).toHaveAttribute("target", "_blank");
     await expect(repo).toHaveAttribute("rel", "noopener");
     await expect(source.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute("href", "https://creativecommons.org/licenses/by/4.0/");
+  });
+
+  test("a server known by its address is a row like a site, with its app", async ({ page }) => {
+    await open(page, endedWith(THREAT_ADDRESS_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "threat");
+    await expect(page.getByTestId("inspect-reason")).toHaveText(/^跟蹤軟體 FakeSpy 使用的網站出現在 5 天、6 個時段/);
+    const row = page.getByTestId("inspect-hit").filter({ hasText: "203.0.113.7" });
+    await expect(row.getByTestId("inspect-hit-words")).toContainText("共 2 個時段");
+    await expect(app(page, "203.0.113.7")).toHaveText("屬於跟蹤軟體 FakeSpy");
+    await expect(page.getByTestId("inspect-why").first()).toContainText("網站與伺服器位址");
+    // nothing wider than a phone's screen
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
   test("an app's name is shown as it is, markup and all, and two apps are counted", async ({ page }) => {

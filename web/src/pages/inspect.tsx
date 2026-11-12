@@ -43,6 +43,7 @@ export interface Report {
    * (the UTC hours it was seen in, `YYYY-MM-DDTHH`, sorted) and `last`; older ones, still stored, have `first` instead.
    * Reports made since the lists were compared one by one add `lists`: every list the site's names are on, its own `kind`
    * and the ad list included (`stalkerware`, `malware`, `cti`, `ads`, sorted). Without it, nothing is said about other lists.
+   * A site's `name` is a list's entry: a domain, or since 2026-11-12 the address of a server a list knows by address alone.
    * A stalkerware site may also have `app`, the stalkerware it belongs to in Echap's stalkerware-indicators: a name from
    * outside, only ever put on the page as text.
    */
