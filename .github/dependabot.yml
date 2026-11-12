@@ -1,0 +1,14 @@
+# The images and actions are fixed by digest or commit (node/Dockerfile, api/Dockerfile, deploy/, .github/workflows);
+# these propose the next one, so a fix upstream is not missed. The Zeek image (inspect/analyze.py) and the Node.js
+# image in deploy/deploy.sh are not covered: change them by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directories: [/api, /node, /deploy/rpz]
+    schedule: { interval: weekly }
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule: { interval: weekly }

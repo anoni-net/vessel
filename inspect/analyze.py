@@ -31,7 +31,9 @@ from pathlib import Path
 
 HOME = Path(os.environ.get("VESSEL_INSPECT_HOME", "/var/lib/vessel-inspect"))
 EXCLUDE = Path(os.environ.get("VESSEL_INSPECT_EXCLUDE", Path(__file__).resolve().parent.parent / "node" / "exclude.txt"))
-ZEEK_IMAGE = "zeek/zeek:lts"
+# Zeek 9.0.1, what the lts tag was on 2026-11-12. Zeek reads every captured packet as root: the digest keeps a moved
+# tag from changing what runs here. To upgrade, pull the new image, run the tests against it, then change this.
+ZEEK_IMAGE = "zeek/zeek@sha256:524cb0ce29f26a6a954fb9c357a8f92b95812476d8240f0ece26617ace249dd0"
 SUBNET = "10.8.1."
 RESOLVERS = {"10.8.1.1", "10.8.1.253", "10.8.1.254"}
 TZ = dt.timezone(dt.timedelta(hours=8))

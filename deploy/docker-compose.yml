@@ -9,7 +9,7 @@ name: vessel
 
 services:
   db:
-    image: postgres:18.6-alpine3.24
+    image: postgres:18.6-alpine3.24@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
     restart: unless-stopped
     environment:
       POSTGRES_DB: vessel
@@ -45,6 +45,10 @@ services:
     # 300 MB, twice that while they are refreshed) and hashes a few account numbers at once (app/crypto.py); past this
     # it is restarted instead of taking the host's memory
     mem_limit: 2g
+    # neither the API nor the worker needs any of root's capabilities: they listen on a high port, read their own
+    # files and start ssh. Without them, a way into the process is a smaller step towards the host
+    cap_drop: &caps [ALL]
+    security_opt: &nonew ["no-new-privileges:true"]
     logging: *logging
 
   # runs queued node jobs, expires devices, clears unfetched configs, polls usage and enforces the quota
@@ -56,6 +60,8 @@ services:
     env_file: *env
     environment: *paths
     volumes: *ssh
+    cap_drop: *caps
+    security_opt: *nonew
     logging: *logging
 
 volumes:
