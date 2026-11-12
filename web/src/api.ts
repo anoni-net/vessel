@@ -59,8 +59,6 @@ export interface InspectionSummary {
   empty?: boolean;
   verdict?: "clean" | "check" | "threat";
   kinds?: { kind: string; severity: "threat" | "check" }[];
-  first?: number | null;
-  last?: number | null;
   coverage?: { active_hours: number; total_hours: number };
 }
 

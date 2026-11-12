@@ -11,8 +11,8 @@ const ME = { created_on: "2026-10-27", last_login_on: "2026-11-05", device_limit
   group: { role: "leader", label: "L1", device_revoked_on: null } };
 const summary = (s: object, info = "vessel-inspection-summary", to = KEY) => ({ key: PUBLIC, sealed: seal(s, info, to) });
 const THREAT = { verdict: "threat", kinds: [{ kind: "stalkerware", severity: "threat" }, { kind: "malware", severity: "check" }],
-  first: 1762128000, last: 1762300000, coverage: { active_hours: 40, total_hours: 72 } };
-const CLEAN = { verdict: "clean", kinds: [], first: 1762128000, last: 1762300000, coverage: { active_hours: 100, total_hours: 168 } };
+  coverage: { active_hours: 40, total_hours: 72 } };
+const CLEAN = { verdict: "clean", kinds: [], coverage: { active_hours: 100, total_hours: 168 } };
 const base = { requested_on: "2026-11-10", until: null, started_at: null, ends_at: null, stopped_at: null, ended_early: false, report_until: null };
 const device = (id: string, name: string, inspection: object | null = null) => ({
   id, name, region: "jp", dns_filter: "malware", status: "active", expires_on: "2030-01-01", issues: [], inspection,

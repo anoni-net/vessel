@@ -417,8 +417,9 @@ def summary(node, address):
     for f in sorted(full["findings"], key=lambda f: f["severity"] != "threat"):
         kinds.setdefault(f["kind"], f["severity"])
     verdict = "threat" if "threat" in kinds.values() else "check" if kinds else "clean"
+    # not the report's first and last: they are to the second, and would tell a leader when the device was last used
     return {"verdict": verdict, "kinds": [{"kind": k, "severity": s} for k, s in kinds.items()],
-            "first": full["first"], "last": full["last"], "coverage": full["coverage"]}
+            "coverage": full["coverage"]}
 
 
 def seal(payload: bytes, public_key: str, info: bytes = b"vessel-inspection-report") -> dict:
