@@ -14,6 +14,7 @@ import { Feedback } from "./pages/feedback.tsx";
 import { Home } from "./pages/home.tsx";
 import { Learn } from "./pages/learn.tsx";
 import { Login } from "./pages/login.tsx";
+import { Pickup } from "./pages/pickup.tsx";
 import { Redeem } from "./pages/redeem.tsx";
 import { StatusPage } from "./pages/status.tsx";
 import { loadNewDevice, loadedNewDevice } from "./pages/lazy.ts";
@@ -94,6 +95,7 @@ const SIGNED_IN = new Set(["/devices/", "/devices/new/", "/devices/inspect/", "/
 const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/": ["home.title", () => <Home />],
   "/redeem/": ["redeem.title", () => <Redeem />],
+  "/pickup/": ["pickup.title", () => <Pickup />],
   "/login/": ["login.title", () => <Login />],
   "/devices/": ["devices.title", () => <Devices />],
   "/devices/new/": ["new.title", () => <NewDevice />],

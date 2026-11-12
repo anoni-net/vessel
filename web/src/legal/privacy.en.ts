@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-11",
+  updated: "2026-11-12",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -12,6 +12,7 @@ export default {
           ["A hash of the account number (Argon2id), which cannot be turned back into the number", "Checking it at sign-in", "Until the account is deleted"],
           ["The account's creation date and the last day it opened the portal (day only)", "Deciding when devices expire", "Until the account is deleted"],
           ["A hash of each invite code and the day it was redeemed (the day only, not the account it created)", "Making sure each code is used once", "Kept for now; the final version will set a limit"],
+          ["When you ask for an invite: a hash of the pickup number, the day you asked and the decision, and the purpose, kind of network and note you gave (no IP address, location or contact)", "Letting a maintainer decide on the request, and letting you check it and create your account with the number", "The purpose, network and note are deleted when the request is decided. A request not decided in 30 days, and a decided number not used in 14 days, are deleted altogether; once an account is created with it, only the day it was used is kept, as for any invite"],
           ["Invite codes you make on the account page: a hash of each, when it was made and when it expires, and how many people have used yours (a number only)", "Listing your unused codes and counting how many more you can invite", "Once a code is used or expires, which account made it is no longer kept. The number, until the account is deleted"],
           ["For an account issued by a group: the group's code, the role (leader or member), the alias a leader gave it, and the day a leader last revoked one of its devices (the day only)", "Lets leaders manage the group's places and devices", "Until the account is deleted or the group ends"],
           ["For a group: its code, places, limits on devices and data, end date and closing date, and the alias, role and expiry of its unused invites", "Manages the group's settings and places", "Until the group ends. Once a group invite is used, it no longer records the alias or the group"],
@@ -28,7 +29,7 @@ export default {
       },
     },
     { p: "You choose the device names, so please avoid your real name or anything that identifies you." },
-    { p: "Your browser also keeps a few settings: whether it has signed in before (so a reload shows “My devices” at once), the language you picked, whether you closed the bar that offers another language, and whether you chose in the footer not to be counted in the statistics. They stay in your browser and are never sent to the server. If you turn on a device inspection, your browser also keeps the report key and the confirmation link, and a group leader's browser keeps the key that opens their summaries; these keys are never sent to the server." },
+    { p: "Your browser also keeps a few settings: whether it has signed in before (so a reload shows “My devices” at once), the language you picked, whether you closed the bar that offers another language, and whether you chose in the footer not to be counted in the statistics. They stay in your browser and are never sent to the server. If you turn on a device inspection, your browser also keeps the report key and the confirmation link, and a group leader's browser keeps the key that opens their summaries; these keys are never sent to the server. If you ask for an invite, your browser remembers the pickup number, so you can come back to check it." },
     { h: "What we do not keep" },
     {
       ul: [

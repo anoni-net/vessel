@@ -6,12 +6,14 @@ import { IS_ONION } from "./site.ts";
 
 export const SITE = "https://vessel.anoni.net";
 
-// pages worth finding; the rest need a session and are marked noindex
+// pages worth finding; the rest need a session, or (/pickup/, toomore/anoni-net-ws#441) are linked from the newsletter
+// only for now, and are marked noindex and left out of the sitemap
 export const PUBLIC_PAGES = ["/", "/learn/", "/faq/", "/dns/", "/dns/lists/", "/check/", "/feedback/", "/status/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
-export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/devices/inspect/", "/account/", "/group/"] as const;
+export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/devices/inspect/", "/account/", "/group/", "/pickup/"] as const;
 
 const TITLES: Record<string, MessageKey> = {
   "/redeem/": "redeem.title",
+  "/pickup/": "pickup.title",
   "/login/": "login.title",
   "/devices/": "devices.title",
   "/devices/new/": "new.title",
