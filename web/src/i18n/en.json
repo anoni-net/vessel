@@ -1226,7 +1226,7 @@
   "inspect.report.dns": "Times the device looked up a site",
   "inspect.report.nx": "Lookups for sites that could not be found",
   "inspect.report.ads": "Lookups for ad and tracking services",
-  "inspect.report.idle": "Traffic in the middle of the night (1 to 6 am, Taiwan and Hong Kong time)",
+  "inspect.report.idle": "Traffic in the middle of the night (1 to 6 am in your time zone)",
   "inspect.report.limits": "The report covers only the connections made during the inspection. Finding nothing does not prove a device is safe, and a match can be a false positive. We cannot tell which app made a connection, and cannot see encrypted content.",
   "inspect.report.listsAt": "The lists it was compared with were last updated {time}.",
   "inspect.report.listsOld": "They had not been updated for over a day, so suspicious sites added since then were not compared.",

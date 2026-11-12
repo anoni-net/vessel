@@ -36,7 +36,7 @@ export interface Report {
   hours?: { hour: string; up: number; down: number; mark: "x" | "!" | null }[];
   coverage?: { active_hours: number; total_hours: number };
   dns?: { total: number; nx_share: number; ads_share: number };
-  idle_share?: number;
+  /** Reports made before 2026-11-12 also have `idle_share`, counted on Taiwan's clock; the share is now counted here. */
   checks?: { id: string; count: number }[];
   /**
    * A site on a list, or `bypass_dns` (no name, no hours). Reports made since 2026-11-10 count visits and add `hours`
@@ -673,8 +673,18 @@ const short = (day: string) => day.slice(5).replace("-", "/");
  */
 const dayTag = (day: string) => [<span class="day-short">{Number(day.slice(8))}</span>, <span class="day-full">{short(day)}</span>];
 
-/** The night hours shaded on the hours: 1 to 6 am, analyze.py's IDLE_HOURS. */
+/** The night hours, 1 to 6 am on the reader's clock: shaded on the hours, and the share of traffic in them. */
 const NIGHT = (hour: number) => hour >= 1 && hour < 6;
+/** The share of a report's traffic in the night hours, on the reader's clock, wherever the device was. */
+function nightShare(hours: NonNullable<Report["hours"]>) {
+  let night = 0;
+  let total = 0;
+  for (const h of hours) {
+    total += h.up + h.down;
+    if (NIGHT(atHour(h.hour).getHours())) night += h.up + h.down;
+  }
+  return total ? night / total : 0;
+}
 /**
  * An hour that sent at least this much, and more than it received, is marked. A phone mostly receives: an hour the other
  * way round, beyond the size of a few photos sent in a chat, is worth a look. A backup or an upload the person made does
@@ -1255,7 +1265,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             <dt>{t["inspect.report.ads"]}</dt><dd>{percent(report.dns?.ads_share ?? 0)}</dd>
             <dt>{t["inspect.report.idle"]}</dt>
             {/* the share of a night is only a share of the nights there were: on the first day it says when it started */}
-            <dd data-testid="inspect-idle">{coverage.total_hours >= 24 ? percent(report.idle_share ?? 0) : t["inspect.report.idleLater"]}</dd>
+            <dd data-testid="inspect-idle">{coverage.total_hours >= 24 ? percent(nightShare(report.hours ?? [])) : t["inspect.report.idleLater"]}</dd>
           </dl>
         </details>
       </div>

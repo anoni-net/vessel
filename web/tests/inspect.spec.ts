@@ -173,7 +173,7 @@ const big = (findings: object[], extra: object = {}) => ({
   ...ended,
   report: seal({
     first: 1762128000, last: 1762214400, hours: [{ hour: "2026-11-09T01", up: 1000, down: 2000, mark: "x" }], coverage: { active_hours: 1, total_hours: 1 },
-    dns: { total: 100, nx_share: 0, ads_share: 0 }, idle_share: 0, checks: [{ id: "stalkerware", count: 7 }, { id: "cti", count: 5000 }], findings, ...extra,
+    dns: { total: 100, nx_share: 0, ads_share: 0 }, checks: [{ id: "stalkerware", count: 7 }, { id: "cti", count: 5000 }], findings, ...extra,
   }),
 });
 const site = (kind: string, severity: string, i: number) => ({ severity, kind, name: `s${i}.example`, how: "DNS", count: 5000 - i, first: 1762128000 });
@@ -607,7 +607,8 @@ test.describe("the report says what it comes to, and when each site was seen", (
       expect(box.h).toBeLessThan(box.line * 1.5);
     }
     expect(await table.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-    await expect(page.getByTestId("inspect-idle")).toHaveText("2%");
+    // the week was used from 8 am to 11 pm Taipei time: none of it in the night
+    await expect(page.getByTestId("inspect-idle")).toHaveText("0%");
     // the hours on the same days as the bars at the top: 11/04 and 11/08, without a connection, keep a row of their own
     const rows = page.getByTestId("inspect-tiles").locator(".tiles__row:not(.tiles__axis)");
     await expect(rows).toHaveCount(await page.getByTestId("inspect-cover").locator(".cover__day").count());
@@ -662,7 +663,17 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-hits")).toHaveCount(0);
     await expect(page.getByTestId("inspect-group")).toHaveCount(2);
     await expect(page.getByTestId("inspect-report")).not.toContainText("gone.example");
-    await expect(page.getByTestId("inspect-idle")).toHaveText("40%");
+    await expect(page.getByTestId("inspect-idle")).toHaveText("31%");
+  });
+
+  test.describe("read in London", () => {
+    test.use({ timezoneId: "Europe/London" });
+    test("the share of the night is counted on the reader's clock, not taken from the report", async ({ page }) => {
+      // the same hours as in Taipei, where 31% of them fall between 1 and 6 am; a report made before 2026-11-12 also has
+      // its own share, counted on Taiwan's clock, which is not used
+      await open(page, endedWith({ ...FULL_REPORT, idle_share: 0.9 }));
+      await expect(page.getByTestId("inspect-idle")).toHaveText("18%");
+    });
   });
 
   test("the rows past the first few fold away", async ({ page }) => {
