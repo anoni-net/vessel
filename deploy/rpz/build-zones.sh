@@ -62,8 +62,8 @@ refresh() { # zone
   rm -f "$tmp"
 }
 
-# the public suffixes the CTI list never blocks as a whole, and the hosting platforms among them, which a list too long
-# for the nodes is cut down to; a failed download keeps the last copy of both
+# the public suffixes the CTI list never blocks as a whole, and the hosting platforms among them, which the list is cut
+# down to; a failed download keeps the last copy of both
 refresh_platforms() {
   local src tmp all
   src=$(mktemp); tmp=$(mktemp platforms.XXXXXX); all=$(mktemp suffixes.XXXXXX)

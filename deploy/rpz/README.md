@@ -12,7 +12,7 @@
 | `lists.sh` | 每份名單的來源、清理方式與筆數上下限 |
 | `dedupe.py` | 後面的名單拿掉前面已經擋下的條目。順序要跟 `node/unbound/rpz-zones.conf.example` 相同 |
 
-`build-zones.sh` 另外下載 Public Suffix List，全部的名稱存成 `suffixes.txt`，私有區段存成 `platforms.txt`。DNSBunker CTI 整份都使用，但不收名稱本身是公開後綴的條目。名單超過 45 萬個網域時（`lists.sh` 的 `CTI_MAX_NAMES`），只保留託管平台底下的名稱。下載失敗或內容太短時沿用上一份。
+`build-zones.sh` 另外下載 Public Suffix List，全部的名稱存成 `suffixes.txt`，私有區段存成 `platforms.txt`。DNSBunker CTI 只保留託管平台底下的名稱，不收名稱本身是公開後綴的條目。`lists.sh` 的 `CTI_MAX_NAMES` 設成一個數字時，名單在這個數量以內就使用整份，預設的 0 是不使用。下載失敗或內容太短時沿用上一份。
 
 NSD 只處理名單，看不到使用者的查詢。節點連線的 IP 不進 repo，只放在主機的 `nsd.conf` 與節點的 `node.env`。
 

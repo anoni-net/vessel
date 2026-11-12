@@ -9,10 +9,10 @@
 #   stalkerware  the stalkerware domains Echap collects (github.com/AssoEchap/stalkerware-indicators,
 #                generated/hosts, CC BY 4.0): Quad9 blocks most of them, not the apps' own sites, and a block by the
 #                nodes' list is counted per device where Quad9's is not
-#   cti          the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only).
-#                The whole list while it fits a node's memory (CTI_MAX_NAMES); its maintainer expects 1.2 million
-#                domains, and past the limit only the names on hosting platforms are kept, where the other lists are
-#                weakest
+#   cti          the active malicious domains DNSBunker publishes (github.com/DNSBunker/CTI, domains.txt, GPL-2.0-only),
+#                only those on hosting platforms, where the other lists are weakest. The rest of the list is not
+#                used for now: its size moves between 130,000 and 750,000 names, its maintainer expects 1.2 million,
+#                and its rules changed on 2026-11-12. CTI_MAX_NAMES turns the whole list on, up to that many names
 #   ads          HaGeZi Multi PRO, the level HaGeZi recommends (Normal let most ads and trackers through)
 # The names in exclude.txt are left out of all of them. Every list ends up as block entries only (block_only, zone_from).
 set -uo pipefail
@@ -41,8 +41,9 @@ declare -A MIN_LINES=([stalkerware]=500 [cti]=100000)
 # more lines than this and the list stays as it was: CTI takes about 1.3 KB of memory a name, grew by 420,000 names in
 # three days in November 2026, and a node has room for about 450,000 (two lines a name)
 declare -A MAX_LINES=([cti]=900000)
-# the whole CTI list is used up to this many names; a longer one is cut down to the names on hosting platforms
-CTI_MAX_NAMES=${CTI_MAX_NAMES:-450000}
+# 0: only CTI's names on hosting platforms. A number: the whole list while it has no more names than this (a node has
+# room for about 450,000), and the names on hosting platforms once it is longer
+CTI_MAX_NAMES=${CTI_MAX_NAMES:-0}
 # is a new zone the size a list of this name should be?
 size_ok() { # list file
   local lines
@@ -94,11 +95,11 @@ fetch() { # url file
 #           belongs to someone else is not blocked.
 #   stalkerware  Echap's hosts file, a name a line. Names on shared platforms (Firebase, S3, CloudFront) each belong to
 #           one app; the two Azure App Service front ends it lists, which other sites point to, are in exclude.txt.
-#   cti     DNSBunker's domains.txt, a name a line. A name that is a public suffix is never listed ($SUFFIXES: a
-#           registry's or a hosting platform's, whose subdomains belong to different people); the shared names that are
-#           no public suffix are in exclude.txt or SHARED below. A list of more than $CTI_MAX_NAMES names is cut down to
-#           the subdomains of hosting platforms ($PLATFORMS). Without either file there is no zone, and the previous one
-#           stays.
+#   cti     DNSBunker's domains.txt, a name a line, keeping only the subdomains of hosting platforms ($PLATFORMS), or
+#           the whole list while it has no more than $CTI_MAX_NAMES names. A name that is a public suffix is never
+#           listed ($SUFFIXES: a registry's or a hosting platform's, whose subdomains belong to different people); the
+#           shared names that are no public suffix are in exclude.txt or SHARED below. Without either file there is no
+#           zone, and the previous one stays.
 # Entries are cleaned (a scheme, a path, an email address or stray characters in front) and the ones that are still
 # not a host name are dropped. None of the lists names a shared parent like a URL shortener or a hosting platform, only
 # names under them, so blocking subdomains does not reach other sites. A name whose parent is listed too is left
@@ -158,11 +159,13 @@ def covered(name):
     labels = name.split(".")
     return any(".".join(labels[i:]) in names for i in range(1, len(labels) - 1))
 if kind == "cti" and sum(1 for n in names if not covered(n)) > int(cti_max):
-    # too long for a node's memory: the hosting platforms, where the other lists are weakest, are kept
+    # the hosting platforms, where the other lists are weakest: all that is used by default, and what is kept of a
+    # list too long for a node's memory
     def on_platform(name):
         labels = name.split(".")
         return any(".".join(labels[i:]) in platforms for i in range(1, len(labels)))
-    print(f"cti: over {cti_max} names, keeping only the names on hosting platforms", file=sys.stderr)
+    if int(cti_max):
+        print(f"cti: over {cti_max} names, keeping only the names on hosting platforms", file=sys.stderr)
     names = {n for n in names if on_platform(n)}
 print("$TTL 3600\n@ SOA localhost. root.localhost. 1 28800 3600 259200 3600\n  NS localhost.")
 print(f"; {source}")

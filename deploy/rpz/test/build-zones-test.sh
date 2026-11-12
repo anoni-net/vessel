@@ -74,7 +74,7 @@ for z in malware tw165 twmoda stalkerware cti ads; do [ -s "$R/zones/$z.zone" ] 
 [ "$(grep -c 'reload' "$TMP/docker.log")" = 6 ] || fail "every zone reloads on the first build"
 grep -q 'shared-mal.example' "$R/zones/malware.zone" || fail "the earlier list lost its entry"
 grep -q 'c1.pages.dev' "$R/zones/cti.zone" || fail "cti lost a name on a hosting platform"
-grep -qx 'own-site.example CNAME .' "$R/zones/cti.zone" || fail "cti lost a name that is not on a hosting platform"
+if grep -q 'own-site.example' "$R/zones/cti.zone"; then fail "cti kept a name that is not on a hosting platform"; fi
 if grep -qE '^(\*\.)?(suffix\.example|pages\.dev) ' "$R/zones/cti.zone"; then fail "cti listed a public suffix"; fi
 grep -qx 'suffix.example' "$R/suffixes.txt" || fail "the public suffixes were not kept"
 if grep -q 'shared-mal.example' "$R/zones/ads.zone"; then fail "the later list kept what an earlier one answers"; fi

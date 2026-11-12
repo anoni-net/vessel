@@ -74,15 +74,15 @@ exception.other-cloud.com'
 co.uk
 $expected" ] || fail "public_suffixes read the wrong names: $(public_suffixes "$TMP/psl.dat")"
 
-# DNSBunker's list is used whole: comments skipped, a name under another listed one left out, a public suffix never
-# listed (a registry's or a platform's), an excluded name left out but a name under it kept
+# DNSBunker's list, used whole when CTI_MAX_NAMES allows it: comments skipped, a name under another listed one left
+# out, a public suffix never listed (a registry's or a platform's), an excluded name left out but a name under it kept
 EXCLUDE=$TMP/exclude.txt
 PLATFORMS=$TMP/platforms.txt
 SUFFIXES=$TMP/suffixes.txt
 printf 'pages.dev\nkept-out.example\n' > "$PLATFORMS"
 printf 'com\nco.uk\npages.dev\nkept-out.example\n' > "$SUFFIXES"
 printf '# Title: CTI\nown-site.example\nwww.own-site.example\nfake-bank.pages.dev\nlogin.fake-bank.pages.dev\npages.dev\nco.uk\nshop.co.uk\nkept-out.example\nuser.kept-out.example\n' > "$TMP/cti.txt"
-zone_from cti "$TMP/cti.txt" > "$TMP/cti.rpz"
+CTI_MAX_NAMES=450000 zone_from cti "$TMP/cti.txt" > "$TMP/cti.rpz"
 for name in own-site.example fake-bank.pages.dev shop.co.uk user.kept-out.example; do grep -qx "$name CNAME ." "$TMP/cti.rpz" || fail "$name is missing from cti"; done
 if grep -qE '^(\*\.)?(www\.own-site\.example|login\.fake-bank\.pages\.dev|pages\.dev|co\.uk|kept-out\.example) ' "$TMP/cti.rpz"; then fail "cti listed a name it should not"; fi
 grep -q 'GPL-2.0-only' "$TMP/cti.rpz" || fail "cti does not name its source and license"
@@ -91,6 +91,11 @@ CTI_MAX_NAMES=3 zone_from cti "$TMP/cti.txt" > "$TMP/cti.rpz" 2> "$TMP/cti.err"
 grep -q 'keeping only the names on hosting platforms' "$TMP/cti.err" || fail "cutting cti down was not said"
 grep -qx 'fake-bank.pages.dev CNAME .' "$TMP/cti.rpz" || fail "the cut-down cti lost a name on a hosting platform"
 if grep -qE '^(\*\.)?(own-site\.example|shop\.co\.uk) ' "$TMP/cti.rpz"; then fail "the cut-down cti kept a name that is not on a hosting platform"; fi
+# by default only the names on hosting platforms are used, and nothing is said about a limit
+zone_from cti "$TMP/cti.txt" > "$TMP/cti.rpz" 2> "$TMP/cti.err"
+[ ! -s "$TMP/cti.err" ] || fail "the default cti said something: $(cat "$TMP/cti.err")"
+for name in fake-bank.pages.dev user.kept-out.example; do grep -qx "$name CNAME ." "$TMP/cti.rpz" || fail "$name is missing from the default cti"; done
+if grep -qE '^(\*\.)?(own-site\.example|shop\.co\.uk|pages\.dev) ' "$TMP/cti.rpz"; then fail "the default cti kept a name that is not on a hosting platform"; fi
 # at the limit it is still whole
 CTI_MAX_NAMES=4 zone_from cti "$TMP/cti.txt" 2> /dev/null | grep -qx 'own-site.example CNAME .' || fail "cti at the limit was cut down"
 # without the platforms or the public suffixes there is no list, and build-zones.sh keeps the previous one
