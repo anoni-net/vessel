@@ -1116,26 +1116,40 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* the day under a bar or a column of squares: its number on a phone, the full date on a wide screen */
 .day-full { display: none; }
 /* when each site was seen: a square a day, darker for more hours in it; dashed where the device was not connected */
-.inspect-kind { gap: 6px; }
-.inspect-kind__name { font-size: 17px; }
-.hits { display: grid; gap: 6px; margin-top: 4px; }
-.hits__rows { display: grid; gap: 12px; }
-.hits__more > summary { width: fit-content; min-height: 24px; cursor: pointer; }
-.hits__more > ul { margin-top: 10px; }
-.hits__grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; width: min(100%, 248px); }
-.hits__day { font: 11px/1 var(--mono); color: var(--muted); text-align: center; }
-.hit-row { display: grid; gap: 4px; }
-.hit-row__name { overflow-wrap: anywhere; font-size: 14px; }
+/* the sites by list: a section each, set apart by a rule, at the size of the text above them. The name of the list, how
+   serious in a badge (words and colour, WCAG 1.4.1) and how many on one line; then what the list holds and the sites */
+.inspect-findings > h2 { margin-bottom: 0; }
+.inspect-summary { gap: 0; }
+.inspect-kind { display: grid; gap: 12px; padding-block: 24px; border-top: 1px solid var(--line); }
+.inspect-kind:last-child { padding-bottom: 8px; }
+.inspect-kind__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.inspect-kind__name { font-size: 21px; }
+.inspect-kind__count { font-size: 15px; }
+.inspect-kind__why { margin: 0; }
+.inspect-badge--check { background: var(--paper); border-color: var(--caution); color: var(--warn-ink); }
+.inspect-badge--threat { background: var(--bad-fill); border-color: var(--danger); color: var(--danger); }
+.inspect-kind .site-note-categories, .inspect-kind > p.muted { font-size: 15px; }
+.hits { display: grid; gap: 4px; }
+.hits__rows { display: grid; }
+.hits__rows > li { padding-block: 10px; border-bottom: 1px solid var(--grid); }
+.hits__more > summary { width: fit-content; min-height: 24px; margin-top: 8px; cursor: pointer; font-size: 15px; }
+.hits__more > ul { margin-top: 4px; }
+.hits__grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; width: min(100%, 280px); }
+.hits__day { font: 12px/1 var(--mono); color: var(--muted); text-align: center; }
+.hit-row { display: grid; gap: 6px; }
+.hit-row--head { padding-bottom: 2px; }
+.hit-row__name { overflow-wrap: anywhere; font-size: 16px; }
+.hit-row__words { font-size: 15px; }
 /* the other lists a site is on, a line of its own under when it was seen */
 .hit-row__lists { display: block; margin-top: 2px; }
-.hit { display: block; height: 16px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
+.hit { display: block; height: 20px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
 .hit--off { border-style: dashed; border-color: var(--placeholder); background: transparent; }
 .hit--0 { background: var(--tile-0); }
 .hit--1 { background: var(--tile-3); border-color: var(--tile-3); }
 .hit--2 { background: var(--tile-4); border-color: var(--tile-4); }
 .hit--3 { background: var(--tile-5); border-color: var(--tile-5); }
 @media (min-width: 641px) {
-  .hit-row { grid-template-columns: minmax(0, 1fr) 248px; column-gap: 16px; align-items: center; }
+  .hit-row { grid-template-columns: minmax(0, 1fr) 280px; column-gap: 16px; align-items: center; }
   .hit-row__cells { grid-column: 2; grid-row: 1; }
   .hit-row__words { grid-column: 1 / -1; }
 }
@@ -1155,9 +1169,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .inspect-report > .inspect-hours { grid-column: 1; }
   .inspect-report > .inspect-checkcard { grid-column: 2; }
   .inspect-report > p { max-width: 720px; }
-  .inspect-verdict { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px 40px; align-items: start; }
-  .inspect-verdict .inspect-cover { margin-top: 0; padding-top: 0; padding-inline-start: 40px; border-top: 0; border-inline-start: 1px solid var(--line);
-    margin-inline-start: -40px; }
+  /* two halves, the line between them in the middle of the gap: under the gap between the two cards above */
+  .inspect-verdict { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 40px; align-items: start; }
+  .inspect-verdict .inspect-cover { margin-top: 0; padding-top: 0; padding-inline-start: 20px; border-top: 0; border-inline-start: 1px solid var(--line);
+    margin-inline-start: -20px; }
   .inspect-verdict__main > p, .inspect-verdict__main > ol { max-width: 640px; }
   /* the sites: the name, the week and the words on one line */
   .hit-row { grid-template-columns: minmax(0, 1fr) 336px minmax(0, 1.2fr); }
@@ -1165,7 +1180,7 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .hits__grid { width: 100%; gap: 4px; }
   .day-short { display: none; }
   .day-full { display: inline; }
-  .hit { height: 20px; }
+  .hit { height: 24px; }
   .tile { font-size: 12px; }
   .tiles__row { font-size: 12px; }
 }
@@ -1177,8 +1192,8 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-check--ok .icon { color: var(--ink); }
 .inspect-check--check .icon { color: var(--caution); }
 .inspect-check--threat .icon { color: var(--danger); }
-.inspect-finding { display: grid; gap: 2px; padding-inline-start: 10px; border-inline-start: 3px solid var(--caution); }
-.inspect-finding--threat { border-color: var(--danger); }
+/* a site of a report from before the hours were added: how serious is in the badge of its list */
+.inspect-finding { display: grid; gap: 2px; }
 .inspect-finding code { overflow-wrap: anywhere; }
 .inspect-group summary { width: fit-content; min-height: 24px; cursor: pointer; }
 .inspect-group ul, .inspect-group p { margin-top: 8px; }

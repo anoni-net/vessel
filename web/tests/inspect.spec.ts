@@ -999,12 +999,20 @@ test.describe("on a wide screen", () => {
     // wider than the narrow column, and the days beside what it comes to
     expect(report.width).toBeGreaterThan(900);
     expect(cover.x).toBeGreaterThan(verdict.x + verdict.width / 3);
+    // two halves: the line between them, the days' left edge, is in the middle of the card
+    expect(Math.abs(cover.x - (verdict.x + verdict.width / 2))).toBeLessThan(4);
     expect(cover.y).toBeLessThan(verdict.y + 80);
     expect(findings.y).toBeGreaterThan(verdict.y + verdict.height);
     // the hours and the checks side by side, below the sites
     expect(hours.y).toBeGreaterThan(findings.y + findings.height);
     expect(checks.x).toBeGreaterThan(hours.x + hours.width);
     expect(Math.abs(checks.y - hours.y)).toBeLessThan(120);
+    // each list a section of its own, set apart by a rule and not an edge: its name, how serious and how many on one line
+    const kind = page.getByTestId("inspect-kind").first();
+    const [kindName, badge] = await Promise.all([kind.getByRole("heading", { level: 3 }).boundingBox(), kind.getByTestId("inspect-severity").boundingBox()]);
+    expect(Math.abs(kindName!.y + kindName!.height / 2 - (badge!.y + badge!.height / 2))).toBeLessThan(4);
+    expect(badge!.x).toBeGreaterThan(kindName!.x + kindName!.width);
+    expect(await kind.evaluate((el) => [getComputedStyle(el).borderInlineStartWidth, getComputedStyle(el).borderTopWidth])).toEqual(["0px", "1px"]);
     // a site's name, its week and the words on one line
     const row = page.getByTestId("inspect-hit").first();
     const [name, cells, words] = await Promise.all([row.locator("code").boundingBox(), row.locator(".hits__grid").boundingBox(), row.getByTestId("inspect-hit-words").boundingBox()]);
