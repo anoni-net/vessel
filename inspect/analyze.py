@@ -21,6 +21,7 @@ import csv
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -64,7 +65,17 @@ DOH_SOURCES = {
 # person or an app set up, and nothing to look for in the settings, so they are left out. 17.0.0.0/8 is Apple's.
 DOH_SYSTEM = ("apple.com", "aaplimg.com", "icloud.com")
 DOH_SYSTEM_ADDRESSES = "17."
+# Mercenary spyware (Pegasus, Predator and the like): the network indicators that investigations have published, as the
+# Mobile Verification Toolkit collects them. Its index lists one STIX2 file per investigation; update-lists turns their
+# domains and addresses into one `type,indicator,app` table, the name being the investigation's. Echap's stalkerware is
+# in the index too, and is left out: it is compared on its own, above. These indicators are what was known when each
+# investigation came out, and such servers move often: a hit is worth expert help, and no hit says little.
+SPYWARE = "spyware"
+SPYWARE_INDEX = "https://raw.githubusercontent.com/mvt-project/mvt-indicators/main/indicators.yaml"
+SPYWARE_SKIP = {"AssoEchap"}
+SPYWARE_MIN = 100  # fewer indicators than this in all is a broken download
 ADDRESSES = "addresses"
+NAMES = "names"
 # One visit to a site looks a listed name up as A, AAAA and HTTPS, and then connects with SNI: a hit seen again this
 # soon after it was last counted is the same visit (toomore/anoni-net-ws#480)
 VISIT_SECONDS = 60
@@ -74,8 +85,8 @@ VISIT_SECONDS = 60
 # device reaches, most of them do not exist on purpose, and their names give away the person's own network, so they
 # are left out of the DNS counts and are not compared with the lists. A name without a dot is a search-domain guess.
 SYSTEM_SUFFIXES = ("arpa", "local", "localdomain", "internal", "lan", "home", "invalid", "test", "onion", "ts.net")
-THREAT = {"stalkerware"}
-FLAGGED = ("stalkerware", "malware", "cti")
+THREAT = {"spyware", "stalkerware"}
+FLAGGED = ("spyware", "stalkerware", "malware", "cti")
 SUMMARY_INFO = b"vessel-inspection-summary"  # the HKDF info a leader's summary is sealed with
 
 
@@ -104,9 +115,13 @@ def load_lists():
                 if name:
                     names.add(name)
         lists[kind] = names - excluded
-    lists[APPS], addresses = load_table(APPS)
+    apps, addresses = load_table(APPS)
+    campaigns, servers = load_table(SPYWARE)
+    lists[SPYWARE] = set(campaigns) - excluded
+    # what a report calls a hit of each kind: the stalkerware it belongs to, or the investigation the indicator is from
+    lists[NAMES] = {"stalkerware": apps, SPYWARE: campaigns}
     # the servers a list knows by address alone, by kind: a device that reaches one without looking a name up
-    lists[ADDRESSES] = {"stalkerware": addresses}
+    lists[ADDRESSES] = {SPYWARE: servers, "stalkerware": addresses}
     lists[DOH], lists[DOH + "_ips"] = load_doh()
     return lists
 
@@ -181,14 +196,14 @@ def listed(name, names):
 
 def match(name, lists):
     """(kind, list entry) of the first flagged list that covers a name, or None."""
-    return next(((kind, entry) for kind in FLAGGED if (entry := entry_of(name, lists[kind]))), None)
+    return next(((kind, entry) for kind in FLAGGED if (entry := entry_of(name, lists.get(kind, ())))), None)
 
 
 def lists_of(name, lists):
     """Every list that covers a name, the ad list included: what the lists themselves say about a site, so that a report
     can tell an ad network that is also on a malware list from a site only a malware list knows (toomore/anoni-net-ws#480).
     Nothing about the device is learnt from it."""
-    return {kind for kind in SOURCES if listed(name, lists[kind])}
+    return {kind for kind in (SPYWARE, *SOURCES) if listed(name, lists.get(kind, ()))}
 
 
 def system_name(name):
@@ -348,7 +363,7 @@ def merge(node, totals, logs, lists):
 
     def note_hit(row, name, how):
         if not system_name(name) and (matched := match(name, lists)):
-            app = app_of(name, lists.get(APPS, {})) if matched[0] == "stalkerware" else None
+            app = app_of(name, lists.get(NAMES, {}).get(matched[0], {}))
             candidates.append((row["ts"], row["id.orig_h"], *matched, how, lists_of(name, lists), app))
 
     def count_hit(ts, address, kind, entry, how, on, app):
@@ -422,7 +437,8 @@ def merge(node, totals, logs, lists):
         for kind, addresses in lists.get(ADDRESSES, {}).items():
             ip = row.get("id.resp_h")
             if ip in addresses and not any(abs(row["ts"] - ts) < VISIT_SECONDS for ts in by_name[(row["id.orig_h"], kind)]):
-                candidates.append((row["ts"], row["id.orig_h"], kind, ip, "IP", {kind}, addresses[ip] if kind == "stalkerware" else None))
+                candidates.append((row["ts"], row["id.orig_h"], kind, ip, "IP", {kind}, addresses[ip]))
+                break
     # sorted() keeps DNS ahead of SNI and HTTP at the same moment, so a visit's first row names how it was seen
     for candidate in sorted(candidates, key=lambda c: c[0]):
         count_hit(*candidate)
@@ -477,7 +493,7 @@ def report(node, address):
     found = collections.Counter()
     entries = collections.Counter()
     findings = []
-    for hit in sorted(state["hits"].values(), key=lambda h: (h["kind"] not in THREAT, -h["count"])):
+    for hit in sorted(state["hits"].values(), key=lambda h: (h["kind"] not in THREAT, FLAGGED.index(h["kind"]), -h["count"])):
         found[hit["kind"]] += hit["count"]
         entries[hit["kind"]] += 1
         if entries[hit["kind"]] <= MAX_FINDINGS:
@@ -537,7 +553,8 @@ def seal(payload: bytes, public_key: str, info: bytes = b"vessel-inspection-repo
 
 def list_files():
     """Every file update-lists downloads, and where it comes from."""
-    return {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE, **DOH_SOURCES}
+    return {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE, **DOH_SOURCES,
+            f"{SPYWARE}.csv": SPYWARE_INDEX}
 
 
 def lists_at():
@@ -559,6 +576,43 @@ def status():
             "lists_at": lists_at()}
 
 
+def spyware_sources(index):
+    """(name, URL of its STIX2 file) of each investigation in MVT's index. The index is YAML of one shape, read here
+    line by line so that the host needs no YAML library; only files on GitHub are taken, from the address the index
+    gives, with nothing in it that could point elsewhere."""
+    sources = []
+    for entry in re.split(r"(?m)^\s*-\s*$", index):
+        keys = dict(re.findall(r"(?m)^\s+(name|owner|repo|branch|path):\s*(.+?)\s*$", entry))
+        if not all(k in keys for k in ("name", "owner", "repo", "branch", "path")) or keys["owner"] in SPYWARE_SKIP:
+            continue
+        where = [keys["owner"], keys["repo"], keys["branch"], *keys["path"].split("/")]
+        if not all(re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", part) for part in where):
+            raise ValueError(f"index: {keys['name']}")
+        sources.append((keys["name"].strip("\"' ").removesuffix(" Indicators of Compromise").strip(),
+                        "https://raw.githubusercontent.com/" + "/".join(where)))
+    return sources
+
+
+def spyware_rows(index_url):
+    """(type, indicator, name) of every domain and address in the investigations of MVT's index. Any of them missing
+    fails the whole download, so that the table is never a part of what it was."""
+    with urllib.request.urlopen(index_url, timeout=120) as response:
+        sources = spyware_sources(response.read().decode("utf-8", "replace"))
+    rows = []
+    for name, url in sources:
+        with urllib.request.urlopen(url, timeout=120) as response:
+            bundle = json.load(response)
+        for item in bundle.get("objects", []):
+            found = re.fullmatch(r"\[(domain-name|ipv4-addr):value\s*=\s*'([^']+)'\]", item.get("pattern", "")) if item.get("type") == "indicator" else None
+            if found and found[1] == "domain-name" and (domain := clean(found[2])):
+                rows.append(("domain", domain, name))
+            elif found and found[1] == "ipv4-addr" and (ip := address(found[2])):
+                rows.append(("ipv4", ip, name))
+    if len(rows) < SPYWARE_MIN:
+        raise ValueError("too few indicators")
+    return rows
+
+
 def update_lists():
     """Download the lists; a list that could not be downloaded keeps its previous copy. Returns the files that failed."""
     (HOME / "lists").mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -567,10 +621,14 @@ def update_lists():
         path = HOME / "lists" / name
         part = path.with_suffix(".part")
         try:
-            with urllib.request.urlopen(url, timeout=120) as response, part.open("wb") as f:
-                shutil.copyfileobj(response, f)
-            if part.stat().st_size < 1024:
-                raise ValueError("too small")
+            if name == f"{SPYWARE}.csv":
+                with part.open("w", encoding="utf-8", newline="") as f:
+                    csv.writer(f).writerows([("type", "indicator", "app"), *spyware_rows(url)])
+            else:
+                with urllib.request.urlopen(url, timeout=120) as response, part.open("wb") as f:
+                    shutil.copyfileobj(response, f)
+                if part.stat().st_size < 1024:
+                    raise ValueError("too small")
         except (OSError, ValueError) as e:
             # the previous copy stays
             print(f"{name}: {e}", file=sys.stderr)

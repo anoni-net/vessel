@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -838,6 +838,65 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-why").first()).toContainText("網站與伺服器位址");
     // nothing wider than a phone's screen
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+
+  test("spyware: a known threat named after its investigation, with where to get help and where the indicators come from", async ({ page }) => {
+    await open(page, endedWith(SPYWARE_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "threat");
+    // the sentence is the spyware's own, over its two sites: what it cannot tell, and to get help
+    await expect(page.getByTestId("inspect-reason")).toHaveText(
+      /^「FakeGroup <i>Spy<\/i>」調查公開的網站出現在 2 天、3 個時段，最後一次在 11\/05 12:13。這些指標是調查當時的紀錄，網域後來可能換人使用，這份報告無法確認裝置是否被監控，請照下面的步驟尋求協助。$/);
+    await expect(page.getByTestId("inspect-report").locator("i")).toHaveCount(0);
+    const steps = page.getByTestId("inspect-next-help");
+    await expect(steps.locator("li")).toHaveCount(3);
+    await expect(steps).toContainText("先不要重設裝置");
+    const help = steps.getByRole("link", { name: "Access Now 數位安全求助專線" });
+    await expect(help).toHaveAttribute("href", "https://www.accessnow.org/help/");
+    await expect(help).toHaveAttribute("rel", "noopener");
+    await expect(page.getByText("檢查最近裝了哪些不認識的 App")).toHaveCount(0);
+    // listed first, before the stalkerware, each site with its investigation
+    const kinds = page.getByTestId("inspect-kind");
+    await expect(kinds.nth(0).getByRole("heading")).toHaveText("間諜軟體（針對特定對象的監控工具）");
+    await expect(kinds.nth(1).getByRole("heading")).toHaveText("跟蹤軟體（偷偷監看裝置的 App）");
+    await expect(app(page, "cdn-update.example")).toHaveText("出自調查：FakeGroup <i>Spy</i>");
+    await expect(app(page, "203.0.113.99")).toHaveText("出自調查：FakeGroup <i>Spy</i>");
+    await expect(app(page, "collect.example")).toHaveText("屬於跟蹤軟體 FakeSpy");
+    await expect(kinds.nth(0).getByTestId("inspect-why")).toContainText("沒有出現不代表沒有被監控");
+    // each kind credits its own source
+    const source = kinds.nth(0).getByTestId("inspect-spyware-source");
+    await expect(source).toHaveText("間諜軟體的指標取自 Mobile Verification Toolkit 的 mvt-indicators，每項調查的來源列在該專案。");
+    await expect(source.getByRole("link")).toHaveAttribute("href", "https://github.com/mvt-project/mvt-indicators");
+    await expect(kinds.nth(0).getByTestId("inspect-app-source")).toHaveCount(0);
+    await expect(kinds.nth(1).getByTestId("inspect-app-source")).toHaveCount(1);
+    // what was checked: both are threats
+    const checks = page.getByTestId("inspect-check");
+    await expect(checks.nth(0)).toHaveText("連往間諜軟體調查公開的網站");
+    await expect(checks.nth(0)).toHaveAttribute("data-state", "threat");
+    await expect(checks.nth(1)).toHaveAttribute("data-state", "threat");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+
+  test("spyware from two investigations is counted, and a site also on the ad list says so without lowering the verdict", async ({ page }) => {
+    await open(page, endedWith(SPYWARE_TWO_REPORT));
+    await expect(verdict(page)).toHaveAttribute("data-state", "threat");
+    await expect(page.getByTestId("inspect-reason")).toHaveText(/^2 項間諜軟體調查公開的網站出現在 3 天、3 個時段/);
+    await expect(page.getByTestId("inspect-hit").filter({ hasText: "old-ads.example" }).getByTestId("inspect-hit-lists")).toHaveText("也列在廣告與追蹤名單上");
+  });
+
+  test("a clean report made since spyware is compared says so among the checks", async ({ page }) => {
+    await open(page, endedWith({ ...CLEAN_REPORT, checks: [{ id: "spyware", count: 0 }, ...CLEAN_REPORT.checks] }));
+    await expect(page.getByTestId("inspect-check").nth(0)).toHaveText("沒有連往間諜軟體調查公開的網站");
+    await expect(page.getByTestId("inspect-check").nth(0)).toHaveAttribute("data-state", "ok");
+  });
+
+  test("in English, spyware has its own words", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-08T03:00:00Z"));
+    await backend(page, endedWith(SPYWARE_REPORT));
+    await withKey(page);
+    await page.goto(`/en/devices/inspect/?d=${ID}`);
+    await expect(page.getByTestId("inspect-reason")).toContainText("Sites published by the investigation “FakeGroup <i>Spy</i>” were seen on 2 days, in 3 hours");
+    await expect(page.getByTestId("inspect-next-help").getByRole("link", { name: "Access Now Digital Security Helpline" })).toBeVisible();
+    await expect(page.getByTestId("inspect-spyware-source")).toHaveText("Spyware indicators come from mvt-indicators by the Mobile Verification Toolkit, which lists the source of each investigation.");
   });
 
   test("an app's name is shown as it is, markup and all, and two apps are counted", async ({ page }) => {

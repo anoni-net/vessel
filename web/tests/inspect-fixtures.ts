@@ -145,6 +145,23 @@ export const THREAT_ADDRESS_REPORT = {
     THREAT_REPORT.findings[1]],
 };
 
+/** Spyware indicators of one investigation, by name and by address, with stalkerware beside them. */
+export const SPYWARE_REPORT = {
+  ...THREAT_REPORT,
+  checks: [{ id: "spyware", count: 5 }, { id: "stalkerware", count: 9 }, ...THREAT_REPORT.checks.slice(1)],
+  findings: [
+    { ...hit("spyware", "threat", "cdn-update.example", 3, ["2026-11-02T03", "2026-11-05T03"]), lists: ["spyware"], app: "FakeGroup <i>Spy</i>" },
+    { ...hit("spyware", "threat", "203.0.113.99", 2, ["2026-11-05T04"]), how: "IP", lists: ["spyware"], app: "FakeGroup <i>Spy</i>" },
+    { ...onLists(THREAT_REPORT.findings[0]), app: "FakeSpy" },
+    THREAT_REPORT.findings[1]],
+};
+/** One of its sites from another investigation, and on the ad list too: a domain that has likely changed hands. */
+export const SPYWARE_TWO_REPORT = {
+  ...SPYWARE_REPORT,
+  findings: [SPYWARE_REPORT.findings[0], { ...hit("spyware", "threat", "old-ads.example", 1, ["2026-11-06T03"]), lists: ["ads", "spyware"], app: "OtherSpy" },
+    SPYWARE_REPORT.findings[3]],
+};
+
 /** Two sites of two apps, one of them with markup in its name, which the page shows as it is. */
 export const THREAT_APPS_REPORT = {
   ...THREAT_REPORT,

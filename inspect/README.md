@@ -25,11 +25,13 @@
 | 命中名單的網域或伺服器位址、造訪次數、第一次與最後一次的時間、出現過的小時、它同時列在哪幾份名單上，以及跟蹤軟體命中所屬的 App 名稱 | 查無此網域的名稱 |
 | 繞過節點 DNS 的次數，包含連往加密 DNS 伺服器的連線數 | Zeek 的紀錄 |
 
-命中名單的網域以名單上的項目為單位，同一個項目底下的子網域併成一筆。次數以造訪計算，一次造訪會用 A、AAAA、HTTPS 查詢同一個名字，再用 SNI 連線，所以同一個項目距離上一次計入不到 60 秒的紀錄不再計入，不分 DNS、SNI 或 HTTP。出現過的小時以 UTC 記錄，用來分辨只出現一次與反覆出現。每筆命中另外記下它列在哪幾份名單上（`stalkerware`、`malware`、`cti`、`ads`，一定包含自己那份），用實際查詢或連線的名稱逐一比對四份名單，同一個項目底下的子網域與不同批次取聯集。報告用它寫出「也列在廣告與追蹤名單上」，資訊取自名單本身，不另外蒐集資料。跟蹤軟體的命中另外記下它屬於哪個 App（`app`），取自 Echap 的 [stalkerware-indicators](https://github.com/AssoEchap/stalkerware-indicators) 的 `generated/network.csv`，只用 `type` 是網域的列，以比對到的最具體的網域為準，表裡沒有就不記。這份表以 CC BY 4.0 授權，報告頁附上出處。報告每種類別列出次數最多的 30 筆，其餘只留下數量，總次數仍然完整。
+命中名單的網域以名單上的項目為單位，同一個項目底下的子網域併成一筆。次數以造訪計算，一次造訪會用 A、AAAA、HTTPS 查詢同一個名字，再用 SNI 連線，所以同一個項目距離上一次計入不到 60 秒的紀錄不再計入，不分 DNS、SNI 或 HTTP。出現過的小時以 UTC 記錄，用來分辨只出現一次與反覆出現。每筆命中另外記下它列在哪幾份名單上（`spyware`、`stalkerware`、`malware`、`cti`、`ads`，一定包含自己那份），用實際查詢或連線的名稱逐一比對五份名單，同一個項目底下的子網域與不同批次取聯集。報告用它寫出「也列在廣告與追蹤名單上」，資訊取自名單本身，不另外蒐集資料。跟蹤軟體的命中另外記下它屬於哪個 App（`app`），取自 Echap 的 [stalkerware-indicators](https://github.com/AssoEchap/stalkerware-indicators) 的 `generated/network.csv`，只用 `type` 是網域的列，以比對到的最具體的網域為準，表裡沒有就不記。這份表以 CC BY 4.0 授權，報告頁附上出處。報告每種類別列出次數最多的 30 筆，其餘只留下數量，總次數仍然完整。
 
 系統與私有網路的查詢不計入 DNS 的統計，也不比對名單：`.arpa`（反查、iOS 的 Bonjour 與 DDR）、`.local`、`.localdomain`、`.internal`、`.lan`、`.home`、`.invalid`、`.test`、`.onion`、Tailscale 的 `.ts.net`，以及沒有點的名稱。這些查詢跟裝置連往的網站無關，多半本來就查不到，名稱又會透露使用者自己的網路，留著只會把查無此網域的比例拉高。
 
 跟蹤軟體另外用伺服器位址比對。Echap 的 `network.csv` 除了網域，也列出只知道位址的伺服器（`type` 是 `ipv4` 的列），裝置不查詢名稱、直接連往這些位址時，用名稱比對不到。連線的目的位址在表上就記成一筆命中，名稱是那個位址，`how` 是 `IP`，App 名稱取自同一列。同一台裝置 60 秒內已經有同一類的名稱命中時，位址視為同一次造訪，不另外列出。私有與保留的位址不讀進來，沒有列在表上的位址不留下。只比對跟蹤軟體：惡意網站的 IP 名單收錄大量被入侵的一般主機，P2P 連線會大量誤判，所以不用。
+
+間諜軟體（`spyware`）比對的是 Pegasus、Predator 這類針對特定對象的監控工具，指標取自 [Mobile Verification Toolkit 的 mvt-indicators](https://github.com/mvt-project/mvt-indicators)。它的 `indicators.yaml` 列出每項調查的 STIX2 檔案，`update-lists` 逐一下載，取出網域與 IPv4 位址，寫成 `lists/spyware.csv`（`type,indicator,app`，`app` 是調查的名稱）。索引裡 Echap 的跟蹤軟體已經另外比對，略過不讀。索引只接受 GitHub 上的檔案，路徑裡有其他字元時整份下載失敗。任何一項調查下載失敗時保留上一份，不會只剩一部分。命中跟跟蹤軟體一樣是已知威脅，排在最前面，`app` 記下指標出自哪一項調查，位址也照上一段的方式比對。這些指標是調查公開當時的紀錄，伺服器經常更換，舊的網域也可能換人使用（2026-11-12 約 5,000 個網域裡有 55 個同時列在廣告或跟蹤軟體名單上），報告頁寫明無法據此確認裝置是否被監控，並請使用者聯絡 Access Now 的數位安全求助專線。
 
 繞過節點 DNS 的次數有兩種來源。連往節點以外的 53 與 853 埠算一次。連往加密 DNS 伺服器（DoH，走 443 埠）的連線也算一次，伺服器取自 HaGeZi 的 [Encrypted DNS 名單](https://github.com/hagezi/dns-blocklists)：連線的 SNI 在名單上，或連線沒有 SNI、目的位址在名單的 IP 清單上。位址上有 SNI 而名稱不在名單時不算，那可能是同一台主機上的其他網站。只留下次數，不留下是哪一台伺服器。Apple 自己的解析器與 iCloud Private Relay（`apple.com`、`aaplimg.com`、`icloud.com` 與 `17.0.0.0/8`）也在那份名單上，iPhone 會自行連線，使用者沒有設定可以檢查，所以排除。
 
@@ -71,7 +73,7 @@ systemctl daemon-reload && systemctl enable --now vessel-inspect-stream.service
 
 ## 名單的更新
 
-`vessel-inspect-lists.timer` 每 6 小時執行一次 `analyze.py update-lists`（UTC 05:40、11:40、17:40、23:40，各延後最多 10 分鐘），主機當時關機的話開機後補做。四份名單之外也下載跟蹤軟體的 App 名稱表（`lists/stalkerware-apps.csv`），以及加密 DNS 伺服器的名稱與位址（`lists/doh.txt`、`lists/doh-ips.txt`）。某一份下載失敗時保留上一份，其他照常更新，指令以失敗結束，`systemctl status vessel-inspect-lists.service` 看得到是哪一份。沒有 App 名稱表時照常分析，只是報告不寫 App 名稱。沒有加密 DNS 伺服器的名單時，只算 53 與 853 埠。
+`vessel-inspect-lists.timer` 每 6 小時執行一次 `analyze.py update-lists`（UTC 05:40、11:40、17:40、23:40，各延後最多 10 分鐘），主機當時關機的話開機後補做。四份名單之外也下載跟蹤軟體的 App 名稱表（`lists/stalkerware-apps.csv`），加密 DNS 伺服器的名稱與位址（`lists/doh.txt`、`lists/doh-ips.txt`），以及間諜軟體的指標（`lists/spyware.csv`）。某一份下載失敗時保留上一份，其他照常更新，指令以失敗結束，`systemctl status vessel-inspect-lists.service` 看得到是哪一份。沒有 App 名稱表時照常分析，只是報告不寫 App 名稱。沒有加密 DNS 伺服器的名單時，只算 53 與 853 埠。沒有間諜軟體的指標時，那一項不比對。
 
 封包只跟分析當下的名單比對，分析完就刪除，名單停止更新的那段時間事後無法補比對。所以名單的時間有兩處看得到：
 
