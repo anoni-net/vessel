@@ -435,9 +435,10 @@ class Summary(Base):
 
     def test_no_sites_counts_hours_or_traffic(self):
         r = self.run_one(dns=[dns("api.tracker.example")])
-        self.assertEqual(set(r), {"verdict", "kinds", "first", "last", "coverage"})
+        self.assertEqual(set(r), {"verdict", "kinds", "coverage"})
+        self.assertEqual(set(r["coverage"]), {"active_hours", "total_hours"})
         text = json.dumps(r)
-        for leak in ("tracker", "10.8.1.3", "n1", "count", "\"hours\"", "\"app\"", "\"up\""):
+        for leak in ("tracker", "10.8.1.3", "n1", "count", "\"hours\"", "\"app\"", "\"up\"", "\"first\"", "\"last\"", str(T0)[:6]):
             self.assertNotIn(leak, text)
 
 
