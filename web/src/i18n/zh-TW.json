@@ -1185,6 +1185,7 @@
   "inspect.endConfirm": "現在結束檢測嗎？結束之後報告會保存 {days} 天。",
   "inspect.ending": "正在結束檢測、整理報告，通常 5 分鐘內完成。",
   "inspect.noneYet": "還沒有資料。裝置連上 Vessel 使用一段時間之後，這裡會出現結果，資料大約延遲 30 分鐘，最久約 1 小時。",
+  "inspect.partial.title": "關於這些結果",
   "inspect.partial": "這是目前為止的結果，資料大約延遲 30 分鐘，最久約 1 小時。檢測結束後可以下載完整報告。",
   "inspect.keepUntil": "報告保存到 {date}，請記得下載。到期後報告與檢測資料都不再保留。",
   "inspect.download": "下載報告",
