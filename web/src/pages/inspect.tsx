@@ -955,10 +955,10 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   const why = (id: string) => t[`inspect.why.${id}` as keyof typeof t] as string | undefined;
   const percent = (n: number) => `${Math.round(n * 100)}%`;
   const dayLabel = (day: string) => short(day);
-  // how serious, in words as well as in the colour of the edge (WCAG 1.4.1)
+  // how serious, in words as well as in the colour of the badge (WCAG 1.4.1)
   const severity = (s: "threat" | "check") => (
-    <span class="strong" data-testid="inspect-severity">
-      <span aria-hidden="true">{s === "threat" ? "× " : "! "}</span>
+    <span class={`badge badge--icon inspect-badge--${s}`} data-testid="inspect-severity">
+      <Icon name={s === "threat" ? "cancel" : "warning"} />
       {t[s === "threat" ? "inspect.report.markThreat" : "inspect.report.markCheck"]}
     </span>
   );
@@ -1001,7 +1001,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
       <li class="hit-row" data-testid="inspect-hit">
         <code class="hit-row__name">{f.name}</code>
         <span class="hit-row__cells hits__grid" aria-hidden="true">{hitCells(w.perDay)}</span>
-        <span class="hit-row__words small">
+        <span class="hit-row__words">
           <span data-testid="inspect-hit-words">{words}{last && <>{dot}<span class="muted">{last}</span></>}</span>
           {/* a name from outside: a text node, never markup */}
           {f.app && <span class="hit-row__lists" data-testid="inspect-hit-app">{appWords(f)}</span>}
@@ -1086,17 +1086,19 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
       {groups.length > 0 && (
         <div class="card card--flat stack inspect-findings">
           <h2>{t["inspect.report.findings"]}</h2>
-          <ul class="plain stack" data-testid="inspect-summary">
+          <ul class="plain inspect-summary" data-testid="inspect-summary">
             {groups.map((g) => (
-              <li class={`inspect-finding inspect-finding--${g.severity} inspect-kind`} data-testid="inspect-kind">
-                <h3 class="inspect-kind__name">{kind(g.kind)}</h3>
-                <span class="muted small">
-                  {severity(g.severity)}{dot}
-                  {g.sites
-                    ? fmt(t["inspect.report.sites"], { sites: formatCount(locale, g.sites), n: formatCount(locale, g.count) })
-                    : fmt(t["inspect.seen"], { n: formatCount(locale, g.count) })}
-                </span>
-                {why(g.kind) && <span class="small" data-testid="inspect-why">{why(g.kind)}</span>}
+              <li class={`inspect-kind inspect-kind--${g.severity}`} data-testid="inspect-kind">
+                <div class="inspect-kind__head">
+                  <h3 class="inspect-kind__name">{kind(g.kind)}</h3>
+                  {severity(g.severity)}
+                  <span class="muted inspect-kind__count">
+                    {g.sites
+                      ? fmt(t["inspect.report.sites"], { sites: formatCount(locale, g.sites), n: formatCount(locale, g.count) })
+                      : fmt(t["inspect.seen"], { n: formatCount(locale, g.count) })}
+                  </span>
+                </div>
+                {why(g.kind) && <p class="inspect-kind__why" data-testid="inspect-why">{why(g.kind)}</p>}
                 {g.dated ? (
                   <div class="hits" data-testid="inspect-hits">
                     <div class="hit-row hit-row--head" aria-hidden="true">
@@ -1104,7 +1106,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
                     </div>
                     <ul class="plain hits__rows">{g.listed.slice(0, TOP_ROWS).map(hitRow)}</ul>
                     {g.listed.length > TOP_ROWS && (
-                      <details class="small hits__more" data-testid="inspect-hits-more">
+                      <details class="hits__more" data-testid="inspect-hits-more">
                         <summary>{fmt(t["inspect.hits.more"], { n: formatCount(locale, g.listed.length - TOP_ROWS) })}</summary>
                         <ul class="plain hits__rows">{g.listed.slice(TOP_ROWS).map(hitRow)}</ul>
                       </details>

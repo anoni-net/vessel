@@ -1007,6 +1007,12 @@ test.describe("on a wide screen", () => {
     expect(hours.y).toBeGreaterThan(findings.y + findings.height);
     expect(checks.x).toBeGreaterThan(hours.x + hours.width);
     expect(Math.abs(checks.y - hours.y)).toBeLessThan(120);
+    // each list a section of its own, set apart by a rule and not an edge: its name, how serious and how many on one line
+    const kind = page.getByTestId("inspect-kind").first();
+    const [kindName, badge] = await Promise.all([kind.getByRole("heading", { level: 3 }).boundingBox(), kind.getByTestId("inspect-severity").boundingBox()]);
+    expect(Math.abs(kindName!.y + kindName!.height / 2 - (badge!.y + badge!.height / 2))).toBeLessThan(4);
+    expect(badge!.x).toBeGreaterThan(kindName!.x + kindName!.width);
+    expect(await kind.evaluate((el) => [getComputedStyle(el).borderInlineStartWidth, getComputedStyle(el).borderTopWidth])).toEqual(["0px", "1px"]);
     // a site's name, its week and the words on one line
     const row = page.getByTestId("inspect-hit").first();
     const [name, cells, words] = await Promise.all([row.locator("code").boundingBox(), row.locator(".hits__grid").boundingBox(), row.getByTestId("inspect-hit-words").boundingBox()]);
