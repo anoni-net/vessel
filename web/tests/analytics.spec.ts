@@ -140,3 +140,44 @@ test("errors the pages do not know are sent as other", async () => {
   expect(JSON.stringify(sent)).not.toContain("1234");
   await page.close();
 });
+
+// The connection check, off Vessel: a network that lets no UDP out is counted, and nothing else about the check is.
+for (const [mode, expected] of [["fail", [["check-udp-blocked", null]]], ["pass", []], ["none", []]] as const) {
+  test(`the connection check off Vessel, UDP ${mode}: ${expected.length ? "one event that carries nothing" : "no event"}`, async () => {
+    const [page, sent] = await open(undefined, (method, path) =>
+      path === "/api/exit" ? { json: { region: null, ipv6: false } }
+      : path === "/api/me" ? { status: 401, json: { error: "signed_out" } }
+      : path === "/api/network" ? { json: { asn: 64500, name: "EXAMPLE - Example Network", days: 30, tests: [], stun: "stun.example:443" } } : undefined);
+    await page.route(/https:\/\/vessel-dns-\d\.anoni\.net\/check/, (route) => route.abort("namenotresolved"));
+    await page.addInitScript((mode) => {
+      const w = window as unknown as Record<string, unknown>;
+      if (mode === "none") {
+        delete w.RTCPeerConnection;
+        return;
+      }
+      // "pass" answers with a server-reflexive candidate, "fail" gathers only a host candidate
+      class FakePeer extends EventTarget {
+        onicecandidate: ((e: { candidate: unknown }) => void) | null = null;
+        createDataChannel() { return {}; }
+        async createOffer() { return { type: "offer", sdp: "" }; }
+        async setLocalDescription() {
+          const emit = (candidate: unknown) => setTimeout(() => this.onicecandidate?.({ candidate }), 50);
+          emit({ type: "host", candidate: "candidate:1 1 udp 1 abc.local 50000 typ host" });
+          if (mode === "pass") emit({ type: "srflx", candidate: "candidate:1 1 udp 1 203.0.113.9 50000 typ srflx" });
+          else emit(null);
+        }
+        close() {}
+      }
+      w.RTCPeerConnection = FakePeer;
+    }, mode);
+    await page.goto(ORIGIN + "/check/");
+    await page.getByRole("button", { name: "開始檢測" }).click();
+    await expect(page.getByTestId("check-udp").locator(".badge")).toBeVisible();
+    await expect.poll(() => events(sent)).toEqual(expected);
+    // /check/ is not a public page: no page view, and the event has the path and nothing of the network
+    expect(sent.filter((s) => !s.name)).toEqual([]);
+    for (const s of sent) expect(Object.keys(s).sort()).toEqual(["hostname", "language", "name", "referrer", "screen", "url", "website"]);
+    for (const secret of ["203.0.113.9", "64500", "EXAMPLE", "stun.example"]) expect(JSON.stringify(sent)).not.toContain(secret);
+    await page.close();
+  });
+}
