@@ -77,6 +77,10 @@ def internal_health(conn: Conn) -> dict:
         "analysis_age": ages.get("analysis") if conn.execute(
             "SELECT 1 FROM device_inspections WHERE status = 'active' LIMIT 1"
         ).fetchone() else None,
+        # seconds since the analysis host's oldest list was downloaded, while a device inspection is running
+        "lists_age": ages.get("inspect-lists") if conn.execute(
+            "SELECT 1 FROM device_inspections WHERE status = 'active' LIMIT 1"
+        ).fetchone() else None,
         # seconds since each node with a device under inspection was last seen connected to the analysis host
         "stream_age": {r[0]: ages.get(f"stream:{r[0]}") for r in conn.execute(
             "SELECT DISTINCT d.region_id FROM device_inspections i JOIN devices d ON d.id = i.device_id WHERE i.status = 'active'"

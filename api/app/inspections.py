@@ -340,6 +340,15 @@ def tick(conn, usage: bool) -> None:
     except NodeError:
         return
     jobs.beat(conn, "analysis")
+    # when the oldest of the lists the captures are compared with was downloaded (inspect/analyze.py, lists_at): a
+    # capture is deleted once analysed, so a list that stopped updating is not made up for later. A missing list
+    # counts as never downloaded. An analysis host from before it said so leaves nothing to check.
+    if "lists_at" in status:
+        conn.execute(
+            "INSERT INTO heartbeats (name, at) VALUES ('inspect-lists', to_timestamp(%s)) "
+            "ON CONFLICT (name) DO UPDATE SET at = EXCLUDED.at",
+            (status["lists_at"] or 0,),
+        )
     # deploy/health_warn.py warns when a node with a device under inspection has stopped sending
     for region in regions:
         if region in status.get("connected", ()):

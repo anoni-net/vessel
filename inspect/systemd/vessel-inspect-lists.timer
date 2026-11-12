@@ -1,0 +1,12 @@
+[Unit]
+Description=Vessel inspection: download the lists every 6 hours
+
+[Timer]
+# an hour after the maintainer's host builds the nodes' lists (deploy/rpz/build-zones.sh), off the hour
+OnCalendar=*-*-* 05,11,17,23:40:00 UTC
+RandomizedDelaySec=10min
+# a host that was off at the time catches up when it starts
+Persistent=true
+
+[Install]
+WantedBy=timers.target
