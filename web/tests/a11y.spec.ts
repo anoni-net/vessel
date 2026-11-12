@@ -595,8 +595,8 @@ test("a table laid out as blocks on a phone says what each part is", async ({ pa
     tables += result.n;
     found.push(...result.missing.map((m) => `${path}: ${m}`));
   }
-  // the privacy policy's table and the lists page's ones
-  expect(tables).toBeGreaterThanOrEqual(4);
+  // the privacy policy's table and the lists page's ones (the excluded domains are a list, not a table)
+  expect(tables).toBeGreaterThanOrEqual(3);
   expect([...new Set(found)]).toEqual([]);
 });
 

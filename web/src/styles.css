@@ -969,8 +969,16 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .lists-bar__gap { fill: var(--page); }
 .lists-col > h2 { margin: 24px 0 0; }
 .lists-page .legal { margin-top: 0; }
-/* long host names in the table of excluded domains break anywhere instead of running off a phone */
+/* long host names in the tables break anywhere instead of running off a phone */
 .lists-page td code { overflow-wrap: anywhere; }
+/* the excluded domains: a reason, then its names side by side, wrapping */
+.lists-exclude { margin: 8px 0 0; border-top: 1px solid var(--line); }
+.lists-exclude__group { padding-block: 12px; border-bottom: 1px solid var(--line); }
+.lists-exclude dt { font-weight: 400; }
+.lists-exclude dd { margin: 8px 0 0; }
+.lists-exclude__names { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.lists-exclude__names code { display: block; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--tint); font-size: 14px; overflow-wrap: anywhere; }
 @media (min-width: 641px) {
   .lists-page { max-width: 800px; }
   .lists-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
