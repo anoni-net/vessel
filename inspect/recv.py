@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Receive the inspection streams from the nodes (node/host/vessel-inspect-stream.sh) into spool files for analyze.py.
 
-Each connection starts with a line naming the node, then a pcap stream. Files are cut on packet boundaries, every
+Each connection starts with a line naming the node, then a pcap stream. Only the nodes listed in VESSEL_INSPECT_NODES
+are listened to, each from its own tailnet address and under its own name: what arrives here becomes a person's report,
+so nobody else who can reach the port, and no node in another's name, may add to it. Files are cut on packet boundaries, every
 ROTATE_SECONDS or ROTATE_BYTES, and only appear under their final name when complete. The time is watched apart from
 the packets, so a device that goes quiet does not leave its last packets waiting on disk. SIGUSR1 cuts every file now,
 for the portal when an inspection ends."""
 
 import asyncio
 import datetime as dt
+import ipaddress
 import os
 import re
 import shutil
@@ -24,8 +27,11 @@ MAX_PACKET = 262144
 DISK_LIMIT = 0.9
 NAME = re.compile(rb"^vessel-inspect ([a-zA-Z0-9][a-zA-Z0-9_.-]{0,62})\n$")
 CHECK_EVERY = 10
+NODE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$")
 serial = 0
 spools = set()
+# address -> name, from VESSEL_INSPECT_NODES
+NODES: dict[str, str] = {}
 
 
 class Spool:
@@ -90,11 +96,42 @@ def disk_full() -> bool:
     return usage.used / usage.total >= DISK_LIMIT
 
 
+def parse_nodes(text: str) -> dict[str, str]:
+    """VESSEL_INSPECT_NODES, "sg=100.64.0.1 jp=100.64.0.2": the address each node sends from, to its name."""
+    nodes = {}
+    for item in text.split():
+        name, _, address = item.partition("=")
+        if not NODE.match(name) or name in nodes.values():
+            sys.exit(f"VESSEL_INSPECT_NODES: {item!r} is not <name>=<tailnet IP>, or the name is there twice")
+        try:
+            address = str(ipaddress.ip_address(address))
+        except ValueError:
+            sys.exit(f"VESSEL_INSPECT_NODES: {item!r} is not <name>=<tailnet IP>")
+        if address in nodes:
+            sys.exit(f"VESSEL_INSPECT_NODES: {address} is there twice")
+        nodes[address] = name
+    return nodes
+
+
+def sender(writer: asyncio.StreamWriter) -> str | None:
+    """The node this connection comes from, by its address, or None for one that is not a node."""
+    peer = writer.get_extra_info("peername")
+    try:
+        address = ipaddress.ip_address(peer[0])
+    except (TypeError, IndexError, ValueError):
+        return None
+    return NODES.get(str(getattr(address, "ipv4_mapped", None) or address))
+
+
 async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     spool = None
     try:
+        node = sender(writer)
+        if node is None:
+            return
         match = NAME.match(await asyncio.wait_for(reader.readline(), 30))
-        if match is None:
+        # the name a node gives is its own, and nobody else's
+        if match is None or match[1].decode() != node:
             return
         spool = Spool(match[1].decode(), await reader.readexactly(24))
         spools.add(spool)
@@ -119,6 +156,10 @@ async def main():
     host, _, port = os.environ.get("VESSEL_INSPECT_LISTEN", "").rpartition(":")
     if not host:
         sys.exit("set VESSEL_INSPECT_LISTEN to <tailnet IP>:<port>")
+    NODES.clear()
+    NODES.update(parse_nodes(os.environ.get("VESSEL_INSPECT_NODES", "")))
+    if not NODES:
+        sys.exit("set VESSEL_INSPECT_NODES to the nodes that may send, as <name>=<tailnet IP> separated by spaces")
     (HOME / "spool").mkdir(parents=True, exist_ok=True, mode=0o700)
     note_connected()
     loop = asyncio.get_running_loop()

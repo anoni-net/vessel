@@ -14,6 +14,8 @@
 
 節點端的 `node/host/vessel-inspect-stream.sh` 在容器的網路空間讀 NFLOG，由主機上的 `vessel-inspect-send.py` 開連線送出，走主機本來就有的 Tailscale。分析主機關閉連線、當機或斷網時，一分鐘內服務會結束並重新連線。節點的 `node.env` 沒有設定 `INSPECT_SINK` 時，服務不會做任何事。
 
+`recv.py` 只接收 `VESSEL_INSPECT_NODES` 列出的節點，格式是空白分隔的 `<名稱>=<tailnet IP>`。名稱是入口網站裡城市的代號，也是節點連線時第一行報上的名稱（`node.env` 的 `INSPECT_NAME`，沒有設定時是主機名稱）。連線的來源位址不在清單裡，或報上的名稱跟清單裡那個位址的名稱不同，連線會直接關閉，不寫入任何東西。沒有設定 `VESSEL_INSPECT_NODES` 時服務不會啟動。新增節點或節點換主機時，要更新這個清單並重啟 `vessel-inspect-recv.service`。
+
 ## 留下什麼
 
 | 留下 | 不留下 |
@@ -50,7 +52,7 @@ command="/opt/vessel-inspect-app/inspect-remote",restrict,from="<入口主機的
 ```bash
 # 分析主機
 install -d /opt/vessel-inspect-app; cp inspect/recv.py inspect/analyze.py inspect/inspect-remote node/exclude.txt /opt/vessel-inspect-app/
-printf 'VESSEL_INSPECT_LISTEN=<tailnet IP>:9400\nVESSEL_INSPECT_HOME=/var/lib/vessel-inspect\nVESSEL_INSPECT_EXCLUDE=/opt/vessel-inspect-app/exclude.txt\n' > /etc/vessel-inspect.env
+printf 'VESSEL_INSPECT_LISTEN=<tailnet IP>:9400\nVESSEL_INSPECT_NODES=sg=<sg 節點的 tailnet IP> jp=<jp 節點的 tailnet IP>\nVESSEL_INSPECT_HOME=/var/lib/vessel-inspect\nVESSEL_INSPECT_EXCLUDE=/opt/vessel-inspect-app/exclude.txt\n' > /etc/vessel-inspect.env
 install -d -m 700 /var/lib/vessel-inspect
 python3 -I /opt/vessel-inspect-app/analyze.py update-lists
 cp inspect/systemd/* /etc/systemd/system/ && systemctl daemon-reload
