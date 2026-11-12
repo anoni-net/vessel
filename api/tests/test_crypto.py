@@ -1,3 +1,5 @@
+import pytest
+
 from app import crypto
 
 
@@ -34,3 +36,17 @@ def test_invite_code_normalization():
     assert crypto.normalize_invite_code("ILO0-0000-0000-0000") == "1100000000000000"
     assert crypto.normalize_invite_code("ABCD-EFGH-JKMN-PQRU") is None
     assert crypto.normalize_invite_code("short") is None
+
+
+def test_only_so_many_hashes_run_at_once(monkeypatch):
+    """One that cannot get a turn in time is turned away, and the turns come back when the others are done."""
+    monkeypatch.setattr(crypto, "HASH_WAIT_SECONDS", 0.05)
+    held = [crypto._hashing.acquire(timeout=1) for _ in range(crypto.HASH_AT_ONCE)]
+    try:
+        assert all(held)
+        with pytest.raises(crypto.Busy):
+            crypto.hash_account_number("1234567890123456", "pepper-a")
+    finally:
+        for _ in held:
+            crypto._hashing.release()
+    assert len(crypto.hash_account_number("1234567890123456", "pepper-a")) == 32

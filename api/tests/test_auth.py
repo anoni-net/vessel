@@ -122,6 +122,28 @@ def test_sign_in_rate_limit(client, db):
     assert codes[:10] == [401] * 10 and codes[10] == 429
 
 
+def test_sign_in_rate_limit_counts_an_ipv6_64_together(client, db):
+    def sign_in(address):
+        return client.post("/api/login", json={"account_number": "0000 0000 0000 0000"},
+                           headers={**HEADERS, "CF-Connecting-IP": address}).status_code
+
+    assert [sign_in(f"2001:db8:1:2::{n:x}") for n in range(1, 11)] == [401] * 10
+    assert sign_in("2001:db8:1:2:ffff:ffff:ffff:ffff") == 429
+    assert sign_in("2001:db8:1:3::1") == 401
+
+
+def test_too_many_sign_ins_at_once_are_told_to_try_again(client, db, monkeypatch):
+    from app import crypto
+
+    def busy(number, pepper):
+        raise crypto.Busy
+
+    monkeypatch.setattr(crypto, "hash_account_number", busy)
+    r = client.post("/api/login", json={"account_number": "0000 0000 0000 0000"}, headers=HEADERS)
+    assert r.status_code == 429 and r.json() == {"error": "too_many_attempts"}
+    assert r.headers["cache-control"] == "no-store"
+
+
 def test_delete_account_queues_node_cleanup(client, db):
     redeem(client, make_invite(db))
     account_id = db.execute("SELECT id FROM accounts").fetchone()[0]

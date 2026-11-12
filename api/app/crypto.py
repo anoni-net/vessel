@@ -9,6 +9,7 @@ it together with the pepper still makes every guess cost one Argon2id run.
 import hashlib
 import hmac
 import secrets
+import threading
 
 from argon2.low_level import Type, hash_secret_raw
 
@@ -31,12 +32,29 @@ def format_account_number(number: str) -> str:
     return " ".join(number[i:i + 4] for i in range(0, NUMBER_DIGITS, 4))
 
 
+# Each hash takes 64 MB while it runs, and a request for one costs its sender nothing. This many run at once, the
+# rest wait their turn; one that has waited HASH_WAIT_SECONDS is turned away (Busy) instead of holding a thread. The
+# host is shared with other services, and without this a burst of sign-ins could take its memory.
+HASH_AT_ONCE = 4
+HASH_WAIT_SECONDS = 10
+_hashing = threading.BoundedSemaphore(HASH_AT_ONCE)
+
+
+class Busy(Exception):
+    """Too many account numbers are being hashed at once; app/main.py answers 429."""
+
+
 def hash_account_number(number: str, pepper: str) -> bytes:
     salt = hashlib.sha256(b"vessel-account-salt:" + pepper.encode()).digest()[:16]
-    return hash_secret_raw(
-        secret=number.encode(), salt=salt, time_cost=3, memory_cost=64 * 1024, parallelism=1,
-        hash_len=32, type=Type.ID,
-    )
+    if not _hashing.acquire(timeout=HASH_WAIT_SECONDS):
+        raise Busy
+    try:
+        return hash_secret_raw(
+            secret=number.encode(), salt=salt, time_cost=3, memory_cost=64 * 1024, parallelism=1,
+            hash_len=32, type=Type.ID,
+        )
+    finally:
+        _hashing.release()
 
 
 def new_invite_code() -> str:

@@ -41,6 +41,10 @@ services:
       - /etc/vessel/ssh:/run/vessel-ssh:ro
     ports:
       - "127.0.0.1:${VESSEL_API_PORT:-8090}:8090"
+    # the host is shared with other services. The API holds the blocklists and the address table in memory (about
+    # 300 MB, twice that while they are refreshed) and hashes a few account numbers at once (app/crypto.py); past this
+    # it is restarted instead of taking the host's memory
+    mem_limit: 2g
     logging: *logging
 
   # runs queued node jobs, expires devices, clears unfetched configs, polls usage and enforces the quota
