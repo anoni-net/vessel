@@ -26,11 +26,10 @@ test("group accounts: what they are and how to ask, linked from the home page, t
   await expect(page.locator("#results .hero-fig__tile--mark")).toHaveCount(2);
   await expect(page.locator("#results").getByRole("link", { name: "隱私權政策的「團體」一節" })).toHaveAttribute("href", "/privacy/#groups");
   await expect(page.locator("#more dt")).toHaveCount(5);
-  // the button under the lead goes to the three steps; asking needs a way to reach the group, which the feedback
-  // form has, and it notes where the visitor came from
+  // the button under the lead goes to the three steps, and those to the request form (tests/group-apply.spec.ts)
   await expect(page.getByRole("link", { name: "申請團體帳號" })).toHaveAttribute("href", "#apply");
   await expect(page.locator("#apply ol li")).toHaveCount(3);
-  await expect(page.getByRole("link", { name: "前往意見回覆" })).toHaveAttribute("href", "/feedback/?from=groups");
+  await expect(page.getByRole("link", { name: "填寫申請表單" })).toHaveAttribute("href", "/for-groups/apply/");
   await expect(page.locator("#apply").getByRole("link", { name: "社群的聯絡方式" })).toHaveAttribute("href", "https://anoni.net/contact/");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
@@ -46,7 +45,7 @@ test("group accounts: what they are and how to ask, linked from the home page, t
 
   await page.goto("/en/for-groups/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Traffic inspection for your group's devices");
-  await expect(page.getByRole("link", { name: "Go to feedback" })).toHaveAttribute("href", "/en/feedback/?from=groups");
+  await expect(page.getByRole("link", { name: "Fill in the request form" })).toHaveAttribute("href", "/en/for-groups/apply/");
   await page.goto("/zh-cn/for-groups/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("团体设备的流量检测");
 });

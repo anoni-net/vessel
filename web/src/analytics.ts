@@ -47,6 +47,9 @@ export const EVENTS: Record<string, Record<string, readonly string[]>> = {
   // from, which the nodes never see. It carries nothing, and a check that passed or could not tell sends nothing:
   // the count is of blocked networks met, to decide whether a way in over TCP is worth building (toomore/anoni-net-ws#437).
   "check-udp-blocked": {},
+  // A request for group accounts was sent (pages/group-apply.tsx). It carries nothing: what the group wrote goes
+  // to the form server only, and the count tells how many asked (toomore/anoni-net-ws#488).
+  "group-apply": {},
 };
 
 /** The data back when it has exactly the listed fields with listed values, otherwise null. */

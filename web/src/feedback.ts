@@ -74,8 +74,11 @@ export interface Feedback {
 
 export const feedbackReady = (f: Feedback) => !!f.kind && f.message.trim().length >= LIMITS.messageMin;
 
+/** What the form server takes: a survey, and its answers by question id. */
+export interface FormPayload { surveyId: string; finished: true; data: Record<string, string> }
+
 /** `from`: the page the link came from, if it is one of ours. Empty answers are left out. */
-export function feedbackPayload(f: Feedback, locale: Locale, from: string) {
+export function feedbackPayload(f: Feedback, locale: Locale, from: string): FormPayload {
   const survey = locale === "en" ? "en" : "zh-TW";
   const sent = SENT[survey];
   const data: Record<string, string> = { kind: sent.kind[f.kind!], message: f.message.trim(), locale };
@@ -86,7 +89,7 @@ export function feedbackPayload(f: Feedback, locale: Locale, from: string) {
   if (f.contact.trim()) data.contact = f.contact.trim();
   if (FROM.includes(from)) data.from = from;
   if (REV) data.rev = REV;
-  return { surveyId: SURVEYS[survey], finished: true as const, data };
+  return { surveyId: SURVEYS[survey], finished: true, data };
 }
 
 export const FROM = ["devices", "faq", "footer", "new-device", "home", "check", "status", "learn", "dns"];
@@ -94,7 +97,7 @@ export const FROM = ["devices", "faq", "footer", "new-device", "home", "check", 
 export type FeedbackResult = "sent" | "closed" | "network" | "other";
 
 // no cookies or Referer, so the form server does not learn the page's address; 403 means the survey is closed
-export async function sendFeedback(payload: ReturnType<typeof feedbackPayload>): Promise<FeedbackResult> {
+export async function sendFeedback(payload: FormPayload): Promise<FeedbackResult> {
   let res: Response;
   try {
     res = await fetch(FEEDBACK_ENDPOINT, {

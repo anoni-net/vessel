@@ -9,7 +9,7 @@ export const SITE = "https://vessel.anoni.net";
 // pages worth finding; the rest need a session, or (/pickup/, toomore/anoni-net-ws#441) are linked from the newsletter
 // only for now, and are marked noindex and left out of the sitemap
 export const PUBLIC_PAGES = ["/", "/learn/", "/for-groups/", "/faq/", "/dns/", "/dns/lists/", "/check/", "/feedback/", "/status/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
-export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/devices/inspect/", "/account/", "/group/", "/pickup/"] as const;
+export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/devices/inspect/", "/account/", "/group/", "/pickup/", "/for-groups/apply/"] as const;
 
 const TITLES: Record<string, MessageKey> = {
   "/redeem/": "redeem.title",
@@ -26,6 +26,7 @@ const TITLES: Record<string, MessageKey> = {
   "/check/": "check.title",
   "/learn/": "learn.title",
   "/for-groups/": "forGroups.title",
+  "/for-groups/apply/": "groupApply.title",
   "/feedback/": "feedback.title",
   "/status/": "status.title",
   "/terms/": "terms.title",
