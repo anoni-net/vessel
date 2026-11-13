@@ -8,10 +8,12 @@ test("group accounts: what they are and how to ask, linked from the home page, t
   await expect(page).toHaveURL(/\/for-groups\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("團體帳號");
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
-    "適合的團體", "負責人可以做的事", "成員的使用方式", "負責人看得到的內容", "費用與期限", "申請方式",
+    "適合的團體", "負責人可以做的事", "成員的使用方式", "負責人看得到的內容", "裝置流量檢測", "費用與期限", "申請方式",
   ]);
   // what leaders can and cannot see, said once, with the policy one link away
-  await expect(page.getByRole("heading", { level: 3 })).toHaveText(["看得到", "看不到"]);
+  await expect(page.getByRole("heading", { level: 3 })).toHaveText(["看得到", "看不到", "建議使用的情況"]);
+  // device inspection: when it is worth asking a member, four cases
+  await expect(page.locator("#for-groups-inspect + p + h3 + ul li")).toHaveCount(4);
   await expect(page.getByRole("link", { name: "隱私權政策的「團體」一節" })).toHaveAttribute("href", "/privacy/#groups");
   await expect(page.locator("main ol li")).toHaveCount(3);
   // asking needs a way to reach the group, which the feedback form has; it notes where the visitor came from

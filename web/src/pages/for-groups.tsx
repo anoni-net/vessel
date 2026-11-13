@@ -8,9 +8,11 @@ import { COMMUNITY_SITE, LOCALE_PATH } from "../site.ts";
 const LEADER = [1, 2, 3, 4] as const;
 const SEES = [1, 2, 3] as const;
 const APPLY = [1, 2, 3] as const;
+// when asking a member to inspect a device is worth it (toomore/anoni-net-ws#483); off until a group asks for it
+const INSPECT_WHEN = [1, 2, 3, 4] as const;
 const contact = (l: Locale) => `${COMMUNITY_SITE}${LOCALE_PATH[l]}/contact/`;
 
-const SECTIONS = ["who", "leader", "member", "sees", "terms", "apply"] as const;
+const SECTIONS = ["who", "leader", "member", "sees", "inspect", "terms", "apply"] as const;
 
 export function ForGroups() {
   const { t, href, locale } = useCtx();
@@ -50,8 +52,17 @@ export function ForGroups() {
       <ul>
         {SEES.map((n) => <li>{t[`forGroups.sees.no.${n}` as MessageKey]}</li>)}
       </ul>
-      <p>{t["forGroups.sees.inspect"]}</p>
       <p class="small"><a href={href("/privacy/#groups")}>{t["forGroups.sees.link"]}</a></p>
+
+      <h2 id="for-groups-inspect">{t["forGroups.inspect.title"]}</h2>
+      <p>{t["forGroups.inspect.body"]}</p>
+      <h3>{t["forGroups.inspect.when"]}</h3>
+      <ul>
+        {INSPECT_WHEN.map((n) => <li>{t[`forGroups.inspect.when.${n}` as MessageKey]}</li>)}
+      </ul>
+      <p>{t["forGroups.inspect.consent"]}</p>
+      <p>{t["forGroups.inspect.limits"]}</p>
+      <p>{t["forGroups.inspect.ask"]}</p>
 
       <h2 id="for-groups-terms">{t["forGroups.terms.title"]}</h2>
       <p>{t["forGroups.terms.body"]}</p>
