@@ -91,6 +91,9 @@ class FakeNode:
         # what node/host/vessel-reach.py last wrote, or None before its first run
         self.reach_result: dict | None = None
         self.reach_calls = 0
+        # the node's hourly.csv as awgctl-remote sends it, or None on a node without the call
+        self.probe_result: str | None = None
+        self.probe_calls = 0
         self.totals = None  # the node's own counts in usage; None like a node from before they were added
         # device inspection
         self.inspecting: dict[str, int] = {}
@@ -173,6 +176,12 @@ class FakeNode:
         if self.down or self.reach_result is None:
             raise NodeError("cat: /opt/vessel-node/reach.json: No such file or directory")
         return self.reach_result
+
+    def probe(self, host):
+        self.probe_calls += 1
+        if self.down or self.probe_result is None:
+            raise NodeError("awgctl-remote: command not allowed")
+        return self.probe_result
 
     def usage(self, host):
         if self.down:

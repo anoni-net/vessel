@@ -429,3 +429,63 @@ def poll_reach(conn: psycopg.Connection) -> None:
                 conn.execute("INSERT INTO reach_history (region_id, site, state, checked_at) VALUES (%s, %s, %s, %s) "
                              "ON CONFLICT DO NOTHING", (region_id, site, state, checked_at))
     conn.execute("DELETE FROM reach_history WHERE checked_at < now() - make_interval(hours => %s)", (REACH_KEEP_HOURS,))
+
+
+PROBE_EVERY_MINUTES = 30
+PROBE_KEEP_DAYS = 400
+# hourly.csv's columns after the hour (node/host/vessel-probe-watch.sh), which are also probe_hours'
+PROBE_COLUMNS = ("packets", "sources", "taiwan", "hk_macau", "china", "japan_korea", "southeast_asia", "other_apac",
+                 "outside_apac", "dropped", "probe_packets", "handshake_sources", "handshake_china")
+PROBE_HOUR = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:00Z$")
+PROBE_COUNT = re.compile(r"^\d{1,18}$")
+
+
+def probe_rows(text: str) -> list[tuple]:
+    """hourly.csv as a node sends it (its header, then rows) into (hour, one value per PROBE_COLUMNS). The header says
+    which columns the node has; one it does not have, or left empty, is None. A row that is not an hour with its two
+    first counts, or holds anything but counts, is dropped, as is an hour that has not ended."""
+    lines = text.splitlines()
+    header = lines[0].split(",") if lines else []
+    if header[:1] != ["hour"]:
+        raise ValueError("no header")
+    now, rows = datetime.now(UTC), []
+    for line in lines[1:]:
+        field = dict(zip(header, line.split(","), strict=False))
+        if not PROBE_HOUR.match(field["hour"]):
+            continue
+        values = [field.get(column) or None for column in PROBE_COLUMNS]
+        if values[0] is None or values[1] is None or not all(v is None or PROBE_COUNT.match(v) for v in values):
+            continue
+        try:
+            hour = datetime.strptime(field["hour"], "%Y-%m-%dT%H:00Z").replace(tzinfo=UTC)
+        except ValueError:
+            continue
+        if hour <= now:
+            rows.append((hour, *(None if v is None else int(v) for v in values)))
+    return rows
+
+
+def poll_probe(conn: psycopg.Connection) -> None:
+    """Copy each open region's hourly counts of what reached its AWG port from addresses that are not a device's
+    (node/host/vessel-probe-watch.sh) into probe_hours. The node writes a row on the hour and sends its last two weeks;
+    a region read in the last half hour is skipped, and an hour already here is left as it is. A node that cannot be
+    read, or does not have the call yet, is tried again on the next round. Counts only, kept for 400 days."""
+    node = get_node()
+    due = conn.execute(
+        "SELECT r.id, r.node_host FROM regions r WHERE r.is_open AND NOT EXISTS "
+        "(SELECT 1 FROM heartbeats h WHERE h.name = 'probe:' || r.id AND h.at > now() - make_interval(mins => %s))",
+        (PROBE_EVERY_MINUTES,),
+    ).fetchall()
+    columns = ", ".join(PROBE_COLUMNS)
+    marks = ", ".join(["%s"] * (len(PROBE_COLUMNS) + 2))
+    for region_id, host in due:
+        try:
+            rows = probe_rows(node.probe(host))
+        except (NodeError, ValueError):
+            continue
+        with conn.transaction():
+            for row in rows:
+                conn.execute(f"INSERT INTO probe_hours (region_id, hour, {columns}) VALUES ({marks}) "
+                             "ON CONFLICT DO NOTHING", (region_id, *row))
+        beat(conn, f"probe:{region_id}")
+    conn.execute("DELETE FROM probe_hours WHERE hour < now() - make_interval(days => %s)", (PROBE_KEEP_DAYS,))

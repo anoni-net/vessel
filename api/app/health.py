@@ -16,6 +16,33 @@ STUCK_MINUTES = 15
 # An account whose devices send more than they receive is unusual: browsing, video and messages mostly come in. A
 # server, seeding or a proxy for others goes the other way. Below this much sent in the month it says nothing.
 UPLOAD_FLOOR = 10**9
+# The hourly counts worth a notice when they rise (probe_hours, node/host/vessel-probe-watch.sh), compared over the
+# last 24 hours and the 7 days before them. A count needs this many hours in those 7 days to have a usual level.
+PROBE_METRICS = ("probe_packets", "handshake_sources", "handshake_china", "china", "dropped")
+PROBE_USUAL_HOURS = 72
+
+
+def probe_levels(conn) -> dict:
+    """Per open region and count: `day`, its total over the last 24 hours that ended (None when the node has not
+    counted it), and `usual`, its average per 24 hours over the 7 days before (None with too little to compare with)."""
+    sums = ", ".join(
+        f"sum({m}) FILTER (WHERE recent), sum({m}) FILTER (WHERE NOT recent), count({m}) FILTER (WHERE NOT recent)"
+        for m in PROBE_METRICS
+    )
+    levels = {}
+    for region, *found in conn.execute(
+        # hours are named by their start: the last 24 that ended, and the 168 before them
+        f"SELECT region_id, {sums} FROM (SELECT p.*, p.hour > now() - interval '25 hours' AS recent "
+        "FROM probe_hours p JOIN regions r ON r.id = p.region_id WHERE r.is_open AND p.hour > now() - interval '193 hours') h "
+        "GROUP BY 1 ORDER BY 1"
+    ):
+        day, usual = {}, {}
+        for i, metric in enumerate(PROBE_METRICS):
+            recent, before, hours = found[i * 3:i * 3 + 3]
+            day[metric] = None if recent is None else int(recent)
+            usual[metric] = round(float(before) * 24 / hours, 1) if hours >= PROBE_USUAL_HOURS else None
+        levels[region] = {"day": day, "usual": usual}
+    return levels
 
 
 def usage_flags(conn) -> dict:
@@ -103,4 +130,12 @@ def internal_health(conn: Conn) -> dict:
             "SELECT s.region_id, s.failing_devices FROM daily_stats s JOIN regions r ON r.id = s.region_id "
             "WHERE r.is_open AND s.day = current_date ORDER BY 1"
         ).fetchall()),
+        # seconds since the end of the last hour each open node counted what reached its port from addresses that are
+        # not a device's; a node never read is left out
+        "probe_age": dict(conn.execute(
+            "SELECT p.region_id, extract(epoch FROM now() - max(p.hour) - interval '1 hour')::int FROM probe_hours p "
+            "JOIN regions r ON r.id = p.region_id WHERE r.is_open GROUP BY 1 ORDER BY 1"
+        ).fetchall()),
+        # those counts over the last 24 hours, next to their usual level (probe_levels)
+        "probe": probe_levels(conn),
     }

@@ -21,6 +21,10 @@ VESSEL_DNSBL_STATE。節點不記錄連線的目的地，有裝置寄垃圾信�
 連不上的裝置達到 FAILING_ALERT 台，或比上次更多時推播。都只有總數，
 沒有帳號或裝置，上一次的結果記在 VESSEL_USAGE_STATE。
 
+各節點每小時統計打到 AWG 埠、不是裝置送來的封包（node/host/vessel-probe-watch.sh），worker 收回後端。
+某個節點近 24 小時的數字達到 PROBE_SIGNALS 的下限，而且是前 7 天平均的 PROBE_TIMES 倍以上時推播，
+回到平常時再推一次，上一次的結果記在 VESSEL_PROBE_STATE。節點超過 3 小時沒有新的一筆時算進異常。
+
 只用標準函式庫，在部署主機上用系統的 python3 執行。
 
     VESSEL_NTFY=http://<ntfy 主機>/<topic> python3 deploy/health_warn.py
@@ -33,6 +37,7 @@ VESSEL_DNSBL_STATE。節點不記錄連線的目的地，有裝置寄垃圾信�
     VESSEL_DNSBL           查詢的黑名單，空白分隔，預設見下方的 DNSBL，設成空值就不查
     VESSEL_DNSBL_STATE     預設 ~/.cache/vessel-dnsbl.state
     VESSEL_USAGE_STATE     預設 ~/.cache/vessel-usage.state
+    VESSEL_PROBE_STATE     預設 ~/.cache/vessel-probe.state
     --force                不管狀態有沒有變都推播一次，用來測試通知
     --dnsbl                只查一次黑名單並印出每一筆的結果，不推播也不更新狀態，用來確認名單可以查詢
 """
@@ -53,6 +58,23 @@ STATE = Path(os.environ.get("VESSEL_HEALTH_STATE", Path.home() / ".cache" / "ves
 REACH_STATE = Path(os.environ.get("VESSEL_REACH_STATE", Path.home() / ".cache" / "vessel-reach.state"))
 DNSBL_STATE = Path(os.environ.get("VESSEL_DNSBL_STATE", Path.home() / ".cache" / "vessel-dnsbl.state"))
 USAGE_STATE = Path(os.environ.get("VESSEL_USAGE_STATE", Path.home() / ".cache" / "vessel-usage.state"))
+PROBE_STATE = Path(os.environ.get("VESSEL_PROBE_STATE", Path.home() / ".cache" / "vessel-probe.state"))
+# /internal/health probe: what reached a node's port from addresses that are not a device's, over the last 24 hours.
+# Each count's label and the least worth a notice. A day's sources add up each hour's, so one removed device whose
+# app keeps trying is up to 24 handshake sources a day, and with the 4 to 9 packets a client sends before each
+# handshake, every 5 seconds, 90,000 to 170,000 packets; the floors sit above that. They are first guesses from one
+# week of counts (toomore/anoni-net-ws#487), to be set again once there are four.
+PROBE_SIGNALS = {
+    "handshake_sources": ("送出握手長度封包的來源", 30),
+    "handshake_china": ("送出握手長度封包、登記在中國的來源", 10),
+    "probe_packets": ("不是裝置送來的封包", 500000),
+    "china": ("登記在中國的來源", 10),
+    "dropped": ("超過額度被丟棄的封包", 1),
+}
+# and at least this many times the average day of the 7 days before
+PROBE_TIMES = 3
+# the nodes write a row every hour; three hours without one means the timer stopped or the worker cannot read it
+PROBE_STALE = 3 * 3600
 # /internal/health usage_flags, and the node totals worth a notice (node/start.sh); new-connections is only for scale
 USAGE_FLAGS = {
     "upload": "本月上傳超過下載（上傳至少 1 GB）的帳號",
@@ -101,6 +123,10 @@ def evaluate(data: dict) -> tuple[str, list[str]]:
         if age > REACH_STALE:
             problems.append(f"reach:{region}")
             lines.append(f"- {region} 節點：網站自測 {age // 3600} 小時沒有更新")
+    for region, age in sorted(data.get("probe_age", {}).items()):
+        if age > PROBE_STALE:
+            problems.append(f"probe:{region}")
+            lines.append(f"- {region} 節點：探測的統計 {age // 3600} 小時沒有新的一筆")
     analysis = data.get("analysis_age")
     if analysis is not None and analysis > 1800:
         problems.append("analysis")
@@ -142,6 +168,9 @@ def check(data: dict | str) -> tuple[str, str]:
         hint = "在分析主機上看 systemctl status vessel-inspect-lists.timer vessel-inspect-lists.service，手動更新用 analyze.py update-lists。"
     elif "usage:" in state or "jobs" in state:
         hint = "worker 正常但連不上節點：從 m6 經 tailnet 連節點，看 awgctl list 與 worker 的 log。"
+    elif "probe:" in state and "reach:" not in state:
+        hint = ("節點的探測統計停了，或 worker 讀不到：在節點上看 systemctl status vessel-probe-watch.timer 與 "
+                "/opt/vessel-node/host/vessel-probe-watch.sh show，再確認節點的 awgctl-remote 有 probe --csv。")
     else:
         hint = "節點的網站自測停了：在節點上看 systemctl status vessel-reach.timer vessel-reach.service 與 /opt/vessel-node/reach.json。"
     return state, "\n".join(lines) + "\n\n" + hint
@@ -184,6 +213,7 @@ def main() -> int:
         watch_reach(data)
         watch_dnsbl(data)
         watch_usage(data)
+        watch_probe(data)
     state, body = check(data)
     previous = STATE.read_text().strip() if STATE.exists() else "ok"
     if state == previous and not force:
@@ -354,6 +384,57 @@ def watch_usage(data: dict) -> None:
     if now != before or not USAGE_STATE.exists():
         USAGE_STATE.parent.mkdir(parents=True, exist_ok=True)
         USAGE_STATE.write_text("".join(f"{k}={v}\n" for k, v in sorted(now.items())))
+
+
+def probe_raised(data: dict) -> set[str]:
+    """`region:count` for each count that is at its floor over the last 24 hours and PROBE_TIMES its usual day. A
+    count the node does not have, or with too few days before it to compare with, raises nothing."""
+    raised = set()
+    for region, level in data.get("probe", {}).items():
+        for name, (_, floor) in PROBE_SIGNALS.items():
+            day, usual = level.get("day", {}).get(name), level.get("usual", {}).get(name)
+            if day is not None and usual is not None and day >= floor and day >= PROBE_TIMES * usual:
+                raised.add(f"{region}:{name}")
+    return raised
+
+
+def probe_body(data: dict, now: set[str], before: set[str]) -> str:
+    """Each raised count with its usual day and the other nodes' same count: a rise on every node at once is mostly
+    a scan of the whole network, a rise on one node is the one to look into."""
+    levels, lines = data.get("probe", {}), []
+    for key in sorted(now):
+        region, name = key.split(":", 1)
+        others = "、".join(f"{r} {v['day'][name]}" for r, v in sorted(levels.items())
+                          if r != region and v.get("day", {}).get(name) is not None)
+        fresh = "" if key in before else "，新出現"
+        lines.append(f"- {region} 節點近 24 小時{PROBE_SIGNALS[name][0]}：{levels[region]['day'][name]}"
+                     f"（前 7 天平均每天 {levels[region]['usual'][name]}{fresh}）" + (f"，其他節點：{others}" if others else ""))
+    for key in sorted(before - now):
+        region, name = key.split(":", 1)
+        if name in PROBE_SIGNALS:
+            lines.append(f"- {region} 節點的{PROBE_SIGNALS[name][0]}回到平常")
+    return "\n".join(lines) + ("\n\n只有總數，沒有位址。每天與每小時的數字在 m6 上用 python -m app.admin probes 查，"
+                               "判讀見 node/README.md 的「探測與掃描的觀察」。")
+
+
+def watch_probe(data: dict) -> None:
+    """Notify when a node's probe counts rise well above their usual level, and when they are back. A failed notice
+    leaves the state as it was, to try again."""
+    if "probe" not in data:
+        return  # a backend from before the counts
+    now = probe_raised(data)
+    before = {line for line in PROBE_STATE.read_text().splitlines() if line} if PROBE_STATE.exists() else set()
+    if now == before:
+        return
+    try:
+        notify("Vessel 節點被探測的數字有變化", probe_body(data, now, before), "high" if now - before else "default",
+               "eyes" if now - before else "white_check_mark")
+    except Exception as err:
+        print(f"vessel probe: 推播失敗：{err}", file=sys.stderr)
+        return
+    PROBE_STATE.parent.mkdir(parents=True, exist_ok=True)
+    PROBE_STATE.write_text("".join(f"{k}\n" for k in sorted(now)))
+    print(f"vessel probe: {len(before)} → {len(now)} 項，已推播")
 
 
 if __name__ == "__main__":

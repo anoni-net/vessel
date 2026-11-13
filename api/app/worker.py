@@ -1,6 +1,7 @@
 """Background worker: runs queued node jobs, expires devices, clears unfetched configs, and every few minutes
 reads the nodes' transfer counters and enforces the monthly quota. Every half hour it also reads which common sites
-each node can open.
+each node can open, and copies each node's hourly counts of what reached its port from addresses that are not a
+device's.
 Usage: python -m app.worker [--once]"""
 
 import sys
@@ -23,6 +24,7 @@ def tick(conn: psycopg.Connection, usage: bool = True) -> None:
         jobs.poll_usage(conn)
         jobs.enforce_quota(conn, policy.personal_quota(conn))
         jobs.poll_reach(conn)
+        jobs.poll_probe(conn)
         jobs.reconcile_peers(conn)
     inspections.tick(conn, usage)
     jobs.run_due_jobs(conn)
