@@ -470,23 +470,29 @@ def poll_probe(conn: psycopg.Connection) -> None:
     """Copy each open region's hourly counts of what reached its AWG port from addresses that are not a device's
     (node/host/vessel-probe-watch.sh) into probe_hours. The node writes a row on the hour and sends its last two weeks;
     a region read in the last half hour is skipped, and an hour already here is left as it is. A node that cannot be
-    read, or does not have the call yet, is tried again on the next round. Counts only, kept for 400 days."""
+    read, or does not have the call yet, is tried again on the next round. Counts only, kept for 400 days.
+
+    A region's control (probe_controls), a host without Vessel that counts the same, is read the same way, through
+    its jump host when it has one; its hours are kept with `control` set."""
     node = get_node()
     due = conn.execute(
-        "SELECT r.id, r.node_host FROM regions r WHERE r.is_open AND NOT EXISTS "
-        "(SELECT 1 FROM heartbeats h WHERE h.name = 'probe:' || r.id AND h.at > now() - make_interval(mins => %s))",
+        "SELECT s.id, s.host, s.jump, s.control FROM (SELECT id, node_host AS host, NULL AS jump, false AS control "
+        "FROM regions WHERE is_open UNION ALL SELECT c.region_id, c.host, c.jump, true FROM probe_controls c "
+        "JOIN regions r ON r.id = c.region_id WHERE r.is_open) s WHERE NOT EXISTS (SELECT 1 FROM heartbeats h "
+        "WHERE h.name = CASE WHEN s.control THEN 'probe-control:' ELSE 'probe:' END || s.id "
+        "AND h.at > now() - make_interval(mins => %s)) ORDER BY s.control, s.id",
         (PROBE_EVERY_MINUTES,),
     ).fetchall()
     columns = ", ".join(PROBE_COLUMNS)
-    marks = ", ".join(["%s"] * (len(PROBE_COLUMNS) + 2))
-    for region_id, host in due:
+    marks = ", ".join(["%s"] * (len(PROBE_COLUMNS) + 3))
+    for region_id, host, jump, control in due:
         try:
-            rows = probe_rows(node.probe(host))
+            rows = probe_rows(node.probe(host, jump) if control else node.probe(host))
         except (NodeError, ValueError):
             continue
         with conn.transaction():
             for row in rows:
-                conn.execute(f"INSERT INTO probe_hours (region_id, hour, {columns}) VALUES ({marks}) "
-                             "ON CONFLICT DO NOTHING", (region_id, *row))
-        beat(conn, f"probe:{region_id}")
+                conn.execute(f"INSERT INTO probe_hours (region_id, control, hour, {columns}) VALUES ({marks}) "
+                             "ON CONFLICT DO NOTHING", (region_id, control, *row))
+        beat(conn, f"probe-control:{region_id}" if control else f"probe:{region_id}")
     conn.execute("DELETE FROM probe_hours WHERE hour < now() - make_interval(days => %s)", (PROBE_KEEP_DAYS,))

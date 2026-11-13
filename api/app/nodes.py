@@ -6,12 +6,19 @@ which reads its hourly counts of what reached the AWG port from addresses that a
 
 import json
 import os
+import re
+import shlex
 import subprocess
 from typing import Protocol
 
 
 class NodeError(Exception):
     pass
+
+
+# what may go into the command that reaches a host through a jump host (probe_controls)
+ADDRESS = re.compile(r"^[A-Za-z0-9_.:-]+$")
+JUMP = re.compile(r"^[a-z_][a-z0-9_-]*@[A-Za-z0-9_.:-]+$")
 
 
 class Node(Protocol):
@@ -24,7 +31,7 @@ class Node(Protocol):
     def usage(self, host: str) -> dict: ...
     def list_peers(self, host: str) -> list[dict]: ...
     def reach(self, host: str) -> dict: ...
-    def probe(self, host: str) -> str: ...
+    def probe(self, host: str, jump: str | None = None) -> str: ...
     def inspect_on(self, host: str, device_id: str, until: int, code: str) -> None: ...
     def inspect_off(self, host: str, device_id: str) -> None: ...
     def inspect_confirms(self, host: str) -> list[dict]: ...
@@ -43,14 +50,26 @@ class SSHNode:
     def __init__(self, key_path: str, known_hosts: str, user: str = "root", timeout: float = 20):
         self.key_path, self.known_hosts, self.user, self.timeout = key_path, known_hosts, user, timeout
 
-    def _run(self, host: str, *args: str) -> str:
+    def _command(self, host: str, *args: str, jump: str | None = None) -> list[str]:
         # -F /dev/null: ignore any ssh_config on the host, so nothing there can turn off key auth or add proxies
-        cmd = [
-            "ssh", "-F", "/dev/null", "-i", self.key_path, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+        options = [
+            "-F", "/dev/null", "-i", self.key_path, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
             "-o", "PubkeyAuthentication=yes",
             "-o", f"UserKnownHostsFile={self.known_hosts}", "-o", "StrictHostKeyChecking=yes",
-            "-o", "ConnectTimeout=10", f"{self.user}@{host}", " ".join(args),
+            "-o", "ConnectTimeout=10",
         ]
+        cmd = ["ssh", *options]
+        if jump:
+            # A host that is not on the tailnet, through one that is: the same key and known_hosts for both hops. On
+            # the jump host the key may only forward to that host. ssh hands ProxyCommand to a shell, so only plain
+            # addresses go into it.
+            if not JUMP.match(jump) or not ADDRESS.match(host):
+                raise NodeError("jump: not an address")
+            cmd += ["-o", "ProxyCommand=" + shlex.join(["ssh", *options, "-W", "%h:%p", jump])]
+        return [*cmd, f"{self.user}@{host}", " ".join(args)]
+
+    def _run(self, host: str, *args: str, jump: str | None = None) -> str:
+        cmd = self._command(host, *args, jump=jump)
         try:
             done = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=self.timeout)
         except subprocess.TimeoutExpired as e:
@@ -112,8 +131,8 @@ class SSHNode:
         except ValueError as e:
             raise NodeError(f"reach: {e}") from e
 
-    def probe(self, host):
-        return self._run(host, "probe", "--csv")
+    def probe(self, host, jump=None):
+        return self._run(host, "probe", "--csv", jump=jump)
 
     def inspect_on(self, host, device_id, until, code):
         # the node starts only when it holds this code as confirmed by the device itself (node/awgctl, confirmed)

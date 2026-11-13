@@ -24,7 +24,8 @@ PROBE_USUAL_HOURS = 72
 
 def probe_levels(conn) -> dict:
     """Per open region and count: `day`, its total over the last 24 hours that ended (None when the node has not
-    counted it), and `usual`, its average per 24 hours over the 7 days before (None with too little to compare with)."""
+    counted it), and `usual`, its average per 24 hours over the 7 days before (None with too little to compare with).
+    Where the region has a control (probe_controls), `control` is that host's total over the same 24 hours."""
     sums = ", ".join(
         f"sum({m}) FILTER (WHERE recent), sum({m}) FILTER (WHERE NOT recent), count({m}) FILTER (WHERE NOT recent)"
         for m in PROBE_METRICS
@@ -33,7 +34,8 @@ def probe_levels(conn) -> dict:
     for region, *found in conn.execute(
         # hours are named by their start: the last 24 that ended, and the 168 before them
         f"SELECT region_id, {sums} FROM (SELECT p.*, p.hour > now() - interval '25 hours' AS recent "
-        "FROM probe_hours p JOIN regions r ON r.id = p.region_id WHERE r.is_open AND p.hour > now() - interval '193 hours') h "
+        "FROM probe_hours p JOIN regions r ON r.id = p.region_id WHERE r.is_open AND NOT p.control "
+        "AND p.hour > now() - interval '193 hours') h "
         "GROUP BY 1 ORDER BY 1"
     ):
         day, usual = {}, {}
@@ -42,6 +44,13 @@ def probe_levels(conn) -> dict:
             day[metric] = None if recent is None else int(recent)
             usual[metric] = round(float(before) * 24 / hours, 1) if hours >= PROBE_USUAL_HOURS else None
         levels[region] = {"day": day, "usual": usual}
+    for region, *found in conn.execute(
+        f"SELECT p.region_id, {', '.join(f'sum({m})' for m in PROBE_METRICS)} FROM probe_hours p "
+        "JOIN regions r ON r.id = p.region_id WHERE r.is_open AND p.control AND p.hour > now() - interval '25 hours' "
+        "GROUP BY 1"
+    ):
+        if region in levels:
+            levels[region]["control"] = {m: None if v is None else int(v) for m, v in zip(PROBE_METRICS, found, strict=True)}
     return levels
 
 
@@ -131,9 +140,10 @@ def internal_health(conn: Conn) -> dict:
             "WHERE r.is_open AND s.day = current_date ORDER BY 1"
         ).fetchall()),
         # seconds since the end of the last hour each open node counted what reached its port from addresses that are
-        # not a device's; a node never read is left out
+        # not a device's; a node never read is left out. A region's control is `<region>-control`
         "probe_age": dict(conn.execute(
-            "SELECT p.region_id, extract(epoch FROM now() - max(p.hour) - interval '1 hour')::int FROM probe_hours p "
+            "SELECT p.region_id || CASE WHEN p.control THEN '-control' ELSE '' END, "
+            "extract(epoch FROM now() - max(p.hour) - interval '1 hour')::int FROM probe_hours p "
             "JOIN regions r ON r.id = p.region_id WHERE r.is_open GROUP BY 1 ORDER BY 1"
         ).fetchall()),
         # those counts over the last 24 hours, next to their usual level (probe_levels)

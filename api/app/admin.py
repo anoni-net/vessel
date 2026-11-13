@@ -13,6 +13,12 @@
   python -m app.admin probes [--days N] [--csv]                what reached each node's port from addresses that are
                                                                not a device's, per day (default 14 days), counts
                                                                only; --csv prints every hour, for a report
+  python -m app.admin probe-controls [list]                    hosts without Vessel that count the same next to a
+                                                               region's node (toomore/anoni-net-ws#487)
+  python -m app.admin probe-controls set REGION --host HOST [--jump USER@HOST]
+                                                               add or change a region's; the worker reads it over
+                                                               SSH, through the jump host when one is given
+  python -m app.admin probe-controls remove REGION             stop reading it; its hours stay
   python -m app.admin regions [set ID --node-host HOST (--open|--closed) [--exit-ip IP]]
                                                                list regions, or add/change one; the exit IP
                                                                is the node's public address, for /api/exit
@@ -72,7 +78,7 @@ import psycopg
 
 from app import auth, crypto, jobs, policy
 from app.config import load
-from app.nodes import NodeError, get_node
+from app.nodes import ADDRESS, JUMP, NodeError, get_node
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -94,6 +100,13 @@ def main(argv: list[str] | None = None) -> None:
     pb = sub.add_parser("probes")
     pb.add_argument("--days", type=int, default=14)
     pb.add_argument("--csv", action="store_true")
+    pc = sub.add_parser("probe-controls").add_subparsers(dest="action")
+    pc.add_parser("list")
+    pcs = pc.add_parser("set")
+    pcs.add_argument("region")
+    pcs.add_argument("--host", required=True)
+    pcs.add_argument("--jump")
+    pc.add_parser("remove").add_argument("region")
     rg = sub.add_parser("regions")
     rg_sub = rg.add_subparsers(dest="action")
     rs = rg_sub.add_parser("set")
@@ -234,6 +247,8 @@ def main(argv: list[str] | None = None) -> None:
             report(conn, args.days)
         elif args.cmd == "probes":
             probes(conn, args.days, args.csv)
+        elif args.cmd == "probe-controls":
+            probe_controls(conn, args)
         elif args.cmd == "notices":
             notices(conn, args)
         elif args.cmd == "relays":
@@ -565,12 +580,14 @@ def probes(conn: psycopg.Connection, days: int, csv: bool) -> None:
     region, or with csv every hour as the node wrote it. A day's sources add up each hour's, so an address seen in
     three hours counts three times. `-` is a count the node did not have yet. tcp and control are what else reached the
     node, to compare with: addresses that tried TCP on the port's number, and addresses that sent to a UDP port with no
-    service, each with how many are registered in China."""
+    service, each with how many are registered in China. A region's control, a host without Vessel in the same place
+    (probe_controls), is listed after its node as `<region>-control` (`+` after the region in the daily table)."""
+    source = "region_id || CASE WHEN control THEN '{}' ELSE '' END"
     if csv:
         print("region,hour," + ",".join(jobs.PROBE_COLUMNS))
         for region, hour, *values in conn.execute(
-            f"SELECT region_id, hour, {', '.join(jobs.PROBE_COLUMNS)} FROM probe_hours "
-            "WHERE hour > now() - make_interval(days => %s) ORDER BY hour, region_id",
+            f"SELECT {source.format('-control')}, hour, {', '.join(jobs.PROBE_COLUMNS)} FROM probe_hours "
+            "WHERE hour > now() - make_interval(days => %s) ORDER BY hour, 1",
             (days,),
         ):
             print(f"{region},{hour.astimezone(UTC):%Y-%m-%dT%H:00Z}," + ",".join("" if v is None else str(v) for v in values))
@@ -582,7 +599,7 @@ def probes(conn: psycopg.Connection, days: int, csv: bool) -> None:
     print(f"  {'day':10}  {'region':6}  {'hours':>5}  {'packets':>9}  {'handshake':>9}  {'(china)':>7}  {'sources':>7}  {'china':>6}  {'dropped':>7}"
           f"  {'tcp':>7}  {'(china)':>7}  {'control':>7}  {'(china)':>7}")
     for day, region, hours, *values in conn.execute(
-        "SELECT (hour AT TIME ZONE 'UTC')::date, region_id, count(*), "
+        f"SELECT (hour AT TIME ZONE 'UTC')::date, {source.format('+')}, count(*), "
         + ", ".join(f"sum({c})" for c in shown)
         + " FROM probe_hours WHERE hour > now() - make_interval(days => %s) GROUP BY 1, 2 ORDER BY 1, 2",
         (days,),
@@ -591,6 +608,36 @@ def probes(conn: psycopg.Connection, days: int, csv: bool) -> None:
             "-" if v is None else int(v) for v in values)
         print(f"  {day.isoformat():10}  {region:6}  {hours:5}  {packets:>9}  {shakes:>9}  {shakes_china:>7}  {sources:>7}  {china:>6}  {dropped:>7}"
               f"  {tcp:>7}  {tcp_china:>7}  {control:>7}  {control_china:>7}")
+
+
+def probe_controls(conn: psycopg.Connection, args: argparse.Namespace) -> None:
+    """The hosts without Vessel that count what reaches them next to a region's node. Their addresses are in the
+    database only."""
+    if args.action == "set":
+        if not ADDRESS.match(args.host) or (args.jump and not JUMP.match(args.jump)):
+            sys.exit("the host is an address or a name, the jump host user@host")
+        if not conn.execute("SELECT 1 FROM regions WHERE id = %s", (args.region,)).fetchone():
+            sys.exit(f"no region {args.region}")
+        conn.execute(
+            "INSERT INTO probe_controls (region_id, host, jump) VALUES (%s, %s, %s) "
+            "ON CONFLICT (region_id) DO UPDATE SET host = EXCLUDED.host, jump = EXCLUDED.jump",
+            (args.region, args.host, args.jump),
+        )
+        # read it on the next round, not half an hour after the last try
+        conn.execute("DELETE FROM heartbeats WHERE name = %s", (f"probe-control:{args.region}",))
+        print(f"{args.region}: set")
+        return
+    if args.action == "remove":
+        gone = conn.execute("DELETE FROM probe_controls WHERE region_id = %s", (args.region,)).rowcount
+        print(f"{args.region}: {'removed, its hours stay' if gone else 'has none'}")
+        return
+    for region, host, jump, hours, last in conn.execute(
+        "SELECT c.region_id, c.host, c.jump, count(p.hour), max(p.hour) FROM probe_controls c LEFT JOIN probe_hours p "
+        "ON p.region_id = c.region_id AND p.control GROUP BY 1, 2, 3 ORDER BY 1"
+    ):
+        through = f" through {jump}" if jump else ""
+        print(f"{region}\t{host}{through}\thours: {hours}\tlast: {last.astimezone(UTC):%Y-%m-%dT%H:00Z}" if last
+              else f"{region}\t{host}{through}\tnot read yet")
 
 
 if __name__ == "__main__":

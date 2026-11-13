@@ -25,12 +25,19 @@
 # service, for how much the host is scanned whatever it runs; empty when the port is not set. Each has its packets,
 # its addresses, and how many of those are registered in China. Answers to what the host itself sent are not counted.
 #
+# On a host without Vessel (PROBE_ONLY=1 in node.env) the same counts say what a host with no devices gets: scans of
+# UDP 443, and packets that are as long as a handshake by chance (PROBE_S1 is the node's S1). There are no devices to
+# leave out, nothing to guard and no container, and TCP is left alone, since the host may serve its own site there:
+# tcp_* and dropped stay empty. The portal reads it like a node, to set next to the node in the same place.
+#
 # The peer set also guards the port. Docker forwards the port with DNAT, so every source takes an entry in the connection
 # tracking table; forged sources could fill it and stop everyone's new connections. Before tracking starts, peers pass
 # and the rest share GUARD_RATE, so what gets through stays well under TRACK_MAX even at conntrack's 30 s for an unanswered
 # UDP flow. Without this table (nothing has run yet) the port is open, so a failure here cannot lock anyone out.
 #   vessel-probe-watch.sh tick    put the peers' current endpoints in the peer set; on the hour, log and reset
 #   vessel-probe-watch.sh show    print the last 48 hours
+#   vessel-probe-watch.sh csv     the header and the last two weeks, for the portal (a node sends the same through
+#                                 awgctl-remote; a host without Vessel pins the portal's key to this call)
 set -euo pipefail
 # the two directories can be set from outside for node/test/probe-watch-test.sh
 D=${VESSEL_NODE_DIR:-/opt/vessel-node}
@@ -44,16 +51,19 @@ TRACK_MAX=262144
 port=${LISTEN_PORT:-443}
 control=${PROBE_CONTROL_PORT:-}
 if [[ ! $control =~ ^[0-9]+$ ]] || [ "$control" = "$port" ]; then control=""; fi
+only=${PROBE_ONLY:-}
+if [ "$only" != 1 ]; then only=""; fi
 # the UDP length (header included) of a handshake initiation: 8 + S1 + 148
 s1=$(awk '$1 == "S1" && $2 == "=" {print $3; exit}' $D/server/interface.conf 2>/dev/null || true)
+[[ $s1 =~ ^[0-9]+$ ]] || s1=${PROBE_S1:-0}
 [[ $s1 =~ ^[0-9]+$ ]] || s1=0
 hs_len=$(( 8 + s1 + 148 ))
 # What the rules were made from, kept in the table as the name of an empty set: when the port, S1, the control port or
 # the rules themselves (the number at the end) change, tick finds no such set and makes the table again.
-MADE_FROM=made_${port}_${hs_len}_${control:-0}_4
+MADE_FROM=made_${port}_${hs_len}_${control:-0}_${only:-0}_5
 
 setup() {
-  local dev control_rules=""
+  local dev control_rules="" tcp_rules="" guard=""
   dev=$(ip -o route show default | awk '{print $5; exit}')
   [ -n "$dev" ] || { echo "no default route" >&2; exit 1; }
   if [ -n "$control" ]; then
@@ -61,9 +71,20 @@ setup() {
     control_rules="iifname \"$dev\" udp dport $control ct state new update @control_seen { ip saddr counter }
     iifname \"$dev\" udp dport $control ct state new update @control_seen6 { ip6 saddr counter }"
   fi
+  if [ -z "$only" ]; then
+    tcp_rules="iifname \"$dev\" tcp dport $port tcp flags & (syn | ack) == syn update @tcp_seen { ip saddr counter }
+    iifname \"$dev\" tcp dport $port tcp flags & (syn | ack) == syn update @tcp_seen6 { ip6 saddr counter }"
+    guard="chain guard {
+    type filter hook prerouting priority raw; policy accept;
+    iifname \"$dev\" udp dport $port ip saddr @peers accept
+    iifname \"$dev\" udp dport $port ip6 saddr @peers6 accept
+    iifname \"$dev\" udp dport $port limit rate $GUARD_RATE/second burst $(( GUARD_RATE * 2 )) packets accept
+    iifname \"$dev\" udp dport $port counter name dropped drop
+  }"
+    # the module loads with Docker, after sysctl.d runs at boot, so it is set here
+    sysctl -qw net.netfilter.nf_conntrack_max=$TRACK_MAX || true
+  fi
   nft delete table inet vessel_probe 2>/dev/null || true
-  # the module loads with Docker, after sysctl.d runs at boot, so it is set here
-  sysctl -qw net.netfilter.nf_conntrack_max=$TRACK_MAX || true
   # before Docker's DNAT (priority -100), so the port is still the one the packet was sent to
   nft -f - <<EOF
 table inet vessel_probe {
@@ -82,21 +103,14 @@ table inet vessel_probe {
   set $MADE_FROM { type ipv4_addr; }
   counter probes {}
   counter dropped {}
-  chain guard {
-    type filter hook prerouting priority raw; policy accept;
-    iifname "$dev" udp dport $port ip saddr @peers accept
-    iifname "$dev" udp dport $port ip6 saddr @peers6 accept
-    iifname "$dev" udp dport $port limit rate $GUARD_RATE/second burst $(( GUARD_RATE * 2 )) packets accept
-    iifname "$dev" udp dport $port counter name dropped drop
-  }
+  $guard
   chain prerouting {
     type filter hook prerouting priority -160; policy accept;
     iifname "$dev" udp dport $port ip saddr != @peers counter name probes update @seen { ip saddr counter }
     iifname "$dev" udp dport $port ip6 saddr != @peers6 counter name probes update @seen6 { ip6 saddr counter }
     iifname "$dev" udp dport $port udp length $hs_len ip saddr != @peers update @handshake { ip saddr }
     iifname "$dev" udp dport $port udp length $hs_len ip6 saddr != @peers6 update @handshake6 { ip6 saddr }
-    iifname "$dev" tcp dport $port tcp flags & (syn | ack) == syn update @tcp_seen { ip saddr counter }
-    iifname "$dev" tcp dport $port tcp flags & (syn | ack) == syn update @tcp_seen6 { ip6 saddr counter }
+    $tcp_rules
     $control_rules
   }
 }
@@ -138,7 +152,7 @@ count() {
 # The zone columns and the three counts of China are empty when APNIC's list has never been downloaded, the three of
 # control_* when no control port is set. Prints nothing else: no address leaves this function.
 zones() {
-  python3 - "$DATA/delegated-apnic" "$control" <<'PY'
+  python3 - "$DATA/delegated-apnic" "$control" "$only" <<'PY'
 import bisect, ipaddress, json, os, subprocess, sys, time, urllib.request
 
 LIST = sys.argv[1]
@@ -170,7 +184,7 @@ for seen, hs, peers, was in (("seen", "handshake", "peers", "was_peer"), ("seen6
     shakes += [address for address in members(hs) if address not in devices]
     others += [address for address in counted if address not in devices]
 # what else reaches the host: TCP to the port's number, and the control port when there is one
-tcp = {**packets("tcp_seen"), **packets("tcp_seen6")}
+tcp = None if sys.argv[3] else {**packets("tcp_seen"), **packets("tcp_seen6")}
 control = {**packets("control_seen"), **packets("control_seen6")} if sys.argv[2] else None
 
 def beside(china):
@@ -242,6 +256,8 @@ report() {
     # short rows, from before these columns, get empty ones
     awk -F, -v OFS=, -v h="$HEADER" -v n="$(awk -F, '{print NF; exit}' <<<"$HEADER")" 'NR==1{print h; next} {for(i=NF+1;i<=n;i++) $i=""; print}' $LOG > $LOG.new && mv $LOG.new $LOG
   fi
+  # nothing is dropped where nothing is guarded
+  if [ -n "$only" ]; then dropped=""; fi
   echo "$hour,$packets,$sources,$by_zone,$dropped,$extra" >> $LOG
 }
 
@@ -249,15 +265,19 @@ case "${1:-tick}" in
   tick)
     # no table yet, or one made from other settings or by an earlier version: made again (that hour counts from then)
     nft list set inet vessel_probe "$MADE_FROM" >/dev/null 2>&1 || setup
-    sync_peers
+    if [ -z "$only" ]; then sync_peers; fi
     if [ "$(date -u +%M)" = "00" ]; then report; fi
+    ;;
+  csv)
+    head -n 1 $LOG
+    tail -n 336 $LOG
     ;;
   show)
     echo "$HEADER"
     grep -v '^hour' $LOG | tail -n 48
     ;;
   *)
-    echo "usage: $0 [tick|show]" >&2
+    echo "usage: $0 [tick|show|csv]" >&2
     exit 2
     ;;
 esac

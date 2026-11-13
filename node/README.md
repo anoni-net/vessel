@@ -310,6 +310,28 @@ systemctl daemon-reload && systemctl enable --now vessel-probe-watch.timer
 
 兩組都只計新的連線，主機自己送出的查詢所收到的回應不算。做法跟其他欄位相同，來源的位址只在核心的記憶體，整點寫完總數就清空。
 
+### 沒有 Vessel 的對照主機
+
+節點上的對照埠量不到 UDP 443 在整個網路上平常被掃描的程度。同一支腳本可以放在一台沒有 Vessel 的主機上，跟節點同一家主機商、同一個地區，數同樣的東西當背景值。`/opt/vessel-node/node.env` 只要這幾行：
+
+```
+LISTEN_PORT=443
+PROBE_CONTROL_PORT=<跟節點相同>
+PROBE_ONLY=1
+PROBE_S1=<節點 interface.conf 的 S1>
+```
+
+`PROBE_ONLY=1` 時不讀容器的裝置清單，也不裝保護埠的規則。這台沒有裝置，所有打到 UDP 443 的封包都計數，`handshake_sources` 是長度剛好等於節點握手的來源，也就是巧合的基準。TCP 不計，因為主機可能在同一個埠號提供自己的網站，`tcp_*` 與 `dropped` 留白。安裝只要腳本與計時器：
+
+```bash
+install -d /opt/vessel-node/host && install -m 600 node.env /opt/vessel-node/
+install -m 755 host/vessel-probe-watch.sh /opt/vessel-node/host/
+install -m 644 host/vessel-probe-watch.service host/vessel-probe-watch.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now vessel-probe-watch.timer
+```
+
+`vessel-probe-watch.service` 的 `After=docker.service` 在沒有 Docker 的主機上不起作用，不必修改。主機商的防火牆要放行 UDP 443 與對照埠的入站，主機本身的防火牆維持丟棄。入口網站讀取的方式與金鑰的限制見 `deploy/README.md` 的「對照主機」。
+
 AWG 埠、`S1`、`PROBE_CONTROL_PORT` 或規則本身有變動時，下一分鐘執行會發現表是依舊的設定建立的，自動重建一次，那一小時的數字從重建時開始算。
 
 ## 節點打不開的網站
