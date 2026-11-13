@@ -2,10 +2,19 @@
 
 import base64
 import os
+import time
 
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
+
+# The app takes today from Python (date.today()) in some places and from the database (current_date) in others. In
+# production the containers and the database are all on UTC, so the two agree. Tests run on a developer's machine,
+# where Python follows the local time zone: between midnight and 08:00 in Taipei the two were a day apart and the
+# tests that compare dates failed. Put Python and the database session on UTC here, as in production.
+os.environ["TZ"] = "UTC"
+os.environ["PGTZ"] = "UTC"
+time.tzset()
 
 DB_URL = os.environ.get("VESSEL_TEST_DATABASE_URL")
 os.environ.setdefault("VESSEL_DATABASE_URL", DB_URL or "postgresql:///unused")
