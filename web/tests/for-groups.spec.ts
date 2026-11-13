@@ -7,18 +7,20 @@ test("group accounts: what they are and how to ask, linked from the home page, t
   await page.locator("#groups").getByRole("link", { name: "團體帳號的說明與申請" }).click();
   await expect(page).toHaveURL(/\/for-groups\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("團體帳號");
-  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
-    "適合的團體", "負責人可以做的事", "成員的使用方式", "負責人看得到的內容", "裝置流量檢測", "費用與期限", "申請方式",
-  ]);
+  await expect(page.locator("main").getByRole("heading", { level: 2 })).toHaveText(["團體帳號的功能", "適合的團體", "裝置流量檢測", "申請方式"]);
+  await expect(page.locator("#features .card")).toHaveCount(6);
   // what leaders can and cannot see, said once, with the policy one link away
-  await expect(page.getByRole("heading", { level: 3 })).toHaveText(["看得到", "看不到", "建議使用的情況"]);
+  await expect(page.locator("#features").getByRole("link", { name: "隱私權政策的「團體」一節" })).toHaveAttribute("href", "/privacy/#groups");
+  await expect(page.locator("#who .card")).toHaveCount(3);
   // device inspection: when it is worth asking a member, four cases
-  await expect(page.locator("#for-groups-inspect + p + h3 + ul li")).toHaveCount(4);
-  await expect(page.getByRole("link", { name: "隱私權政策的「團體」一節" })).toHaveAttribute("href", "/privacy/#groups");
-  await expect(page.locator("main ol li")).toHaveCount(3);
-  // asking needs a way to reach the group, which the feedback form has; it notes where the visitor came from
+  await expect(page.locator("#inspect .card")).toHaveCount(4);
+  // the button under the lead goes to the three steps; asking needs a way to reach the group, which the feedback
+  // form has, and it notes where the visitor came from
+  await expect(page.getByRole("link", { name: "申請團體帳號" })).toHaveAttribute("href", "#apply");
+  await expect(page.locator("#apply ol li")).toHaveCount(3);
   await expect(page.getByRole("link", { name: "前往意見回覆" })).toHaveAttribute("href", "/feedback/?from=groups");
-  await expect(page.getByRole("link", { name: "社群的聯絡方式" })).toHaveAttribute("href", "https://anoni.net/contact/");
+  await expect(page.locator("#apply").getByRole("link", { name: "社群的聯絡方式" })).toHaveAttribute("href", "https://anoni.net/contact/");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
   await page.goto("/faq/#q-teamApply");
   await expect(page.locator("#q-teamApply")).toHaveAttribute("open", "");

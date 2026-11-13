@@ -1,84 +1,101 @@
 import { useCtx } from "../context.ts";
-import type { Locale, MessageKey } from "../i18n/index.ts";
+import type { Locale } from "../i18n/index.ts";
 import { COMMUNITY_SITE, LOCALE_PATH } from "../site.ts";
+import { SectionHead } from "./section-head.tsx";
 
-// Group accounts for the people who would ask for one: who they suit, what a leader can do and see, and how
-// to ask (toomore/anoni-net-ws#488). A group needs a way to be reached, since the leaders' invite codes are
-// handed over in person, so asking goes through the feedback page or email, never the portal's database.
-const LEADER = [1, 2, 3, 4] as const;
-const SEES = [1, 2, 3] as const;
-const APPLY = [1, 2, 3] as const;
+// Group accounts, introduced to the people who would ask for one (toomore/anoni-net-ws#488): what a group gets,
+// the groups it suits, device inspection and how to ask. Laid out like the home page, in bands of cards; what
+// leaders can see is said once, with the policy one link away. A group needs a way to be reached, since the
+// leaders' invite codes are handed over in person, so asking goes through the feedback page or email.
+const FEATURES = ["1", "2", "3", "4", "5", "6"] as const;
+const WHO = ["1", "2", "3"] as const;
 // when asking a member to inspect a device is worth it (toomore/anoni-net-ws#483); off until a group asks for it
-const INSPECT_WHEN = [1, 2, 3, 4] as const;
+const INSPECT_WHEN = ["1", "2", "3", "4"] as const;
+const APPLY = ["1", "2", "3"] as const;
 const contact = (l: Locale) => `${COMMUNITY_SITE}${LOCALE_PATH[l]}/contact/`;
-
-const SECTIONS = ["who", "leader", "member", "sees", "inspect", "terms", "apply"] as const;
 
 export function ForGroups() {
   const { t, href, locale } = useCtx();
   return (
-    <section class="wrap narrow stack learn">
-      <h1>{t["forGroups.title"]}</h1>
-      <p class="lead">{t["forGroups.lead"]}</p>
-      <p class="muted">{t["forGroups.trial"]}</p>
-
-      <div class="learn-layout">
-        <nav class="learn-toc" aria-label={t["learn.toc"]} data-testid="learn-toc">
-          <p class="learn-toc__title">{t["learn.toc"]}</p>
-          <ul class="plain">
-            {SECTIONS.map((id) => <li><a href={`#for-groups-${id}`}>{t[`forGroups.${id}.title`]}</a></li>)}
-          </ul>
-        </nav>
-        <div class="learn-body">
-      <h2 id="for-groups-who">{t["forGroups.who.title"]}</h2>
-      <p>{t["forGroups.who.body"]}</p>
-
-      <h2 id="for-groups-leader">{t["forGroups.leader.title"]}</h2>
-      <ul>
-        {LEADER.map((n) => <li>{t[`forGroups.leader.${n}` as MessageKey]}</li>)}
-      </ul>
-      <p>{t["forGroups.leader.two"]}</p>
-
-      <h2 id="for-groups-member">{t["forGroups.member.title"]}</h2>
-      <p>{t["forGroups.member.body"]}</p>
-
-      <h2 id="for-groups-sees">{t["forGroups.sees.title"]}</h2>
-      <p>{t["forGroups.sees.body"]}</p>
-      <h3>{t["forGroups.sees.yes"]}</h3>
-      <ul>
-        {SEES.map((n) => <li>{t[`forGroups.sees.yes.${n}` as MessageKey]}</li>)}
-      </ul>
-      <h3>{t["forGroups.sees.no"]}</h3>
-      <ul>
-        {SEES.map((n) => <li>{t[`forGroups.sees.no.${n}` as MessageKey]}</li>)}
-      </ul>
-      <p class="small"><a href={href("/privacy/#groups")}>{t["forGroups.sees.link"]}</a></p>
-
-      <h2 id="for-groups-inspect">{t["forGroups.inspect.title"]}</h2>
-      <p>{t["forGroups.inspect.body"]}</p>
-      <h3>{t["forGroups.inspect.when"]}</h3>
-      <ul>
-        {INSPECT_WHEN.map((n) => <li>{t[`forGroups.inspect.when.${n}` as MessageKey]}</li>)}
-      </ul>
-      <p>{t["forGroups.inspect.consent"]}</p>
-      <p>{t["forGroups.inspect.limits"]}</p>
-      <p>{t["forGroups.inspect.ask"]}</p>
-
-      <h2 id="for-groups-terms">{t["forGroups.terms.title"]}</h2>
-      <p>{t["forGroups.terms.body"]}</p>
-      <p>{t["forGroups.terms.end"]}</p>
-
-      <h2 id="for-groups-apply">{t["forGroups.apply.title"]}</h2>
-      <ol>
-        {APPLY.map((n) => <li>{t[`forGroups.apply.${n}` as MessageKey]}</li>)}
-      </ol>
-      <div class="actions">
-        <a class="nb-button nb-button--primary" href={href("/feedback/?from=groups")}>{t["forGroups.apply.button"]}</a>
-      </div>
-      <p>{t["forGroups.apply.other"]}</p>
-      <p class="small"><a href={contact(locale)} target="_blank" rel="noopener">{t["learn.contactLink"]}</a></p>
+    <>
+      <section class="band band--tint">
+        <div class="wrap">
+          <div class="hero__text">
+            <h1>{t["forGroups.title"]}</h1>
+            <p class="lead">{t["forGroups.lead"]}</p>
+            <p class="strong">{t["forGroups.promise"]}</p>
+            <div class="actions">
+              <a class="nb-button nb-button--primary" href="#apply">{t["forGroups.cta"]}</a>
+            </div>
+            <p class="muted">{t["forGroups.trial"]}</p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section id="features" class="band">
+        <div class="wrap">
+          <SectionHead title={t["forGroups.features.title"]} en="Features" />
+          <ul class="cards cards--3 cards--six plain">
+            {FEATURES.map((n) => (
+              <li class="card">
+                <h3>{t[`forGroups.feature.${n}.title`]}</h3>
+                <p>{t[`forGroups.feature.${n}.body`]}</p>
+                {n === "6" && <p class="small"><a href={href("/privacy/#groups")}>{t["forGroups.sees.link"]}</a></p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section id="who" class="band band--grey">
+        <div class="wrap">
+          <SectionHead title={t["forGroups.who.title"]} en="Who it suits" />
+          <ul class="cards cards--3 plain">
+            {WHO.map((n) => (
+              <li class="card">
+                <h3>{t[`forGroups.who.${n}.title`]}</h3>
+                <p>{t[`forGroups.who.${n}.body`]}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section id="inspect" class="band">
+        <div class="wrap">
+          <SectionHead title={t["forGroups.inspect.title"]} en="Device check" />
+          <p class="section-lead">{t["forGroups.inspect.body"]}</p>
+          <ul class="cards cards--2 cards--pairs plain">
+            {INSPECT_WHEN.map((n) => (
+              <li class="card">
+                <h3>{t[`forGroups.inspect.when.${n}.title`]}</h3>
+                <p>{t[`forGroups.inspect.when.${n}.body`]}</p>
+              </li>
+            ))}
+          </ul>
+          <p class="note">{t["forGroups.inspect.note"]}</p>
+        </div>
+      </section>
+
+      <section id="apply" class="band band--grey group-apply">
+        <div class="wrap">
+          <SectionHead title={t["forGroups.apply.title"]} en="3 steps" />
+          <ol class="cards cards--3">
+            {APPLY.map((n) => (
+              <li class="card">
+                <span class="step" aria-hidden="true">{n}</span>
+                <h3>{t[`forGroups.apply.${n}.title`]}</h3>
+                <p>{t[`forGroups.apply.${n}.body`]}</p>
+              </li>
+            ))}
+          </ol>
+          <div class="actions">
+            <a class="nb-button nb-button--primary" href={href("/feedback/?from=groups")}>{t["forGroups.apply.button"]}</a>
+            <a class="nb-button" href={contact(locale)} target="_blank" rel="noopener">{t["learn.contactLink"]}</a>
+          </div>
+          <p class="small">{t["forGroups.apply.other"]}</p>
+        </div>
+      </section>
+    </>
   );
 }

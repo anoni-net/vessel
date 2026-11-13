@@ -420,6 +420,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (min-width: 544px) and (max-width: 807px) { .card--fourth { display: flex; } }
 @media (min-width: 960px) { .card--fourth, .card--wide { display: flex; } }
 @media (min-width: 960px) { .cards--six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* group accounts (pages/for-groups.tsx): four cards sit two by two on a wide screen, and the buttons under the steps keep their distance */
+@media (min-width: 960px) { .cards--pairs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.group-apply .cards + .actions { margin-top: 24px; }
+.group-apply .actions + .small { margin-top: 12px; }
 .card__head h3 { text-wrap: balance; }
 .card > p { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
