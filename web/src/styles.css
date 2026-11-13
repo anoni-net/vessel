@@ -353,6 +353,13 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .hero-fig__key--private { fill: var(--ink); }
 .hero-fig__key--public { fill: var(--face-lit); }
 .hero-fig__keyhole { fill: var(--frame-fill); stroke: var(--ink); stroke-width: .6; }
+/* the group page's report (pages/for-groups.tsx): hours of traffic as squares on the page, in the report's own steps */
+.hero-fig__tile { fill: var(--tile-0); }
+.hero-fig__tile--1 { fill: var(--tile-1); }
+.hero-fig__tile--2 { fill: var(--tile-2); }
+.hero-fig__tile--3 { fill: var(--tile-3); }
+.hero-fig__tile--4 { fill: var(--tile-5); }
+.hero-fig__tile--mark { stroke: var(--caution); stroke-width: 1.4; }
 .hero-fig__case { fill: none; stroke: var(--ink); stroke-width: .8; stroke-dasharray: 3 2; }
 /* FIG. 03's two beams sweep to and fro about the eye, at 171.3, 36.1 in the drawing (hero-figures-data.ts); the
    CSP allows no inline styles, so the turning point is written here */
@@ -469,14 +476,20 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .gi-flow-layout { display: grid; gap: 32px; align-items: center; }
 .gi-flow-layout .hero-fig { margin: 0; background: var(--paper); }
 .gi-flow-layout figcaption span:last-child { text-wrap: balance; }
-@media (min-width: 960px) { .gi-flow-layout { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 56px; } }
-/* two columns of prose and rows; --ruled draws the line between the two sides of one thing */
+@media (min-width: 960px) {
+  .gi-flow-layout { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 56px; }
+  /* the second picture sits on the other side, so the two do not line up down one edge */
+  .gi-flow-layout--flip { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+  .gi-flow-layout--flip > .hero-fig { order: 2; }
+}
+.gi-stack { display: grid; gap: 32px; }
+.gi-band .note { text-wrap: pretty; }
+/* two columns of prose and rows */
 .gi-split { display: grid; gap: 40px; }
 .gi-split__title { font-size: 22px; margin-bottom: 4px; }
 .gi-split p { margin: 0; }
 @media (min-width: 860px) {
   .gi-split { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; }
-  .gi-split--ruled > div + div { border-inline-start: 1px solid var(--line); padding-inline-start: 64px; margin-inline-start: -32px; }
 }
 .gi-rows { margin: 16px 0 0; border-bottom: 1px solid var(--line); }
 .gi-rows > div { padding-block: 14px; border-top: 1px solid var(--line); display: grid; gap: 4px; }

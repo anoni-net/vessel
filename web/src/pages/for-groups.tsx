@@ -1,7 +1,7 @@
 import { useCtx } from "../context.ts";
 import { type Locale, fmt } from "../i18n/index.ts";
 import { COMMUNITY_SITE, LOCALE_PATH } from "../site.ts";
-import { GroupFlowFigure } from "./hero-figure.tsx";
+import { GroupFlowFigure, GroupResultsFigure } from "./hero-figure.tsx";
 import { SectionHead } from "./section-head.tsx";
 
 // Group accounts, introduced to the people who would ask for one (toomore/anoni-net-ws#488). Device traffic
@@ -145,18 +145,22 @@ export function ForGroups() {
         <div class="wrap">
           <SectionHead title={t["forGroups.results.title"]} en="Results" />
           <p class="section-lead">{t["forGroups.results.lead"]}</p>
-          <div class="gi-split gi-split--ruled">
-            <div>
-              <h3 class="gi-split__title">{t["forGroups.results.member.title"]}</h3>
-              <ul class="gi-points">
-                {RESULT.map((n) => <li>{t[`forGroups.results.member.${n}`]}</li>)}
-              </ul>
-            </div>
-            <div>
-              <h3 class="gi-split__title">{t["forGroups.results.leader.title"]}</h3>
-              <ul class="gi-points">
-                {RESULT.map((n) => <li>{t[`forGroups.results.leader.${n}`]}</li>)}
-              </ul>
+          {/* the two results side by side as pages: how much each holds shows before the lists say it */}
+          <div class="gi-flow-layout gi-flow-layout--flip">
+            <GroupResultsFigure />
+            <div class="gi-stack">
+              <div>
+                <h3 class="gi-split__title">{t["forGroups.results.member.title"]}</h3>
+                <ul class="gi-points">
+                  {RESULT.map((n) => <li>{t[`forGroups.results.member.${n}`]}</li>)}
+                </ul>
+              </div>
+              <div>
+                <h3 class="gi-split__title">{t["forGroups.results.leader.title"]}</h3>
+                <ul class="gi-points">
+                  {RESULT.map((n) => <li>{t[`forGroups.results.leader.${n}`]}</li>)}
+                </ul>
+              </div>
             </div>
           </div>
           <p class="note">

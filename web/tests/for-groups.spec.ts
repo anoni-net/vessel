@@ -22,6 +22,8 @@ test("group accounts: what they are and how to ask, linked from the home page, t
   await expect(page.locator("#plan").getByRole("heading", { level: 3 })).toHaveText(["臨時檢測", "定期檢測"]);
   // who sees what, said once, with the policy one link away
   await expect(page.locator("#results").getByRole("heading", { level: 3 })).toHaveText(["成員的報告", "負責人的摘要"]);
+  await expect(page.locator("#results figure").getByRole("img")).toHaveAttribute("aria-label", /負責人的摘要，一張小紙條/);
+  await expect(page.locator("#results .hero-fig__tile--mark")).toHaveCount(2);
   await expect(page.locator("#results").getByRole("link", { name: "隱私權政策的「團體」一節" })).toHaveAttribute("href", "/privacy/#groups");
   await expect(page.locator("#more dt")).toHaveCount(5);
   // the button under the lead goes to the three steps; asking needs a way to reach the group, which the feedback

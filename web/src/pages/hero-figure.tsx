@@ -1,6 +1,6 @@
 import { useCtx } from "../context.ts";
 import { GLOBE, GRID, LABELS, NODES, PATHS, PHONE, SCREEN, VIEWBOX } from "../hero-figure-data.ts";
-import { DISGUISE, type Drawing, GROUP_FLOW, KEYS, LISTS, RELAY } from "../hero-figures-data.ts";
+import { DISGUISE, type Drawing, GROUP_FLOW, GROUP_RESULTS, KEYS, LISTS, RELAY } from "../hero-figures-data.ts";
 import type { MessageKey } from "../i18n/index.ts";
 import { useInView } from "./in-view.ts";
 
@@ -85,6 +85,8 @@ const WORDS: Record<string, MessageKey> = {
   g_member: "forGroups.flowfig.member", g_node: "forGroups.flowfig.node", g_analysis: "forGroups.flowfig.analysis",
   g_copy: "forGroups.flowfig.copy", g_deleted: "forGroups.flowfig.deleted", g_report: "forGroups.flowfig.report",
   g_summary: "forGroups.flowfig.summary", g_leader: "forGroups.flowfig.leader",
+  r_report: "forGroups.results.member.title", r_slip: "forGroups.results.leader.title", r_hours: "forGroups.resfig.hours",
+  r_sites: "forGroups.resfig.sites", r_next: "forGroups.resfig.next", r_only: "forGroups.resfig.only",
 };
 
 /** FIG. 02 to 05: fixed shapes, and labels in the page's language. */
@@ -102,6 +104,12 @@ function Drawn({ n, drawing, label, caption }: { n: number; drawing: Drawing; la
 export function GroupFlowFigure() {
   const { t } = useCtx();
   return <Drawn n={1} drawing={GROUP_FLOW} label={t["forGroups.flowfig.label"]} caption={t["forGroups.flowfig.caption"]} />;
+}
+
+/** The group page's second picture: the member's report, a full page, beside the leaders' summary, a slip. */
+export function GroupResultsFigure() {
+  const { t } = useCtx();
+  return <Drawn n={2} drawing={GROUP_RESULTS} label={t["forGroups.resfig.label"]} caption={t["forGroups.resfig.caption"]} />;
 }
 
 /** The hero's picture: the connection through a node. */

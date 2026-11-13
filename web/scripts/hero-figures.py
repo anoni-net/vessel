@@ -141,6 +141,8 @@ WORDS = {
     "g_member": "forGroups.flowfig.member", "g_node": "forGroups.flowfig.node", "g_analysis": "forGroups.flowfig.analysis",
     "g_copy": "forGroups.flowfig.copy", "g_deleted": "forGroups.flowfig.deleted", "g_report": "forGroups.flowfig.report",
     "g_summary": "forGroups.flowfig.summary", "g_leader": "forGroups.flowfig.leader",
+    "r_report": "forGroups.results.member.title", "r_slip": "forGroups.results.leader.title", "r_hours": "forGroups.resfig.hours",
+    "r_sites": "forGroups.resfig.sites", "r_next": "forGroups.resfig.next", "r_only": "forGroups.resfig.only",
 }
 MESSAGES = [json.loads((WEB / "src" / "i18n" / f"{loc}.json").read_text()) for loc in ("zh-TW", "zh-CN", "en")]
 # drawing units: a wide (CJK) character 10, any other 5.5, the widest of the three languages
@@ -478,6 +480,51 @@ def fig_group():
     return drawing(b)
 
 
+# ---------- the group page: the member's report, a full page, beside the leaders' summary, a slip of three lines ----------
+
+def quad(cls, x, y, w, d, z):
+    return poly(cls, P(x, y, z), P(x + w, y, z), P(x + w, y + d, z), P(x, y + d, z))
+
+
+def fig_results():
+    b = [grid(-3, 15, -3, 16)]
+    z = .33
+    # the report: hours of traffic as squares, the sites with their times, and what to do next
+    rx, ry, rw, rd = 0, 0, 5.2, 9.0
+    b.append(shadow(rx, ry, rw, rd, .3) + box(rx, ry, rw, rd, .08, .25))
+    for r, row in enumerate(("001223132331", "010132312342", "000233213330", "001123321241")):
+        for c, n in enumerate(row):
+            mark = " hero-fig__tile--mark" if (r, c) == (1, 1) else ""
+            b.append(quad(f"hero-fig__tile hero-fig__tile--{n}{mark}", rx + .22 + c * .4, ry + .45 + r * .45, .34, .38, z))
+    for k in range(5):
+        yy = ry + 3.3 + k * .55
+        b.append(line("hero-fig__slot", P(rx + .25, yy, z), P(rx + 3.0 - (k % 2) * .6, yy, z)))
+        b.append(line("hero-fig__slot", P(rx + 3.9, yy, z), P(rx + rw - .25, yy, z)))
+    for k in range(3):
+        yy = ry + 6.9 + k * .6
+        b.append(quad("hero-fig__keyhole", rx + .25, yy - .16, .32, .32, z))
+        b.append(line("hero-fig__slot", P(rx + .85, yy, z), P(rx + rw - .9 - (k % 2) * .8, yy, z)))
+    b.append(key(rx + rw + .9, ry + 2.6, .75, "hero-fig__key--private"))
+    # the summary, under the report's near corner: a verdict and two more lines
+    sx, sy, sw, sd = 7.0, 8.6, 3.6, 2.4
+    b.append(shadow(sx, sy, sw, sd, .3) + box(sx, sy, sw, sd, .08, .25))
+    b.append(quad("hero-fig__tile hero-fig__tile--mark hero-fig__tile--1", sx + .3, sy + .34, .36, .36, z))
+    b.append(line("hero-fig__slot", P(sx + .95, sy + .52, z), P(sx + sw - .9, sy + .52, z)))
+    for k in (1, 2):
+        b.append(line("hero-fig__slot", P(sx + .3, sy + .52 + k * .62, z), P(sx + sw - .5 - k * .7, sy + .52 + k * .62, z)))
+    b.append(key(sx + sw + .9, sy + 1.2, .75, "hero-fig__key--private"))
+    t_ = P(rx, ry, z)
+    b.append(label(t_[0], t_[1] - 26, "r_report", "MEMBER'S REPORT", "middle"))
+    for key_, en, yy in (("r_hours", "HOURLY TRAFFIC", 1.3), ("r_sites", "SITES AND TIMES", 4.4), ("r_next", "NEXT STEPS", 7.5)):
+        e = P(rx, ry + yy, z)
+        b.append(label(e[0] - 12, e[1] - 6, key_, en, "end", True))
+    u_ = P(sx, sy + sd, z)
+    b.append(label(u_[0] - 10, u_[1] + 2, "r_slip", "LEADERS' SUMMARY", "end"))
+    b.append(label(u_[0] - 10, u_[1] + 28, "r_only", "VERDICT ONLY", "end", True))
+    # no settle(): it keeps labels off each shape's box, and a sheet's box covers the corners beside it, where these go
+    return drawing(b)
+
+
 HEADER = """// The pictures under 使用情境 (Vessel 的做法), in the same isometric drawing as the first
 // (hero-figure-data.ts): the shapes as SVG markup worked out once, the labels as positions the page fills with words in
 // the page's language (pages/hero-figure.tsx). The markup is ours and fixed; nothing a visitor sends goes into it.
@@ -489,6 +536,7 @@ HEADER = """// The pictures under 使用情境 (Vessel 的做法), in the same i
 //   FIG. 05  the key pair made on your device: the private key stays there, only the public key goes to the portal and the node
 //   GROUP_FLOW  the group page (pages/for-groups.tsx): a member's connection through the node to the internet, a copy of it to the
 //            analysis host, the full report back to the member and a slip of a summary to the leader, each with its own key
+//   GROUP_RESULTS  the group page: the member's report, a full page of hours, sites and next steps, beside the leaders' summary, a slip
 
 export interface Label { key: string; x: number; y: number; anchor: "start" | "middle" | "end"; note: boolean; on: boolean; en: string }
 export interface Drawing { viewBox: string; shapes: string; labels: Label[] }
@@ -496,7 +544,7 @@ export interface Drawing { viewBox: string; shapes: string; labels: Label[] }
 
 
 def main() -> None:
-    figures = [("LISTS", fig2()), ("DISGUISE", fig3()), ("RELAY", fig4()), ("KEYS", fig5()), ("GROUP_FLOW", fig_group())]
+    figures = [("LISTS", fig2()), ("DISGUISE", fig3()), ("RELAY", fig4()), ("KEYS", fig5()), ("GROUP_FLOW", fig_group()), ("GROUP_RESULTS", fig_results())]
     text = HEADER + "".join(f"\nexport const {name}: Drawing = {json.dumps(d, ensure_ascii=False)};\n" for name, d in figures)
     if "--check" in sys.argv[1:]:
         if OUT.read_text() != text:
