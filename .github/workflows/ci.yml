@@ -29,8 +29,28 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm run build:onion
+
+  # a third of the browser tests each, side by side; Playwright builds and serves both sites itself (playwright.config.ts)
+  web-test:
+    name: web test (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm test
+      - run: npx playwright test --shard=${{ matrix.shard }}/3
 
   api:
     runs-on: ubuntu-latest
