@@ -318,11 +318,11 @@ def load_state(node, address):
     path = state_path(node, address)
     if not path.exists():
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
-                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "first": None, "last": None}
+                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True,
+                "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
     state.pop("nx_names", None)
-    # an older state counted the lookups around Vessel without their hours; they start from the next capture
     state.setdefault("bypass_hours", [])
     state.setdefault("bypass_last", None)
     for hit in state["hits"].values():
@@ -331,6 +331,17 @@ def load_state(node, address):
         hit.setdefault("counted", hit["last"])
         # an older state did not say which other lists its names were on; nothing is guessed for it
         hit.setdefault("lists", [hit["kind"]])
+    # An older state counted the lookups around Vessel without their hours, so an inspection that began before the
+    # hours were kept had a count and nothing to draw. It did mark those hours for a check ("!"), as a listed site
+    # does: the marked hours no site accounts for are the lookups'. Done once, as later the hours are kept directly.
+    # An hour that also had a known threat is marked for the threat and is not found again, and when the last lookup
+    # was is not known.
+    if not state.setdefault("bypass_filled", False):
+        if state["bypass"]:
+            sites = {hour for hit in state["hits"].values() for hour in hit["hours"]}
+            marked = {hour for hour, sign in state["marks"].items() if sign == "!" and hour not in sites}
+            state["bypass_hours"] = sorted(set(state["bypass_hours"]) | marked)
+        state["bypass_filled"] = True
     return state
 
 
@@ -502,7 +513,9 @@ def report(node, address):
                              **({"app": hit["app"]} if hit.get("app") else {})})
     if state["bypass"]:
         findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"],
-                         **({"hours": state["bypass_hours"], "last": state["bypass_last"]} if state["bypass_hours"] else {})})
+                         **({"hours": state["bypass_hours"]} if state["bypass_hours"] else {}),
+                         # hours found in an older state's marks come without the time of the last lookup
+                         **({"last": state["bypass_last"]} if state["bypass_hours"] and state["bypass_last"] else {})})
     checks = [{"id": kind, "count": found[kind]} for kind in FLAGGED] + [{"id": "bypass_dns", "count": state["bypass"]}]
     return {
         "node": node, "address": address, "first": state["first"], "last": state["last"], "hours": hours,
