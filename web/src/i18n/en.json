@@ -787,6 +787,7 @@
   "status.reach.state.challenge": "Asks for a check",
   "status.reach.state.blocked": "Cannot open",
   "status.reach.state.none": "Not checked",
+  "status.reach.state.pending": "Not checked yet",
   "status.reach.now.ok": "Opens now",
   "status.reach.now.challenge": "Asks for a check now",
   "status.reach.now.blocked": "Cannot open now",

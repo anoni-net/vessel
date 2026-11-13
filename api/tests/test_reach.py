@@ -103,20 +103,23 @@ def test_every_new_check_is_kept_for_two_days(db, node):
 
 def test_the_status_page_shows_the_last_day_of_the_sites_with_trouble(client, db):
     regions(db)
-    for hours_ago, mvdis in ((30, "blocked"), (23.5, "blocked"), (5.2, "blocked"), (0.2, "ok")):
+    # slots are hours of the clock in UTC, the current one last: offsets are seconds from the start of this hour
+    hour = db.execute("SELECT date_trunc('hour', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'").fetchone()[0]
+    for at, mvdis in ((-30 * 3600, "blocked"), (-23 * 3600 - 60, "blocked"), (-23 * 3600 + 60, "blocked"),
+                      (-5 * 3600 + 120, "ok"), (-5 * 3600 + 1200, "blocked"), (-3600, "ok"), (-1, "blocked"), (0, "ok")):
         db.execute("INSERT INTO reach_history (region_id, site, state, checked_at) VALUES "
-                   "('jp', 'mvdis', %s, now() - make_interval(secs => %s)), "
-                   "('jp', 'signal', 'ok', now() - make_interval(secs => %s)), "
-                   "('tw', 'mvdis', 'ok', now() - make_interval(secs => %s)), "
-                   "('sg', 'mvdis', 'blocked', now() - make_interval(secs => %s))",
-                   (mvdis, *[hours_ago * 3600] * 4))
+                   "('jp', 'mvdis', %s, %s), ('jp', 'signal', 'ok', %s), ('tw', 'mvdis', 'ok', %s), "
+                   "('sg', 'mvdis', 'blocked', %s)",
+                   (mvdis, *[hour + dt.timedelta(seconds=at)] * 4))
     h = client.get("/api/status").json()["reach_history"]
     assert h["hours"] == 24 and "until" in h
-    # signal never had trouble; the check 30 hours ago is outside the day
+    # signal never had trouble; the checks 30 hours ago and a minute before the first hour are outside the day
     assert set(h["sites"]) == {"mvdis"}
     jp = h["sites"]["mvdis"]["jp"]
-    assert len(jp) == 24 and jp[0] == "blocked" and jp[18] == "blocked" and jp[23] == "ok"
-    assert jp.count(None) == 21
+    assert len(jp) == 24 and jp[0] == "blocked" and jp[23] == "ok"
+    # two checks in one hour of the clock: the later wins, even when they are nearly an hour apart
+    assert jp[18] == "blocked" and jp[22] == "blocked"
+    assert jp.count(None) == 20
     assert h["sites"]["mvdis"]["tw"][23] == "ok"
     # a closed region is left out
     assert set(h["sites"]["mvdis"]) == {"jp", "tw"}
