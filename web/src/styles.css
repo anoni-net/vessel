@@ -463,9 +463,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .gi-flow { display: grid; gap: 0; counter-reset: none; }
 .gi-flow > li { position: relative; padding: 0 0 24px 44px; border-inline-start: 1.5px solid var(--ink); margin-inline-start: 14px; }
 .gi-flow > li:last-child { padding-bottom: 0; border-color: transparent; }
-.gi-flow__n { position: absolute; inset-inline-start: -15px; top: -2px; width: 28px; height: 28px; border: var(--border); background: var(--paper); color: var(--ink);
+.gi-flow__n { position: absolute; inset-inline-start: -15px; top: 0; width: 28px; height: 28px; border: var(--border); background: var(--paper); color: var(--ink);
   display: grid; place-items: center; font-family: var(--mono); font-size: 14px; font-weight: 700; }
-.gi-flow h3 { margin-bottom: 6px; }
+/* the heading's line is as tall as the numbered square beside it, so the two share a centre line */
+.gi-flow h3 { margin-bottom: 6px; line-height: 28px; }
 .gi-flow p { margin: 0; text-wrap: pretty; }
 @media (min-width: 860px) {
   .gi-flow--3 { gap: 0 32px; margin-top: 44px; border-top: 1.5px solid var(--ink); grid-template-columns: repeat(3, minmax(0, 1fr)); }
