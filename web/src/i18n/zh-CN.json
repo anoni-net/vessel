@@ -787,6 +787,7 @@
   "status.reach.state.challenge": "要通过验证",
   "status.reach.state.blocked": "打不开",
   "status.reach.state.none": "没有检查",
+  "status.reach.state.pending": "还没检查",
   "status.reach.now.ok": "目前打得开",
   "status.reach.now.challenge": "目前要验证",
   "status.reach.now.blocked": "目前打不开",
