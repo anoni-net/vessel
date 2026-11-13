@@ -92,6 +92,18 @@ def test_a_node_with_fewer_columns_is_read_by_its_header(db, node):
     assert stored(db) == [(8, 2, None, 5, None, None, None)]
 
 
+def test_the_counts_to_compare_with_are_kept(db, node):
+    regions(db)
+    more = HEADER + ",tcp_packets,tcp_sources,tcp_china,control_packets,control_sources,control_china"
+    # a node with a control port, and an hour from a node without one
+    node.probe_result = (f"{more}\n{hour(2)},40,6,1,0,3,0,0,0,2,7,30,2,1,90,12,4,7,3,1\n"
+                         f"{hour(1)},40,6,1,0,3,0,0,0,2,7,30,2,1,90,12,4,,,\n")
+    jobs.poll_probe(db)
+    assert db.execute("SELECT tcp_packets, tcp_sources, tcp_china, control_packets, control_sources, control_china "
+                      "FROM probe_hours WHERE region_id = 'jp' ORDER BY hour").fetchall() == [
+        (90, 12, 4, 7, 3, 1), (90, 12, 4, None, None, None)]
+
+
 def test_hours_older_than_400_days_go(db, node):
     regions(db)
     db.execute("INSERT INTO probe_hours (region_id, hour, packets, sources) VALUES "
@@ -190,9 +202,9 @@ def test_probes_prints_days_and_hours_as_counts(db, capsys):
     day = (NOW - dt.timedelta(hours=30)).date().isoformat()
     rows = [line.split() for line in out.splitlines() if line.split()[:2] in ([day, "jp"], [day, "tw"])]
     if (NOW - dt.timedelta(hours=29)).date().isoformat() == day:
-        assert rows[0] == [day, "jp", "2", "20", "4", "2", "0", "6", "0"]
-    assert rows[-1] == [day, "tw", "1", "-", "-", "-", "0", "-", "0"]
+        assert rows[0] == [day, "jp", "2", "20", "4", "2", "0", "6", "0", "-", "-", "-", "-"]
+    assert rows[-1] == [day, "tw", "1", "-", "-", "-", "0", "-", "0", "-", "-", "-", "-"]
     admin.probes(db, 14, csv=True)
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == "region,hour," + HEADER.removeprefix("hour,")
-    assert f"jp,{hour(30)},0,0,,,3,,,,,0,10,2,1" in lines and f"tw,{hour(30)},0,0,,,,,,,,0,,," in lines
+    assert lines[0] == "region,hour," + HEADER.removeprefix("hour,") + ",tcp_packets,tcp_sources,tcp_china,control_packets,control_sources,control_china"
+    assert f"jp,{hour(30)},0,0,,,3,,,,,0,10,2,1,,,,,," in lines and f"tw,{hour(30)},0,0,,,,,,,,0,,,,,,,,," in lines

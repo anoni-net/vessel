@@ -435,7 +435,8 @@ PROBE_EVERY_MINUTES = 30
 PROBE_KEEP_DAYS = 400
 # hourly.csv's columns after the hour (node/host/vessel-probe-watch.sh), which are also probe_hours'
 PROBE_COLUMNS = ("packets", "sources", "taiwan", "hk_macau", "china", "japan_korea", "southeast_asia", "other_apac",
-                 "outside_apac", "dropped", "probe_packets", "handshake_sources", "handshake_china")
+                 "outside_apac", "dropped", "probe_packets", "handshake_sources", "handshake_china",
+                 "tcp_packets", "tcp_sources", "tcp_china", "control_packets", "control_sources", "control_china")
 PROBE_HOUR = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:00Z$")
 PROBE_COUNT = re.compile(r"^\d{1,18}$")
 
