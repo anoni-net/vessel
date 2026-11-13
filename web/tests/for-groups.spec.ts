@@ -16,6 +16,9 @@ test("group accounts: what they are and how to ask, linked from the home page, t
     "檢測的流程", "臨時與定期的檢測", "成員的報告與負責人的摘要", "團體帳號的其他功能", "申請方式",
   ]);
   await expect(page.locator("#flow ol li")).toHaveCount(4);
+  // beside the steps, where the connections go: drawn like the home page's pictures, its labels in the page's language
+  await expect(page.locator("#flow figure").getByRole("img")).toHaveAttribute("aria-label", /複製一份到分析主機，封包分析完立刻刪除/);
+  await expect(page.locator("#flow .hero-fig__label")).toContainText(["Vessel 節點", "分析主機", "完整的報告", "判斷結果的摘要", "成員的裝置", "負責人"]);
   await expect(page.locator("#plan").getByRole("heading", { level: 3 })).toHaveText(["臨時檢測", "定期檢測"]);
   // who sees what, said once, with the policy one link away
   await expect(page.locator("#results").getByRole("heading", { level: 3 })).toHaveText(["成員的報告", "負責人的摘要"]);

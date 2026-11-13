@@ -1,6 +1,7 @@
 import { useCtx } from "../context.ts";
 import { type Locale, fmt } from "../i18n/index.ts";
 import { COMMUNITY_SITE, LOCALE_PATH } from "../site.ts";
+import { GroupFlowFigure } from "./hero-figure.tsx";
 import { SectionHead } from "./section-head.tsx";
 
 // Group accounts, introduced to the people who would ask for one (toomore/anoni-net-ws#488). Device traffic
@@ -91,15 +92,19 @@ export function ForGroups() {
       <section id="flow" class="gi-band band">
         <div class="wrap">
           <SectionHead title={t["forGroups.flow.title"]} en="4 steps" />
-          <ol class="plain gi-flow gi-flow--4">
-            {FLOW.map((n) => (
-              <li>
-                <span class="gi-flow__n" aria-hidden="true">{n}</span>
-                <h3>{t[`forGroups.flow.${n}.title`]}</h3>
-                <p>{t[`forGroups.flow.${n}.body`]}</p>
-              </li>
-            ))}
-          </ol>
+          {/* where the connections go and who gets which result, drawn like the home page's pictures, beside the steps */}
+          <div class="gi-flow-layout">
+            <GroupFlowFigure />
+            <ol class="plain gi-flow gi-flow--down">
+              {FLOW.map((n) => (
+                <li>
+                  <span class="gi-flow__n" aria-hidden="true">{n}</span>
+                  <h3>{t[`forGroups.flow.${n}.title`]}</h3>
+                  <p>{t[`forGroups.flow.${n}.body`]}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </section>
 

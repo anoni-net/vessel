@@ -1,6 +1,6 @@
 import { useCtx } from "../context.ts";
 import { GLOBE, GRID, LABELS, NODES, PATHS, PHONE, SCREEN, VIEWBOX } from "../hero-figure-data.ts";
-import { DISGUISE, type Drawing, KEYS, LISTS, RELAY } from "../hero-figures-data.ts";
+import { DISGUISE, type Drawing, GROUP_FLOW, KEYS, LISTS, RELAY } from "../hero-figures-data.ts";
 import type { MessageKey } from "../i18n/index.ts";
 import { useInView } from "./in-view.ts";
 
@@ -82,6 +82,9 @@ const WORDS: Record<string, MessageKey> = {
   forward: "hero.fig4.forward",
   private: "hero.fig5.private", public: "hero.fig5.public", portal: "hero.fig5.portal", noemail: "hero.fig5.noemail",
   nodek: "hero.fig5.node",
+  g_member: "forGroups.flowfig.member", g_node: "forGroups.flowfig.node", g_analysis: "forGroups.flowfig.analysis",
+  g_copy: "forGroups.flowfig.copy", g_deleted: "forGroups.flowfig.deleted", g_report: "forGroups.flowfig.report",
+  g_summary: "forGroups.flowfig.summary", g_leader: "forGroups.flowfig.leader",
 };
 
 /** FIG. 02 to 05: fixed shapes, and labels in the page's language. */
@@ -93,6 +96,12 @@ function Drawn({ n, drawing, label, caption }: { n: number; drawing: Drawing; la
       {drawing.labels.map((l) => <Label x={l.x} y={l.y} anchor={l.anchor} name={t[WORDS[l.key]]} en={l.en} note={l.note} on={l.on} />)}
     </Figure>
   );
+}
+
+/** The group page's picture (pages/for-groups.tsx): where an inspection's connections go, and who gets which result. */
+export function GroupFlowFigure() {
+  const { t } = useCtx();
+  return <Drawn n={1} drawing={GROUP_FLOW} label={t["forGroups.flowfig.label"]} caption={t["forGroups.flowfig.caption"]} />;
 }
 
 /** The hero's picture: the connection through a node. */

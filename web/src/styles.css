@@ -461,12 +461,15 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .gi-flow h3 { margin-bottom: 6px; }
 .gi-flow p { margin: 0; text-wrap: pretty; }
 @media (min-width: 860px) {
-  .gi-flow { gap: 0 32px; margin-top: 44px; border-top: 1.5px solid var(--ink); }
-  .gi-flow--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .gi-flow--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .gi-flow > li, .gi-flow > li:last-child { margin: 0; padding: 44px 0 0; border: 0; }
-  .gi-flow__n { inset-inline-start: 0; top: -15px; }
+  .gi-flow--3 { gap: 0 32px; margin-top: 44px; border-top: 1.5px solid var(--ink); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gi-flow--3 > li, .gi-flow--3 > li:last-child { margin: 0; padding: 44px 0 0; border: 0; }
+  .gi-flow--3 .gi-flow__n { inset-inline-start: 0; top: -15px; }
 }
+/* the inspection's steps run down beside the drawing of where the connections go; on a phone the drawing comes first */
+.gi-flow-layout { display: grid; gap: 32px; align-items: center; }
+.gi-flow-layout .hero-fig { margin: 0; background: var(--paper); }
+.gi-flow-layout figcaption span:last-child { text-wrap: balance; }
+@media (min-width: 960px) { .gi-flow-layout { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 56px; } }
 /* two columns of prose and rows; --ruled draws the line between the two sides of one thing */
 .gi-split { display: grid; gap: 40px; }
 .gi-split__title { font-size: 22px; margin-bottom: 4px; }
