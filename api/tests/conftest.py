@@ -94,6 +94,9 @@ class FakeNode:
         # the node's hourly.csv as awgctl-remote sends it, or None on a node without the call
         self.probe_result: str | None = None
         self.probe_calls = 0
+        self.probe_asked: list[tuple] = []
+        # hourly.csv of hosts without Vessel (probe_controls), by host
+        self.control_results: dict[str, str] = {}
         self.totals = None  # the node's own counts in usage; None like a node from before they were added
         # device inspection
         self.inspecting: dict[str, int] = {}
@@ -177,8 +180,11 @@ class FakeNode:
             raise NodeError("cat: /opt/vessel-node/reach.json: No such file or directory")
         return self.reach_result
 
-    def probe(self, host):
+    def probe(self, host, jump=None):
         self.probe_calls += 1
+        self.probe_asked.append((host, jump))
+        if host in self.control_results:
+            return self.control_results[host]
         if self.down or self.probe_result is None:
             raise NodeError("awgctl-remote: command not allowed")
         return self.probe_result

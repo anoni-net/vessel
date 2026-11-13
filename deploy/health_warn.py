@@ -126,7 +126,8 @@ def evaluate(data: dict) -> tuple[str, list[str]]:
     for region, age in sorted(data.get("probe_age", {}).items()):
         if age > PROBE_STALE:
             problems.append(f"probe:{region}")
-            lines.append(f"- {region} 節點：探測的統計 {age // 3600} 小時沒有新的一筆")
+            who = f"{region.removesuffix('-control')} 的對照主機" if region.endswith("-control") else f"{region} 節點"
+            lines.append(f"- {who}：探測的統計 {age // 3600} 小時沒有新的一筆")
     analysis = data.get("analysis_age")
     if analysis is not None and analysis > 1800:
         problems.append("analysis")
@@ -170,7 +171,8 @@ def check(data: dict | str) -> tuple[str, str]:
         hint = "worker 正常但連不上節點：從 m6 經 tailnet 連節點，看 awgctl list 與 worker 的 log。"
     elif "probe:" in state and "reach:" not in state:
         hint = ("節點的探測統計停了，或 worker 讀不到：在節點上看 systemctl status vessel-probe-watch.timer 與 "
-                "/opt/vessel-node/host/vessel-probe-watch.sh show，再確認節點的 awgctl-remote 有 probe --csv。")
+                "/opt/vessel-node/host/vessel-probe-watch.sh show，再確認節點的 awgctl-remote 有 probe --csv。"
+                "對照主機要經過跳板，跳板停機時也讀不到（deploy/README.md 的「對照主機」）。")
     else:
         hint = "節點的網站自測停了：在節點上看 systemctl status vessel-reach.timer vessel-reach.service 與 /opt/vessel-node/reach.json。"
     return state, "\n".join(lines) + "\n\n" + hint
@@ -400,7 +402,8 @@ def probe_raised(data: dict) -> set[str]:
 
 def probe_body(data: dict, now: set[str], before: set[str]) -> str:
     """Each raised count with its usual day and the other nodes' same count: a rise on every node at once is mostly
-    a scan of the whole network, a rise on one node is the one to look into."""
+    a scan of the whole network, a rise on one node is the one to look into. Where the node has a control, a host
+    without Vessel in the same place, its same count follows: what any host there got that day."""
     levels, lines = data.get("probe", {}), []
     for key in sorted(now):
         region, name = key.split(":", 1)
@@ -408,7 +411,8 @@ def probe_body(data: dict, now: set[str], before: set[str]) -> str:
                           if r != region and v.get("day", {}).get(name) is not None)
         fresh = "" if key in before else "，新出現"
         lines.append(f"- {region} 節點近 24 小時{PROBE_SIGNALS[name][0]}：{levels[region]['day'][name]}"
-                     f"（前 7 天平均每天 {levels[region]['usual'][name]}{fresh}）" + (f"，其他節點：{others}" if others else ""))
+                     f"（前 7 天平均每天 {levels[region]['usual'][name]}{fresh}）" + (f"，其他節點：{others}" if others else "")
+                     + (f"，對照主機：{beside}" if (beside := levels[region].get("control", {}).get(name)) is not None else ""))
     for key in sorted(before - now):
         region, name = key.split(":", 1)
         if name in PROBE_SIGNALS:

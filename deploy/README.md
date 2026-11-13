@@ -126,6 +126,34 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 
 部署時先更新各節點的 `/usr/local/sbin/awgctl-remote`，再部署後端。節點還沒更新時 worker 讀不到，每一輪重試，其他工作不受影響。
 
+### 對照主機
+
+對照主機是一台沒有 Vessel 的主機，跟某個城市的節點在同一家主機商、同一個地區，執行同一支 `vessel-probe-watch.sh`（`PROBE_ONLY=1`，見 `node/README.md` 的「沒有 Vessel 的對照主機」）。它數到的是任何主機在那裡都會收到的掃描，以及長度剛好等於握手的封包，判讀節點的數字時拿來當背景值。一個城市最多一台。它的紀錄一樣存進 `probe_hours`（`control` 欄），不會出現在城市清單與服務狀態頁，`admin probes` 把它列在節點後面（每天的表格是 `<城市>+`，`--csv` 是 `<城市>-control`），節點的數字觸發推播時，通知附上對照主機同一項的數字。對照主機超過 3 小時沒有新的一筆時，跟節點一樣算進異常。
+
+對照主機不在 tailnet 上時，worker 經過一台在 tailnet 上的跳板連過去，兩段都用 `/etc/vessel/ssh/key`，兩台的主機金鑰都要在 `/etc/vessel/ssh/known_hosts`。跳板停機時讀不到對照主機，節點的讀取不受影響。
+
+跳板的 `authorized_keys`，金鑰只能轉送到對照主機的 SSH，不能開 shell 或執行指令：
+
+```
+restrict,port-forwarding,permitopen="<對照主機的 IP>:22",command="/bin/false" ssh-ed25519 AAAA... vessel-portal
+```
+
+對照主機 root 的 `authorized_keys`，金鑰只能讀出紀錄：
+
+```
+command="/opt/vessel-node/host/vessel-probe-watch.sh csv",restrict,from="<跳板的對外 IP>" ssh-ed25519 AAAA... vessel-portal
+```
+
+主機金鑰從兩台主機本身讀出，核對過再寫入 `known_hosts`，接著設定：
+
+```bash
+cd deploy
+sudo docker compose exec api python -m app.admin probe-controls set sg --host <對照主機的 IP> --jump <使用者>@<跳板的 tailnet IP>
+sudo docker compose exec api python -m app.admin probe-controls          # 讀到之後列出筆數與最後一筆的時間
+```
+
+位址只存在資料庫，不寫進 repo。`probe-controls remove <城市>` 停止讀取，已經收進來的紀錄留著。
+
 ### 被列入或收到 abuse 通知時
 
 主機商轉來的 abuse 通知會寄到主機帳號的 email，要確認維護者看得到。處理的順序：

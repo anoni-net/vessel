@@ -4,7 +4,7 @@
 # scanner sends short ones. The hour's row must count the last two and leave out every address the device had. The
 # scanner also tries TCP on the same port number and a UDP port with no service (the control port), which are counted
 # apart, and an answer to what the node itself sent from the control port is not. A change of the settings makes the
-# rules again. The container's answer (docker exec ... awg show awg0 endpoints) and the minute of the hour are stand-ins. Run by CI.
+# rules again. Last, the same on a host without Vessel (PROBE_ONLY). The container's answer (docker exec ... awg show awg0 endpoints) and the minute of the hour are stand-ins. Run by CI.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 TMP=$(mktemp -d)
@@ -111,6 +111,23 @@ tcp 21
 tick 00 12
 row=$(tail -n 1 "$TMP/data/hourly.csv")
 [ "${row#*,}" = 0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,,, ] || fail "the row without a control port is ${row#*,}"
+
+# a host without Vessel: no container is asked, nothing is guarded, TCP is left alone, and the handshake's length
+# comes from PROBE_S1
+printf 'LISTEN_PORT=%s\nPROBE_CONTROL_PORT=%s\nPROBE_ONLY=1\nPROBE_S1=%s\n' "$PORT" "$CONTROL" "$S1" > "$TMP/node/node.env"
+rm "$TMP/node/server/interface.conf"
+printf '#!/bin/bash\necho "the container was asked" >&2\nexit 1\n' > "$TMP/bin/docker"
+tick 30 12
+ip netns exec pw-node nft list table inet vessel_probe | grep -q 'chain guard' && fail "a guard on a host without Vessel"
+send 12 $HANDSHAKE          # no devices here: the address that was one before counts like any other
+send 20 $HANDSHAKE
+send 21 50 3
+send 20 50 2 $CONTROL
+tcp 21
+tick 00 12
+row=$(tail -n 1 "$TMP/data/hourly.csv")
+[ "${row#*,}" = 5,3,1,0,2,0,0,0,0,,5,2,1,,,,2,1,1 ] || fail "the row of a host without Vessel is ${row#*,}"
+[ "$(ip netns exec pw-node env VESSEL_NODE_DIR="$TMP/node" VESSEL_PROBE_DATA="$TMP/data" bash host/vessel-probe-watch.sh csv | head -n 1)" = "$(head -n 1 "$TMP/data/hourly.csv")" ] || fail "csv does not start with the header"
 
 # no address in what is kept
 if grep -rq '192\.0\.2\.' "$TMP/data/hourly.csv"; then fail "an address in hourly.csv"; fi

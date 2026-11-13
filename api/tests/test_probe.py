@@ -1,10 +1,13 @@
+import argparse
 import datetime as dt
 import importlib.util
 from pathlib import Path
 
+import pytest
 from conftest import needs_db
 
 from app import admin, jobs
+from app.nodes import NodeError, SSHNode
 
 pytestmark = needs_db
 
@@ -27,9 +30,9 @@ def regions(db):
                "('sg', 'n', false)")
 
 
-def stored(db, region="jp"):
+def stored(db, region="jp", control=False):
     return db.execute("SELECT packets, sources, china, dropped, probe_packets, handshake_sources, handshake_china "
-                      "FROM probe_hours WHERE region_id = %s ORDER BY hour", (region,)).fetchall()
+                      "FROM probe_hours WHERE region_id = %s AND control = %s ORDER BY hour", (region, control)).fetchall()
 
 
 def test_the_worker_copies_each_open_nodes_hours(db, node):
@@ -112,12 +115,80 @@ def test_hours_older_than_400_days_go(db, node):
     assert len(stored(db)) == 1
 
 
-def fill(db, region, hours, **counts):
+def fill(db, region, hours, control=False, **counts):
     """One row for each of the hours `hours` (ago), with the same counts."""
     names = ", ".join(counts)
     for ago in hours:
-        db.execute(f"INSERT INTO probe_hours (region_id, hour, packets, sources, {names}) VALUES (%s, %s, 0, 0, "
-                   + ", ".join(["%s"] * len(counts)) + ")", (region, NOW - dt.timedelta(hours=ago), *counts.values()))
+        db.execute(f"INSERT INTO probe_hours (region_id, control, hour, packets, sources, {names}) VALUES (%s, %s, %s, 0, 0, "
+                   + ", ".join(["%s"] * len(counts)) + ")", (region, control, NOW - dt.timedelta(hours=ago), *counts.values()))
+
+
+def control_args(action, region="jp", host="192.0.2.50", jump="ubuntu@100.64.0.9"):
+    return argparse.Namespace(action=action, region=region, host=host, jump=jump)
+
+
+def test_a_regions_control_is_read_through_its_jump_host_and_kept_apart(db, node, capsys):
+    regions(db)
+    admin.probe_controls(db, control_args("set"))
+    admin.probe_controls(db, control_args("set", region="sg", host="192.0.2.51", jump=None))
+    node.probe_result = f"{HEADER}\n{hour(1)},40,6,1,0,3,0,0,0,2,7,30,2,1\n"
+    # a host without Vessel: nothing guarded, so nothing dropped
+    node.control_results["192.0.2.50"] = f"{HEADER}\n{hour(1)},9,4,0,0,1,0,0,0,3,,9,1,0\n"
+    jobs.poll_probe(db)
+    assert stored(db) == [(40, 6, 3, 7, 30, 2, 1)] and stored(db, control=True) == [(9, 4, 1, None, 9, 1, 0)]
+    # the nodes directly, the control through its jump host; a closed region's control is not asked
+    assert node.probe_asked == [("n", None), ("n", None), ("192.0.2.50", "ubuntu@100.64.0.9")]
+    jobs.poll_probe(db)
+    assert node.probe_calls == 3
+    admin.probe_controls(db, control_args("list"))
+    out = capsys.readouterr().out
+    assert f"jp\t192.0.2.50 through ubuntu@100.64.0.9\thours: 1\tlast: {hour(1)}" in out and "sg\t192.0.2.51\tnot read yet" in out
+    # removing it stops the reading and keeps its hours
+    admin.probe_controls(db, control_args("remove"))
+    db.execute("DELETE FROM heartbeats")
+    jobs.poll_probe(db)
+    assert node.probe_asked[3:] == [("n", None), ("n", None)] and len(stored(db, control=True)) == 1
+
+
+def test_a_control_needs_plain_addresses_and_a_region(db):
+    regions(db)
+    for bad in (control_args("set", host="a b"), control_args("set", jump="root@x;id"), control_args("set", jump="100.64.0.9"),
+                control_args("set", region="nowhere")):
+        with pytest.raises(SystemExit):
+            admin.probe_controls(db, bad)
+    assert db.execute("SELECT count(*) FROM probe_controls").fetchone()[0] == 0
+
+
+def test_ssh_reaches_a_host_through_a_jump_host_with_the_same_key():
+    ssh = SSHNode("/etc/vessel/ssh/key", "/etc/vessel/ssh/known_hosts")
+    direct = ssh._command("100.64.0.1", "probe", "--csv")
+    assert direct[-2:] == ["root@100.64.0.1", "probe --csv"] and not any("ProxyCommand" in part for part in direct)
+    through = ssh._command("192.0.2.50", "probe", "--csv", jump="ubuntu@100.64.0.9")
+    proxy = next(part for part in through if part.startswith("ProxyCommand="))
+    assert proxy.endswith("-W %h:%p ubuntu@100.64.0.9") and "-i /etc/vessel/ssh/key" in proxy
+    assert "StrictHostKeyChecking=yes" in proxy and "-F /dev/null" in proxy
+    assert through[-2:] == ["root@192.0.2.50", "probe --csv"]
+    for host, jump in (("192.0.2.50", "ubuntu@x $(id)"), ("192.0.2.50;id", "ubuntu@100.64.0.9"), ("192.0.2.50", "-oProxyCommand=id")):
+        with pytest.raises(NodeError):
+            ssh._command(host, "probe", "--csv", jump=jump)
+
+
+def test_health_sets_the_control_next_to_its_node(client, db):
+    regions(db)
+    fill(db, "jp", range(25, 193), handshake_sources=1, dropped=0)
+    fill(db, "jp", range(1, 25), handshake_sources=5, dropped=0)
+    fill(db, "jp", range(1, 25), control=True, handshake_sources=4)
+    fill(db, "jp", range(25, 60), control=True, handshake_sources=9)
+    data = client.get("/internal/health").json()
+    # the node's own level does not move, and the control's last 24 hours stand next to it
+    assert data["probe"]["jp"]["day"]["handshake_sources"] == 120 and data["probe"]["jp"]["usual"]["handshake_sources"] == 24.0
+    assert data["probe"]["jp"]["control"]["handshake_sources"] == 96 and data["probe"]["jp"]["control"]["dropped"] is None
+    assert "control" not in data["probe"].get("tw", {})
+    assert set(data["probe_age"]) == {"jp", "jp-control"}
+    body = health_warn.probe_body(data, health_warn.probe_raised(data), set())
+    assert body.startswith("- jp 節點近 24 小時送出握手長度封包的來源：120（前 7 天平均每天 24.0，新出現），對照主機：96\n")
+    state, lines = health_warn.evaluate({"worker_age": 1, "usage_age": {}, "stuck_jobs": 0, "probe_age": {"jp": 9, "jp-control": 5 * 3600}})
+    assert state == "probe:jp-control" and lines == ["- jp 的對照主機：探測的統計 5 小時沒有新的一筆"]
 
 
 def test_health_gives_the_last_day_next_to_the_usual_day(client, db):
@@ -197,9 +268,11 @@ def test_probes_prints_days_and_hours_as_counts(db, capsys):
     regions(db)
     fill(db, "jp", [30, 29], handshake_sources=2, handshake_china=1, probe_packets=10, china=3, dropped=0)
     fill(db, "tw", [30], dropped=0)
+    fill(db, "tw", [30], control=True, handshake_sources=7)
     admin.probes(db, 14, csv=False)
     out = capsys.readouterr().out
     day = (NOW - dt.timedelta(hours=30)).date().isoformat()
+    assert [day, "tw+", "1", "-", "7", "-", "0", "-", "-", "-", "-", "-", "-"] in [line.split() for line in out.splitlines()]
     rows = [line.split() for line in out.splitlines() if line.split()[:2] in ([day, "jp"], [day, "tw"])]
     if (NOW - dt.timedelta(hours=29)).date().isoformat() == day:
         assert rows[0] == [day, "jp", "2", "20", "4", "2", "0", "6", "0", "-", "-", "-", "-"]
@@ -208,3 +281,4 @@ def test_probes_prints_days_and_hours_as_counts(db, capsys):
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == "region,hour," + HEADER.removeprefix("hour,") + ",tcp_packets,tcp_sources,tcp_china,control_packets,control_sources,control_china"
     assert f"jp,{hour(30)},0,0,,,3,,,,,0,10,2,1,,,,,," in lines and f"tw,{hour(30)},0,0,,,,,,,,0,,,,,,,,," in lines
+    assert f"tw-control,{hour(30)},0,0,,,,,,,,,,7,,,,,,," in lines
