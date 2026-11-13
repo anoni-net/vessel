@@ -423,6 +423,10 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 /* group accounts (pages/for-groups.tsx). The page leads with device inspection: beside the heading, an example of
    what comes back, a square for every hour of seven days and a verdict for each device. Below it, steps along a
    line, and rows on hairlines in place of boxes, so the drawing is the one framed thing on the page. */
+/* headings and short lines break into even lines, so a narrow screen never leaves one character on a line of its
+   own; the English label beside a section's heading gives its room to the heading on a phone */
+.gi-band :is(h1, h2, h3, dt), .gi-verdicts span, .gi-fig__caption { text-wrap: balance; }
+@media (max-width: 599px) { .gi-band .section-head .eyebrow { display: none; } }
 .gi-hero__inner { display: grid; gap: 32px; align-items: center; }
 .gi-hero__text { display: flex; flex-direction: column; gap: 16px; max-width: 34em; }
 .gi-hero h1 { font-size: clamp(32px, 7vw, 52px); line-height: 1.15; letter-spacing: .01em; text-wrap: balance; }

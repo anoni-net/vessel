@@ -17,15 +17,20 @@ const MORE = ["1", "2", "3", "4", "5"] as const;
 const APPLY = ["1", "2", "3"] as const;
 const contact = (l: Locale) => `${COMMUNITY_SITE}${LOCALE_PATH[l]}/contact/`;
 
-// the example's seven days of hours: quiet from 1 to 5 am, busier through the day, the same on every load
-const DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
-const HOURS = Array.from({ length: 24 }, (_, h) => h);
-function level(day: number, hour: number): number {
-  if (hour >= 1 && hour <= 5) return (day * 7 + hour) % 5 === 0 ? 1 : 0;
-  const base = hour < 7 ? 1 : hour < 10 ? 2 : hour < 19 ? 3 : 2;
-  return Math.max(1, Math.min(5, base + ((day * 5 + hour * 3) % 4) - 1));
-}
-// two hours that would be marked in a report: traffic in the small hours of day 3, and an afternoon on day 5
+// The example's seven days, an hour to a digit from midnight, 0 for no traffic to 5 for the most: written by hand
+// after how a phone is used. Nights are empty but for a sync or two, mornings and evenings are the busy hours, the
+// VPN is off for a few hours on some days (day 2's afternoon, most of day 4), and the weekend (days 6 and 7) starts
+// late and runs past midnight.
+const HOURS = [
+  "210000013322342123344310",
+  "100000002433231002234421",
+  "100200012322432133245300",
+  "000000001232000001233410",
+  "210000013423352423344520",
+  "321000000012213122123453",
+  "310000000001231012234310",
+] as const;
+// two hours a report would mark: a connection at 3 am on day 3, when the phone should be asleep, and one on day 5's afternoon
 const MARKED = new Set(["3-3", "5-15"]);
 
 function Example() {
@@ -34,13 +39,10 @@ function Example() {
     <figure class="hero-fig gi-fig">
       <div class="gi-fig__body">
         <div class="gi-tiles" role="img" aria-label={t["forGroups.fig.alt"]}>
-          {DAYS.map((d) => (
+          {HOURS.map((row, d) => (
             <div class="gi-tiles__row">
-              <span class="gi-tiles__day">{fmt(t["forGroups.fig.day"], { n: d })}</span>
-              {HOURS.map((h) => {
-                const mark = MARKED.has(`${d}-${h}`);
-                return <span class={`gi-tile gi-tile--${mark ? Math.max(3, level(d, h)) : level(d, h)}${mark ? " gi-tile--mark" : ""}`} />;
-              })}
+              <span class="gi-tiles__day">{fmt(t["forGroups.fig.day"], { n: d + 1 })}</span>
+              {[...row].map((n, h) => <span class={`gi-tile gi-tile--${n}${MARKED.has(`${d + 1}-${h}`) ? " gi-tile--mark" : ""}`} />)}
             </div>
           ))}
         </div>
@@ -62,7 +64,7 @@ function Example() {
           </li>
         </ul>
       </div>
-      <figcaption><span class="strong">{t["forGroups.fig.label"]}</span>{t["forGroups.fig.caption"]}</figcaption>
+      <figcaption><span class="strong">{t["forGroups.fig.label"]}</span><span class="gi-fig__caption">{t["forGroups.fig.caption"]}</span></figcaption>
     </figure>
   );
 }
@@ -71,7 +73,7 @@ export function ForGroups() {
   const { t, href, locale } = useCtx();
   return (
     <>
-      <section class="band band--tint gi-hero">
+      <section class="gi-band band band--tint gi-hero">
         <div class="wrap gi-hero__inner">
           <div class="gi-hero__text">
             <h1>{t["forGroups.headline"]}</h1>
@@ -86,7 +88,7 @@ export function ForGroups() {
         </div>
       </section>
 
-      <section id="flow" class="band">
+      <section id="flow" class="gi-band band">
         <div class="wrap">
           <SectionHead title={t["forGroups.flow.title"]} en="4 steps" />
           <ol class="plain gi-flow gi-flow--4">
@@ -101,7 +103,7 @@ export function ForGroups() {
         </div>
       </section>
 
-      <section id="plan" class="band band--grey">
+      <section id="plan" class="gi-band band band--grey">
         <div class="wrap">
           <SectionHead title={t["forGroups.plan.title"]} en="When" />
           <p class="section-lead">{t["forGroups.plan.lead"]}</p>
@@ -134,7 +136,7 @@ export function ForGroups() {
         </div>
       </section>
 
-      <section id="results" class="band">
+      <section id="results" class="gi-band band">
         <div class="wrap">
           <SectionHead title={t["forGroups.results.title"]} en="Results" />
           <p class="section-lead">{t["forGroups.results.lead"]}</p>
@@ -158,7 +160,7 @@ export function ForGroups() {
         </div>
       </section>
 
-      <section id="more" class="band band--grey">
+      <section id="more" class="gi-band band band--grey">
         <div class="wrap">
           <SectionHead title={t["forGroups.more.title"]} en="Group accounts" />
           <p class="section-lead">{t["forGroups.more.lead"]}</p>
@@ -173,7 +175,7 @@ export function ForGroups() {
         </div>
       </section>
 
-      <section id="apply" class="band band--tint">
+      <section id="apply" class="gi-band band band--tint">
         <div class="wrap">
           <SectionHead title={t["forGroups.apply.title"]} en="3 steps" />
           <ol class="plain gi-flow gi-flow--3">
