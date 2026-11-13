@@ -14,6 +14,11 @@
 # the S1 bytes AmneziaWG puts in front) and are not a device. A scanner's QUIC or DTLS probe is not that long; someone
 # replaying or imitating a device's handshake is. handshake_china counts those registered in China.
 #
+# "A device" here is every address that was a peer's endpoint at any minute of the hour (the was_peer sets), not only at
+# its end: a phone whose mobile network gave it two addresses in the hour sent real handshakes from the first one too.
+# What still counts as a handshake source: a device that was removed or has expired and keeps trying (its handshakes are
+# refused, so its address never becomes an endpoint), and an address a device held for less than a minute.
+#
 # The peer set also guards the port. Docker forwards the port with DNAT, so every source takes an entry in the connection
 # tracking table; forged sources could fill it and stop everyone's new connections. Before tracking starts, peers pass
 # and the rest share GUARD_RATE, so what gets through stays well under TRACK_MAX even at conntrack's 30 s for an unanswered
@@ -21,8 +26,9 @@
 #   vessel-probe-watch.sh tick    put the peers' current endpoints in the peer set; on the hour, log and reset
 #   vessel-probe-watch.sh show    print the last 48 hours
 set -euo pipefail
-D=/opt/vessel-node
-DATA=/var/lib/vessel-probe
+# the two directories can be set from outside for node/test/probe-watch-test.sh
+D=${VESSEL_NODE_DIR:-/opt/vessel-node}
+DATA=${VESSEL_PROBE_DATA:-/var/lib/vessel-probe}
 LOG=$DATA/hourly.csv
 HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac,dropped,probe_packets,handshake_sources,handshake_china
 GUARD_RATE=2000
@@ -51,6 +57,8 @@ table inet vessel_probe {
   set seen6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
   set handshake { type ipv4_addr; flags dynamic, timeout; timeout 1h; size 65536; }
   set handshake6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
+  set was_peer { type ipv4_addr; flags timeout; timeout 1h; size 65536; }
+  set was_peer6 { type ipv6_addr; flags timeout; timeout 1h; size 65536; }
   counter probes {}
   counter dropped {}
   chain guard {
@@ -87,6 +95,9 @@ sync_peers() {
     echo "flush set inet vessel_probe peers6"
     if [ -n "$v4" ]; then echo "add element inet vessel_probe peers { ${v4%, } }"; fi
     if [ -n "$v6" ]; then echo "add element inet vessel_probe peers6 { ${v6%, } }"; fi
+    # every endpoint of the hour, for report: adding one that is already there changes nothing
+    if [ -n "$v4" ]; then echo "add element inet vessel_probe was_peer { ${v4%, } }"; fi
+    if [ -n "$v6" ]; then echo "add element inet vessel_probe was_peer6 { ${v6%, } }"; fi
   } | nft -f - 2>/dev/null && return 0
   # nft prints the line it could not load, which lists every device's address; the journal gets this line instead.
   # The batch is one transaction, so the last set stays, as when the container does not answer.
@@ -125,11 +136,14 @@ def packets(name):
 def members(name):
     return set(packets(name))
 
-probes, shakes = 0, []
-for seen, hs, peers in (("seen", "handshake", "peers"), ("seen6", "handshake6", "peers6")):
-    devices = members(peers)
-    probes += sum(n for address, n in packets(seen).items() if address not in devices)
+# an address that was a device's endpoint at any minute of the hour is a device, see the top of this file
+probes, shakes, others = 0, [], []
+for seen, hs, peers, was in (("seen", "handshake", "peers", "was_peer"), ("seen6", "handshake6", "peers6", "was_peer6")):
+    devices = members(peers) | members(was)
+    counted = packets(seen)
+    probes += sum(n for address, n in counted.items() if address not in devices)
     shakes += [address for address in members(hs) if address not in devices]
+    others += [address for address in counted if address not in devices]
 
 try:  # a week old is recent enough, and without the network the list on disk still works
     if not os.path.exists(LIST) or time.time() - os.path.getmtime(LIST) > 7 * 86400:
@@ -167,9 +181,8 @@ def zone(address):
     return "outside_apac"
 
 counts = dict.fromkeys(ZONES, 0)
-for seen, peers in (("seen", "peers"), ("seen6", "peers6")):
-    for address in members(seen) - members(peers):
-        counts[zone(address)] += 1
+for address in others:
+    counts[zone(address)] += 1
 china = sum(1 for address in shakes if zone(address) == "china")
 print(",".join(str(counts[z]) for z in ZONES) + f",{probes},{len(shakes)},{china}")
 PY
@@ -185,7 +198,7 @@ report() {
   stats=$(zones 2>/dev/null) || stats=,,,,,,,,,
   by_zone=$(cut -d, -f1-7 <<<"$stats")
   extra=$(cut -d, -f8-10 <<<"$stats")
-  for set in seen seen6 handshake handshake6; do nft flush set inet vessel_probe $set; done
+  for set in seen seen6 handshake handshake6 was_peer was_peer6; do nft flush set inet vessel_probe $set; done
   hour=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:00Z)
   [ -f $LOG ] || echo "$HEADER" > $LOG
   # rows from before the zone columns, or the last three, keep them empty
@@ -198,8 +211,8 @@ report() {
 
 case "${1:-tick}" in
   tick)
-    # a table made by an earlier version, without the handshake sets, is made again once (that hour counts from then)
-    nft list set inet vessel_probe handshake >/dev/null 2>&1 || setup
+    # a table made by an earlier version, without the newest sets, is made again once (that hour counts from then)
+    nft list set inet vessel_probe was_peer >/dev/null 2>&1 || setup
     sync_peers
     if [ "$(date -u +%M)" = "00" ]; then report; fi
     ;;

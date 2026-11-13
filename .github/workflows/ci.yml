@@ -102,6 +102,11 @@ jobs:
       # one device over the limit is refused, another device is not
       - name: device connection limit
         run: sudo bash node/test/device-limit-test.sh
+      # a device that changed address within the hour is not counted as a probe; someone imitating a handshake is
+      - name: probe watch
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq nftables
+          sudo bash node/test/probe-watch-test.sh
 
   inspect:
     runs-on: ubuntu-latest
