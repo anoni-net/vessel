@@ -160,13 +160,45 @@ class Checks(Base):
         self.assertEqual(s["kinds"], [{"kind": "bypass_dns", "severity": "check"}])
         self.assertNotIn(analyze.hour_of(T0), json.dumps(s))
 
-    def test_a_state_from_before_the_hours_of_lookups_around_vessel_counts_them_without_hours(self):
-        self.run_one(ssl=[{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}])
+    def old_state(self, **change):
+        """The state as it was kept before the hours of lookups around Vessel: a count, and the hour marked."""
         path = analyze.state_path("n1", "10.8.1.3")
         old = json.loads(path.read_text())
-        del old["bypass_hours"], old["bypass_last"]
+        del old["bypass_hours"], old["bypass_last"], old["bypass_filled"]
+        old.update(change)
         path.write_text(json.dumps(old))
-        self.assertEqual(analyze.report("n1", "10.8.1.3")["findings"], [{"severity": "check", "kind": "bypass_dns", "count": 1}])
+        return path
+
+    def test_a_state_from_before_the_hours_of_lookups_around_vessel_finds_them_in_its_marks(self):
+        self.run_one(ssl=[{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}])
+        path = self.old_state()
+        # the hour it marked is the lookup's, so there is something to draw; when the last one was is not known
+        self.assertEqual(analyze.report("n1", "10.8.1.3")["findings"],
+                         [{"severity": "check", "kind": "bypass_dns", "count": 1, "hours": [analyze.hour_of(T0)]}])
+        # the next capture adds its own hour and the time, and the state is not searched again
+        later = T0 + 5 * 3600
+        self.run_one(ssl=[{"ts": later, "uid": "C2", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}])
+        self.assertEqual(analyze.report("n1", "10.8.1.3")["findings"],
+                         [{"severity": "check", "kind": "bypass_dns", "count": 2, "hours": [analyze.hour_of(T0), analyze.hour_of(later)], "last": later}])
+        self.assertIs(json.loads(path.read_text())["bypass_filled"], True)
+
+    def test_an_hour_marked_for_a_listed_site_is_not_taken_for_a_lookup_around_vessel(self):
+        site = T0 + 3 * 3600
+        self.run_one(ssl=[{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}],
+                     dns=[{"ts": site, "id.orig_h": "10.8.1.3", "query": "bad.example", "rcode_name": "NOERROR"}])
+        state = json.loads(analyze.state_path("n1", "10.8.1.3").read_text())
+        self.assertEqual(state["marks"], {analyze.hour_of(T0): "!", analyze.hour_of(site): "!"})
+        self.old_state()
+        bypass = analyze.report("n1", "10.8.1.3")["findings"][-1]
+        self.assertEqual((bypass["kind"], bypass["hours"]), ("bypass_dns", [analyze.hour_of(T0)]))
+
+    def test_a_state_with_no_lookups_around_vessel_gets_no_hours_from_its_marks(self):
+        self.run_one(dns=[{"ts": T0, "id.orig_h": "10.8.1.3", "query": "bad.example", "rcode_name": "NOERROR"}])
+        # a site that is no longer in the state leaves its mark behind: with no lookup counted, it is not one
+        self.old_state(hits={})
+        self.assertEqual(analyze.report("n1", "10.8.1.3")["findings"], [])
+        self.run_one(ssl=[{"ts": T0 + 7200, "uid": "C1", "id.orig_h": "10.8.1.3", "server_name": "doh.example"}])
+        self.assertEqual(analyze.report("n1", "10.8.1.3")["findings"][-1]["hours"], [analyze.hour_of(T0 + 7200)])
 
     def test_an_address_of_one_counts_only_without_a_name(self):
         conn = [{"ts": T0, "uid": "C1", "id.orig_h": "10.8.1.3", "id.resp_h": "192.0.2.53", "id.resp_p": 443},
