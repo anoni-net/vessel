@@ -29,6 +29,7 @@ def test_closed_until_the_maintainer_opens_it(client, db):
     open_requests(db)
     info = client.get("/api/pickup").json()
     assert info["open"] is True and info["purposes"] == list(policy.PICKUP_PURPOSES) and info["note_max"] == 200
+    assert info["wait_days"] == policy.PICKUP_WAIT_DAYS
 
 
 def test_a_request_keeps_the_day_and_the_choices_only(client, db):
@@ -40,7 +41,9 @@ def test_a_request_keeps_the_day_and_the_choices_only(client, db):
     created_at, state = db.execute("SELECT created_at, pickup_state FROM invites").fetchone()
     assert state == "waiting" and (created_at.hour, created_at.minute, created_at.second) == (0, 0, 0)
     assert db.execute("SELECT purpose, network, note FROM pickup_requests").fetchone() == ("travel", "public", "出國時在旅館用")
-    assert status(client, number) == {"state": "waiting", "until": None}
+    # nobody is told when a request is decided: the answer says how long this one is kept, to come back before then
+    until = db.execute("SELECT expires_at::date FROM invites").fetchone()[0]
+    assert status(client, number) == {"state": "waiting", "until": until.isoformat()}
     # the number is not kept anywhere in the clear
     assert not db.execute("SELECT 1 FROM invites WHERE code_hmac::text LIKE %s", (f"%{number[:4]}%",)).fetchone()
 
