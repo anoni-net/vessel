@@ -1,99 +1,195 @@
 import { useCtx } from "../context.ts";
-import type { Locale } from "../i18n/index.ts";
+import { type Locale, fmt } from "../i18n/index.ts";
 import { COMMUNITY_SITE, LOCALE_PATH } from "../site.ts";
 import { SectionHead } from "./section-head.tsx";
 
-// Group accounts, introduced to the people who would ask for one (toomore/anoni-net-ws#488): what a group gets,
-// the groups it suits, device inspection and how to ask. Laid out like the home page, in bands of cards; what
-// leaders can see is said once, with the policy one link away. A group needs a way to be reached, since the
-// leaders' invite codes are handed over in person, so asking goes through the feedback page or email.
-const FEATURES = ["1", "2", "3", "4", "5", "6"] as const;
-const WHO = ["1", "2", "3"] as const;
-// when asking a member to inspect a device is worth it (toomore/anoni-net-ws#483); off until a group asks for it
-const INSPECT_WHEN = ["1", "2", "3", "4"] as const;
+// Group accounts, introduced to the people who would ask for one (toomore/anoni-net-ws#488). Device traffic
+// inspection (toomore/anoni-net-ws#483) leads: a group's devices may carry stalkerware without anyone noticing,
+// and leaders can ask members to inspect them, once or in regular rounds. The page opens with what an inspection
+// gives back, drawn as an example, then the steps, when to ask, who sees what, the rest of group accounts and how
+// to ask for them. A group needs a way to be reached, since the leaders' invite codes are handed over in person,
+// so asking goes through the feedback page or email.
+const FLOW = ["1", "2", "3", "4"] as const;
+const ADHOC = ["1", "2", "3"] as const;
+const REGULAR = ["1", "2", "3"] as const;
+const RESULT = ["1", "2", "3", "4"] as const;
+const MORE = ["1", "2", "3", "4", "5"] as const;
 const APPLY = ["1", "2", "3"] as const;
 const contact = (l: Locale) => `${COMMUNITY_SITE}${LOCALE_PATH[l]}/contact/`;
+
+// the example's seven days of hours: quiet from 1 to 5 am, busier through the day, the same on every load
+const DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+function level(day: number, hour: number): number {
+  if (hour >= 1 && hour <= 5) return (day * 7 + hour) % 5 === 0 ? 1 : 0;
+  const base = hour < 7 ? 1 : hour < 10 ? 2 : hour < 19 ? 3 : 2;
+  return Math.max(1, Math.min(5, base + ((day * 5 + hour * 3) % 4) - 1));
+}
+// two hours that would be marked in a report: traffic in the small hours of day 3, and an afternoon on day 5
+const MARKED = new Set(["3-3", "5-15"]);
+
+function Example() {
+  const { t } = useCtx();
+  return (
+    <figure class="hero-fig gi-fig">
+      <div class="gi-fig__body">
+        <div class="gi-tiles" role="img" aria-label={t["forGroups.fig.alt"]}>
+          {DAYS.map((d) => (
+            <div class="gi-tiles__row">
+              <span class="gi-tiles__day">{fmt(t["forGroups.fig.day"], { n: d })}</span>
+              {HOURS.map((h) => {
+                const mark = MARKED.has(`${d}-${h}`);
+                return <span class={`gi-tile gi-tile--${mark ? Math.max(3, level(d, h)) : level(d, h)}${mark ? " gi-tile--mark" : ""}`} />;
+              })}
+            </div>
+          ))}
+        </div>
+        <ul class="plain gi-verdicts">
+          <li>
+            <span class="gi-verdict__dot gi-verdict__dot--clean" aria-hidden="true" />
+            <span class="strong">{t["forGroups.fig.dev.1"]}</span>
+            <span>{t["group.inspect.verdict.clean"]}</span>
+          </li>
+          <li>
+            <span class="gi-verdict__dot gi-verdict__dot--check" aria-hidden="true" />
+            <span class="strong">{t["forGroups.fig.dev.2"]}</span>
+            <span>{t["group.inspect.verdict.check"]}</span>
+          </li>
+          <li>
+            <span class="gi-verdict__dot" aria-hidden="true" />
+            <span class="strong">{t["forGroups.fig.dev.3"]}</span>
+            <span>{fmt(t["group.inspect.status.active"], { day: 3, days: 7 })}</span>
+          </li>
+        </ul>
+      </div>
+      <figcaption><span class="strong">{t["forGroups.fig.label"]}</span>{t["forGroups.fig.caption"]}</figcaption>
+    </figure>
+  );
+}
 
 export function ForGroups() {
   const { t, href, locale } = useCtx();
   return (
     <>
-      <section class="band band--tint">
-        <div class="wrap">
-          <div class="hero__text">
-            <h1>{t["forGroups.title"]}</h1>
+      <section class="band band--tint gi-hero">
+        <div class="wrap gi-hero__inner">
+          <div class="gi-hero__text">
+            <h1>{t["forGroups.headline"]}</h1>
             <p class="lead">{t["forGroups.lead"]}</p>
             <p class="strong">{t["forGroups.promise"]}</p>
             <div class="actions">
               <a class="nb-button nb-button--primary" href="#apply">{t["forGroups.cta"]}</a>
             </div>
-            <p class="muted">{t["forGroups.trial"]}</p>
+            <p class="muted small">{t["forGroups.trial"]}</p>
+          </div>
+          <Example />
+        </div>
+      </section>
+
+      <section id="flow" class="band">
+        <div class="wrap">
+          <SectionHead title={t["forGroups.flow.title"]} en="4 steps" />
+          <ol class="plain gi-flow gi-flow--4">
+            {FLOW.map((n) => (
+              <li>
+                <span class="gi-flow__n" aria-hidden="true">{n}</span>
+                <h3>{t[`forGroups.flow.${n}.title`]}</h3>
+                <p>{t[`forGroups.flow.${n}.body`]}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section id="plan" class="band band--grey">
+        <div class="wrap">
+          <SectionHead title={t["forGroups.plan.title"]} en="When" />
+          <p class="section-lead">{t["forGroups.plan.lead"]}</p>
+          <div class="gi-split">
+            <div>
+              <h3 class="gi-split__title">{t["forGroups.plan.adhoc.title"]}</h3>
+              <p class="muted">{t["forGroups.plan.adhoc.body"]}</p>
+              <dl class="gi-rows">
+                {ADHOC.map((n) => (
+                  <div>
+                    <dt>{t[`forGroups.plan.adhoc.${n}.title`]}</dt>
+                    <dd>{t[`forGroups.plan.adhoc.${n}.body`]}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            <div>
+              <h3 class="gi-split__title">{t["forGroups.plan.regular.title"]}</h3>
+              <p class="muted">{t["forGroups.plan.regular.body"]}</p>
+              <dl class="gi-rows">
+                {REGULAR.map((n) => (
+                  <div>
+                    <dt>{t[`forGroups.plan.regular.${n}.title`]}</dt>
+                    <dd>{t[`forGroups.plan.regular.${n}.body`]}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="features" class="band">
+      <section id="results" class="band">
         <div class="wrap">
-          <SectionHead title={t["forGroups.features.title"]} en="Features" />
-          <ul class="cards cards--3 cards--six plain">
-            {FEATURES.map((n) => (
-              <li class="card">
-                <h3>{t[`forGroups.feature.${n}.title`]}</h3>
-                <p>{t[`forGroups.feature.${n}.body`]}</p>
-                {n === "6" && <p class="small"><a href={href("/privacy/#groups")}>{t["forGroups.sees.link"]}</a></p>}
-              </li>
-            ))}
-          </ul>
+          <SectionHead title={t["forGroups.results.title"]} en="Results" />
+          <p class="section-lead">{t["forGroups.results.lead"]}</p>
+          <div class="gi-split gi-split--ruled">
+            <div>
+              <h3 class="gi-split__title">{t["forGroups.results.member.title"]}</h3>
+              <ul class="gi-points">
+                {RESULT.map((n) => <li>{t[`forGroups.results.member.${n}`]}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h3 class="gi-split__title">{t["forGroups.results.leader.title"]}</h3>
+              <ul class="gi-points">
+                {RESULT.map((n) => <li>{t[`forGroups.results.leader.${n}`]}</li>)}
+              </ul>
+            </div>
+          </div>
+          <p class="note">
+            {t["forGroups.results.note"]} <a href={href("/privacy/#groups")}>{t["forGroups.sees.link"]}</a>
+          </p>
         </div>
       </section>
 
-      <section id="who" class="band band--grey">
+      <section id="more" class="band band--grey">
         <div class="wrap">
-          <SectionHead title={t["forGroups.who.title"]} en="Who it suits" />
-          <ul class="cards cards--3 plain">
-            {WHO.map((n) => (
-              <li class="card">
-                <h3>{t[`forGroups.who.${n}.title`]}</h3>
-                <p>{t[`forGroups.who.${n}.body`]}</p>
-              </li>
+          <SectionHead title={t["forGroups.more.title"]} en="Group accounts" />
+          <p class="section-lead">{t["forGroups.more.lead"]}</p>
+          <dl class="gi-rows gi-rows--wide">
+            {MORE.map((n) => (
+              <div>
+                <dt>{t[`forGroups.more.${n}.title`]}</dt>
+                <dd>{t[`forGroups.more.${n}.body`]}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </div>
       </section>
 
-      <section id="inspect" class="band">
-        <div class="wrap">
-          <SectionHead title={t["forGroups.inspect.title"]} en="Device check" />
-          <p class="section-lead">{t["forGroups.inspect.body"]}</p>
-          <ul class="cards cards--2 cards--pairs plain">
-            {INSPECT_WHEN.map((n) => (
-              <li class="card">
-                <h3>{t[`forGroups.inspect.when.${n}.title`]}</h3>
-                <p>{t[`forGroups.inspect.when.${n}.body`]}</p>
-              </li>
-            ))}
-          </ul>
-          <p class="note">{t["forGroups.inspect.note"]}</p>
-        </div>
-      </section>
-
-      <section id="apply" class="band band--grey group-apply">
+      <section id="apply" class="band band--tint">
         <div class="wrap">
           <SectionHead title={t["forGroups.apply.title"]} en="3 steps" />
-          <ol class="cards cards--3">
+          <ol class="plain gi-flow gi-flow--3">
             {APPLY.map((n) => (
-              <li class="card">
-                <span class="step" aria-hidden="true">{n}</span>
+              <li>
+                <span class="gi-flow__n" aria-hidden="true">{n}</span>
                 <h3>{t[`forGroups.apply.${n}.title`]}</h3>
                 <p>{t[`forGroups.apply.${n}.body`]}</p>
               </li>
             ))}
           </ol>
-          <div class="actions">
+          <div class="actions gi-actions">
             <a class="nb-button nb-button--primary" href={href("/feedback/?from=groups")}>{t["forGroups.apply.button"]}</a>
             <a class="nb-button" href={contact(locale)} target="_blank" rel="noopener">{t["learn.contactLink"]}</a>
           </div>
-          <p class="small">{t["forGroups.apply.other"]}</p>
+          <p class="small gi-other">{t["forGroups.apply.other"]}</p>
         </div>
       </section>
     </>

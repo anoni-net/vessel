@@ -4,16 +4,23 @@ test("group accounts: what they are and how to ask, linked from the home page, t
   await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "signed_out" } }));
   await page.route("**/api/pickup", (route) => route.fulfill({ json: { open: false } }));
   await page.goto("/");
-  await page.locator("#groups").getByRole("link", { name: "團體帳號的說明與申請" }).click();
+  await page.locator("#groups").getByRole("link", { name: "團體帳號與裝置檢測的介紹" }).click();
   await expect(page).toHaveURL(/\/for-groups\/$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("團體帳號");
-  await expect(page.locator("main").getByRole("heading", { level: 2 })).toHaveText(["團體帳號的功能", "適合的團體", "裝置流量檢測", "申請方式"]);
-  await expect(page.locator("#features .card")).toHaveCount(6);
-  // what leaders can and cannot see, said once, with the policy one link away
-  await expect(page.locator("#features").getByRole("link", { name: "隱私權政策的「團體」一節" })).toHaveAttribute("href", "/privacy/#groups");
-  await expect(page.locator("#who .card")).toHaveCount(3);
-  // device inspection: when it is worth asking a member, four cases
-  await expect(page.locator("#inspect .card")).toHaveCount(4);
+  // device inspection leads: the heading, and an example of what comes back, seven days of hours and three verdicts
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("團體裝置的流量檢測");
+  await expect(page.locator(".gi-tile")).toHaveCount(7 * 24);
+  await expect(page.locator(".gi-tile--mark")).toHaveCount(2);
+  await expect(page.locator(".gi-verdicts li")).toHaveCount(3);
+  await expect(page.locator(".gi-fig figcaption")).toContainText("範例");
+  await expect(page.locator("main").getByRole("heading", { level: 2 })).toHaveText([
+    "檢測的流程", "臨時與定期的檢測", "成員的報告與負責人的摘要", "團體帳號的其他功能", "申請方式",
+  ]);
+  await expect(page.locator("#flow ol li")).toHaveCount(4);
+  await expect(page.locator("#plan").getByRole("heading", { level: 3 })).toHaveText(["臨時檢測", "定期檢測"]);
+  // who sees what, said once, with the policy one link away
+  await expect(page.locator("#results").getByRole("heading", { level: 3 })).toHaveText(["成員的報告", "負責人的摘要"]);
+  await expect(page.locator("#results").getByRole("link", { name: "隱私權政策的「團體」一節" })).toHaveAttribute("href", "/privacy/#groups");
+  await expect(page.locator("#more dt")).toHaveCount(5);
   // the button under the lead goes to the three steps; asking needs a way to reach the group, which the feedback
   // form has, and it notes where the visitor came from
   await expect(page.getByRole("link", { name: "申請團體帳號" })).toHaveAttribute("href", "#apply");
@@ -33,8 +40,8 @@ test("group accounts: what they are and how to ask, linked from the home page, t
   }
 
   await page.goto("/en/for-groups/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Group accounts");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Traffic inspection for your group's devices");
   await expect(page.getByRole("link", { name: "Go to feedback" })).toHaveAttribute("href", "/en/feedback/?from=groups");
   await page.goto("/zh-cn/for-groups/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("团体账号");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("团体设备的流量检测");
 });

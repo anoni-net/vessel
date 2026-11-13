@@ -420,10 +420,69 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 @media (min-width: 544px) and (max-width: 807px) { .card--fourth { display: flex; } }
 @media (min-width: 960px) { .card--fourth, .card--wide { display: flex; } }
 @media (min-width: 960px) { .cards--six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-/* group accounts (pages/for-groups.tsx): four cards sit two by two on a wide screen, and the buttons under the steps keep their distance */
-@media (min-width: 960px) { .cards--pairs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.group-apply .cards + .actions { margin-top: 24px; }
-.group-apply .actions + .small { margin-top: 12px; }
+/* group accounts (pages/for-groups.tsx). The page leads with device inspection: beside the heading, an example of
+   what comes back, a square for every hour of seven days and a verdict for each device. Below it, steps along a
+   line, and rows on hairlines in place of boxes, so the drawing is the one framed thing on the page. */
+.gi-hero__inner { display: grid; gap: 32px; align-items: center; }
+.gi-hero__text { display: flex; flex-direction: column; gap: 16px; max-width: 34em; }
+.gi-hero h1 { font-size: clamp(32px, 7vw, 52px); line-height: 1.15; letter-spacing: .01em; text-wrap: balance; }
+.gi-hero .lead { text-wrap: pretty; }
+.gi-fig { margin: 0; background: var(--paper); box-shadow: 8px 8px 0 var(--accent); }
+.gi-fig__body { padding: 16px; display: grid; gap: 14px; }
+.gi-tiles { display: grid; gap: 2px; }
+.gi-tiles__row { display: grid; grid-template-columns: 4.2em repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
+.gi-tiles__day { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.gi-tile { aspect-ratio: 1; background: var(--tile-0); }
+.gi-tile--1 { background: var(--tile-1); }
+.gi-tile--2 { background: var(--tile-2); }
+.gi-tile--3 { background: var(--tile-3); }
+.gi-tile--4 { background: var(--tile-4); }
+.gi-tile--5 { background: var(--tile-5); }
+.gi-tile--mark { outline: 2px solid var(--caution); outline-offset: 1px; position: relative; z-index: 1; }
+.gi-verdicts { display: grid; border-top: 1px solid var(--line); font-size: 14px; }
+.gi-verdicts li { display: grid; grid-template-columns: 12px minmax(5.5em, auto) 1fr; gap: 10px; align-items: baseline; padding-block: 8px; border-bottom: 1px solid var(--line); }
+.gi-verdicts li:last-child { border-bottom: 0; padding-bottom: 0; }
+.gi-verdict__dot { width: 10px; height: 10px; border: 1.5px solid var(--ink); align-self: center; }
+.gi-verdict__dot--clean { background: var(--ink); }
+.gi-verdict__dot--check { background: var(--caution); border-color: var(--caution); }
+@media (min-width: 960px) {
+  .gi-hero__inner { grid-template-columns: minmax(0, 1fr) minmax(0, 500px); gap: 56px; }
+}
+/* steps along a line: each one hangs from a node on the rule; on a phone the rule runs down the side */
+.gi-flow { display: grid; gap: 0; counter-reset: none; }
+.gi-flow > li { position: relative; padding: 0 0 24px 44px; border-inline-start: 1.5px solid var(--ink); margin-inline-start: 14px; }
+.gi-flow > li:last-child { padding-bottom: 0; border-color: transparent; }
+.gi-flow__n { position: absolute; inset-inline-start: -15px; top: -2px; width: 28px; height: 28px; border: var(--border); background: var(--paper); color: var(--ink);
+  display: grid; place-items: center; font-family: var(--mono); font-size: 14px; font-weight: 700; }
+.gi-flow h3 { margin-bottom: 6px; }
+.gi-flow p { margin: 0; text-wrap: pretty; }
+@media (min-width: 860px) {
+  .gi-flow { gap: 0 32px; margin-top: 44px; border-top: 1.5px solid var(--ink); }
+  .gi-flow--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .gi-flow--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gi-flow > li, .gi-flow > li:last-child { margin: 0; padding: 44px 0 0; border: 0; }
+  .gi-flow__n { inset-inline-start: 0; top: -15px; }
+}
+/* two columns of prose and rows; --ruled draws the line between the two sides of one thing */
+.gi-split { display: grid; gap: 40px; }
+.gi-split__title { font-size: 22px; margin-bottom: 4px; }
+.gi-split p { margin: 0; }
+@media (min-width: 860px) {
+  .gi-split { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; }
+  .gi-split--ruled > div + div { border-inline-start: 1px solid var(--line); padding-inline-start: 64px; margin-inline-start: -32px; }
+}
+.gi-rows { margin: 16px 0 0; border-bottom: 1px solid var(--line); }
+.gi-rows > div { padding-block: 14px; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+.gi-rows dt { font-weight: 700; color: var(--ink); }
+.gi-rows dd { margin: 0; text-wrap: pretty; }
+@media (min-width: 720px) {
+  .gi-rows--wide > div { grid-template-columns: minmax(0, 15em) minmax(0, 44em); gap: 32px; }
+}
+.gi-points { margin: 12px 0 0; padding: 0; list-style: none; }
+.gi-points li { position: relative; padding: 10px 0 10px 22px; border-top: 1px solid var(--line); text-wrap: pretty; }
+.gi-points li::before { content: ""; position: absolute; inset-inline-start: 0; top: 1.15em; width: 8px; height: 8px; background: var(--ink); }
+.gi-actions { margin-top: 32px; }
+.gi-other { margin-top: 12px; }
 .card__head h3 { text-wrap: balance; }
 .card > p { text-wrap: pretty; }
 .card--flat { box-shadow: none; }
