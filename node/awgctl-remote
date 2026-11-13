@@ -10,6 +10,8 @@
 #   list --json
 #   usage --json
 #   reach --json   the sites this node can open (host/vessel-reach.py), not an awgctl call
+#   probe --csv    the last two weeks of hourly counts of what reached the AWG port from addresses that are not a
+#                  device's (host/vessel-probe-watch.sh): the header, then the rows. Counts only, not an awgctl call
 #   inspect on <id> <until> <code>
 #   inspect off <id>
 #   inspect status --json
@@ -31,6 +33,7 @@ case "${a[0]:-}:${#a[@]}" in
   list:2)       [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl list --json ;;
   usage:2)      [ "${a[1]}" = --json ] && exec /usr/local/sbin/awgctl usage --json ;;
   reach:2)      [ "${a[1]}" = --json ] && exec cat /opt/vessel-node/reach.json ;;
+  probe:2)      [ "${a[1]}" = --csv ] && { head -n 1 /var/lib/vessel-probe/hourly.csv; exec tail -n 336 /var/lib/vessel-probe/hourly.csv; } ;;
   inspect:5)    [ "${a[1]}" = on ] && exec /usr/local/sbin/awgctl inspect on "${a[2]}" "${a[3]}" "${a[4]}" ;;
   inspect:3)    [ "${a[1]}" = off ] && exec /usr/local/sbin/awgctl inspect off "${a[2]}"
                 [ "${a[1]} ${a[2]}" = "status --json" ] && exec /usr/local/sbin/awgctl inspect status --json

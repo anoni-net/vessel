@@ -96,7 +96,7 @@ awgctl inspect status --json                  # 檢測中的裝置
 
 ## 入口網站的金鑰
 
-入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`suspend`、`resume`、`throttle on`、`throttle off`、`list --json`、`usage --json`，以及讀取「節點打不開的網站」結果的 `reach --json`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
+入口網站經 tailnet 用 SSH 呼叫節點，那把金鑰在節點上綁定 `awgctl-remote`，只能執行 `add-pubkey`、`remove`、`suspend`、`resume`、`throttle on`、`throttle off`、`list --json`、`usage --json`、讀取「節點打不開的網站」結果的 `reach --json`，以及讀取「探測與掃描的觀察」每小時紀錄的 `probe --csv`，參數數量不對、要開 shell 或執行其他指令都會被拒絕。把 `awgctl-remote` 放到 `/usr/local/sbin/`，root 的 `authorized_keys` 加上：
 
 ```
 command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 tailnet IP>" ssh-ed25519 AAAA... vessel-portal
@@ -290,6 +290,8 @@ install -m 644 host/vessel-probe-watch.service host/vessel-probe-watch.timer /et
 systemctl daemon-reload && systemctl enable --now vessel-probe-watch.timer
 /opt/vessel-node/host/vessel-probe-watch.sh show    # 最近 48 小時
 ```
+
+入口網站的 worker 每 30 分鐘透過 `awgctl-remote probe --csv` 讀最近兩週的紀錄（檔案的第一行與最後 336 行），存進後端的 `probe_hours` 保存 400 天，節點換主機之後紀錄仍然留著。後端的 `deploy/health_warn.py` 在數字明顯高於平常時推播，門檻見 `deploy/README.md` 的「節點被探測的數字」。送出去的只有這個檔案，裡面只有總數。
 
 同一份裝置清單也保護這個埠。Docker 用 DNAT 轉送，每個來源都佔一筆連線追蹤，偽造來源的封包可能塞滿追蹤表，讓所有人的新連線失敗。追蹤開始之前，現有裝置的端點直接放行，其他來源共用每秒 2,000 個封包的額度，超過就丟棄並計數，寫進 `hourly.csv` 的 `dropped`。依 UDP 沒有回應時 30 秒的逾時計算，放行的量最多約佔 6 萬筆，低於調高後 26 萬筆的上限（`nf_conntrack_max`，每筆約 320 位元組，用到才佔記憶體）。清單每分鐘更新，換了網路的裝置在下一次更新之前跟其他來源共用額度，通常感覺不到，遇到攻擊時最多等一分鐘。讀不到容器時保留上一份清單，這張表不存在時埠完全開放，這裡出錯不會把人擋在外面。大流量的攻擊在塞滿主機的網路之前就要靠主機商處理，這些規則擋不了。
 

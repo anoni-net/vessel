@@ -10,6 +10,9 @@
   python -m app.admin report [--days N]                        totals for reviewing the test (it reads the nodes
                                                                for the accounts connected in the last 24 hours),
                                                                and the daily stats of the last N days (default 14)
+  python -m app.admin probes [--days N] [--csv]                what reached each node's port from addresses that are
+                                                               not a device's, per day (default 14 days), counts
+                                                               only; --csv prints every hour, for a report
   python -m app.admin regions [set ID --node-host HOST (--open|--closed) [--exit-ip IP]]
                                                                list regions, or add/change one; the exit IP
                                                                is the node's public address, for /api/exit
@@ -63,11 +66,11 @@ import argparse
 import re
 import sys
 import time
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 
 import psycopg
 
-from app import auth, crypto, policy
+from app import auth, crypto, jobs, policy
 from app.config import load
 from app.nodes import NodeError, get_node
 
@@ -88,6 +91,9 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("stats")
     rp = sub.add_parser("report")
     rp.add_argument("--days", type=int, default=14)
+    pb = sub.add_parser("probes")
+    pb.add_argument("--days", type=int, default=14)
+    pb.add_argument("--csv", action="store_true")
     rg = sub.add_parser("regions")
     rg_sub = rg.add_subparsers(dest="action")
     rs = rg_sub.add_parser("set")
@@ -226,6 +232,8 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"{label}: {conn.execute(sql).fetchone()[0]}")
         elif args.cmd == "report":
             report(conn, args.days)
+        elif args.cmd == "probes":
+            probes(conn, args.days, args.csv)
         elif args.cmd == "notices":
             notices(conn, args)
         elif args.cmd == "relays":
@@ -550,6 +558,34 @@ def report(conn: psycopg.Connection, days: int) -> None:
         (days,),
     ):
         print(f"  {day.isoformat():10}  {region:6}  {active:6}  {size(rx + tx):>9}  {expired:7}  {stuck:7}")
+
+
+def probes(conn: psycopg.Connection, days: int, csv: bool) -> None:
+    """What reached each node's AWG port from addresses that are not a device's (probe_hours), counts only. Per day and
+    region, or with csv every hour as the node wrote it. A day's sources add up each hour's, so an address seen in
+    three hours counts three times. `-` is a count the node did not have yet."""
+    if csv:
+        print("region,hour," + ",".join(jobs.PROBE_COLUMNS))
+        for region, hour, *values in conn.execute(
+            f"SELECT region_id, hour, {', '.join(jobs.PROBE_COLUMNS)} FROM probe_hours "
+            "WHERE hour > now() - make_interval(days => %s) ORDER BY hour, region_id",
+            (days,),
+        ):
+            print(f"{region},{hour.astimezone(UTC):%Y-%m-%dT%H:00Z}," + ",".join("" if v is None else str(v) for v in values))
+        return
+    shown = ("probe_packets", "handshake_sources", "handshake_china", "sources", "china", "dropped")
+    print(f"daily, UTC, last {days} days (hours: how many of the day's hours the node counted; handshake: addresses "
+          "that sent a packet as long as a handshake; all but sources leave the devices out):")
+    print(f"  {'day':10}  {'region':6}  {'hours':>5}  {'packets':>9}  {'handshake':>9}  {'(china)':>7}  {'sources':>7}  {'china':>6}  {'dropped':>7}")
+    for day, region, hours, *values in conn.execute(
+        "SELECT (hour AT TIME ZONE 'UTC')::date, region_id, count(*), "
+        + ", ".join(f"sum({c})" for c in shown)
+        + " FROM probe_hours WHERE hour > now() - make_interval(days => %s) GROUP BY 1, 2 ORDER BY 1, 2",
+        (days,),
+    ):
+        packets, shakes, shakes_china, sources, china, dropped = ("-" if v is None else int(v) for v in values)
+        print(f"  {day.isoformat():10}  {region:6}  {hours:5}  {packets:>9}  {shakes:>9}  {shakes_china:>7}  {sources:>7}  {china:>6}  {dropped:>7}")
+
 
 if __name__ == "__main__":
     main()

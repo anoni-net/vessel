@@ -1,6 +1,8 @@
 """Calling awgctl on a node over SSH. On the node the key is pinned to awgctl-remote, which allows only
 add-pubkey, remove, suspend, resume, throttle on and off, list --json, usage --json and the inspection calls, and
-reach --json, which reads the node's own check of the sites it can open (node/host/vessel-reach.py)."""
+reach --json, which reads the node's own check of the sites it can open (node/host/vessel-reach.py), and probe --csv,
+which reads its hourly counts of what reached the AWG port from addresses that are not a device's
+(node/host/vessel-probe-watch.sh)."""
 
 import json
 import os
@@ -22,6 +24,7 @@ class Node(Protocol):
     def usage(self, host: str) -> dict: ...
     def list_peers(self, host: str) -> list[dict]: ...
     def reach(self, host: str) -> dict: ...
+    def probe(self, host: str) -> str: ...
     def inspect_on(self, host: str, device_id: str, until: int, code: str) -> None: ...
     def inspect_off(self, host: str, device_id: str) -> None: ...
     def inspect_confirms(self, host: str) -> list[dict]: ...
@@ -109,6 +112,8 @@ class SSHNode:
         except ValueError as e:
             raise NodeError(f"reach: {e}") from e
 
+    def probe(self, host):
+        return self._run(host, "probe", "--csv")
 
     def inspect_on(self, host, device_id, until, code):
         # the node starts only when it holds this code as confirmed by the device itself (node/awgctl, confirmed)
