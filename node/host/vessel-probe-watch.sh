@@ -7,6 +7,13 @@
 # and are never printed or written. An address that is a peer's endpoint by the end of the hour is left out of the
 # zones, so a device that changed networks is not counted as a probe from there.
 #
+# Two counts leave the devices out altogether. probe_packets: each address seen keeps its own packet count, and the
+# addresses that are a device's endpoint by the end of the hour are taken off, so a phone that moved from Wi-Fi to mobile
+# data no longer fills the hour with its own traffic (in the first week that was nearly all of `packets`).
+# handshake_sources: addresses that sent a packet exactly as long as a handshake initiation of this node (148 bytes after
+# the S1 bytes AmneziaWG puts in front) and are not a device. A scanner's QUIC or DTLS probe is not that long; someone
+# replaying or imitating a device's handshake is. handshake_china counts those registered in China.
+#
 # The peer set also guards the port. Docker forwards the port with DNAT, so every source takes an entry in the connection
 # tracking table; forged sources could fill it and stop everyone's new connections. Before tracking starts, peers pass
 # and the rest share GUARD_RATE, so what gets through stays well under TRACK_MAX even at conntrack's 30 s for an unanswered
@@ -17,7 +24,7 @@ set -euo pipefail
 D=/opt/vessel-node
 DATA=/var/lib/vessel-probe
 LOG=$DATA/hourly.csv
-HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac,dropped
+HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac,dropped,probe_packets,handshake_sources,handshake_china
 GUARD_RATE=2000
 TRACK_MAX=262144
 # shellcheck source=/dev/null
@@ -25,9 +32,13 @@ TRACK_MAX=262144
 port=${LISTEN_PORT:-443}
 
 setup() {
-  local dev
+  local dev s1 hs_len
   dev=$(ip -o route show default | awk '{print $5; exit}')
   [ -n "$dev" ] || { echo "no default route" >&2; exit 1; }
+  # the UDP length (header included) of a handshake initiation: 8 + S1 + 148
+  s1=$(awk '$1 == "S1" && $2 == "=" {print $3; exit}' $D/server/interface.conf 2>/dev/null || true)
+  [[ $s1 =~ ^[0-9]+$ ]] || s1=0
+  hs_len=$(( 8 + s1 + 148 ))
   nft delete table inet vessel_probe 2>/dev/null || true
   # the module loads with Docker, after sysctl.d runs at boot, so it is set here
   sysctl -qw net.netfilter.nf_conntrack_max=$TRACK_MAX || true
@@ -38,6 +49,8 @@ table inet vessel_probe {
   set peers6 { type ipv6_addr; }
   set seen { type ipv4_addr; flags dynamic, timeout; timeout 1h; size 65536; }
   set seen6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
+  set handshake { type ipv4_addr; flags dynamic, timeout; timeout 1h; size 65536; }
+  set handshake6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
   counter probes {}
   counter dropped {}
   chain guard {
@@ -49,8 +62,10 @@ table inet vessel_probe {
   }
   chain prerouting {
     type filter hook prerouting priority -160; policy accept;
-    iifname "$dev" udp dport $port ip saddr != @peers counter name probes update @seen { ip saddr }
-    iifname "$dev" udp dport $port ip6 saddr != @peers6 counter name probes update @seen6 { ip6 saddr }
+    iifname "$dev" udp dport $port ip saddr != @peers counter name probes update @seen { ip saddr counter }
+    iifname "$dev" udp dport $port ip6 saddr != @peers6 counter name probes update @seen6 { ip6 saddr counter }
+    iifname "$dev" udp dport $port udp length $hs_len ip saddr != @peers update @handshake { ip saddr }
+    iifname "$dev" udp dport $port udp length $hs_len ip6 saddr != @peers6 update @handshake6 { ip6 saddr }
   }
 }
 EOF
@@ -83,8 +98,9 @@ count() {
   nft -j list set inet vessel_probe "$1" | python3 -c 'import json,sys; print(sum(len(x["set"].get("elem", [])) for x in json.load(sys.stdin)["nftables"] if "set" in x))'
 }
 
-# how many addresses seen this hour are in each zone, as the last seven columns of $HEADER. Empty columns when APNIC's
-# list has never been downloaded. Prints nothing else: no address leaves this function.
+# The columns after `sources`, but `dropped`: how many addresses seen this hour are in each zone, then probe_packets,
+# handshake_sources and handshake_china. The zone columns and handshake_china are empty when APNIC's list has never been
+# downloaded. Prints nothing else: no address leaves this function.
 zones() {
   python3 - "$DATA/delegated-apnic" <<'PY'
 import bisect, ipaddress, json, os, subprocess, sys, time, urllib.request
@@ -94,13 +110,26 @@ ZONES = ["taiwan", "hk_macau", "china", "japan_korea", "southeast_asia", "other_
 BY_COUNTRY = {"TW": "taiwan", "HK": "hk_macau", "MO": "hk_macau", "CN": "china", "JP": "japan_korea", "KR": "japan_korea"}
 BY_COUNTRY.update(dict.fromkeys("SG MY TH VN ID PH MM KH LA BN TL".split(), "southeast_asia"))
 
-def members(name):
+def packets(name):
+    """The set's addresses, each with the packets its entry counted (0 for a set without counters)."""
     out = subprocess.run(["nft", "-j", "list", "set", "inet", "vessel_probe", name], capture_output=True, text=True, check=True).stdout
-    found = set()
+    found = {}
     for item in json.loads(out)["nftables"]:
         for elem in item.get("set", {}).get("elem", []):
-            found.add(elem["elem"]["val"] if isinstance(elem, dict) else elem)
+            if isinstance(elem, dict):
+                found[elem["elem"]["val"]] = elem["elem"].get("counter", {}).get("packets", 0)
+            else:
+                found[elem] = 0
     return found
+
+def members(name):
+    return set(packets(name))
+
+probes, shakes = 0, []
+for seen, hs, peers in (("seen", "handshake", "peers"), ("seen6", "handshake6", "peers6")):
+    devices = members(peers)
+    probes += sum(n for address, n in packets(seen).items() if address not in devices)
+    shakes += [address for address in members(hs) if address not in devices]
 
 try:  # a week old is recent enough, and without the network the list on disk still works
     if not os.path.exists(LIST) or time.time() - os.path.getmtime(LIST) > 7 * 86400:
@@ -111,7 +140,7 @@ try:  # a week old is recent enough, and without the network the list on disk st
 except OSError:
     pass
 if not os.path.exists(LIST):
-    print("," * (len(ZONES) - 1))
+    print("," * (len(ZONES) - 1) + f",{probes},{len(shakes)},")
     sys.exit()
 
 ranges = {4: [], 6: []}
@@ -141,33 +170,36 @@ counts = dict.fromkeys(ZONES, 0)
 for seen, peers in (("seen", "peers"), ("seen6", "peers6")):
     for address in members(seen) - members(peers):
         counts[zone(address)] += 1
-print(",".join(str(counts[z]) for z in ZONES))
+china = sum(1 for address in shakes if zone(address) == "china")
+print(",".join(str(counts[z]) for z in ZONES) + f",{probes},{len(shakes)},{china}")
 PY
 }
 
 report() {
-  local packets sources hour by_zone dropped
+  local packets sources hour stats by_zone extra dropped
   packets=$(nft -j reset counter inet vessel_probe probes | python3 -c 'import json,sys; print(next(x["counter"]["packets"] for x in json.load(sys.stdin)["nftables"] if "counter" in x))')
   dropped=$(nft -j reset counter inet vessel_probe dropped | python3 -c 'import json,sys; print(next(x["counter"]["packets"] for x in json.load(sys.stdin)["nftables"] if "counter" in x))')
   sources=$(( $(count seen) + $(count seen6) ))
   mkdir -p $DATA
   # a problem here must not lose the hour's two counts
-  by_zone=$(zones 2>/dev/null) || by_zone=,,,,,,
-  nft flush set inet vessel_probe seen
-  nft flush set inet vessel_probe seen6
+  stats=$(zones 2>/dev/null) || stats=,,,,,,,,,
+  by_zone=$(cut -d, -f1-7 <<<"$stats")
+  extra=$(cut -d, -f8-10 <<<"$stats")
+  for set in seen seen6 handshake handshake6; do nft flush set inet vessel_probe $set; done
   hour=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:00Z)
   [ -f $LOG ] || echo "$HEADER" > $LOG
-  # rows from before the zone columns keep them empty
+  # rows from before the zone columns, or the last three, keep them empty
   if [ "$(head -n 1 $LOG)" != "$HEADER" ]; then
     # short rows, from before these columns, get empty ones
     awk -F, -v OFS=, -v h="$HEADER" -v n="$(awk -F, '{print NF; exit}' <<<"$HEADER")" 'NR==1{print h; next} {for(i=NF+1;i<=n;i++) $i=""; print}' $LOG > $LOG.new && mv $LOG.new $LOG
   fi
-  echo "$hour,$packets,$sources,$by_zone,$dropped" >> $LOG
+  echo "$hour,$packets,$sources,$by_zone,$dropped,$extra" >> $LOG
 }
 
 case "${1:-tick}" in
   tick)
-    nft list chain inet vessel_probe guard >/dev/null 2>&1 || setup
+    # a table made by an earlier version, without the handshake sets, is made again once (that hour counts from then)
+    nft list set inet vessel_probe handshake >/dev/null 2>&1 || setup
     sync_peers
     if [ "$(date -u +%M)" = "00" ]; then report; fi
     ;;
