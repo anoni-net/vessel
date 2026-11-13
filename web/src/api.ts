@@ -333,6 +333,8 @@ export interface PickupInfo {
   purposes: string[];
   networks: string[];
   note_max: number;
+  /** days a request waits for an answer before it has to be asked again */
+  wait_days: number;
 }
 
 export type PickupState = "waiting" | "approved" | "declined" | "used" | "unknown";

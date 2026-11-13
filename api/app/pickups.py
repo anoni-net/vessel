@@ -53,9 +53,10 @@ def taking_requests(conn) -> str | None:
 
 @router.get("/pickup")
 def pickup_info(conn: Conn) -> dict:
-    """Whether a request can be made now, and the choices the form offers."""
+    """Whether a request can be made now, the choices the form offers, and how many days a request waits for an
+    answer: nobody is told when theirs is decided, so the page says how long they have to come back."""
     return {"open": taking_requests(conn) is None, "purposes": list(policy.PICKUP_PURPOSES),
-            "networks": list(policy.PICKUP_NETWORKS), "note_max": policy.PICKUP_NOTE}
+            "networks": list(policy.PICKUP_NETWORKS), "note_max": policy.PICKUP_NOTE, "wait_days": policy.PICKUP_WAIT_DAYS}
 
 
 class PickupBody(BaseModel):
@@ -97,8 +98,9 @@ class NumberBody(BaseModel):
 
 @router.post("/pickup/status", dependencies=[Depends(require_app_header), Depends(limit)])
 def pickup_status(body: NumberBody, conn: Conn) -> dict:
-    """Where a request stands: waiting, approved (redeem it by `until`), declined, used, or unknown for a number that
-    is wrong or has run out. Answered while requests are closed too, for numbers already given."""
+    """Where a request stands: waiting (kept until `until`, then it has to be asked again), approved (redeem it by
+    `until`), declined, used, or unknown for a number that is wrong or has run out. Answered while requests are
+    closed too, for numbers already given."""
     code = crypto.normalize_invite_code(body.number)
     row = None if code is None else conn.execute(
         "SELECT pickup_state, redeemed_at IS NOT NULL, expires_at FROM invites "
@@ -110,4 +112,4 @@ def pickup_status(body: NumberBody, conn: Conn) -> dict:
     state, used, expires_at = row
     if used:
         return {"state": "used", "until": None}
-    return {"state": state, "until": expires_at.date().isoformat() if state == "approved" else None}
+    return {"state": state, "until": expires_at.date().isoformat() if state in ("waiting", "approved") else None}

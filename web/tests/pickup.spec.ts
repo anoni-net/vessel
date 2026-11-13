@@ -7,6 +7,7 @@ const INFO = {
   purposes: ["travel", "school_work", "public_wifi", "privacy", "other"],
   networks: ["home", "mobile", "school_work", "public", "other"],
   note_max: 200,
+  wait_days: 30,
 };
 const NUMBER = "ABCD-EFGH-JKMN-PQRS";
 
@@ -31,9 +32,11 @@ async function pickup(page: Page, handlers: Record<string, (route: Route) => unk
 const status = (state: string, until: string | null = null) => (route: Route) => route.fulfill({ json: { state, until } });
 
 test("asking: two choices and a note, then the number shown once", async ({ page }) => {
-  const asked = await pickup(page, { "POST /api/pickup/status": status("waiting") });
+  const asked = await pickup(page, { "POST /api/pickup/status": status("waiting", "2026-12-14") });
   await page.goto("/pickup/");
   await expect(page.getByRole("heading", { level: 1, name: "申請邀請碼" })).toBeVisible();
+  // before asking: there is no way to reach the person, so nobody is told when a request is approved
+  await expect(page.getByText("審核通過時不會通知你，請在幾天後回到這一頁查詢。")).toBeVisible();
   // checking a number saved earlier is folded under the form
   await expect(page.getByLabel("取件號碼")).toBeHidden();
   await page.getByText("已經有取件號碼了？").click();
@@ -48,10 +51,14 @@ test("asking: two choices and a note, then the number shown once", async ({ page
   expect(asked).toEqual([{ purpose: "travel", network: "public", note: "出差住旅館" }]);
 
   await expect(page.getByTestId("pickup-number")).toHaveText(NUMBER);
+  // with the number: come back to check, and how long the request is kept
+  await expect(page.getByTestId("pickup-no-notice")).toHaveText("審核通過時我們不會通知你，請在幾天後回到這一頁，用這組號碼查詢結果。申請保留 30 天，過期之後需要重新申請。");
   await expect(page.getByRole("button", { name: "勾選上面的確認後繼續" })).toBeDisabled();
   await page.getByLabel("我已經存好這組號碼").check();
   await page.getByRole("button", { name: "繼續", exact: true }).click();
   await expect(page.getByTestId("pickup-waiting")).toContainText("還在排隊");
+  await expect(page.getByTestId("pickup-waiting")).toContainText("審核通過時不會另外通知");
+  await expect(page.getByTestId("pickup-waiting")).toContainText("這筆申請保留到 2026/12/14");
   // this browser remembers it
   expect(await page.evaluate(() => localStorage.getItem("vessel-pickup"))).toBe(NUMBER);
 });

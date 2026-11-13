@@ -48,7 +48,7 @@ export function Pickup() {
   }, []);
 
   if (fresh) {
-    return <Fresh number={fresh} onDone={() => { remember(fresh); setNumber(fresh); setFresh(""); }} />;
+    return <Fresh number={fresh} days={info?.wait_days} onDone={() => { remember(fresh); setNumber(fresh); setFresh(""); }} />;
   }
 
   return (
@@ -125,8 +125,9 @@ function Ask({ info, onAsked }: { info: PickupInfo; onAsked: (number: string) =>
   );
 }
 
-/** The number, shown once: the person saves it before going on. */
-function Fresh({ number, onDone }: { number: string; onDone: () => void }) {
+/** The number, shown once: the person saves it before going on. Nobody is told when a request is decided, since
+ * there is no way to reach them, so the page says to come back, and by when. */
+function Fresh({ number, days, onDone }: { number: string; days?: number; onDone: () => void }) {
   const { t } = useCtx();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -145,6 +146,9 @@ function Fresh({ number, onDone }: { number: string; onDone: () => void }) {
     <section class="wrap narrow stack">
       <h1>{t["pickup.number.title"]}</h1>
       <p class="muted">{t["pickup.number.lead"]}</p>
+      <p class="card card--warn card--flat" data-testid="pickup-no-notice">
+        {t["pickup.noNotice"]}{days ? fmt(t["pickup.keptDays"], { days }) : ""}
+      </p>
       <div class="number-box printable">
         <p class="small strong">{t["pickup.number.label"]}</p>
         <p class="mono number" data-testid="pickup-number">{number}</p>
@@ -198,7 +202,9 @@ function Status({ number, onForget }: { number: string; onForget: () => void }) 
         <p class={`card card--flat${state.state === "approved" ? " card--tint" : ""}`} role="status" data-testid={`pickup-${state.state}`}>
           {state.state === "approved" && state.until
             ? fmt(t["pickup.state.approved"], { date: formatDate(locale, state.until) })
-            : t[`pickup.state.${state.state}`]}
+            : state.state === "waiting" && state.until
+              ? fmt(t["pickup.state.waitingUntil"], { date: formatDate(locale, state.until) })
+              : t[`pickup.state.${state.state}`]}
         </p>
       )}
       {state?.state === "approved" && (
