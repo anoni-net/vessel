@@ -8,8 +8,7 @@ import { SectionHead } from "./section-head.tsx";
 // inspection (toomore/anoni-net-ws#483) leads: a group's devices may carry stalkerware without anyone noticing,
 // and leaders can ask members to inspect them, once or in regular rounds. The page opens with what an inspection
 // gives back, drawn as an example, then the steps, when to ask, who sees what, the rest of group accounts and how
-// to ask for them. A group needs a way to be reached, since the leaders' invite codes are handed over in person,
-// so asking goes through the feedback page or email.
+// to ask for them, on a form of its own (pages/group-apply.tsx).
 const FLOW = ["1", "2", "3", "4"] as const;
 const ADHOC = ["1", "2", "3"] as const;
 const REGULAR = ["1", "2", "3"] as const;
@@ -197,7 +196,7 @@ export function ForGroups() {
             ))}
           </ol>
           <div class="actions gi-actions">
-            <a class="nb-button nb-button--primary" href={href("/feedback/?from=groups")}>{t["forGroups.apply.button"]}</a>
+            <a class="nb-button nb-button--primary" href={href("/for-groups/apply/")}>{t["forGroups.apply.button"]}</a>
             <a class="nb-button" href={contact(locale)} target="_blank" rel="noopener">{t["learn.contactLink"]}</a>
           </div>
           <p class="small gi-other">{t["forGroups.apply.other"]}</p>

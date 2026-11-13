@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-12",
+  updated: "2026-11-13",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -63,6 +63,7 @@ export default {
     { p: "Views of public pages, and the result of each step of redeeming, signing in and creating a device, go to the Umami instance anoni.net hosts, so problems along the way show up. When the connection check finds that your network does not let UDP out, that is recorded too, so that we know how many networks cannot reach Vessel. Each record holds only the page path, the language, the screen size rounded to hundreds and the step's result. Account numbers, device names and settings, and keys are never sent. Umami works out the country and city from the IP address but does not keep the address." },
     { p: "Nothing is sent when your browser has Do Not Track or Global Privacy Control turned on, and you can turn it off in the footer." },
     { p: "What you send from the feedback page is stored on the form server anoni.net runs itself, with only the country and browser type of the submission, not your IP address, and it is never linked to your Vessel account. Contact details you leave are deleted once we are done." },
+    { p: "A request for group accounts is stored on the same form server: the kind of group, roughly how many people, for how long, whether device traffic inspection is needed, and the group's name, anything added and a contact, as the person asking wrote them. It also records only the country and browser type, not the IP address, does not enter Vessel's database and is never linked to a Vessel account. Once the group is set up, its name and contact move to the encrypted record described under “Groups”, and the request is deleted from the form server. The same happens when a request is declined or withdrawn." },
     { h: "Third parties that handle data" },
     {
       ul: [

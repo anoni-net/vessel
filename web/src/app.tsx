@@ -13,6 +13,7 @@ import { Faq } from "./pages/faq.tsx";
 import { Feedback } from "./pages/feedback.tsx";
 import { Home } from "./pages/home.tsx";
 import { ForGroups } from "./pages/for-groups.tsx";
+import { GroupApply } from "./pages/group-apply.tsx";
 import { Learn } from "./pages/learn.tsx";
 import { Login } from "./pages/login.tsx";
 import { Pickup } from "./pages/pickup.tsx";
@@ -109,6 +110,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/check/": ["check.title", () => <Check />],
   "/learn/": ["learn.title", () => <Learn />],
   "/for-groups/": ["forGroups.title", () => <ForGroups />],
+  "/for-groups/apply/": ["groupApply.title", () => <GroupApply />],
   "/feedback/": ["feedback.title", () => <Feedback />],
   "/status/": ["status.title", () => <StatusPage />],
   "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
