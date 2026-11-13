@@ -79,6 +79,7 @@ export function Redeem() {
           <a href={href("/privacy/")}>{t["privacy.title"]}</a>{t["redeem.read.after"]}
         </p>
         <p class="small"><a href={href(`/faq/#${faqAnchor("risky")}`)}>{t["faq.risky.q"]}</a></p>
+        <p class="small"><a href={href("/for-groups/")}>{t["forGroups.link"]}</a></p>
         <button class="nb-button nb-button--primary" type="submit" aria-disabled={busy} aria-busy={busy}>
           {busy ? <><Spin />{t["busy.redeem"]}</> : t["redeem.submit"]}
         </button>

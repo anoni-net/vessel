@@ -53,7 +53,7 @@ const lowContrast = (page: Page, min: number) =>
 
 test.use({ colorScheme: "dark", reducedMotion: "reduce" });
 
-for (const path of ["/", "/en/", "/devices/", "/account/", "/faq/", "/dns/", "/dns/lists/", "/feedback/", "/status/", "/check/", "/learn/", "/privacy/"]) {
+for (const path of ["/", "/en/", "/devices/", "/account/", "/faq/", "/dns/", "/dns/lists/", "/feedback/", "/status/", "/check/", "/learn/", "/for-groups/", "/privacy/"]) {
   test(`dark: the text of ${path} stays readable`, async ({ page }) => {
     await signedIn(page);
     await page.goto(path);

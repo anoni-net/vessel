@@ -12,6 +12,7 @@ import { DnsLists } from "./pages/dns-lists.tsx";
 import { Faq } from "./pages/faq.tsx";
 import { Feedback } from "./pages/feedback.tsx";
 import { Home } from "./pages/home.tsx";
+import { ForGroups } from "./pages/for-groups.tsx";
 import { Learn } from "./pages/learn.tsx";
 import { Login } from "./pages/login.tsx";
 import { Pickup } from "./pages/pickup.tsx";
@@ -107,6 +108,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/dns/lists/": ["lists.title", () => <DnsLists />],
   "/check/": ["check.title", () => <Check />],
   "/learn/": ["learn.title", () => <Learn />],
+  "/for-groups/": ["forGroups.title", () => <ForGroups />],
   "/feedback/": ["feedback.title", () => <Feedback />],
   "/status/": ["status.title", () => <StatusPage />],
   "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
@@ -208,6 +210,7 @@ export function App({ url }: { url?: string } = {}) {
                 <li><a href={href("/faq/")}>{t["nav.faq"]}</a></li>
                 <li><a href={href("/dns/")}>{t["dns.title"]}</a></li>
                 <li><a href={href("/dns/lists/")}>{t["lists.title"]}</a></li>
+                <li><a href={href("/for-groups/")}>{t["forGroups.title"]}</a></li>
               </ul>
             </nav>
             <nav aria-labelledby="footer-checks" class="title-block__cell footer-group">

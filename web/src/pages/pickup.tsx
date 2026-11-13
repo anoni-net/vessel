@@ -35,7 +35,7 @@ function remember(number: string) {
 }
 
 export function Pickup() {
-  const { t } = useCtx();
+  const { t, href } = useCtx();
   const [info, setInfo] = useState<PickupInfo | null>(null);
   const [failed, setFailed] = useState(false);
   // the number just given, shown once until the person says it is saved
@@ -55,6 +55,7 @@ export function Pickup() {
     <section class="wrap narrow stack">
       <h1>{t["pickup.title"]}</h1>
       <p class="feedback-lead">{t["pickup.lead"]}</p>
+      <p class="small"><a href={href("/for-groups/")}>{t["forGroups.link"]}</a></p>
       {number ? (
         <Status number={number} onForget={() => { remember(""); setNumber(""); }} />
       ) : (
