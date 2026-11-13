@@ -20,6 +20,14 @@ HEADER = ("hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia
 NOW = dt.datetime.now(dt.UTC).replace(minute=0, second=0, microsecond=0)
 
 
+@pytest.fixture(autouse=True)
+def this_hour():
+    """The hour each test starts in: the module is loaded minutes before its last test runs, and the health counts
+    are taken from the database's clock, so an hour that began in between moved every row by one."""
+    global NOW
+    NOW = dt.datetime.now(dt.UTC).replace(minute=0, second=0, microsecond=0)
+
+
 def hour(ago: int) -> str:
     """The label of the hour that started `ago` hours before this one."""
     return f"{NOW - dt.timedelta(hours=ago):%Y-%m-%dT%H:00Z}"
