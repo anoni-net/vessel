@@ -563,7 +563,9 @@ def report(conn: psycopg.Connection, days: int) -> None:
 def probes(conn: psycopg.Connection, days: int, csv: bool) -> None:
     """What reached each node's AWG port from addresses that are not a device's (probe_hours), counts only. Per day and
     region, or with csv every hour as the node wrote it. A day's sources add up each hour's, so an address seen in
-    three hours counts three times. `-` is a count the node did not have yet."""
+    three hours counts three times. `-` is a count the node did not have yet. tcp and control are what else reached the
+    node, to compare with: addresses that tried TCP on the port's number, and addresses that sent to a UDP port with no
+    service, each with how many are registered in China."""
     if csv:
         print("region,hour," + ",".join(jobs.PROBE_COLUMNS))
         for region, hour, *values in conn.execute(
@@ -573,18 +575,22 @@ def probes(conn: psycopg.Connection, days: int, csv: bool) -> None:
         ):
             print(f"{region},{hour.astimezone(UTC):%Y-%m-%dT%H:00Z}," + ",".join("" if v is None else str(v) for v in values))
         return
-    shown = ("probe_packets", "handshake_sources", "handshake_china", "sources", "china", "dropped")
+    shown = ("probe_packets", "handshake_sources", "handshake_china", "sources", "china", "dropped",
+             "tcp_sources", "tcp_china", "control_sources", "control_china")
     print(f"daily, UTC, last {days} days (hours: how many of the day's hours the node counted; handshake: addresses "
           "that sent a packet as long as a handshake; all but sources leave the devices out):")
-    print(f"  {'day':10}  {'region':6}  {'hours':>5}  {'packets':>9}  {'handshake':>9}  {'(china)':>7}  {'sources':>7}  {'china':>6}  {'dropped':>7}")
+    print(f"  {'day':10}  {'region':6}  {'hours':>5}  {'packets':>9}  {'handshake':>9}  {'(china)':>7}  {'sources':>7}  {'china':>6}  {'dropped':>7}"
+          f"  {'tcp':>7}  {'(china)':>7}  {'control':>7}  {'(china)':>7}")
     for day, region, hours, *values in conn.execute(
         "SELECT (hour AT TIME ZONE 'UTC')::date, region_id, count(*), "
         + ", ".join(f"sum({c})" for c in shown)
         + " FROM probe_hours WHERE hour > now() - make_interval(days => %s) GROUP BY 1, 2 ORDER BY 1, 2",
         (days,),
     ):
-        packets, shakes, shakes_china, sources, china, dropped = ("-" if v is None else int(v) for v in values)
-        print(f"  {day.isoformat():10}  {region:6}  {hours:5}  {packets:>9}  {shakes:>9}  {shakes_china:>7}  {sources:>7}  {china:>6}  {dropped:>7}")
+        packets, shakes, shakes_china, sources, china, dropped, tcp, tcp_china, control, control_china = (
+            "-" if v is None else int(v) for v in values)
+        print(f"  {day.isoformat():10}  {region:6}  {hours:5}  {packets:>9}  {shakes:>9}  {shakes_china:>7}  {sources:>7}  {china:>6}  {dropped:>7}"
+              f"  {tcp:>7}  {tcp_china:>7}  {control:>7}  {control_china:>7}")
 
 
 if __name__ == "__main__":

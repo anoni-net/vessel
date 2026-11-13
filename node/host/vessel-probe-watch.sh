@@ -19,6 +19,12 @@
 # What still counts as a handshake source: a device that was removed or has expired and keeps trying (its handshakes are
 # refused, so its address never becomes an endpoint), and an address a device held for less than a minute.
 #
+# Two more counts say what else reaches the host, to compare the AWG port with (toomore/anoni-net-ws#487). tcp_*: new
+# TCP connections to the AWG port's number, where nothing listens. A real HTTP/3 site answers on TCP 443 as well, so
+# someone checking the disguise may try it. control_*: packets to PROBE_CONTROL_PORT (node.env), a UDP port with no
+# service, for how much the host is scanned whatever it runs; empty when the port is not set. Each has its packets,
+# its addresses, and how many of those are registered in China. Answers to what the host itself sent are not counted.
+#
 # The peer set also guards the port. Docker forwards the port with DNAT, so every source takes an entry in the connection
 # tracking table; forged sources could fill it and stop everyone's new connections. Before tracking starts, peers pass
 # and the rest share GUARD_RATE, so what gets through stays well under TRACK_MAX even at conntrack's 30 s for an unanswered
@@ -30,21 +36,31 @@ set -euo pipefail
 D=${VESSEL_NODE_DIR:-/opt/vessel-node}
 DATA=${VESSEL_PROBE_DATA:-/var/lib/vessel-probe}
 LOG=$DATA/hourly.csv
-HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac,dropped,probe_packets,handshake_sources,handshake_china
+HEADER=hour,packets,sources,taiwan,hk_macau,china,japan_korea,southeast_asia,other_apac,outside_apac,dropped,probe_packets,handshake_sources,handshake_china,tcp_packets,tcp_sources,tcp_china,control_packets,control_sources,control_china
 GUARD_RATE=2000
 TRACK_MAX=262144
 # shellcheck source=/dev/null
 . $D/node.env
 port=${LISTEN_PORT:-443}
+control=${PROBE_CONTROL_PORT:-}
+if [[ ! $control =~ ^[0-9]+$ ]] || [ "$control" = "$port" ]; then control=""; fi
+# the UDP length (header included) of a handshake initiation: 8 + S1 + 148
+s1=$(awk '$1 == "S1" && $2 == "=" {print $3; exit}' $D/server/interface.conf 2>/dev/null || true)
+[[ $s1 =~ ^[0-9]+$ ]] || s1=0
+hs_len=$(( 8 + s1 + 148 ))
+# What the rules were made from, kept in the table as the name of an empty set: when the port, S1, the control port or
+# the rules themselves (the number at the end) change, tick finds no such set and makes the table again.
+MADE_FROM=made_${port}_${hs_len}_${control:-0}_4
 
 setup() {
-  local dev s1 hs_len
+  local dev control_rules=""
   dev=$(ip -o route show default | awk '{print $5; exit}')
   [ -n "$dev" ] || { echo "no default route" >&2; exit 1; }
-  # the UDP length (header included) of a handshake initiation: 8 + S1 + 148
-  s1=$(awk '$1 == "S1" && $2 == "=" {print $3; exit}' $D/server/interface.conf 2>/dev/null || true)
-  [[ $s1 =~ ^[0-9]+$ ]] || s1=0
-  hs_len=$(( 8 + s1 + 148 ))
+  if [ -n "$control" ]; then
+    # new: an answer to a query the host sent from this port is not a probe
+    control_rules="iifname \"$dev\" udp dport $control ct state new update @control_seen { ip saddr counter }
+    iifname \"$dev\" udp dport $control ct state new update @control_seen6 { ip6 saddr counter }"
+  fi
   nft delete table inet vessel_probe 2>/dev/null || true
   # the module loads with Docker, after sysctl.d runs at boot, so it is set here
   sysctl -qw net.netfilter.nf_conntrack_max=$TRACK_MAX || true
@@ -59,6 +75,11 @@ table inet vessel_probe {
   set handshake6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
   set was_peer { type ipv4_addr; flags timeout; timeout 1h; size 65536; }
   set was_peer6 { type ipv6_addr; flags timeout; timeout 1h; size 65536; }
+  set tcp_seen { type ipv4_addr; flags dynamic, timeout; timeout 1h; size 65536; }
+  set tcp_seen6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
+  set control_seen { type ipv4_addr; flags dynamic, timeout; timeout 1h; size 65536; }
+  set control_seen6 { type ipv6_addr; flags dynamic, timeout; timeout 1h; size 65536; }
+  set $MADE_FROM { type ipv4_addr; }
   counter probes {}
   counter dropped {}
   chain guard {
@@ -74,6 +95,9 @@ table inet vessel_probe {
     iifname "$dev" udp dport $port ip6 saddr != @peers6 counter name probes update @seen6 { ip6 saddr counter }
     iifname "$dev" udp dport $port udp length $hs_len ip saddr != @peers update @handshake { ip saddr }
     iifname "$dev" udp dport $port udp length $hs_len ip6 saddr != @peers6 update @handshake6 { ip6 saddr }
+    iifname "$dev" tcp dport $port tcp flags & (syn | ack) == syn update @tcp_seen { ip saddr counter }
+    iifname "$dev" tcp dport $port tcp flags & (syn | ack) == syn update @tcp_seen6 { ip6 saddr counter }
+    $control_rules
   }
 }
 EOF
@@ -110,10 +134,11 @@ count() {
 }
 
 # The columns after `sources`, but `dropped`: how many addresses seen this hour are in each zone, then probe_packets,
-# handshake_sources and handshake_china. The zone columns and handshake_china are empty when APNIC's list has never been
-# downloaded. Prints nothing else: no address leaves this function.
+# handshake_sources and handshake_china, then the packets, addresses and addresses in China of tcp_* and control_*.
+# The zone columns and the three counts of China are empty when APNIC's list has never been downloaded, the three of
+# control_* when no control port is set. Prints nothing else: no address leaves this function.
 zones() {
-  python3 - "$DATA/delegated-apnic" <<'PY'
+  python3 - "$DATA/delegated-apnic" "$control" <<'PY'
 import bisect, ipaddress, json, os, subprocess, sys, time, urllib.request
 
 LIST = sys.argv[1]
@@ -144,6 +169,16 @@ for seen, hs, peers, was in (("seen", "handshake", "peers", "was_peer"), ("seen6
     probes += sum(n for address, n in counted.items() if address not in devices)
     shakes += [address for address in members(hs) if address not in devices]
     others += [address for address in counted if address not in devices]
+# what else reaches the host: TCP to the port's number, and the control port when there is one
+tcp = {**packets("tcp_seen"), **packets("tcp_seen6")}
+control = {**packets("control_seen"), **packets("control_seen6")} if sys.argv[2] else None
+
+def beside(china):
+    """The six columns of tcp_* and control_*; china gives how many of some addresses are registered there."""
+    out = []
+    for found in (tcp, control):
+        out += ["", "", ""] if found is None else [sum(found.values()), len(found), china(found)]
+    return ",".join(str(x) for x in out)
 
 try:  # a week old is recent enough, and without the network the list on disk still works
     if not os.path.exists(LIST) or time.time() - os.path.getmtime(LIST) > 7 * 86400:
@@ -154,7 +189,7 @@ try:  # a week old is recent enough, and without the network the list on disk st
 except OSError:
     pass
 if not os.path.exists(LIST):
-    print("," * (len(ZONES) - 1) + f",{probes},{len(shakes)},")
+    print("," * (len(ZONES) - 1) + f",{probes},{len(shakes)},," + beside(lambda found: ""))
     sys.exit()
 
 ranges = {4: [], 6: []}
@@ -184,7 +219,8 @@ counts = dict.fromkeys(ZONES, 0)
 for address in others:
     counts[zone(address)] += 1
 china = sum(1 for address in shakes if zone(address) == "china")
-print(",".join(str(counts[z]) for z in ZONES) + f",{probes},{len(shakes)},{china}")
+print(",".join(str(counts[z]) for z in ZONES) + f",{probes},{len(shakes)},{china},"
+      + beside(lambda found: sum(1 for address in found if zone(address) == "china")))
 PY
 }
 
@@ -195,13 +231,13 @@ report() {
   sources=$(( $(count seen) + $(count seen6) ))
   mkdir -p $DATA
   # a problem here must not lose the hour's two counts
-  stats=$(zones 2>/dev/null) || stats=,,,,,,,,,
+  stats=$(zones 2>/dev/null) || stats=,,,,,,,,,,,,,,,
   by_zone=$(cut -d, -f1-7 <<<"$stats")
-  extra=$(cut -d, -f8-10 <<<"$stats")
-  for set in seen seen6 handshake handshake6 was_peer was_peer6; do nft flush set inet vessel_probe $set; done
+  extra=$(cut -d, -f8-16 <<<"$stats")
+  for set in seen seen6 handshake handshake6 was_peer was_peer6 tcp_seen tcp_seen6 control_seen control_seen6; do nft flush set inet vessel_probe $set; done
   hour=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:00Z)
   [ -f $LOG ] || echo "$HEADER" > $LOG
-  # rows from before the zone columns, or the last three, keep them empty
+  # rows from before the newest columns keep them empty
   if [ "$(head -n 1 $LOG)" != "$HEADER" ]; then
     # short rows, from before these columns, get empty ones
     awk -F, -v OFS=, -v h="$HEADER" -v n="$(awk -F, '{print NF; exit}' <<<"$HEADER")" 'NR==1{print h; next} {for(i=NF+1;i<=n;i++) $i=""; print}' $LOG > $LOG.new && mv $LOG.new $LOG
@@ -211,8 +247,8 @@ report() {
 
 case "${1:-tick}" in
   tick)
-    # a table made by an earlier version, without the newest sets, is made again once (that hour counts from then)
-    nft list set inet vessel_probe was_peer >/dev/null 2>&1 || setup
+    # no table yet, or one made from other settings or by an earlier version: made again (that hour counts from then)
+    nft list set inet vessel_probe "$MADE_FROM" >/dev/null 2>&1 || setup
     sync_peers
     if [ "$(date -u +%M)" = "00" ]; then report; fi
     ;;
