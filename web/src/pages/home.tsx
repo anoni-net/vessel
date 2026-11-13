@@ -110,6 +110,17 @@ export function Home() {
       </section>
 
       <HomeFaq />
+
+      {/* for the few who look after a group: what a group account is, in two lines, and the page that explains it */}
+      <section id="groups" class="band">
+        <div class="wrap">
+          <SectionHead title={t["home.groups.title"]} en="For groups" />
+          <p class="section-lead">{t["home.groups.body"]}</p>
+          <div class="actions">
+            <a class="nb-button" href={href("/for-groups/")}>{t["home.groups.link"]}</a>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

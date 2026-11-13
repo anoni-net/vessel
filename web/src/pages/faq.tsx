@@ -5,10 +5,10 @@ import { DOCS_SITE, LOCALE_PATH } from "../site.ts";
 import { SectionHead } from "./section-head.tsx";
 
 const GROUPS = {
-  start: ["invite", "cost", "lost", "number", "passkey", "share"],
+  start: ["invite", "cost", "lost", "number", "passkey", "share", "teamApply"],
   setup: ["protocols", "maker", "app", "disguise", "ios", "androidVpn", "androidBackground", "twoDevices", "newPhone", "filter", "phishing", "splitTunnel", "noTraffic", "trouble", "blockedSite", "speed", "cities", "taipeiGeo"],
   rules: ["expire", "expired", "quota", "p2p"],
-  privacy: ["see", "risky", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
+  privacy: ["see", "teamSees", "risky", "anomaly", "adId", "law", "cloudflare", "tor", "delete"],
 } as const;
 
 type Question = (typeof GROUPS)[keyof typeof GROUPS][number];
@@ -31,6 +31,8 @@ function Questions({ ids }: { ids: readonly Question[] }) {
           {id === "filter" && <p><a href={href("/dns/lists/")}>{t["lists.title"]}</a></p>}
           {id === "blockedSite" && <p><a href={href("/dns/lists/#trouble")}>{t["lists.trouble.title"]}</a></p>}
           {id === "phishing" && <p><a href={href("/dns/lists/#beyond-the-lists")}>{t["faq.phishing.link"]}</a></p>}
+          {id === "teamApply" && <p><a href={href("/for-groups/")}>{t["home.groups.link"]}</a></p>}
+          {id === "teamSees" && <p><a href={href("/privacy/#groups")}>{t["forGroups.sees.link"]}</a></p>}
           {id === "risky" && <p><a href={`${DOCS_SITE}${LOCALE_PATH[locale]}/scenarios/asia-travel/`} target="_blank" rel="noopener">{t["faq.risky.link"]}</a></p>}
         </details>
       ))}

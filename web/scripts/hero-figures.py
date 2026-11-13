@@ -138,6 +138,11 @@ WORDS = {
     "forward": "hero.fig4.forward",
     "private": "hero.fig5.private", "public": "hero.fig5.public", "portal": "hero.fig5.portal", "noemail": "hero.fig5.noemail",
     "nodek": "hero.fig5.node",
+    "g_member": "forGroups.flowfig.member", "g_node": "forGroups.flowfig.node", "g_analysis": "forGroups.flowfig.analysis",
+    "g_copy": "forGroups.flowfig.copy", "g_deleted": "forGroups.flowfig.deleted", "g_report": "forGroups.flowfig.report",
+    "g_summary": "forGroups.flowfig.summary", "g_leader": "forGroups.flowfig.leader",
+    "r_report": "forGroups.results.member.title", "r_slip": "forGroups.results.leader.title", "r_hours": "forGroups.resfig.hours",
+    "r_sites": "forGroups.resfig.sites", "r_next": "forGroups.resfig.next", "r_only": "forGroups.resfig.only",
 }
 MESSAGES = [json.loads((WEB / "src" / "i18n" / f"{loc}.json").read_text()) for loc in ("zh-TW", "zh-CN", "en")]
 # drawing units: a wide (CJK) character 10, any other 5.5, the widest of the three languages
@@ -413,6 +418,113 @@ def fig5():
     return drawing(b)
 
 
+# ---------- the group page: an inspection's connections are copied to the analysis host; two results, each encrypted ----------
+
+def sheet(x, y, w, d, rows, z=.25):
+    """A page lying flat, a little off the ground, with lines of writing on it."""
+    out = shadow(x, y, w, d, .25) + box(x, y, w, d, .08, z)
+    for k in range(rows):
+        yy = y + .3 + k * (d - .6) / max(1, rows - 1) if rows > 1 else y + d / 2
+        out += line("hero-fig__slot", P(x + .2, yy, z + .08), P(x + w - (.2 if k % 3 != 2 else w * .45), yy, z + .08))
+    return out
+
+
+def fig_group():
+    b = [grid(-4, 15, -8, 17)]
+    gl, gc = globe(0.6, -4.6)
+    b.append(gl)
+    nx, ny = 3.2, 0.2          # the node, at the top, the internet above it
+    ax, ay = 9.0, 5.0          # the analysis host, to the right, a low server
+    mx, my = 2.3, 8.6          # the member's device, at the left
+    lx, ly = 9.3, 12.6         # the leader's device, at the bottom
+    # the member's connection through the node to the internet
+    b.append(path("hero-fig__path hero-fig__path--live", P(mx + .65, my, .3), P(nx + .8, ny + 1.6, .3)))
+    b.append(path("hero-fig__path hero-fig__path--live", P(nx + .4, ny, 1.6), P(0.9, -4.3, 1.0)))
+    # a copy of it goes to the analysis host
+    b.append(path("hero-fig__path", P(nx + 1.6, ny + 1.0, .5), P(ax, ay + .6, .5)))
+    # the two results: the report back to the member, the summary down to the leader
+    b.append(path("hero-fig__path", P(ax + .2, ay + 1.3, .3), P(mx + 1.3, my + 1.0, .3)))
+    b.append(path("hero-fig__path", P(ax + 1.0, ay + 1.3, .3), P(lx + .65, ly, .3)))
+    b.append(tower(nx, ny))
+    b.append(shadow(ax, ay, 2.0, 1.3, .35) + box(ax, ay, 2.0, 1.3, 1.0))
+    for k in (1, 2):
+        z = 1.0 * k / 3
+        b.append(line("hero-fig__slot", P(ax + .25, ay + 1.3, z), P(ax + 2.0 - .25, ay + 1.3, z)))
+        b.append(line("hero-fig__slot", P(ax + 2.0, ay + .2, z), P(ax + 2.0, ay + 1.1, z)))
+    b.append(packet(6.0, 2.5, .5))
+    b.append(packet(6.9, 3.3, .5))
+    # the report: a full page on its way to the member, with the member's key; the summary: a slip, with the leader's
+    b.append(sheet(5.3, 6.6, 1.7, 2.3, 6))
+    b.append(key(5.2, 10.1, .75, "hero-fig__key--private"))
+    b.append(sheet(9.4, 8.4, 1.3, .9, 2))
+    b.append(key(9.3, 10.3, .75, "hero-fig__key--private"))
+    b.append(phone(mx, my))
+    b.append(phone(lx, ly))
+    n_ = P(nx + 1.6, ny + .8, 2.6)
+    b.append(label(n_[0] + 10, n_[1] + 2, "g_node", "NODE", "start"))
+    b.append(label(gc[0] - 28, gc[1] - 6, "internet", "INTERNET", "end"))
+    a_ = P(ax + 2.0, ay + .6, 1.0)
+    b.append(label(a_[0] + 8, a_[1] - 6, "g_analysis", "ANALYSIS HOST", "start"))
+    b.append(label(a_[0] + 8, a_[1] + 20, "g_deleted", "DELETED AFTER", "start", True))
+    c_ = P(7.4, 2.5, 1.0)
+    b.append(label(c_[0] + 12, c_[1] - 4, "g_copy", "A COPY", "start", True))
+    r_ = P(5.3, 6.6, .3)
+    b.append(label(r_[0], r_[1] - 22, "g_report", "FULL REPORT", "middle", on=True))
+    s_ = P(9.4 + 1.3, 8.4, .3)
+    b.append(label(s_[0] + 10, s_[1] + 4, "g_summary", "SUMMARY", "start"))
+    m_ = P(mx + .65, my + 2.2, 0)
+    b.append(label(m_[0] - 6, m_[1] + 20, "g_member", "MEMBER", "middle"))
+    l_ = P(lx + .65, ly + 2.2, 0)
+    b.append(label(l_[0] + 4, l_[1] + 22, "g_leader", "LEADER", "middle"))
+    settle(b)
+    return drawing(b)
+
+
+# ---------- the group page: the member's report, a full page, beside the leaders' summary, a slip of three lines ----------
+
+def quad(cls, x, y, w, d, z):
+    return poly(cls, P(x, y, z), P(x + w, y, z), P(x + w, y + d, z), P(x, y + d, z))
+
+
+def fig_results():
+    b = [grid(-3, 15, -3, 16)]
+    z = .33
+    # the report: hours of traffic as squares, the sites with their times, and what to do next
+    rx, ry, rw, rd = 0, 0, 5.2, 9.0
+    b.append(shadow(rx, ry, rw, rd, .3) + box(rx, ry, rw, rd, .08, .25))
+    for r, row in enumerate(("001223132331", "010132312342", "000233213330", "001123321241")):
+        for c, n in enumerate(row):
+            mark = " hero-fig__tile--mark" if (r, c) == (1, 1) else ""
+            b.append(quad(f"hero-fig__tile hero-fig__tile--{n}{mark}", rx + .22 + c * .4, ry + .45 + r * .45, .34, .38, z))
+    for k in range(5):
+        yy = ry + 3.3 + k * .55
+        b.append(line("hero-fig__slot", P(rx + .25, yy, z), P(rx + 3.0 - (k % 2) * .6, yy, z)))
+        b.append(line("hero-fig__slot", P(rx + 3.9, yy, z), P(rx + rw - .25, yy, z)))
+    for k in range(3):
+        yy = ry + 6.9 + k * .6
+        b.append(quad("hero-fig__keyhole", rx + .25, yy - .16, .32, .32, z))
+        b.append(line("hero-fig__slot", P(rx + .85, yy, z), P(rx + rw - .9 - (k % 2) * .8, yy, z)))
+    b.append(key(rx + rw + .9, ry + 2.6, .75, "hero-fig__key--private"))
+    # the summary, under the report's near corner: a verdict and two more lines
+    sx, sy, sw, sd = 7.0, 8.6, 3.6, 2.4
+    b.append(shadow(sx, sy, sw, sd, .3) + box(sx, sy, sw, sd, .08, .25))
+    b.append(quad("hero-fig__tile hero-fig__tile--mark hero-fig__tile--1", sx + .3, sy + .34, .36, .36, z))
+    b.append(line("hero-fig__slot", P(sx + .95, sy + .52, z), P(sx + sw - .9, sy + .52, z)))
+    for k in (1, 2):
+        b.append(line("hero-fig__slot", P(sx + .3, sy + .52 + k * .62, z), P(sx + sw - .5 - k * .7, sy + .52 + k * .62, z)))
+    b.append(key(sx + sw + .9, sy + 1.2, .75, "hero-fig__key--private"))
+    t_ = P(rx, ry, z)
+    b.append(label(t_[0], t_[1] - 26, "r_report", "MEMBER'S REPORT", "middle"))
+    for key_, en, yy in (("r_hours", "HOURLY TRAFFIC", 1.3), ("r_sites", "SITES AND TIMES", 4.4), ("r_next", "NEXT STEPS", 7.5)):
+        e = P(rx, ry + yy, z)
+        b.append(label(e[0] - 12, e[1] - 6, key_, en, "end", True))
+    u_ = P(sx, sy + sd, z)
+    b.append(label(u_[0] - 10, u_[1] + 2, "r_slip", "LEADERS' SUMMARY", "end"))
+    b.append(label(u_[0] - 10, u_[1] + 28, "r_only", "VERDICT ONLY", "end", True))
+    # no settle(): it keeps labels off each shape's box, and a sheet's box covers the corners beside it, where these go
+    return drawing(b)
+
+
 HEADER = """// The pictures under 使用情境 (Vessel 的做法), in the same isometric drawing as the first
 // (hero-figure-data.ts): the shapes as SVG markup worked out once, the labels as positions the page fills with words in
 // the page's language (pages/hero-figure.tsx). The markup is ours and fixed; nothing a visitor sends goes into it.
@@ -422,6 +534,9 @@ HEADER = """// The pictures under 使用情境 (Vessel 的做法), in the same i
 //            stopped, Vessel's (AmneziaWG) has nothing steady on it and goes on to the internet
 //   FIG. 04  your device through the Taipei entry, which only forwards, to the Tokyo, the Taipei or the Singapore node: the exit is the city you pick
 //   FIG. 05  the key pair made on your device: the private key stays there, only the public key goes to the portal and the node
+//   GROUP_FLOW  the group page (pages/for-groups.tsx): a member's connection through the node to the internet, a copy of it to the
+//            analysis host, the full report back to the member and a slip of a summary to the leader, each with its own key
+//   GROUP_RESULTS  the group page: the member's report, a full page of hours, sites and next steps, beside the leaders' summary, a slip
 
 export interface Label { key: string; x: number; y: number; anchor: "start" | "middle" | "end"; note: boolean; on: boolean; en: string }
 export interface Drawing { viewBox: string; shapes: string; labels: Label[] }
@@ -429,7 +544,7 @@ export interface Drawing { viewBox: string; shapes: string; labels: Label[] }
 
 
 def main() -> None:
-    figures = [("LISTS", fig2()), ("DISGUISE", fig3()), ("RELAY", fig4()), ("KEYS", fig5())]
+    figures = [("LISTS", fig2()), ("DISGUISE", fig3()), ("RELAY", fig4()), ("KEYS", fig5()), ("GROUP_FLOW", fig_group()), ("GROUP_RESULTS", fig_results())]
     text = HEADER + "".join(f"\nexport const {name}: Drawing = {json.dumps(d, ensure_ascii=False)};\n" for name, d in figures)
     if "--check" in sys.argv[1:]:
         if OUT.read_text() != text:

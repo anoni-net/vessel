@@ -35,9 +35,9 @@ test("robots.txt and sitemap.xml", async ({ request }) => {
   expect(robots).toContain("Disallow: /api/");
   expect(robots).toContain("Sitemap: https://vessel.anoni.net/sitemap.xml");
   const sitemap = await (await request.get("/sitemap.xml")).text();
-  expect(sitemap.match(/<loc>/g)).toHaveLength(36); // twelve public pages in three languages
+  expect(sitemap.match(/<loc>/g)).toHaveLength(39); // thirteen public pages in three languages
   // the day each page last changed, kept across builds by scripts/prerender.mjs
-  expect(sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g)).toHaveLength(36);
+  expect(sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g)).toHaveLength(39);
   expect(sitemap).toContain("<loc>https://vessel.anoni.net/en/privacy/</loc>");
   expect(sitemap).not.toContain("/devices/");
 });
