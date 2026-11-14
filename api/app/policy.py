@@ -29,7 +29,7 @@ VERIFY_MINUTES = 10
 INSPECT_DAYS = 7              # how long a device inspection runs
 INSPECT_REPORT_DAYS = 7       # how long its report is kept after the end
 INSPECT_CONFIRM_MINUTES = 30  # to open the confirmation link on the device
-INSPECT_CONSENT_VERSION = "2026-11-14a"
+INSPECT_CONSENT_VERSION = "2026-11-14b"
 INSPECT_CONFIRM_HOST = "confirm.vessel.anoni.net"
 # The consent for an inspection a group's leader asked for: it also says what the leaders see (toomore/anoni-net-ws#483).
 # A change to what the leaders see changes this, the group consent page (pages/inspect.tsx) and the privacy policy.

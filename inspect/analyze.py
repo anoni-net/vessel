@@ -94,6 +94,9 @@ PLAIN_SYSTEM_HOSTS = {
     "nmcheck.gnome.org", "connectivity-check.ubuntu.com", "network-test.debian.org",
 }
 PLAIN_SYSTEM_PATHS = {"/generate_204", "/gen_204", "/hotspot-detect.html", "/library/test/success.html"}
+# Encryption that is no longer safe, as Zeek names the version a connection settled on: an app not updated in years, or a
+# server that offers nothing newer. DTLS is left out, its versions number differently.
+OLD_TLS = {"SSLv2", "SSLv3", "TLSv10", "TLSv11"}
 THREAT = {"spyware", "stalkerware"}
 FLAGGED = ("spyware", "stalkerware", "malware", "cti")
 SUMMARY_INFO = b"vessel-inspection-summary"  # the HKDF info a leader's summary is sealed with
@@ -341,7 +344,7 @@ def load_state(node, address):
     path = state_path(node, address)
     if not path.exists():
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
-                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0,
+                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0, "old_tls": 0,
                 "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
@@ -350,6 +353,7 @@ def load_state(node, address):
     state.setdefault("bypass_last", None)
     # connections without encryption were not counted when it began: not known, rather than none
     state.setdefault("plain", None)
+    state.setdefault("old_tls", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -493,6 +497,15 @@ def merge(node, totals, logs, lists):
         state = get(address)
         if state["plain"] is not None:
             state["plain"] += len(connections)
+    # connections that settled on an old version of TLS: each one once, and not where they went
+    old_tls = collections.defaultdict(set)
+    for row in logs["ssl"]:
+        if ours(row) and row.get("version") in OLD_TLS:
+            old_tls[row["id.orig_h"]].add(row.get("uid") or object())
+    for address, connections in old_tls.items():
+        state = get(address)
+        if state["old_tls"] is not None:
+            state["old_tls"] += len(connections)
     # A server a list knows by its address. A device that looked up a listed name and then connected has the name's
     # hit already: the address is the same visit, and is not listed as a second site.
     by_name = collections.defaultdict(list)
@@ -580,6 +593,7 @@ def report(node, address):
         "checks": checks, "findings": findings,
         # absent where the inspection began before it was counted
         **({"plain": state["plain"]} if state["plain"] is not None else {}),
+        **({"old_tls": state["old_tls"]} if state["old_tls"] is not None else {}),
         "more": {kind: n - MAX_FINDINGS for kind, n in entries.items() if n > MAX_FINDINGS},
     }
 

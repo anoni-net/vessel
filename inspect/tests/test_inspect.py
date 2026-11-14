@@ -294,6 +294,24 @@ class Checks(Base):
         r = self.run_one(http=[{"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C1", "host": "news.example", "uri": "/"}])
         self.assertNotIn("plain", r)
 
+    def test_connections_on_an_old_tls_are_counted_once_each_and_not_where_they_went(self):
+        rows = [{"ts": T0, "id.orig_h": "10.8.1.3", "uid": f"C{i}", "server_name": f"old{i}.example", "version": v}
+                for i, v in enumerate(["TLSv10", "TLSv11", "SSLv3", "TLSv12", "TLSv13", "DTLSv10", None])]
+        rows += [{**rows[0], "ts": T0 + 1}, {**rows[0], "id.orig_h": "10.8.1.4", "uid": "C9"}]
+        r = self.run_one(ssl=rows)
+        self.assertEqual(r["old_tls"], 3)
+        text = json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text()
+        self.assertNotIn("old0.example", text)
+        self.assertNotIn("old_tls", json.dumps(analyze.summary("n1", "10.8.1.3")))
+
+    def test_no_old_tls_is_none_and_a_state_from_before_does_not_say(self):
+        self.assertEqual(self.run_one(dns=[dns("a.example")])["old_tls"], 0)
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        del old["old_tls"]
+        path.write_text(json.dumps(old))
+        self.assertNotIn("old_tls", self.run_one(ssl=[{"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C1", "version": "TLSv10"}]))
+
     def test_clear_means_a_reused_address_starts_empty(self):
         self.run_one(dns=[dns("api.tracker.example")])
         analyze.state_path("n1", "10.8.1.3").unlink()
