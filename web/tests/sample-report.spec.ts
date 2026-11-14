@@ -84,5 +84,5 @@ test("in English, and from the group page, the questions and the consent pages",
   await page.goto("/faq/#q-anomaly");
   await expect(page.locator("#q-anomaly a")).toHaveAttribute("href", "/sample-report/");
   await page.goto("/");
-  await expect(page.locator("footer").getByRole("link", { name: "檢測報告範例" })).toHaveAttribute("href", "/sample-report/");
+  await expect(page.locator("footer").getByRole("navigation", { name: "檢查與回報" }).getByRole("link", { name: "檢測報告範例" })).toHaveAttribute("href", "/sample-report/");
 });
