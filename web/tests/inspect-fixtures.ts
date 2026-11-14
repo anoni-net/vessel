@@ -173,6 +173,12 @@ export const DNS_QUIET_REPORT = { ...CONNS_QUIET_REPORT, random_nx: 9, carry: 19
 /** The same week with made-up names and lookups that may carry data. */
 export const DNS_REPORT = { ...CONNS_QUIET_REPORT, random_nx: 42, carry: 120 };
 
+/** The week from analyze.py since it also counts visits to dynamic DNS and abused hosting (2026-11-14): none. */
+export const CAUTION_QUIET_REPORT = { ...DNS_QUIET_REPORT, dyndns: 0, hoster: 0 };
+
+/** The same week with a few of each. */
+export const CAUTION_REPORT = { ...DNS_QUIET_REPORT, dyndns: 5, hoster: 2 };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,

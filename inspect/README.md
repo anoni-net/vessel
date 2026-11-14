@@ -29,6 +29,7 @@
 | 使用舊版加密（SSL、TLS 1.0、1.1）的連線次數 | 這些連線連往哪裡、什麼時候 |
 | 使用不常見連接埠、嘗試連往區域網路的連線次數，TCP 連線的總數與沒有建立成功的次數 | 是哪些連接埠、連往哪裡、什麼時候 |
 | 像是隨機產生、查詢不到的網址，以及可能夾帶資料的查詢次數 | 是哪些名稱 |
+| 連往動態 DNS 與常被濫用的代管服務的次數 | 是哪些名稱 |
 
 命中名單的網域以名單上的項目為單位，同一個項目底下的子網域併成一筆。次數以造訪計算，一次造訪會用 A、AAAA、HTTPS 查詢同一個名字，再用 SNI 連線，所以同一個項目距離上一次計入不到 60 秒的紀錄不再計入，不分 DNS、SNI 或 HTTP。出現過的小時以 UTC 記錄，用來分辨只出現一次與反覆出現。每筆命中另外記下它列在哪幾份名單上（`spyware`、`stalkerware`、`malware`、`cti`、`ads`，一定包含自己那份），用實際查詢或連線的名稱逐一比對五份名單，同一個項目底下的子網域與不同批次取聯集。報告用它寫出「也列在廣告與追蹤名單上」，資訊取自名單本身，不另外蒐集資料。跟蹤軟體的命中另外記下它屬於哪個 App（`app`），取自 Echap 的 [stalkerware-indicators](https://github.com/AssoEchap/stalkerware-indicators) 的 `generated/network.csv`，只用 `type` 是網域的列，以比對到的最具體的網域為準，表裡沒有就不記。這份表以 CC BY 4.0 授權，報告頁附上出處。報告每種類別列出次數最多的 30 筆，其餘只留下數量，總次數仍然完整。
 
@@ -61,7 +62,9 @@ DNS 查詢另外看兩種狀況，系統與私有網路的名稱照上方的規�
 
 兩項都只留次數，門檻是暫定的。
 
-連線與查詢的這五項放在報告的「其他觀察」，有發現時才列出，不影響判定，也不進負責人的摘要。開始計算之前已經在進行的檢測，報告不寫這幾項。
+動態 DNS 與常被濫用的代管服務取自 HaGeZi 的兩份名單（`lists/dyndns.txt`、`lists/hoster.txt`，`CAUTION_SOURCES`）。它們本身不是惡意的，家裡的 NAS、路由器與一般網站都會用到，所以跟 `SOURCES` 分開載入，不是命中的類別，也不會出現在命中的「同時列在哪幾份名單上」。比對 DNS 查詢、SNI 與 HTTP 的 Host，同一個名單項目 60 秒內算一次造訪，只留次數。
+
+連線與查詢的這七項放在報告的「其他觀察」，有發現時才列出，不影響判定，也不進負責人的摘要。開始計算之前已經在進行的檢測，報告不寫這幾項。
 
 報告不列瀏覽紀錄，取得別人手機的人才不會藉此得知對方連了哪些網站。流量由封包表頭的長度計算，封包被截斷時仍然準確，Zeek 對 QUIC 的流量統計在截斷時會低估。
 
@@ -101,7 +104,7 @@ systemctl daemon-reload && systemctl enable --now vessel-inspect-stream.service
 
 ## 名單的更新
 
-`vessel-inspect-lists.timer` 每 6 小時執行一次 `analyze.py update-lists`（UTC 05:40、11:40、17:40、23:40，各延後最多 10 分鐘），主機當時關機的話開機後補做。四份名單之外也下載跟蹤軟體的 App 名稱表（`lists/stalkerware-apps.csv`），加密 DNS 伺服器的名稱與位址（`lists/doh.txt`、`lists/doh-ips.txt`），以及間諜軟體的指標（`lists/spyware.csv`）。某一份下載失敗時保留上一份，其他照常更新，指令以失敗結束，`systemctl status vessel-inspect-lists.service` 看得到是哪一份。沒有 App 名稱表時照常分析，只是報告不寫 App 名稱。沒有加密 DNS 伺服器的名單時，只算 53 與 853 埠。沒有間諜軟體的指標時，那一項不比對。
+`vessel-inspect-lists.timer` 每 6 小時執行一次 `analyze.py update-lists`（UTC 05:40、11:40、17:40、23:40，各延後最多 10 分鐘），主機當時關機的話開機後補做。四份名單之外也下載跟蹤軟體的 App 名稱表（`lists/stalkerware-apps.csv`），加密 DNS 伺服器的名稱與位址（`lists/doh.txt`、`lists/doh-ips.txt`），動態 DNS 與常被濫用的代管服務（`lists/dyndns.txt`、`lists/hoster.txt`），以及間諜軟體的指標（`lists/spyware.csv`）。某一份下載失敗時保留上一份，其他照常更新，指令以失敗結束，`systemctl status vessel-inspect-lists.service` 看得到是哪一份。沒有 App 名稱表時照常分析，只是報告不寫 App 名稱。沒有加密 DNS 伺服器的名單時，只算 53 與 853 埠。沒有間諜軟體的指標時，那一項不比對。
 
 封包只跟分析當下的名單比對，分析完就刪除，名單停止更新的那段時間事後無法補比對。所以名單的時間有兩處看得到：
 
