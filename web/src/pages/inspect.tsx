@@ -1204,7 +1204,7 @@ export function ReportView({ report, locale, span, limits = true, sample, notes 
                 const hours = week.connected.get(day) ?? 0;
                 return (
                   <span class={`cover__day${week.future(day) ? " cover__day--future" : ""}${day === week.today ? " cover__day--today" : ""}`}>
-                    <span class="cover__meter"><span class="cover__fill" style={{ height: `${(hours / 24) * 100}%` }} /></span>
+                    <span class="cover__meter"><span class={`cover__fill cover__fill--h${Math.min(24, Math.max(0, Math.round(hours)))}`} /></span>
                     <span class="cover__label">{dayTag(day)}</span>
                   </span>
                 );
