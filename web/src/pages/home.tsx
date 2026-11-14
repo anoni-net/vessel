@@ -111,6 +111,17 @@ export function Home() {
 
       <HomeFaq />
 
+      {/* device inspection, which every account has: what a report tells, and a made-up one to look through first */}
+      <section id="inspect" class="band band--grey">
+        <div class="wrap">
+          <SectionHead title={t["home.inspect.title"]} en="Inspection" />
+          <p class="section-lead">{t["home.inspect.body"]}</p>
+          <div class="actions">
+            <a class="nb-button" href={href("/sample-report/")} data-testid="home-sample">{t["home.inspect.link"]}</a>
+          </div>
+        </div>
+      </section>
+
       {/* for the few who look after a group: what a group account is, in two lines, and the page that explains it */}
       <section id="groups" class="band">
         <div class="wrap">

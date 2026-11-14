@@ -1308,6 +1308,14 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-table__when { white-space: nowrap; }
 .inspect-table__when > span { display: block; }
 .spec--figures { grid-template-columns: minmax(0, 1fr) max-content; }
+/* /sample-report/: a made-up report, every card labelled as a sample, with a note before each part */
+.sample-mark { width: fit-content; margin: 0 0 4px; padding: 2px 8px; border: 1px dashed var(--ink); border-radius: var(--radius); color: var(--ink); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
+.inspect-report--sample > .card { border-style: dashed; }
+.sample-note { padding: 12px 16px; border-inline-start: 4px solid var(--ink); background: var(--grey); }
+.sample-note > p { margin: 0; }
+.sample-note > p + p { margin-top: 6px; }
+.sample-note__title { font-weight: 700; color: var(--ink); }
+.sample-cases { flex-wrap: wrap; }
 /* a row's name opens onto what it means: a question mark after the name, filled while open */
 .figure-help > summary { width: fit-content; min-height: 24px; cursor: pointer; list-style: none; }
 .figure-help > summary::-webkit-details-marker { display: none; }

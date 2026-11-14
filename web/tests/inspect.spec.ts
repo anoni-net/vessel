@@ -67,6 +67,8 @@ test("says what is collected and needs agreement before it starts", async ({ pag
   const sent = await backend(page, { ...BASE, status: "none" }, { after: { ...BASE, status: "confirming" } });
   await goto(page);
   const form = page.getByTestId("inspect-consent");
+  // what a report shows, before agreeing: the sample, in a tab of its own so the form stays
+  await expect(form.getByTestId("inspect-sample")).toHaveAttribute("href", "/sample-report/");
   await expect(form).toContainText("匿名網路社群 anoni.net");
   await expect(form).toContainText("日本東京");
   await expect(form).toContainText("7 天");

@@ -379,6 +379,7 @@ function GroupConsent({ state, id, setKept, reload, fail, own, declined }: {
     <form class="stack inspect-wide" onSubmit={start} data-testid="inspect-group-consent">
       <p class="card card--warn card--flat">{t["inspect.group.asked"]}</p>
       <p>{fmt(t["inspect.intro"], { days: state.days })}</p>
+      <p><a href={href("/sample-report/")} target="_blank" rel="noopener" data-testid="inspect-sample">{t["inspect.sampleLink"]}</a></p>
       <div class="inspect-pair inspect-wide">
         <div class="card card--flat stack">
           <h2>{t["inspect.collect.title"]}</h2>
@@ -433,6 +434,7 @@ function Consent({ state, grouped, id, setKept, reload, fail }: {
   return (
     <form class="stack inspect-wide" onSubmit={start} data-testid="inspect-consent">
       <p>{fmt(t["inspect.intro"], { days: state.days })}</p>
+      <p><a href={href("/sample-report/")} target="_blank" rel="noopener" data-testid="inspect-sample">{t["inspect.sampleLink"]}</a></p>
       {/* side by side on a wide screen: what is collected, then how it is handled, read left to right */}
       <div class="inspect-pair inspect-wide">
         <div class="card card--flat stack">
@@ -1039,7 +1041,15 @@ const period = (hour: number) => (hour < 6 ? "night" : hour < 12 ? "morning" : h
 const join = (a: string, b: string) => (b ? `${a}${/[.!?]$/.test(a) ? " " : ""}${b}` : a);
 
 /** `limits`: what a report cannot tell, at its end; results so far say it beside the key instead. */
-function ReportView({ report, locale, span, limits = true }: { report: Report; locale: ReturnType<typeof useCtx>["locale"]; span: Span; limits?: boolean }) {
+/**
+ * A report as its reader sees it. The sample page (pages/sample-report.tsx) shows a made-up one: `sample` labels each
+ * card with it, so that no part of the page, cut out, passes for someone's report, and `notes` go between the cards,
+ * saying what each one looks at. A real report has neither.
+ */
+export function ReportView({ report, locale, span, limits = true, sample, notes }: {
+  report: Report; locale: ReturnType<typeof useCtx>["locale"]; span: Span; limits?: boolean;
+  sample?: string; notes?: Partial<Record<"verdict" | "findings" | "details", ComponentChildren>>;
+}) {
   const { t, href } = useCtx();
   const [picked, setPicked] = useState("");
   const { cells, level } = hourGrid(report.hours ?? []);
@@ -1149,11 +1159,14 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   const infos = observations(report, locale);
   // against the last moment the report has data for: the report itself does not say when it was made
   const listsOld = !!report.lists_at && (report.last ?? 0) - report.lists_at > LISTS_OLD_SECONDS;
+  const mark = sample && <p class="sample-mark" data-testid="sample-mark">{sample}</p>;
 
   return (
-    <div class="stack inspect-report" id="inspection-report" data-testid="inspect-report">
+    <div class={`stack inspect-report${sample ? " inspect-report--sample" : ""}`} id="inspection-report" data-testid="inspect-report">
+      {notes?.verdict}
       <div class={`card card--flat inspect-verdict inspect-verdict--${state}`} data-testid="inspect-verdict" data-state={state}>
         <div class="inspect-verdict__main">
+          {mark}
           <p class="muted small">{t["inspect.verdict.title"]}</p>
           <h2 class="inspect-verdict__state">
             <Icon name={state === "threat" ? "cancel" : state === "check" ? "warning" : "ok"} />
@@ -1212,8 +1225,10 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         )}
       </div>
 
+      {groups.length > 0 && notes?.findings}
       {groups.length > 0 && (
         <div class="card card--flat stack inspect-findings">
+          {mark}
           <h2>{t["inspect.report.findings"]}</h2>
           <ul class="plain inspect-summary" data-testid="inspect-summary">
             {groups.map((g) => (
@@ -1318,7 +1333,9 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         </div>
       )}
 
+      {notes?.details}
       <div class="card card--flat stack inspect-hours">
+        {mark}
         <h2>{t["inspect.report.hours"]}</h2>
         <p class="muted small">{fmt(t["inspect.report.coverage"], { active: coverage.active_hours, total: coverage.total_hours })}</p>
         <div class="tiles" aria-hidden="true" data-testid="inspect-tiles">
@@ -1377,6 +1394,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
       </div>
 
       <div class="card card--flat stack inspect-checkcard">
+        {mark}
         <h2>{t["inspect.report.checks"]}</h2>
         <ul class="plain inspect-checks" data-testid="inspect-checks">
           {report.checks?.map((c) => {

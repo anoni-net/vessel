@@ -81,6 +81,7 @@ export function ForGroups() {
             <p class="strong">{t["forGroups.promise"]}</p>
             <div class="actions">
               <a class="nb-button nb-button--primary" href="#apply">{t["forGroups.cta"]}</a>
+              <a class="nb-button" href={href("/sample-report/")}>{t["home.inspect.link"]}</a>
             </div>
             <p class="muted small">{t["forGroups.trial"]}</p>
           </div>

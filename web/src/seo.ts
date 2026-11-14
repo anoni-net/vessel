@@ -8,7 +8,7 @@ export const SITE = "https://vessel.anoni.net";
 
 // pages worth finding; the rest need a session, or (/pickup/, toomore/anoni-net-ws#441) are linked from the newsletter
 // only for now, and are marked noindex and left out of the sitemap
-export const PUBLIC_PAGES = ["/", "/learn/", "/for-groups/", "/faq/", "/dns/", "/dns/lists/", "/check/", "/feedback/", "/status/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
+export const PUBLIC_PAGES = ["/", "/learn/", "/for-groups/", "/sample-report/", "/faq/", "/dns/", "/dns/lists/", "/check/", "/feedback/", "/status/", "/redeem/", "/login/", "/terms/", "/privacy/"] as const;
 export const PRIVATE_PAGES = ["/devices/", "/devices/new/", "/devices/inspect/", "/account/", "/group/", "/pickup/", "/for-groups/apply/"] as const;
 
 const TITLES: Record<string, MessageKey> = {
@@ -27,6 +27,7 @@ const TITLES: Record<string, MessageKey> = {
   "/learn/": "learn.title",
   "/for-groups/": "forGroups.title",
   "/for-groups/apply/": "groupApply.title",
+  "/sample-report/": "sample.title",
   "/feedback/": "feedback.title",
   "/status/": "status.title",
   "/terms/": "terms.title",
@@ -40,6 +41,7 @@ const DESCRIPTIONS: Record<string, MessageKey> = {
   "/check/": "meta.check",
   "/learn/": "meta.learn",
   "/for-groups/": "meta.forGroups",
+  "/sample-report/": "meta.sample",
   "/feedback/": "meta.feedback",
   "/status/": "meta.status",
   "/redeem/": "meta.redeem",
