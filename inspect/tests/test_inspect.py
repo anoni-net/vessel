@@ -922,6 +922,84 @@ class SystemNames(Base):
         self.assertEqual((r["findings"], r["dns"]["ads_share"], r["dns"]["total"]), ([], 0, 0))
 
 
+class Timers(Base):
+    """Connections that come back at a steady interval, kept hashed with the inspection's key (toomore/anoni-net-ws#480)."""
+
+    def merge(self, conn=(), ssl=(), quic=()):
+        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]}, logs(conn=list(conn), ssl=list(ssl), quic=list(quic)), self.lists)
+        return analyze.report("n1", "10.8.1.3")
+
+    @staticmethod
+    def start(ts, ip, uid, history="ShADd", who="10.8.1.3"):
+        return {"ts": ts, "id.orig_h": who, "uid": uid, "id.resp_h": ip, "id.resp_p": 443, "proto": "tcp", "history": history}
+
+    def every(self, seconds, n, ip, name=None, history="ShADd", first=T0):
+        conn = [self.start(first + i * seconds, ip, f"{ip}-{i}", history) for i in range(n)]
+        ssl = [{"ts": c["ts"], "id.orig_h": "10.8.1.3", "uid": c["uid"], "server_name": name} for c in conn] if name else []
+        return conn, ssl
+
+    def test_a_destination_that_comes_back_on_time_is_counted_with_its_interval_and_not_named(self):
+        c2, c2_ssl = self.every(300, 10, "198.51.100.10", "c2.example")
+        apple, apple_ssl = self.every(300, 10, "198.51.100.11", "gateway.icloud.com")
+        # a connection that runs on through the next captures: no handshake there, not a start
+        long, _ = self.every(300, 10, "198.51.100.12", history="Dd")
+        odd = [self.start(T0 + t, "198.51.100.13", f"odd-{t}") for t in (0, 40, 700, 720, 3000, 3100, 9000, 9100, 15000)]
+        quic = [{"ts": T0 + i * 900, "id.orig_h": "10.8.1.3", "uid": f"q{i}", "id.resp_h": "198.51.100.14", "server_name": "poll.example"}
+                for i in range(9)]
+        r = self.merge(conn=c2 + apple + long + odd, ssl=c2_ssl + apple_ssl, quic=quic)
+        self.assertEqual(r["timers"], {"count": 2, "minutes": 10})
+        state = analyze.state_path("n1", "10.8.1.3").read_text()
+        for name in ("c2.example", "poll.example", "198.51.100.10", "icloud"):
+            self.assertNotIn(name, state)
+        key = json.loads(state)["key"]
+        self.assertNotIn(key, json.dumps(r))
+        self.assertNotIn("timers", json.dumps(analyze.summary("n1", "10.8.1.3")))
+
+    def test_the_times_add_up_across_captures_and_each_inspection_has_its_own_key(self):
+        conn, ssl = self.every(600, 10, "198.51.100.10", "c2.example")
+        self.merge(conn=conn[:5], ssl=ssl[:5])
+        r = self.merge(conn=conn[5:], ssl=ssl[5:])
+        self.assertEqual(r["timers"], {"count": 1, "minutes": 10})
+        first = json.loads(analyze.state_path("n1", "10.8.1.3").read_text())["key"]
+        analyze.state_path("n1", "10.8.1.3").unlink()
+        self.merge(conn=conn, ssl=ssl)
+        second = json.loads(analyze.state_path("n1", "10.8.1.3").read_text())
+        self.assertNotEqual(second["key"], first)
+        self.assertEqual(len(second["timers"]), 1)
+        self.assertEqual(len(next(iter(second["timers"].values()))), 10)
+
+    def test_a_night_asleep_does_not_hide_a_steady_interval(self):
+        times = [T0 + i * 300 for i in range(20)]
+        times += [times[-1] + 8 * 3600 + i * 300 for i in range(20)]
+        self.assertEqual(analyze.steady(times), 300)
+        # a few starts, bursts of a page loading, or nothing steady: none
+        self.assertIsNone(analyze.steady(times[:7]))
+        self.assertIsNone(analyze.steady([T0 + i for i in range(20)]))
+        self.assertIsNone(analyze.steady([T0 + t for t in (0, 100, 900, 950, 3000, 3100, 7000, 9000, 9100, 15000)]))
+
+    def test_only_the_last_starts_and_so_many_destinations_are_kept(self):
+        conn, ssl = self.every(60, analyze.TIMER_STARTS + 10, "198.51.100.10", "c2.example")
+        self.merge(conn=conn, ssl=ssl)
+        state = analyze.load_state("n1", "10.8.1.3")
+        self.assertEqual(next(iter(state["timers"].values())), [c["ts"] for c in conn][-analyze.TIMER_STARTS:])
+        with mock.patch.object(analyze, "TIMER_MAX", 1):
+            self.merge(conn=[self.start(T0, "198.51.100.20", "new")])
+        state = analyze.load_state("n1", "10.8.1.3")
+        self.assertEqual((len(state["timers"]), state["timers_full"]), (1, True))
+
+    def test_a_state_from_before_the_times_were_kept_does_not_say(self):
+        self.merge()
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        for key in ("key", "timers", "timers_full"):
+            del old[key]
+        path.write_text(json.dumps(old))
+        conn, ssl = self.every(300, 10, "198.51.100.10", "c2.example")
+        r = self.merge(conn=conn, ssl=ssl)
+        self.assertNotIn("timers", r)
+        self.assertNotIn("key", path.read_text())
+
+
 class Summary(Base):
     def run_one(self, **kw):
         analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]}, logs(**kw), self.lists)
