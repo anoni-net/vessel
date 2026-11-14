@@ -16,6 +16,7 @@ whoever holds someone else's phone (#461)."""
 
 import argparse
 import ipaddress
+import math
 import base64
 import collections
 import csv
@@ -108,6 +109,12 @@ TCP_FAILED = {"S0", "REJ"}
 # The local networks a device may try to reach through the tunnel: a home or an office. The node drops these. The
 # shared address space (100.64.0.0/10, Tailscale's too), link-local and multicast are not counted.
 LOCAL_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+# Second-level labels under a two-part top-level domain (com.tw, co.uk): the label before them is the one a person registers
+SECOND_LEVELS = {"com", "net", "org", "gov", "edu", "ac", "co", "or", "ne", "go"}
+# A lookup that may carry data out: a name this long, a label this long (63 is the most a label may be), or a TXT lookup.
+# Antivirus apps ask about files with names as long, so these are only counted.
+LONG_NAME = 100
+LONG_LABEL = 50
 THREAT = {"spyware", "stalkerware"}
 FLAGGED = ("spyware", "stalkerware", "malware", "cti")
 SUMMARY_INFO = b"vessel-inspection-summary"  # the HKDF info a leader's summary is sealed with
@@ -246,6 +253,28 @@ def plain_system(row):
     return (row.get("uri") or "").split("?", 1)[0] in PLAIN_SYSTEM_PATHS
 
 
+def registered_label(name):
+    """The label a person registers: the one before the top-level domain, or before a two-part one (example.com.tw)."""
+    labels = name.lower().rstrip(".").split(".")
+    if len(labels) < 2:
+        return None
+    if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in SECOND_LEVELS:
+        return labels[-3]
+    return labels[-2]
+
+
+def random_looking(name):
+    """Whether the registered label of a name looks made up by a program: long, letters and digits only, the letters
+    hardly repeating, and few vowels or digits mixed in. Only that label is looked at: a CDN's subdomains are hashes."""
+    label = registered_label(name)
+    if not label or len(label) < 10 or label.startswith("xn--") or not label.isalnum() or label.isdigit():
+        return False
+    entropy = -sum(n / len(label) * math.log2(n / len(label)) for n in collections.Counter(label).values())
+    vowels = sum(c in "aeiou" for c in label) / len(label)
+    digits = sum(c.isdigit() for c in label)
+    return entropy >= 3.0 and (vowels <= 0.2 or digits >= 3)
+
+
 def is_local(ip):
     """Whether an address is on a home or office network (LOCAL_NETWORKS), the tunnel's own included."""
     try:
@@ -365,6 +394,7 @@ def load_state(node, address):
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
                 "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0, "old_tls": 0, "ads_bytes": 0,
                 "odd_ports": 0, "local": 0, "tcp": [0, 0],
+                "random_nx": 0, "carry": 0,
                 "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
@@ -378,6 +408,8 @@ def load_state(node, address):
     state.setdefault("odd_ports", None)
     state.setdefault("local", None)
     state.setdefault("tcp", None)
+    state.setdefault("random_nx", None)
+    state.setdefault("carry", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -495,6 +527,12 @@ def merge(node, totals, logs, lists):
         state["dns"]["total"] += 1
         if row.get("rcode_name") == "NXDOMAIN" and (row["id.orig_h"], name) not in logs.get("blocked", ()):
             state["dns"]["nx"] += 1
+            # a made-up name that does not exist: what malware looking for its control server asks for
+            if state["random_nx"] is not None and random_looking(name):
+                state["random_nx"] += 1
+        if state["carry"] is not None and (row.get("qtype_name") == "TXT" or len(name) >= LONG_NAME
+                                           or max(map(len, name.split("."))) >= LONG_LABEL):
+            state["carry"] += 1
         if listed(name, lists["ads"]):
             state["dns"]["ads"] += 1
         note_hit(row, name, "DNS")
@@ -663,6 +701,8 @@ def report(node, address):
         # how the device's connections went; absent where the inspection began before they were counted
         **({"odd_ports": state["odd_ports"], "local": state["local"],
             "tcp": {"total": state["tcp"][0], "failed": state["tcp"][1]}} if state["local"] is not None else {}),
+        # lookups for made-up names that do not exist, and lookups that may carry data out
+        **({"random_nx": state["random_nx"], "carry": state["carry"]} if state["random_nx"] is not None else {}),
         # of all the traffic in the hours above, the share that went to ad and tracking services
         **({"ads_traffic_share": min(state["ads_bytes"] / total, 1) if (total := sum(u + d for u, d in state["hours"].values())) else 0}
            if state["ads_bytes"] is not None else {}),

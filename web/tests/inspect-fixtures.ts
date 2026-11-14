@@ -167,6 +167,12 @@ export const CONNS_QUIET_REPORT = { ...ADS_TRAFFIC_REPORT, odd_ports: 0, local: 
 /** The same week with connections on uncommon ports, some to a local network, and a third not made. */
 export const CONNS_REPORT = { ...ADS_TRAFFIC_REPORT, odd_ports: 14, local: 6, tcp: { total: 900, failed: 300 } };
 
+/** The week from analyze.py since it also looks at the lookups (2026-11-14): a few of each, below what it takes to be listed. */
+export const DNS_QUIET_REPORT = { ...CONNS_QUIET_REPORT, random_nx: 9, carry: 19 };
+
+/** The same week with made-up names and lookups that may carry data. */
+export const DNS_REPORT = { ...CONNS_QUIET_REPORT, random_nx: 42, carry: 120 };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,

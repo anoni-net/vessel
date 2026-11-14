@@ -375,6 +375,41 @@ class Checks(Base):
         r = self.run_one(conn=[self.tcp("198.51.100.2", 6881)])
         self.assertFalse({"odd_ports", "local", "tcp"} & set(r))
 
+    def test_a_made_up_name_is_told_by_its_registered_label(self):
+        for name in ("kqzvxjtrwplm.com", "x7k2p9q4r1m3.net", "api.qwrtzpsdfghk.com.tw"):
+            self.assertTrue(analyze.random_looking(name), name)
+        for name in ("stackoverflow.com", "wikipedia.org", "d1a2b3c4e5f6g7.cloudfront.net", "xn--fiqs8s.example",
+                     "my-own-domain-here.com", "12345678901.com", "short.io", "localhostname", "cloudflare.com"):
+            self.assertFalse(analyze.random_looking(name), name)
+
+    def test_made_up_names_count_only_when_they_do_not_exist_and_vessel_did_not_block_them(self):
+        rows = [dns("kqzvxjtrwplm.com", rcode="NXDOMAIN"), dns("x7k2p9q4r1m3.net", rcode="NXDOMAIN"),
+                dns("bzxqvtrplkmn.com"), dns("wqzxjkvbnmtr.org", rcode="NXDOMAIN"), dns("gone.example", rcode="NXDOMAIN")]
+        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [10, 20]},
+                      {**logs(dns=rows), "blocked": {("10.8.1.3", "wqzxjkvbnmtr.org")}}, self.lists)
+        r = analyze.report("n1", "10.8.1.3")
+        self.assertEqual(r["random_nx"], 2)
+        text = json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text()
+        self.assertNotIn("kqzvxjtrwplm", text)
+        self.assertNotIn("random_nx", json.dumps(analyze.summary("n1", "10.8.1.3")))
+
+    def test_lookups_that_may_carry_data_are_counted_once_each(self):
+        long_name = "a" * 40 + "." + "b" * 40 + "." + "c" * 30 + ".example"
+        rows = [{**dns("t.example"), "qtype_name": "TXT"}, dns(long_name), dns("x" * 55 + ".example"),
+                {**dns("x" * 55 + ".example"), "qtype_name": "TXT"}, dns("normal.example"), {**dns("lb._dns-sd._udp.0.1.168.192.in-addr.arpa"), "qtype_name": "TXT"}]
+        r = self.run_one(dns=rows)
+        self.assertEqual(r["carry"], 4)
+        self.assertNotIn("x" * 55, json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text())
+
+    def test_a_state_from_before_the_lookups_were_looked_at_does_not_say(self):
+        self.run_one(dns=[dns("a.example")])
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        del old["random_nx"], old["carry"]
+        path.write_text(json.dumps(old))
+        r = self.run_one(dns=[dns("kqzvxjtrwplm.com", rcode="NXDOMAIN")])
+        self.assertFalse({"random_nx", "carry"} & set(r))
+
     def test_clear_means_a_reused_address_starts_empty(self):
         self.run_one(dns=[dns("api.tracker.example")])
         analyze.state_path("n1", "10.8.1.3").unlink()
