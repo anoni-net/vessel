@@ -261,6 +261,39 @@ class Checks(Base):
         self.assertEqual([h["hour"] for h in r["hours"]], ["2026-11-09T18"])
         self.assertNotIn("idle_share", r)
 
+    def test_connections_without_encryption_are_counted_once_each_and_not_where_they_went(self):
+        rows = [{"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C1", "host": "news.example", "uri": "/"},
+                {"ts": T0 + 1, "id.orig_h": "10.8.1.3", "uid": "C1", "host": "news.example", "uri": "/style.css"},
+                {"ts": T0 + 2, "id.orig_h": "10.8.1.3", "uid": "C2", "host": "shop.example:8080", "uri": "/"},
+                {"ts": T0 + 3, "id.orig_h": "10.8.1.4", "uid": "C3", "host": "news.example", "uri": "/"}]
+        r = self.run_one(http=rows)
+        self.assertEqual(r["plain"], 2)
+        text = json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text()
+        self.assertNotIn("news.example", text)
+        self.assertNotIn("shop.example", text)
+        self.assertNotIn("plain", json.dumps(analyze.summary("n1", "10.8.1.3")))
+
+    def test_what_the_system_sends_without_encryption_by_design_is_not_counted(self):
+        rows = [{"ts": T0, "id.orig_h": "10.8.1.3", "uid": f"C{i}", "host": host, "uri": uri} for i, (host, uri) in enumerate([
+            ("ocsp.apple.com", "/ocsp04-apple"), ("ocsp2.digicert.com", "/"), ("crl3.digicert.com", "/x.crl"),
+            ("r11.o.lencr.org", "/"), ("c.pki.goog", "/r/r1.crl"), ("captive.apple.com", "/hotspot-detect.html"),
+            ("connectivitycheck.gstatic.com", "/generate_204"), ("www.google.com", "/generate_204?x=1"),
+            ("www.msftconnecttest.com", "/connecttest.txt"),
+            ("ocspsite.example", "/"), ("notpki.goog.example", "/"), ("[2001:db8::1]", "/"), (None, "/")])]
+        self.assertEqual(self.run_one(http=rows)["plain"], 4)
+
+    def test_no_connection_without_encryption_is_none(self):
+        self.assertEqual(self.run_one(dns=[dns("a.example")])["plain"], 0)
+
+    def test_a_state_from_before_they_were_counted_does_not_say(self):
+        self.run_one(dns=[dns("a.example")])
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        del old["plain"]
+        path.write_text(json.dumps(old))
+        r = self.run_one(http=[{"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C1", "host": "news.example", "uri": "/"}])
+        self.assertNotIn("plain", r)
+
     def test_clear_means_a_reused_address_starts_empty(self):
         self.run_one(dns=[dns("api.tracker.example")])
         analyze.state_path("n1", "10.8.1.3").unlink()

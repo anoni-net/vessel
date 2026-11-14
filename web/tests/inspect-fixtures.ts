@@ -146,6 +146,12 @@ export const BLOCKED_REPORT = { ...WEEK_REPORT, findings: withBlocked([12, 1, 0]
 /** The same week with every visit blocked. */
 export const ALL_BLOCKED_REPORT = { ...WEEK_REPORT, findings: withBlocked([30, 1, 1]) };
 
+/** The week from analyze.py since it counts the connections without encryption (2026-11-14): 7 of them. */
+export const PLAIN_REPORT = { ...WEEK_REPORT, plain: 7 };
+
+/** Nothing found, and no connection without encryption. */
+export const CLEAN_PLAIN_REPORT = { ...CLEAN_REPORT, plain: 0 };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,
