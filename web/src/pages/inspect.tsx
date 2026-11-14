@@ -69,6 +69,11 @@ export interface Report {
    * inspections that began before it was counted (2026-11-14).
    */
   old_tls?: number;
+  /**
+   * Of all the traffic in `hours`, the share that went to services on the ad list, by the names the connections were
+   * seen with; no site. Absent from reports of inspections that began before it was counted (2026-11-14).
+   */
+  ads_traffic_share?: number;
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -1337,11 +1342,14 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             <dt>{t["inspect.report.dns"]}</dt><dd>{formatCount(locale, report.dns?.total ?? 0)}</dd>
             <dt>{t["inspect.report.nx"]}</dt><dd>{percent(report.dns?.nx_share ?? 0)}</dd>
             <dt>{t["inspect.report.ads"]}</dt><dd>{percent(report.dns?.ads_share ?? 0)}</dd>
+            {report.ads_traffic_share !== undefined && <><dt>{t["inspect.report.adsTraffic"]}</dt><dd data-testid="inspect-ads-traffic">{percent(report.ads_traffic_share)}</dd></>}
             {infos.map(({ id, n }) => <><dt>{t[`inspect.${id}.figure`]}</dt><dd>{formatCount(locale, n)}</dd></>)}
             <dt>{t["inspect.report.idle"]}</dt>
             {/* the share of a night is only a share of the nights there were: on the first day it says when it started */}
             <dd data-testid="inspect-idle">{coverage.total_hours >= 24 ? percent(nightShare(report.hours ?? [])) : t["inspect.report.idleLater"]}</dd>
           </dl>
+          {/* what the share leaves out, and why a share near 0 is what blocking ads looks like */}
+          {report.ads_traffic_share !== undefined && <p class="muted" data-testid="inspect-ads-traffic-note">{t["inspect.report.adsTrafficNote"]}</p>}
         </details>
       </div>
       {limits && <p class="muted small">{t["inspect.report.limits"]}</p>}

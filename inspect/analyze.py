@@ -344,7 +344,7 @@ def load_state(node, address):
     path = state_path(node, address)
     if not path.exists():
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
-                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0, "old_tls": 0,
+                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0, "old_tls": 0, "ads_bytes": 0,
                 "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
@@ -354,6 +354,7 @@ def load_state(node, address):
     # connections without encryption were not counted when it began: not known, rather than none
     state.setdefault("plain", None)
     state.setdefault("old_tls", None)
+    state.setdefault("ads_bytes", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -506,6 +507,31 @@ def merge(node, totals, logs, lists):
         state = get(address)
         if state["old_tls"] is not None:
             state["old_tls"] += len(connections)
+    # The traffic of connections to ad and tracking services, from the IP headers' lengths as the hours' traffic is (Zeek's
+    # *_ip_bytes stay whole in a packet cut to its start). A connection is named by its SNI or HTTP Host, or else by the
+    # lookup in the same capture that answered with its address: a name looked up earlier and cached is not known, so
+    # the share is if anything low. Only the bytes are kept.
+    named_by = {}
+    for log, field in (("ssl", "server_name"), ("quic", "server_name"), ("http", "host")):
+        for row in logs[log]:
+            if ours(row) and row.get(field) and row.get("uid"):
+                named_by.setdefault(row["uid"], row[field].lower().split(":")[0])
+    answered = {}
+    for row in logs["dns"]:
+        if ours(row) and row.get("query"):
+            for answer in row.get("answers") or ():
+                answered[(row["id.orig_h"], answer)] = row["query"].lower()
+    ads_bytes = collections.Counter()
+    for row in logs["conn"]:
+        if not ours(row):
+            continue
+        name = named_by.get(row.get("uid")) or answered.get((row["id.orig_h"], row.get("id.resp_h")))
+        if name and listed(name, lists["ads"]):
+            ads_bytes[row["id.orig_h"]] += (row.get("orig_ip_bytes") or 0) + (row.get("resp_ip_bytes") or 0)
+    for address, size in ads_bytes.items():
+        state = get(address)
+        if state["ads_bytes"] is not None:
+            state["ads_bytes"] += size
     # A server a list knows by its address. A device that looked up a listed name and then connected has the name's
     # hit already: the address is the same visit, and is not listed as a second site.
     by_name = collections.defaultdict(list)
@@ -594,6 +620,9 @@ def report(node, address):
         # absent where the inspection began before it was counted
         **({"plain": state["plain"]} if state["plain"] is not None else {}),
         **({"old_tls": state["old_tls"]} if state["old_tls"] is not None else {}),
+        # of all the traffic in the hours above, the share that went to ad and tracking services
+        **({"ads_traffic_share": min(state["ads_bytes"] / total, 1) if (total := sum(u + d for u, d in state["hours"].values())) else 0}
+           if state["ads_bytes"] is not None else {}),
         "more": {kind: n - MAX_FINDINGS for kind, n in entries.items() if n > MAX_FINDINGS},
     }
 
