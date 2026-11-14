@@ -56,6 +56,11 @@ test("from the home page to a sample report anyone can read, every card of it ma
 test("the other case: stalkerware every night, a known threat with the steps to take", async ({ page }) => {
   await signedOut(page);
   await page.goto("/sample-report/");
+  // opened directly, the prerendered page is hydrated: it was drawn on the build machine's clock (UTC in CI), and the
+  // report is drawn again on the reader's. The first day is 1 November in Taipei, with 18 hours connected.
+  await expect(page.locator(".cover__fill")).toHaveCount(7);
+  await expect(page.locator(".cover__fill").first()).toHaveClass(/cover__fill--h18\b/);
+  await expect(page.locator(".inspect-table tbody tr").first()).toContainText("11/01");
   await page.getByTestId("sample-case-threat").click();
   await expect(page.getByTestId("sample-case-threat")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("sample-case-check")).toHaveAttribute("aria-pressed", "false");
