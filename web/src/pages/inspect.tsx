@@ -47,9 +47,12 @@ export interface Report {
    * A site's `name` is a list's entry: a domain, or since 2026-11-12 the address of a server a list knows by address alone.
    * A stalkerware site may also have `app`, the stalkerware it belongs to in Echap's stalkerware-indicators, and a spyware
    * site the investigation its indicator is from in MVT's index: names from outside, only ever put on the page as text.
+   * Reports made since 2026-11-14 add `blocked` to a site: how many of its `count` visits Vessel's filter stopped, every
+   * lookup of the visit answered by the node's lists. Absent where the inspection began before it was counted.
    */
   findings?: {
     severity: "threat" | "check"; kind: string; name?: string; count: number; first?: number; last?: number; hours?: string[]; lists?: string[]; app?: string;
+    blocked?: number;
   }[];
   /**
    * When the oldest of the lists the device was compared with was downloaded (epoch seconds), as the report was made;
@@ -809,6 +812,14 @@ export const THREAT_KINDS: readonly string[] = ["spyware", "stalkerware"];
 type ListId = (typeof LISTS)[number];
 
 /** The other lists a site is on, besides the one it was found on; none for a report from before `lists`. */
+/** Whether Vessel blocked a site's visits, in words; null for a report that does not say. */
+export function blockedWords(f: NonNullable<Report["findings"]>[number], t: ReturnType<typeof useCtx>["t"], locale: ReturnType<typeof useCtx>["locale"]) {
+  if (f.blocked === undefined || !f.name) return null;
+  if (f.blocked === 0) return t["inspect.blocked.none"];
+  if (f.blocked >= f.count) return t[f.count === 1 ? "inspect.blocked.one" : "inspect.blocked.all"];
+  return fmt(t["inspect.blocked.some"], { blocked: formatCount(locale, f.blocked), open: formatCount(locale, f.count - f.blocked) });
+}
+
 export function otherLists(f: NonNullable<Report["findings"]>[number]): ListId[] {
   return LISTS.filter((id) => id !== f.kind && f.lists?.includes(id));
 }
@@ -977,6 +988,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
       </span>
       {f.app && <span class="small" data-testid="inspect-hit-app">{appWords(f)}</span>}
       {alsoOn(f, t) && <span class="small" data-testid="inspect-hit-lists">{alsoOn(f, t)}</span>}
+      {blockedWords(f, t, locale) && <span class="small" data-testid="inspect-hit-blocked">{blockedWords(f, t, locale)}</span>}
       {noteFor(f.name) && <NoteLine note={noteFor(f.name)!} t={t} class="small" />}
     </li>
   );
@@ -1011,6 +1023,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   const hitRow = (f: NonNullable<Report["findings"]>[number]) => {
     const { w } = seenText(f);
     const lists = alsoOn(f, t);
+    const blocked = blockedWords(f, t, locale);
     const note = noteFor(f.name);
     return (
       <li class="hit-row" data-testid="inspect-hit">
@@ -1021,6 +1034,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
           {/* a name from outside: a text node, never markup */}
           {f.app && <span class="hit-row__lists" data-testid="inspect-hit-app">{appWords(f)}</span>}
           {lists && <span class="hit-row__lists" data-testid="inspect-hit-lists">{lists}</span>}
+          {blocked && <span class="hit-row__lists" data-testid="inspect-hit-blocked">{blocked}</span>}
           {/* what the site is, from the notes bundled with the page: matched here, in the browser */}
           {note && <NoteLine note={note} t={t} class="hit-row__lists" />}
         </span>
@@ -1161,6 +1175,10 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
               </li>
             ))}
           </ul>
+          {/* what blocked means, once, where a site went through: some of its visits Vessel did not block */}
+          {(report.findings ?? []).some((f) => f.name && f.blocked !== undefined && f.blocked < f.count) && (
+            <p class="muted small" data-testid="inspect-blocked-why">{t["inspect.blocked.why"]}</p>
+          )}
           {noted && (
             <p class="muted small" data-testid="inspect-notes-by">
               {t["inspect.notes.by"]}<a href={href("/dns/lists/#site-notes")}>{t["inspect.notes.byLink"]}</a>{t["inspect.notes.byAfter"]}

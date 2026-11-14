@@ -136,6 +136,16 @@ export const ONCE_ADS_REPORT = { ...ONCE_REPORT, findings: ONCE_REPORT.findings.
 /** The week, every site also on the ad list: seen day after day all the same. */
 export const WEEK_ADS_REPORT = { ...WEEK_REPORT, findings: WEEK_REPORT.findings.map((f) => onLists(f, "ads")) };
 
+/**
+ * The week from analyze.py since it counts the visits Vessel blocked (2026-11-14): the beacon blocked now and then,
+ * the rare site blocked its one time, the redirect not blocked at all.
+ */
+const withBlocked = (blocked: number[]) => WEEK_REPORT.findings.map((f, i) => ({ ...f, blocked: blocked[i] }));
+export const BLOCKED_REPORT = { ...WEEK_REPORT, findings: withBlocked([12, 1, 0]) };
+
+/** The same week with every visit blocked. */
+export const ALL_BLOCKED_REPORT = { ...WEEK_REPORT, findings: withBlocked([30, 1, 1]) };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,
