@@ -861,8 +861,8 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-plain-why")).toContainText("請避免在這些地方輸入密碼或私密資料");
     await expect(page.getByTestId("inspect-check")).toHaveCount(4);
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
-    await page.getByTestId("inspect-figures").locator("summary").click();
-    await expect(page.getByTestId("inspect-figures")).toContainText("沒有加密的網頁連線7");
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    await expect(page.getByTestId("inspect-plain-figure")).toHaveText("7");
   });
 
   test("no connection without encryption says so, and a clean report stays clean", async ({ page }) => {
@@ -876,17 +876,19 @@ test.describe("the report says what it comes to, and when each site was seen", (
   test("connections on an old TLS are counted under the ones without encryption, with what to do, and the state is unchanged", async ({ page }) => {
     await open(page, endedWith(OLD_TLS_REPORT));
     await expect(page.getByTestId("inspect-old-tls")).toHaveAttribute("data-state", "check");
-    await expect(page.getByTestId("inspect-old-tls")).toContainText("有 3 次連線使用舊版的加密（TLS 1.0、1.1）");
+    await expect(page.getByTestId("inspect-old-tls")).toContainText("有 3 次連線使用舊版的加密");
+    await expect(page.getByTestId("inspect-old-tls").locator("summary")).toHaveText("有 3 次連線使用舊版的加密");
     await expect(page.getByTestId("inspect-old-tls-why")).toBeHidden();
     await page.getByTestId("inspect-old-tls").getByText("有 3 次連線使用舊版的加密").click();
     await expect(page.getByTestId("inspect-old-tls-why")).toContainText("可以先更新系統與 App");
+    await expect(page.getByTestId("inspect-old-tls-why")).toContainText("TLS 1.0、1.1 與更舊的 SSL");
     await expect(page.getByTestId("inspect-plain-why")).toBeHidden();
     // in the order they are listed: without encryption first
     await expect(page.locator("[data-testid=inspect-plain] + [data-testid=inspect-old-tls]")).toHaveCount(1);
     await expect(page.getByTestId("inspect-check")).toHaveCount(4);
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
-    await page.getByTestId("inspect-figures").locator("summary").click();
-    await expect(page.getByTestId("inspect-figures")).toContainText("使用舊版加密的連線3");
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    await expect(page.getByTestId("inspect-old-tls-figure")).toHaveText("3");
   });
 
   test("no connection on an old TLS says so, and a clean report stays clean", async ({ page }) => {
@@ -903,25 +905,52 @@ test.describe("the report says what it comes to, and when each site was seen", (
 
   test("the share of traffic to ad and tracking services is among the numbers, with what it leaves out", async ({ page }) => {
     await open(page, endedWith(ADS_TRAFFIC_REPORT));
-    await page.getByTestId("inspect-figures").locator("summary").click();
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
     await expect(page.getByTestId("inspect-ads-traffic")).toHaveText("12%");
-    await expect(page.getByTestId("inspect-figures")).toContainText("廣告與追蹤服務的流量比例12%");
-    await expect(page.getByTestId("inspect-ads-traffic-note")).toContainText("比例接近 0 是正常的");
+    // what it leaves out is behind the question mark beside its name
+    const help = page.getByTestId("inspect-figure-help").filter({ hasText: "廣告與追蹤服務的流量比例" });
+    await expect(help.locator("p")).toBeHidden();
+    await help.locator("summary").click();
+    await expect(help.locator("p")).toContainText("比例接近 0 是正常的");
     // a number, not a check: the state is the lists' alone
     await expect(page.getByTestId("inspect-check")).toHaveCount(4);
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
     // a report from before it was counted says nothing about it
     await page.unrouteAll();
     await open(page, endedWith(OLD_TLS_REPORT));
-    await page.getByTestId("inspect-figures").locator("summary").click();
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
     await expect(page.getByTestId("inspect-ads-traffic")).toHaveCount(0);
-    await expect(page.getByTestId("inspect-ads-traffic-note")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-figure-help").filter({ hasText: "廣告與追蹤服務的流量比例" })).toHaveCount(0);
+  });
+
+  test("each of the numbers has what it means behind a question mark, closed until asked", async ({ page }) => {
+    await open(page, endedWith(ADS_TRAFFIC_REPORT));
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    const helps = page.getByTestId("inspect-figure-help");
+    // the four checks, the three about lookups, the traffic to ads, the two counts and the night: every row
+    await expect(helps).toHaveCount(11);
+    await expect(page.locator(".figure-help[open]")).toHaveCount(0);
+    for (const help of await helps.all()) await expect(help.locator("p")).toBeHidden();
+    // the name stays short, and the hours it counts are in its help
+    const night = helps.filter({ hasText: "半夜的流量比例" });
+    await expect(night.locator("summary")).toHaveText("半夜的流量比例");
+    await night.locator("summary").click();
+    await expect(night.locator("p")).toContainText("凌晨 1 點到 6 點");
+    await expect(page.locator(".figure-help[open]")).toHaveCount(1);
+    // stalkerware goes by its short name here, what it is opening its help
+    const stalkerware = helps.filter({ hasText: "跟蹤軟體" });
+    await expect(stalkerware.locator("summary")).toHaveText("跟蹤軟體");
+    await stalkerware.locator("summary").click();
+    await expect(stalkerware.locator("p")).toHaveText(/^跟蹤軟體是偷偷監看裝置的 App。收錄已知跟蹤軟體/);
+    // a list's row says what the list is, as the finding does
+    await helps.filter({ hasText: "惡意網站名單" }).locator("summary").click();
+    await expect(helps.filter({ hasText: "惡意網站名單" }).locator("p")).toContainText("收錄散布惡意程式");
   });
 
   test("a report from before connections without encryption were counted says nothing about them", async ({ page }) => {
     await open(page, endedWith(WEEK_REPORT));
     await expect(page.getByTestId("inspect-plain")).toHaveCount(0);
-    await page.getByTestId("inspect-figures").locator("summary").click();
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
     await expect(page.getByTestId("inspect-figures")).not.toContainText("沒有加密");
   });
 
