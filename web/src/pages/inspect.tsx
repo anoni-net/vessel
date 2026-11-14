@@ -59,6 +59,11 @@ export interface Report {
    * absent from older reports, and null while a list was missing.
    */
   lists_at?: number | null;
+  /**
+   * Connections without encryption (plain HTTP), each connection once, the system's own certificate and sign-in page
+   * checks left out; no site or hour. Absent from reports of inspections that began before it was counted (2026-11-14).
+   */
+  plain?: number;
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -1291,6 +1296,16 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             );
           })}
         </ul>
+        {/* about privacy, not a sign of an intrusion: beside the checks, and it does not change what the report comes to */}
+        {report.plain !== undefined && (
+          <div class="stack" data-testid="inspect-plain" data-state={report.plain ? "check" : "ok"}>
+            <p class={`inspect-check inspect-check--${report.plain ? "check" : "ok"}`}>
+              <Icon name={report.plain ? "error" : "ok"} />
+              <span>{report.plain ? fmt(t["inspect.plain.some"], { n: formatCount(locale, report.plain) }) : t["inspect.plain.none"]}</span>
+            </p>
+            {report.plain > 0 && <p class="muted small" data-testid="inspect-plain-why">{t["inspect.plain.why"]}</p>}
+          </div>
+        )}
         {report.lists_at && (
           <p class="muted small" data-testid="inspect-lists-at">
             {join(fmt(t["inspect.report.listsAt"], { time: withDay(locale, new Date(report.lists_at * 1000).toISOString()) }), listsOld ? t["inspect.report.listsOld"] : "")}
@@ -1308,6 +1323,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             <dt>{t["inspect.report.dns"]}</dt><dd>{formatCount(locale, report.dns?.total ?? 0)}</dd>
             <dt>{t["inspect.report.nx"]}</dt><dd>{percent(report.dns?.nx_share ?? 0)}</dd>
             <dt>{t["inspect.report.ads"]}</dt><dd>{percent(report.dns?.ads_share ?? 0)}</dd>
+            {report.plain !== undefined && <><dt>{t["inspect.plain.figure"]}</dt><dd>{formatCount(locale, report.plain)}</dd></>}
             <dt>{t["inspect.report.idle"]}</dt>
             {/* the share of a night is only a share of the nights there were: on the first day it says when it started */}
             <dd data-testid="inspect-idle">{coverage.total_hours >= 24 ? percent(nightShare(report.hours ?? [])) : t["inspect.report.idleLater"]}</dd>

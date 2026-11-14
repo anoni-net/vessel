@@ -83,6 +83,17 @@ VISIT_SECONDS = 60
 # device reaches, most of them do not exist on purpose, and their names give away the person's own network, so they
 # are left out of the DNS counts and are not compared with the lists. A name without a dot is a search-domain guess.
 SYSTEM_SUFFIXES = ("arpa", "local", "localdomain", "internal", "lan", "home", "invalid", "test", "onion", "ts.net")
+# Plain HTTP the operating system sends by itself, and that is plain by design: certificate status (OCSP, CRL) and the
+# checks for a sign-in page on a Wi-Fi network. They carry nothing of the person's, and every device makes them, so they
+# are left out of the count of connections without encryption.
+PLAIN_SYSTEM_LABEL = re.compile(r"^(ocsp|crl)[0-9]*$")
+PLAIN_SYSTEM_SUFFIXES = ("o.lencr.org", "c.lencr.org", "pki.goog", "ctldl.windowsupdate.com")
+PLAIN_SYSTEM_HOSTS = {
+    "captive.apple.com", "captive.g.aaplimg.com", "connectivitycheck.gstatic.com", "connectivitycheck.android.com",
+    "clients1.google.com", "clients3.google.com", "www.msftconnecttest.com", "www.msftncsi.com", "detectportal.firefox.com",
+    "nmcheck.gnome.org", "connectivity-check.ubuntu.com", "network-test.debian.org",
+}
+PLAIN_SYSTEM_PATHS = {"/generate_204", "/gen_204", "/hotspot-detect.html", "/library/test/success.html"}
 THREAT = {"spyware", "stalkerware"}
 FLAGGED = ("spyware", "stalkerware", "malware", "cti")
 SUMMARY_INFO = b"vessel-inspection-summary"  # the HKDF info a leader's summary is sealed with
@@ -209,6 +220,18 @@ def system_name(name):
     return "." not in name or any(name == s or name.endswith("." + s) for s in SYSTEM_SUFFIXES)
 
 
+def plain_system(row):
+    """Whether a plain HTTP request is one the operating system sends by itself (PLAIN_SYSTEM_* above)."""
+    # the Host header may carry a port; an IPv6 address in brackets has no name to go by
+    host = (row.get("host") or "").lower()
+    host = "" if host.startswith("[") else host.split(":", 1)[0]
+    if PLAIN_SYSTEM_LABEL.match(host.split(".")[0]) or host in PLAIN_SYSTEM_HOSTS:
+        return True
+    if any(host == s or host.endswith("." + s) for s in PLAIN_SYSTEM_SUFFIXES):
+        return True
+    return (row.get("uri") or "").split("?", 1)[0] in PLAIN_SYSTEM_PATHS
+
+
 def hour_of(ts):
     return dt.datetime.fromtimestamp(ts, dt.UTC).strftime("%Y-%m-%dT%H")
 
@@ -318,13 +341,15 @@ def load_state(node, address):
     path = state_path(node, address)
     if not path.exists():
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
-                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True,
+                "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0,
                 "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
     state.pop("nx_names", None)
     state.setdefault("bypass_hours", [])
     state.setdefault("bypass_last", None)
+    # connections without encryption were not counted when it began: not known, rather than none
+    state.setdefault("plain", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -459,6 +484,15 @@ def merge(node, totals, logs, lists):
                     if listed(row[field].lower(), lists.get(DOH, ())) and uid not in around:
                         around.add(uid)
                         bypassed(row)
+    # connections without encryption: each one once, however many requests it carried; not where they went
+    plain = collections.defaultdict(set)
+    for row in logs["http"]:
+        if ours(row) and not plain_system(row):
+            plain[row["id.orig_h"]].add(row.get("uid") or object())
+    for address, connections in plain.items():
+        state = get(address)
+        if state["plain"] is not None:
+            state["plain"] += len(connections)
     # A server a list knows by its address. A device that looked up a listed name and then connected has the name's
     # hit already: the address is the same visit, and is not listed as a second site.
     by_name = collections.defaultdict(list)
@@ -544,6 +578,8 @@ def report(node, address):
                 "ads_share": dns["ads"] / dns["total"] if dns["total"] else 0},
         "lists_at": lists_at(),
         "checks": checks, "findings": findings,
+        # absent where the inspection began before it was counted
+        **({"plain": state["plain"]} if state["plain"] is not None else {}),
         "more": {kind: n - MAX_FINDINGS for kind, n in entries.items() if n > MAX_FINDINGS},
     }
 

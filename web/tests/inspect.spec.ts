@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -847,6 +847,33 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-hit")).toHaveCount(3);
     await expect(page.getByTestId("inspect-hit-blocked")).toHaveCount(0);
     await expect(page.getByTestId("inspect-blocked-why")).toHaveCount(0);
+  });
+
+  // Connections without encryption (2026-11-14): beside the checks, about privacy, and the state stays the lists'
+  test("connections without encryption are counted beside the checks, with what that means, and the state is unchanged", async ({ page }) => {
+    await open(page, endedWith(PLAIN_REPORT));
+    await expect(page.getByTestId("inspect-plain")).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-plain")).toContainText("有 7 次網頁連線沒有加密");
+    await expect(page.getByTestId("inspect-plain-why")).toContainText("請避免在這些地方輸入密碼或私密資料");
+    await expect(page.getByTestId("inspect-check")).toHaveCount(4);
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await page.getByTestId("inspect-figures").locator("summary").click();
+    await expect(page.getByTestId("inspect-figures")).toContainText("沒有加密的網頁連線7");
+  });
+
+  test("no connection without encryption says so, and a clean report stays clean", async ({ page }) => {
+    await open(page, endedWith(CLEAN_PLAIN_REPORT));
+    await expect(page.getByTestId("inspect-plain")).toHaveAttribute("data-state", "ok");
+    await expect(page.getByTestId("inspect-plain")).toHaveText("網頁連線都有加密");
+    await expect(page.getByTestId("inspect-plain-why")).toHaveCount(0);
+    await expect(verdict(page)).toHaveAttribute("data-state", "clean");
+  });
+
+  test("a report from before connections without encryption were counted says nothing about them", async ({ page }) => {
+    await open(page, endedWith(WEEK_REPORT));
+    await expect(page.getByTestId("inspect-plain")).toHaveCount(0);
+    await page.getByTestId("inspect-figures").locator("summary").click();
+    await expect(page.getByTestId("inspect-figures")).not.toContainText("沒有加密");
   });
 
   test("a report from before the lists were compared says nothing about them", async ({ page }) => {
