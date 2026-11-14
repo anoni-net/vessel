@@ -12,11 +12,17 @@
 What is kept for a device: traffic per hour, DNS totals, and the list entries it hit (names, and the server addresses
 a list knows) with the hours they came up in, and how often and in which hours its lookups went around Vessel.
 The sites it visited are not kept, nor the names that did not exist: a report that lists them would be a tool for
-whoever holds someone else's phone (#461)."""
+whoever holds someone else's phone (#461). To find connections that come back at a steady interval, the times a
+destination was last connected to are kept, the destination hashed with a key made for the inspection; the key is in
+the state alone, never in a report, and goes with it."""
 
 import argparse
 import ipaddress
+import hashlib
+import hmac
 import math
+import secrets
+import statistics
 import base64
 import collections
 import csv
@@ -123,6 +129,18 @@ SECOND_LEVELS = {"com", "net", "org", "gov", "edu", "ac", "co", "or", "ne", "go"
 # Antivirus apps ask about files with names as long, so these are only counted.
 LONG_NAME = 100
 LONG_LABEL = 50
+# Connections that come back at a steady interval: what malware reporting home does, and also mail, weather and chat
+# apps checking in. A connection counts from its handshake alone (a TCP SYN, a QUIC Initial): one that runs on into the
+# next 15-minute capture is not a new one there. The operating systems' own services check in by design and are left
+# out by name before anything is kept.
+TIMER_SERVICES = ("apple.com", "icloud.com", "mzstatic.com", "aaplimg.com", "google.com", "googleapis.com", "gstatic.com",
+                  "android.com", "gvt1.com", "gvt2.com", "1e100.net", "microsoft.com", "windows.com", "windowsupdate.com")
+TIMER_STARTS = 48       # the last starts kept of a destination
+TIMER_MAX = 2000        # destinations kept for a device; past this, new ones are not
+TIMER_MIN_STARTS = 8    # starts it takes to tell an interval
+TIMER_GAPS = (60, 6 * 3600)  # the interval, in seconds, that counts as steady: once a minute to once in six hours
+TIMER_NEAR = 0.15       # a gap within this share of the median one is on time
+TIMER_ON_TIME = 0.7     # and this share of the gaps on time makes it steady: a phone asleep for an hour breaks a few
 THREAT = {"spyware", "stalkerware"}
 FLAGGED = ("spyware", "stalkerware", "malware", "cti")
 SUMMARY_INFO = b"vessel-inspection-summary"  # the HKDF info a leader's summary is sealed with
@@ -287,6 +305,18 @@ def random_looking(name):
     return entropy >= 3.0 and (vowels <= 0.2 or digits >= 3)
 
 
+def steady(times):
+    """The interval in seconds a destination's connections keep to, or None: the median gap between its starts, within
+    TIMER_GAPS, with most of the gaps near it. The median and not the mean, so that a night asleep does not hide it."""
+    if len(times) < TIMER_MIN_STARTS:
+        return None
+    gaps = [b - a for a, b in zip(times, times[1:])]
+    median = statistics.median(gaps)
+    if not TIMER_GAPS[0] <= median <= TIMER_GAPS[1]:
+        return None
+    return median if sum(abs(g - median) <= TIMER_NEAR * median for g in gaps) >= TIMER_ON_TIME * len(gaps) else None
+
+
 def is_local(ip):
     """Whether an address is on a home or office network (LOCAL_NETWORKS), the tunnel's own included."""
     try:
@@ -407,6 +437,8 @@ def load_state(node, address):
                 "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0, "old_tls": 0, "ads_bytes": 0,
                 "odd_ports": 0, "local": 0, "tcp": [0, 0],
                 "random_nx": 0, "carry": 0, "dyndns": 0, "hoster": 0,
+                # the key the destinations are hashed with, and their last connection times
+                "key": secrets.token_hex(32), "timers": {}, "timers_full": False,
                 "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
@@ -424,6 +456,8 @@ def load_state(node, address):
     state.setdefault("carry", None)
     state.setdefault("dyndns", None)
     state.setdefault("hoster", None)
+    # an inspection that began before connection times were kept has no key, and nothing is kept for it
+    state.setdefault("timers", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -607,6 +641,30 @@ def merge(node, totals, logs, lists):
         state = get(address)
         if state["ads_bytes"] is not None:
             state["ads_bytes"] += size
+    # When each destination was connected to, for the steady intervals: the destination named as for the ad traffic, or
+    # by its address, then hashed with the inspection's key. Only handshakes count, and not the system's own services.
+    starts = [row for row in logs["conn"] if row.get("proto") == "tcp" and (row.get("history") or "").startswith("S")]
+    for row in [*starts, *logs["quic"]]:
+        if not ours(row) or row.get("id.resp_h") in RESOLVERS or is_local(row.get("id.resp_h")):
+            continue
+        state = get(row["id.orig_h"])
+        if state["timers"] is None:
+            continue
+        name = named_by.get(row.get("uid")) or answered.get((row["id.orig_h"], row.get("id.resp_h"))) or row.get("id.resp_h") or ""
+        if any(name == s or name.endswith("." + s) for s in TIMER_SERVICES):
+            continue
+        tag = hmac.new(bytes.fromhex(state["key"]), name.encode(), hashlib.sha256).hexdigest()[:32]
+        times = state["timers"].get(tag)
+        if times is None:
+            if len(state["timers"]) >= TIMER_MAX:
+                state["timers_full"] = True
+                continue
+            times = state["timers"][tag] = []
+        at = int(row["ts"])
+        if at not in times:
+            times.append(at)
+            times.sort()
+            del times[:-TIMER_STARTS]
     # Visits to dynamic DNS and to hosting that is often abused, by the names looked up and connected to, a visit once
     # as a site's is (VISIT_SECONDS); the names are not kept
     seen_caution = []
@@ -735,6 +793,10 @@ def report(node, address):
         # how the device's connections went; absent where the inspection began before they were counted
         **({"odd_ports": state["odd_ports"], "local": state["local"],
             "tcp": {"total": state["tcp"][0], "failed": state["tcp"][1]}} if state["local"] is not None else {}),
+        # how many destinations came back at a steady interval, and about how often (the median of theirs, in minutes)
+        **({"timers": {"count": len(found := [g for t in state["timers"].values() if (g := steady(t))]),
+                       "minutes": round(statistics.median(found) / 60) if found else None}}
+           if state["timers"] is not None else {}),
         # visits to dynamic DNS and to hosting that is often abused
         **({"dyndns": state["dyndns"], "hoster": state["hoster"]} if state["dyndns"] is not None else {}),
         # lookups for made-up names that do not exist, and lookups that may carry data out

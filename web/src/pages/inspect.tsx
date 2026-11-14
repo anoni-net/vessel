@@ -91,6 +91,11 @@ export interface Report {
   /** Since 2026-11-14, absent before: visits to dynamic DNS names and to hosting often abused, by HaGeZi's lists; no name is kept. */
   dyndns?: number;
   hoster?: number;
+  /**
+   * Since 2026-11-14, absent before: how many destinations the device came back to at a steady interval, and about how
+   * often in minutes (the median of theirs; null when none). The destinations are kept hashed on the analysis host only.
+   */
+  timers?: { count: number; minutes: number | null };
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -738,6 +743,9 @@ export const FAILED_MIN = 20;
 /** Lookups for made-up names that do not exist, and lookups that may carry data, listed from this many on: also a first guess. */
 export const RANDOM_NX_MIN = 10;
 export const CARRY_MIN = 20;
+/** Destinations that come back at a steady interval, listed from this many on: a first guess as well. */
+export const TIMERS_MIN = 1;
+type ObservationId = "plain" | "oldTls" | "oddPorts" | "local" | "randomNx" | "carry" | "dyndns" | "hoster" | "timers" | "failed";
 
 /**
  * What a report says beside the checks, each in the reports made since it was counted: about privacy and upkeep, and
@@ -746,7 +754,7 @@ export const CARRY_MIN = 20;
  */
 export function observations(report: Report, locale: string) {
   const count = (n: number) => formatCount(locale as Parameters<typeof formatCount>[0], n);
-  const items = [];
+  const items: { id: ObservationId; test: string; found: boolean; shown: string; value: string; quiet: boolean; vars?: Record<string, string> }[] = [];
   const counted = (id: "plain" | "oldTls" | "oddPorts" | "local" | "randomNx" | "carry" | "dyndns" | "hoster", test: string, n: number | undefined, quiet: boolean, least = 1) => {
     if (n !== undefined) items.push({ id, test, found: n >= least, shown: count(n), value: count(n), quiet });
   };
@@ -758,6 +766,11 @@ export function observations(report: Report, locale: string) {
   counted("hoster", "inspect-hoster", report.hoster, true);
   counted("randomNx", "inspect-random-nx", report.random_nx, true, RANDOM_NX_MIN);
   counted("carry", "inspect-carry", report.carry, true, CARRY_MIN);
+  if (report.timers) {
+    const { count: n, minutes } = report.timers;
+    items.push({ id: "timers" as const, test: "inspect-timers", found: n >= TIMERS_MIN, shown: count(n), value: count(n), quiet: true,
+      vars: { n: count(n), minutes: count(minutes ?? 0) } });
+  }
   if (report.tcp) {
     const share = report.tcp.total ? report.tcp.failed / report.tcp.total : 0;
     const shown = `${Math.round(share * 100)}%`;
@@ -1381,11 +1394,11 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         {/* about privacy and upkeep, not signs of an intrusion: beside the checks, and they do not change what the report comes to */}
         {/* found: the line opens onto what it means, folded so the card stays a list; none found has nothing to explain */}
         {/* the other observations say nothing until one is found, and then one line says none of them was */}
-        {infos.map(({ id, test, found, shown, quiet }) => found ? (
+        {infos.map(({ id, test, found, shown, quiet, vars }) => found ? (
           <details class="inspect-info" data-testid={test} data-state="check">
             <summary class="inspect-check inspect-check--check">
               <Icon name="error" />
-              <span>{fmt(t[`inspect.${id}.some`], { n: shown })}</span>
+              <span>{fmt(t[`inspect.${id}.some`], vars ?? { n: shown })}</span>
             </summary>
             <p class="muted small" data-testid={`${test}-why`}>{t[`inspect.${id}.why`]}</p>
           </details>

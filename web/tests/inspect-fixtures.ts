@@ -179,6 +179,12 @@ export const CAUTION_QUIET_REPORT = { ...DNS_QUIET_REPORT, dyndns: 0, hoster: 0 
 /** The same week with a few of each. */
 export const CAUTION_REPORT = { ...DNS_QUIET_REPORT, dyndns: 5, hoster: 2 };
 
+/** The week from analyze.py since it keeps connection times hashed (2026-11-14): no destination at a steady interval. */
+export const TIMERS_QUIET_REPORT = { ...CAUTION_QUIET_REPORT, timers: { count: 0, minutes: null } };
+
+/** The same week with three destinations, about every 15 minutes. */
+export const TIMERS_REPORT = { ...CAUTION_QUIET_REPORT, timers: { count: 3, minutes: 15 } };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,
