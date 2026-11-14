@@ -1286,6 +1286,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-check--ok .icon { color: var(--ink); }
 .inspect-check--check .icon { color: var(--caution); }
 .inspect-check--threat .icon { color: var(--danger); }
+/* a count beside the checks that opens onto what it means: the line is the summary, marked open or closed as the FAQ is */
+.inspect-info > summary { min-height: 24px; cursor: pointer; list-style: none; }
+.inspect-info > summary::-webkit-details-marker { display: none; }
+.inspect-info > summary::after { content: "+" / ""; flex: none; margin-inline-start: auto; font-family: var(--mono); font-weight: 600; }
+.inspect-info[open] > summary::after { content: "−" / ""; }
+.inspect-info > p { margin: 6px 0 0; padding-inline-start: calc(1.25em + 8px); }
 /* a site of a report from before the hours were added: how serious is in the badge of its list */
 .inspect-finding { display: grid; gap: 2px; }
 .inspect-finding code { overflow-wrap: anywhere; }

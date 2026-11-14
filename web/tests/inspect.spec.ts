@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -854,6 +854,10 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await open(page, endedWith(PLAIN_REPORT));
     await expect(page.getByTestId("inspect-plain")).toHaveAttribute("data-state", "check");
     await expect(page.getByTestId("inspect-plain")).toContainText("有 7 次網頁連線沒有加密");
+    // folded: the line alone, and what it means once opened
+    await expect(page.getByTestId("inspect-plain-why")).toBeHidden();
+    await page.getByTestId("inspect-plain").locator("summary").click();
+    await expect(page.getByTestId("inspect-plain-why")).toBeVisible();
     await expect(page.getByTestId("inspect-plain-why")).toContainText("請避免在這些地方輸入密碼或私密資料");
     await expect(page.getByTestId("inspect-check")).toHaveCount(4);
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
@@ -867,6 +871,34 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-plain")).toHaveText("網頁連線都有加密");
     await expect(page.getByTestId("inspect-plain-why")).toHaveCount(0);
     await expect(verdict(page)).toHaveAttribute("data-state", "clean");
+  });
+
+  test("connections on an old TLS are counted under the ones without encryption, with what to do, and the state is unchanged", async ({ page }) => {
+    await open(page, endedWith(OLD_TLS_REPORT));
+    await expect(page.getByTestId("inspect-old-tls")).toHaveAttribute("data-state", "check");
+    await expect(page.getByTestId("inspect-old-tls")).toContainText("有 3 次連線使用舊版的加密（TLS 1.0、1.1）");
+    await expect(page.getByTestId("inspect-old-tls-why")).toBeHidden();
+    await page.getByTestId("inspect-old-tls").getByText("有 3 次連線使用舊版的加密").click();
+    await expect(page.getByTestId("inspect-old-tls-why")).toContainText("可以先更新系統與 App");
+    await expect(page.getByTestId("inspect-plain-why")).toBeHidden();
+    // in the order they are listed: without encryption first
+    await expect(page.locator("[data-testid=inspect-plain] + [data-testid=inspect-old-tls]")).toHaveCount(1);
+    await expect(page.getByTestId("inspect-check")).toHaveCount(4);
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await page.getByTestId("inspect-figures").locator("summary").click();
+    await expect(page.getByTestId("inspect-figures")).toContainText("使用舊版加密的連線3");
+  });
+
+  test("no connection on an old TLS says so, and a clean report stays clean", async ({ page }) => {
+    await open(page, endedWith(CLEAN_TLS_REPORT));
+    await expect(page.getByTestId("inspect-old-tls")).toHaveText("加密的連線都使用 TLS 1.2 以上的版本");
+    await expect(page.getByTestId("inspect-old-tls-why")).toHaveCount(0);
+    await expect(verdict(page)).toHaveAttribute("data-state", "clean");
+    // a report with only the connections without encryption says nothing about TLS
+    await page.unrouteAll();
+    await open(page, endedWith(PLAIN_REPORT));
+    await expect(page.getByTestId("inspect-plain")).toHaveCount(1);
+    await expect(page.getByTestId("inspect-old-tls")).toHaveCount(0);
   });
 
   test("a report from before connections without encryption were counted says nothing about them", async ({ page }) => {

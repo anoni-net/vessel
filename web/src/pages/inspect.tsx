@@ -64,6 +64,11 @@ export interface Report {
    * checks left out; no site or hour. Absent from reports of inspections that began before it was counted (2026-11-14).
    */
   plain?: number;
+  /**
+   * Connections that settled on SSL or TLS 1.0 or 1.1, each connection once; no site or hour. Absent from reports of
+   * inspections that began before it was counted (2026-11-14).
+   */
+  old_tls?: number;
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -1052,6 +1057,9 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   // days still to come are left out
   const hourDays = week.days.filter((d) => !week.future(d));
   const coverage = report.coverage ?? { active_hours: 0, total_hours: 0 };
+  // the counts a report has of connections without encryption and on an old TLS; older reports have neither
+  const infos = ([{ id: "plain", test: "inspect-plain", n: report.plain }, { id: "oldTls", test: "inspect-old-tls", n: report.old_tls }] as const)
+    .flatMap(({ id, test, n }) => (n === undefined ? [] : [{ id, test, n }]));
   // against the last moment the report has data for: the report itself does not say when it was made
   const listsOld = !!report.lists_at && (report.last ?? 0) - report.lists_at > LISTS_OLD_SECONDS;
 
@@ -1296,16 +1304,22 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             );
           })}
         </ul>
-        {/* about privacy, not a sign of an intrusion: beside the checks, and it does not change what the report comes to */}
-        {report.plain !== undefined && (
-          <div class="stack" data-testid="inspect-plain" data-state={report.plain ? "check" : "ok"}>
-            <p class={`inspect-check inspect-check--${report.plain ? "check" : "ok"}`}>
-              <Icon name={report.plain ? "error" : "ok"} />
-              <span>{report.plain ? fmt(t["inspect.plain.some"], { n: formatCount(locale, report.plain) }) : t["inspect.plain.none"]}</span>
-            </p>
-            {report.plain > 0 && <p class="muted small" data-testid="inspect-plain-why">{t["inspect.plain.why"]}</p>}
-          </div>
-        )}
+        {/* about privacy and upkeep, not signs of an intrusion: beside the checks, and they do not change what the report comes to */}
+        {/* found: the line opens onto what it means, folded so the card stays a list; none found has nothing to explain */}
+        {infos.map(({ id, test, n }) => n ? (
+          <details class="inspect-info" data-testid={test} data-state="check">
+            <summary class="inspect-check inspect-check--check">
+              <Icon name="error" />
+              <span>{fmt(t[`inspect.${id}.some`], { n: formatCount(locale, n) })}</span>
+            </summary>
+            <p class="muted small" data-testid={`${test}-why`}>{t[`inspect.${id}.why`]}</p>
+          </details>
+        ) : (
+          <p class="inspect-check inspect-check--ok" data-testid={test} data-state="ok">
+            <Icon name="ok" />
+            <span>{t[`inspect.${id}.none`]}</span>
+          </p>
+        ))}
         {report.lists_at && (
           <p class="muted small" data-testid="inspect-lists-at">
             {join(fmt(t["inspect.report.listsAt"], { time: withDay(locale, new Date(report.lists_at * 1000).toISOString()) }), listsOld ? t["inspect.report.listsOld"] : "")}
@@ -1323,7 +1337,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             <dt>{t["inspect.report.dns"]}</dt><dd>{formatCount(locale, report.dns?.total ?? 0)}</dd>
             <dt>{t["inspect.report.nx"]}</dt><dd>{percent(report.dns?.nx_share ?? 0)}</dd>
             <dt>{t["inspect.report.ads"]}</dt><dd>{percent(report.dns?.ads_share ?? 0)}</dd>
-            {report.plain !== undefined && <><dt>{t["inspect.plain.figure"]}</dt><dd>{formatCount(locale, report.plain)}</dd></>}
+            {infos.map(({ id, n }) => <><dt>{t[`inspect.${id}.figure`]}</dt><dd>{formatCount(locale, n)}</dd></>)}
             <dt>{t["inspect.report.idle"]}</dt>
             {/* the share of a night is only a share of the nights there were: on the first day it says when it started */}
             <dd data-testid="inspect-idle">{coverage.total_hours >= 24 ? percent(nightShare(report.hours ?? [])) : t["inspect.report.idleLater"]}</dd>

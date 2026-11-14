@@ -152,6 +152,12 @@ export const PLAIN_REPORT = { ...WEEK_REPORT, plain: 7 };
 /** Nothing found, and no connection without encryption. */
 export const CLEAN_PLAIN_REPORT = { ...CLEAN_REPORT, plain: 0 };
 
+/** The week from analyze.py since it also counts the connections on an old TLS (2026-11-14): 3 of them. */
+export const OLD_TLS_REPORT = { ...PLAIN_REPORT, old_tls: 3 };
+
+/** Nothing found, every connection encrypted and on a current TLS. */
+export const CLEAN_TLS_REPORT = { ...CLEAN_PLAIN_REPORT, old_tls: 0 };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,
