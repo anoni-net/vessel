@@ -343,6 +343,38 @@ class Checks(Base):
         path.write_text(json.dumps(old))
         self.assertNotIn("ads_traffic_share", self.ads_traffic(conn=[self.conn("C1", "198.51.100.1", 100, 50)]))
 
+    @staticmethod
+    def tcp(ip, port, state="SF", who="10.8.1.3", proto="tcp"):
+        return {"ts": T0, "id.orig_h": who, "uid": f"{ip}:{port}:{state}", "id.resp_h": ip, "id.resp_p": port,
+                "proto": proto, "conn_state": state}
+
+    def test_how_the_connections_went_is_counted_and_not_where_they_went(self):
+        rows = [self.tcp("198.51.100.1", 443), self.tcp("198.51.100.2", 6881), self.tcp("198.51.100.3", 22),
+                self.tcp("198.51.100.4", 4444, "S0"), self.tcp("198.51.100.5", 443, "REJ"), self.tcp("198.51.100.6", 25565, "OTH"),
+                # UDP to any port is calls and games: not counted
+                self.tcp("198.51.100.7", 40000, "SF", proto="udp"),
+                # to a local network, whatever came of it; the shared space, link-local and multicast are not
+                self.tcp("192.168.1.20", 8009, "S0"), self.tcp("10.8.1.7", 80, "REJ"), self.tcp("172.20.0.1", 53, "SF", proto="udp"),
+                self.tcp("100.100.100.100", 53, "SF", proto="udp"), self.tcp("169.254.1.1", 80, "S0"), self.tcp("224.0.0.251", 5353, "S0", proto="udp"),
+                # the node's own resolvers, and another device
+                self.tcp("10.8.1.1", 53, "SF", proto="udp"), self.tcp("198.51.100.8", 6881, who="10.8.1.4")]
+        r = self.run_one(conn=rows)
+        self.assertEqual((r["odd_ports"], r["local"], r["tcp"]), (2, 3, {"total": 7, "failed": 3}))
+        text = json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text()
+        for port in ("6881", "25565", "4444"):
+            self.assertNotIn(port, text)
+        self.assertNotIn("odd_ports", json.dumps(analyze.summary("n1", "10.8.1.3")))
+
+    def test_a_state_from_before_the_connections_were_counted_does_not_say(self):
+        self.run_one(dns=[dns("a.example")])
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        for key in ("odd_ports", "local", "tcp"):
+            del old[key]
+        path.write_text(json.dumps(old))
+        r = self.run_one(conn=[self.tcp("198.51.100.2", 6881)])
+        self.assertFalse({"odd_ports", "local", "tcp"} & set(r))
+
     def test_clear_means_a_reused_address_starts_empty(self):
         self.run_one(dns=[dns("api.tracker.example")])
         analyze.state_path("n1", "10.8.1.3").unlink()

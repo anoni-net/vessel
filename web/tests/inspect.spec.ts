@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  ADS_TRAFFIC_REPORT, ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  ADS_TRAFFIC_REPORT, ALL_BLOCKED_REPORT, CONNS_QUIET_REPORT, CONNS_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -945,6 +945,41 @@ test.describe("the report says what it comes to, and when each site was seen", (
     // a list's row says what the list is, as the finding does
     await helps.filter({ hasText: "惡意網站名單" }).locator("summary").click();
     await expect(helps.filter({ hasText: "惡意網站名單" }).locator("p")).toContainText("收錄散布惡意程式");
+  });
+
+  // How the connections went (2026-11-14): said only when found, folded, and one line when none of them was
+  test("how the connections went is listed only where something was found, each folded onto what it means", async ({ page }) => {
+    await open(page, endedWith(CONNS_REPORT));
+    await expect(page.getByTestId("inspect-odd-ports").locator("summary")).toHaveText("有 14 次連線使用不常見的連接埠");
+    await expect(page.getByTestId("inspect-local").locator("summary")).toHaveText("有 6 次連線嘗試連往區域網路");
+    await expect(page.getByTestId("inspect-failed").locator("summary")).toHaveText("有 33% 的連線沒有建立成功");
+    await expect(page.getByTestId("inspect-odd-ports-why")).toBeHidden();
+    await page.getByTestId("inspect-local").locator("summary").click();
+    await expect(page.getByTestId("inspect-local-why")).toContainText("投影、印表機與智慧家電");
+    await expect(page.getByTestId("inspect-others")).toHaveCount(0);
+    // the state is the lists' alone
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    await expect(page.getByTestId("inspect-odd-ports-figure")).toHaveText("14");
+    await expect(page.getByTestId("inspect-failed-figure")).toHaveText("33%");
+  });
+
+  test("none of them found: one line says so, and the numbers still have them", async ({ page }) => {
+    await open(page, endedWith(CONNS_QUIET_REPORT));
+    for (const id of ["inspect-odd-ports", "inspect-local", "inspect-failed"]) await expect(page.getByTestId(id)).toHaveCount(0);
+    // 10% not made is below the share it takes to be listed
+    await expect(page.getByTestId("inspect-others")).toHaveText("其他觀察沒有發現需要留意的地方");
+    // the two about encryption say how they came out as before
+    await expect(page.getByTestId("inspect-plain")).toHaveCount(1);
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    await expect(page.getByTestId("inspect-failed-figure")).toHaveText("10%");
+    await expect(page.getByTestId("inspect-local-figure")).toHaveText("0");
+    // a report from before they were counted has neither the line nor the numbers
+    await page.unrouteAll();
+    await open(page, endedWith(ADS_TRAFFIC_REPORT));
+    await expect(page.getByTestId("inspect-others")).toHaveCount(0);
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    await expect(page.getByTestId("inspect-failed-figure")).toHaveCount(0);
   });
 
   test("a report from before connections without encryption were counted says nothing about them", async ({ page }) => {

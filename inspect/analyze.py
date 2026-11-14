@@ -15,6 +15,7 @@ The sites it visited are not kept, nor the names that did not exist: a report th
 whoever holds someone else's phone (#461)."""
 
 import argparse
+import ipaddress
 import base64
 import collections
 import csv
@@ -97,6 +98,16 @@ PLAIN_SYSTEM_PATHS = {"/generate_204", "/gen_204", "/hotspot-detect.html", "/lib
 # Encryption that is no longer safe, as Zeek names the version a connection settled on: an app not updated in years, or a
 # server that offers nothing newer. DTLS is left out, its versions number differently.
 OLD_TLS = {"SSLv2", "SSLv3", "TLSv10", "TLSv11"}
+# The TCP ports a phone or computer uses every day: the web, mail, push notifications (Apple 5223, Google 5228-5230) and
+# XMPP. A connection made to any other port is counted, and only counted: the port itself would say what the device was
+# used for (a game, SSH, BitTorrent) to whoever holds it.
+USUAL_TCP_PORTS = {80, 443, 853, 993, 995, 465, 587, 143, 110, 5222, 5223, 5228, 5229, 5230, 8080, 8443}
+# A TCP connection that came to something, as Zeek's conn_state names it, and one that did not: no answer, or refused
+TCP_MADE = {"SF", "S1", "S2", "S3", "RSTO", "RSTR"}
+TCP_FAILED = {"S0", "REJ"}
+# The local networks a device may try to reach through the tunnel: a home or an office. The node drops these. The
+# shared address space (100.64.0.0/10, Tailscale's too), link-local and multicast are not counted.
+LOCAL_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
 THREAT = {"spyware", "stalkerware"}
 FLAGGED = ("spyware", "stalkerware", "malware", "cti")
 SUMMARY_INFO = b"vessel-inspection-summary"  # the HKDF info a leader's summary is sealed with
@@ -235,6 +246,14 @@ def plain_system(row):
     return (row.get("uri") or "").split("?", 1)[0] in PLAIN_SYSTEM_PATHS
 
 
+def is_local(ip):
+    """Whether an address is on a home or office network (LOCAL_NETWORKS), the tunnel's own included."""
+    try:
+        return any(ipaddress.ip_address(ip) in n for n in LOCAL_NETWORKS)
+    except ValueError:
+        return False
+
+
 def hour_of(ts):
     return dt.datetime.fromtimestamp(ts, dt.UTC).strftime("%Y-%m-%dT%H")
 
@@ -345,6 +364,7 @@ def load_state(node, address):
     if not path.exists():
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
                 "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0, "old_tls": 0, "ads_bytes": 0,
+                "odd_ports": 0, "local": 0, "tcp": [0, 0],
                 "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
@@ -355,6 +375,9 @@ def load_state(node, address):
     state.setdefault("plain", None)
     state.setdefault("old_tls", None)
     state.setdefault("ads_bytes", None)
+    state.setdefault("odd_ports", None)
+    state.setdefault("local", None)
+    state.setdefault("tcp", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -532,6 +555,23 @@ def merge(node, totals, logs, lists):
         state = get(address)
         if state["ads_bytes"] is not None:
             state["ads_bytes"] += size
+    # How the device's connections went: to a port outside the everyday ones, to a local network, and the TCP
+    # connections that got no answer or were refused (those to a local network apart: the node drops them)
+    for row in logs["conn"]:
+        if not ours(row) or row.get("id.resp_h") in RESOLVERS:
+            continue
+        state = get(row["id.orig_h"])
+        if state["local"] is None:
+            continue
+        local = is_local(row.get("id.resp_h"))
+        if local:
+            state["local"] += 1
+        elif row.get("proto") == "tcp":
+            state["tcp"][0] += 1
+            if row.get("conn_state") in TCP_FAILED:
+                state["tcp"][1] += 1
+            elif row.get("conn_state") in TCP_MADE and row.get("id.resp_p") not in USUAL_TCP_PORTS:
+                state["odd_ports"] += 1
     # A server a list knows by its address. A device that looked up a listed name and then connected has the name's
     # hit already: the address is the same visit, and is not listed as a second site.
     by_name = collections.defaultdict(list)
@@ -620,6 +660,9 @@ def report(node, address):
         # absent where the inspection began before it was counted
         **({"plain": state["plain"]} if state["plain"] is not None else {}),
         **({"old_tls": state["old_tls"]} if state["old_tls"] is not None else {}),
+        # how the device's connections went; absent where the inspection began before they were counted
+        **({"odd_ports": state["odd_ports"], "local": state["local"],
+            "tcp": {"total": state["tcp"][0], "failed": state["tcp"][1]}} if state["local"] is not None else {}),
         # of all the traffic in the hours above, the share that went to ad and tracking services
         **({"ads_traffic_share": min(state["ads_bytes"] / total, 1) if (total := sum(u + d for u, d in state["hours"].values())) else 0}
            if state["ads_bytes"] is not None else {}),

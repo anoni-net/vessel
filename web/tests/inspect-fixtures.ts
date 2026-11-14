@@ -161,6 +161,12 @@ export const CLEAN_TLS_REPORT = { ...CLEAN_PLAIN_REPORT, old_tls: 0 };
 /** The week from analyze.py since it also counts the traffic to ad and tracking services (2026-11-14): 12% of it. */
 export const ADS_TRAFFIC_REPORT = { ...OLD_TLS_REPORT, ads_traffic_share: 0.123 };
 
+/** The week from analyze.py since it also counts how the connections went (2026-11-14): nothing worth a look. */
+export const CONNS_QUIET_REPORT = { ...ADS_TRAFFIC_REPORT, odd_ports: 0, local: 0, tcp: { total: 900, failed: 90 } };
+
+/** The same week with connections on uncommon ports, some to a local network, and a third not made. */
+export const CONNS_REPORT = { ...ADS_TRAFFIC_REPORT, odd_ports: 14, local: 6, tcp: { total: 900, failed: 300 } };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,
