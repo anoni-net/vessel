@@ -1305,14 +1305,20 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
           })}
         </ul>
         {/* about privacy and upkeep, not signs of an intrusion: beside the checks, and they do not change what the report comes to */}
-        {infos.map(({ id, test, n }) => (
-          <div class="stack" data-testid={test} data-state={n ? "check" : "ok"}>
-            <p class={`inspect-check inspect-check--${n ? "check" : "ok"}`}>
-              <Icon name={n ? "error" : "ok"} />
-              <span>{n ? fmt(t[`inspect.${id}.some`], { n: formatCount(locale, n) }) : t[`inspect.${id}.none`]}</span>
-            </p>
-            {n > 0 && <p class="muted small" data-testid={`${test}-why`}>{t[`inspect.${id}.why`]}</p>}
-          </div>
+        {/* found: the line opens onto what it means, folded so the card stays a list; none found has nothing to explain */}
+        {infos.map(({ id, test, n }) => n ? (
+          <details class="inspect-info" data-testid={test} data-state="check">
+            <summary class="inspect-check inspect-check--check">
+              <Icon name="error" />
+              <span>{fmt(t[`inspect.${id}.some`], { n: formatCount(locale, n) })}</span>
+            </summary>
+            <p class="muted small" data-testid={`${test}-why`}>{t[`inspect.${id}.why`]}</p>
+          </details>
+        ) : (
+          <p class="inspect-check inspect-check--ok" data-testid={test} data-state="ok">
+            <Icon name="ok" />
+            <span>{t[`inspect.${id}.none`]}</span>
+          </p>
         ))}
         {report.lists_at && (
           <p class="muted small" data-testid="inspect-lists-at">

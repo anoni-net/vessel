@@ -854,6 +854,10 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await open(page, endedWith(PLAIN_REPORT));
     await expect(page.getByTestId("inspect-plain")).toHaveAttribute("data-state", "check");
     await expect(page.getByTestId("inspect-plain")).toContainText("有 7 次網頁連線沒有加密");
+    // folded: the line alone, and what it means once opened
+    await expect(page.getByTestId("inspect-plain-why")).toBeHidden();
+    await page.getByTestId("inspect-plain").locator("summary").click();
+    await expect(page.getByTestId("inspect-plain-why")).toBeVisible();
     await expect(page.getByTestId("inspect-plain-why")).toContainText("請避免在這些地方輸入密碼或私密資料");
     await expect(page.getByTestId("inspect-check")).toHaveCount(4);
     await expect(verdict(page)).toHaveAttribute("data-state", "check");
@@ -873,7 +877,10 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await open(page, endedWith(OLD_TLS_REPORT));
     await expect(page.getByTestId("inspect-old-tls")).toHaveAttribute("data-state", "check");
     await expect(page.getByTestId("inspect-old-tls")).toContainText("有 3 次連線使用舊版的加密（TLS 1.0、1.1）");
+    await expect(page.getByTestId("inspect-old-tls-why")).toBeHidden();
+    await page.getByTestId("inspect-old-tls").getByText("有 3 次連線使用舊版的加密").click();
     await expect(page.getByTestId("inspect-old-tls-why")).toContainText("可以先更新系統與 App");
+    await expect(page.getByTestId("inspect-plain-why")).toBeHidden();
     // in the order they are listed: without encryption first
     await expect(page.locator("[data-testid=inspect-plain] + [data-testid=inspect-old-tls]")).toHaveCount(1);
     await expect(page.getByTestId("inspect-check")).toHaveCount(4);
