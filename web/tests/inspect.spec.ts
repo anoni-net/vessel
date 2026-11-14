@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  BYPASS_REPORT, CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -819,6 +819,34 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(verdict(page).getByRole("heading", { name: "接下來可以做" })).toBeVisible();
     await expect(page.getByTestId("inspect-check").first()).toHaveAttribute("data-state", "threat");
     await expect(lists(page, "collect.example")).toHaveText("也列在廣告與追蹤名單上");
+  });
+
+  // Whether Vessel blocked each site (2026-11-14): a line under the site, and what blocked means once, where a visit went through
+  const blockedLine = (page: Page, name: string) => page.getByTestId("inspect-hit").filter({ hasText: name }).getByTestId("inspect-hit-blocked");
+
+  test("each site says how many of its visits Vessel blocked, and what that means once", async ({ page }) => {
+    await open(page, endedWith(BLOCKED_REPORT));
+    await expect(blockedLine(page, "beacon.example")).toHaveText("Vessel 擋下其中 12 次，18 次沒有擋下");
+    await expect(blockedLine(page, "rare.example")).toHaveText("被 Vessel 擋下");
+    await expect(blockedLine(page, "ads-redirect.example")).toHaveText("Vessel 沒有擋下");
+    await expect(page.getByTestId("inspect-blocked-why")).toHaveCount(1);
+    await expect(page.getByTestId("inspect-blocked-why")).toContainText("沒有開啟網域過濾");
+    // the state is the lists' alone: a blocked site still needs a check
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+  });
+
+  test("every visit blocked: said under each site, with nothing to explain", async ({ page }) => {
+    await open(page, endedWith(ALL_BLOCKED_REPORT));
+    await expect(blockedLine(page, "beacon.example")).toHaveText("每次都被 Vessel 擋下");
+    await expect(blockedLine(page, "ads-redirect.example")).toHaveText("被 Vessel 擋下");
+    await expect(page.getByTestId("inspect-blocked-why")).toHaveCount(0);
+  });
+
+  test("a report from before the visits Vessel blocked were counted says nothing about them", async ({ page }) => {
+    await open(page, endedWith(WEEK_REPORT));
+    await expect(page.getByTestId("inspect-hit")).toHaveCount(3);
+    await expect(page.getByTestId("inspect-hit-blocked")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-blocked-why")).toHaveCount(0);
   });
 
   test("a report from before the lists were compared says nothing about them", async ({ page }) => {

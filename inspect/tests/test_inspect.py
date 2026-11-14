@@ -310,8 +310,42 @@ class Visits(Base):
 
     def test_a_finding_has_exactly_the_reported_fields(self):
         r = self.merge_one(dns=[dns("api.tracker.example")], conn=[{"ts": T0, "id.orig_h": "10.8.1.3", "id.resp_h": "8.8.8.8", "id.resp_p": 53}])
-        self.assertEqual(set(self.hit(r)), {"severity", "kind", "name", "how", "count", "first", "last", "hours", "lists"})
+        self.assertEqual(set(self.hit(r)), {"severity", "kind", "name", "how", "count", "first", "last", "hours", "lists", "blocked"})
         self.assertEqual(r["findings"][-1], {"severity": "check", "kind": "bypass_dns", "count": 1, "hours": [analyze.hour_of(T0)], "last": T0})
+
+    def merge_stopped(self, stopped, **kw):
+        analyze.merge("n1", {}, {**logs(**kw), "blocked": {("10.8.1.3", name) for name in stopped}}, self.lists)
+        return self.hit(analyze.report("n1", "10.8.1.3"))
+
+    def test_a_visit_whose_lookups_the_node_stopped_is_blocked(self):
+        hit = self.merge_stopped({"api.tracker.example"}, dns=[dns("api.tracker.example", ts=T0 + i) for i in range(3)])
+        self.assertEqual((hit["count"], hit["blocked"]), (1, 1))
+
+    def test_a_visit_that_connected_after_a_stopped_lookup_went_through(self):
+        hit = self.merge_stopped({"api.tracker.example"}, dns=[dns("api.tracker.example")], ssl=[sni("api.tracker.example", ts=T0 + 3)])
+        self.assertEqual((hit["count"], hit["blocked"]), (1, 0))
+
+    def test_one_lookup_answered_and_the_visit_went_through(self):
+        hit = self.merge_stopped({"api.tracker.example"}, dns=[dns("api.tracker.example"), dns("cdn.tracker.example", ts=T0 + 1)])
+        self.assertEqual((hit["count"], hit["blocked"]), (1, 0))
+
+    def test_each_visit_is_blocked_or_not_on_its_own(self):
+        rows = [dns("api.tracker.example", ts=T0), dns("cdn.tracker.example", ts=T0 + 120), dns("api.tracker.example", ts=T0 + 240)]
+        hit = self.merge_stopped({"api.tracker.example"}, dns=rows)
+        self.assertEqual((hit["count"], hit["blocked"]), (3, 2))
+
+    def test_a_visit_goes_on_into_the_next_capture(self):
+        self.merge_stopped({"api.tracker.example"}, dns=[dns("api.tracker.example")])
+        hit = self.merge_stopped(set(), ssl=[sni("api.tracker.example", ts=T0 + 20)])
+        self.assertEqual((hit["count"], hit["blocked"]), (1, 0))
+
+    def test_without_the_nodes_answers_nothing_is_blocked(self):
+        hit = self.merge_stopped(set(), dns=[dns("api.tracker.example")])
+        self.assertEqual((hit["count"], hit["blocked"]), (1, 0))
+
+    def test_whether_vessel_blocked_it_is_not_in_a_leaders_summary(self):
+        self.merge_stopped({"api.tracker.example"}, dns=[dns("api.tracker.example")])
+        self.assertNotIn("blocked", json.dumps(analyze.summary("n1", "10.8.1.3")))
 
     def test_an_older_state_file_still_loads(self):
         hour = analyze.hour_of(T0)
@@ -327,8 +361,11 @@ class Visits(Base):
         self.assertEqual((hit["count"], hit["last"], hit["hours"]), (24, T0, [hour]))
         # which other lists its names were on is not known: only its own
         self.assertEqual(hit["lists"], ["stalkerware"])
+        # nor how many of its visits were blocked, before or after
+        self.assertNotIn("blocked", hit)
         r = self.merge_one(dns=[dns("api.tracker.example", ts=T0 + 10), dns("api.tracker.example", ts=T0 + 4000)])
         self.assertEqual((self.hit(r)["count"], self.hit(r)["last"]), (25, T0 + 4000))
+        self.assertNotIn("blocked", self.hit(r))
         self.assertNotIn("nx_names", r)
         self.assertNotIn("nx_names", path.read_text())
         self.assertNotIn("printer.lan", path.read_text())
@@ -506,7 +543,7 @@ class Addresses(Base):
     def test_a_connection_to_a_listed_address_is_a_threat_with_its_app(self):
         r = self.report(conn=[self.conn("203.0.113.7", port=8080)])
         self.assertEqual(r["findings"], [{"severity": "threat", "kind": "stalkerware", "name": "203.0.113.7", "how": "IP", "count": 1,
-                                          "first": T0, "last": T0, "hours": [analyze.hour_of(T0)], "lists": ["stalkerware"], "app": "FakeSpy"}])
+                                          "first": T0, "last": T0, "hours": [analyze.hour_of(T0)], "lists": ["stalkerware"], "app": "FakeSpy", "blocked": 0}])
         self.assertEqual([c["count"] for c in r["checks"] if c["id"] == "stalkerware"], [1])
         self.assertEqual(analyze.load_state("n1", "10.8.1.3")["marks"], {analyze.hour_of(T0): "x"})
 

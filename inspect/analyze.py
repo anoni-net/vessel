@@ -331,6 +331,8 @@ def load_state(node, address):
         hit.setdefault("counted", hit["last"])
         # an older state did not say which other lists its names were on; nothing is guessed for it
         hit.setdefault("lists", [hit["kind"]])
+        # nor how many of its visits the node's lists stopped: unknown for good, as the visits before are not known
+        hit.setdefault("blocked", None)
     # An older state counted the lookups around Vessel without their hours, so an inspection that began before the
     # hours were kept had a count and nothing to draw. It did mark those hours for a check ("!"), as a listed site
     # does: the marked hours no site accounts for are the lookups'. Done once, as later the hours are kept directly.
@@ -376,21 +378,37 @@ def merge(node, totals, logs, lists):
     def note_hit(row, name, how):
         if not system_name(name) and (matched := match(name, lists)):
             app = app_of(name, lists.get(NAMES, {}).get(matched[0], {}))
-            candidates.append((row["ts"], row["id.orig_h"], *matched, how, lists_of(name, lists), app))
+            # a lookup the node's own lists answered for: the device got no address from Vessel
+            stopped = how == "DNS" and (row["id.orig_h"], name) in logs.get("blocked", ())
+            candidates.append((row["ts"], row["id.orig_h"], *matched, how, lists_of(name, lists), app, stopped))
 
-    def count_hit(ts, address, kind, entry, how, on, app):
+    def count_hit(ts, address, kind, entry, how, on, app, stopped):
         """A visit counts once: Zeek's rows come in no set order, so they are sorted before they get here. `on` is every
         list the name seen covers; a hit is a list entry, so its lists are those of all the names it came from. `app`
-        is the stalkerware the name belongs to, kept from the first name that had one."""
+        is the stalkerware the name belongs to, kept from the first name that had one.
+
+        `blocked` counts the visits Vessel stopped: every row of the visit a lookup the node's lists answered for. One
+        lookup answered, or a connection by SNI, HTTP or address, and the visit went through: the device then had the
+        address from somewhere, or reached the server. `stopped` says so for the visit counted last, as its rows come."""
         state = get(address)
         hit = state["hits"].setdefault(f"{kind}|{entry}", {"kind": kind, "name": entry, "how": how, "count": 0, "first": ts,
-                                                           "last": ts, "hours": [], "counted": None, "lists": [kind]})
+                                                           "last": ts, "hours": [], "counted": None, "lists": [kind],
+                                                           "blocked": 0, "stopped": False})
         hit["lists"] = sorted(set(hit["lists"]) | on | {kind})
         if app and not hit.get("app"):
             hit["app"] = app
         if hit["counted"] is None or abs(ts - hit["counted"]) >= VISIT_SECONDS:
             hit["count"] += 1
+            if hit["blocked"] is not None and stopped:
+                hit["blocked"] += 1
+            # a visit before the one counted last (a capture that came late) is counted, and leaves the last one open
+            if hit["counted"] is None or ts > hit["counted"]:
+                hit["stopped"] = stopped
             hit["counted"] = max(hit["counted"] or ts, ts)
+        elif hit.get("stopped") and not stopped:
+            if hit["blocked"] is not None:
+                hit["blocked"] -= 1
+            hit["stopped"] = False
         hit["first"] = min(hit["first"], ts)
         hit["last"] = max(hit["last"], ts)
         hit["hours"] = sorted(set(hit["hours"]) | {hour_of(ts)})
@@ -452,7 +470,7 @@ def merge(node, totals, logs, lists):
         for kind, addresses in lists.get(ADDRESSES, {}).items():
             ip = row.get("id.resp_h")
             if ip in addresses and not any(abs(row["ts"] - ts) < VISIT_SECONDS for ts in by_name[(row["id.orig_h"], kind)]):
-                candidates.append((row["ts"], row["id.orig_h"], kind, ip, "IP", {kind}, addresses[ip]))
+                candidates.append((row["ts"], row["id.orig_h"], kind, ip, "IP", {kind}, addresses[ip], False))
                 break
     # sorted() keeps DNS ahead of SNI and HTTP at the same moment, so a visit's first row names how it was seen
     for candidate in sorted(candidates, key=lambda c: c[0]):
@@ -510,7 +528,9 @@ def report(node, address):
         if entries[hit["kind"]] <= MAX_FINDINGS:
             findings.append({"severity": "threat" if hit["kind"] in THREAT else "check",
                              **{k: hit[k] for k in ("kind", "name", "how", "count", "first", "last", "hours", "lists")},
-                             **({"app": hit["app"]} if hit.get("app") else {})})
+                             **({"app": hit["app"]} if hit.get("app") else {}),
+                             # absent where the inspection began before it was counted
+                             **({"blocked": hit["blocked"]} if hit.get("blocked") is not None else {})})
     if state["bypass"]:
         findings.append({"severity": "check", "kind": "bypass_dns", "count": state["bypass"],
                          **({"hours": state["bypass_hours"]} if state["bypass_hours"] else {}),
