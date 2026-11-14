@@ -88,6 +88,9 @@ export interface Report {
    */
   random_nx?: number;
   carry?: number;
+  /** Since 2026-11-14, absent before: visits to dynamic DNS names and to hosting often abused, by HaGeZi's lists; no name is kept. */
+  dyndns?: number;
+  hoster?: number;
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -744,13 +747,15 @@ export const CARRY_MIN = 20;
 export function observations(report: Report, locale: string) {
   const count = (n: number) => formatCount(locale as Parameters<typeof formatCount>[0], n);
   const items = [];
-  const counted = (id: "plain" | "oldTls" | "oddPorts" | "local" | "randomNx" | "carry", test: string, n: number | undefined, quiet: boolean, least = 1) => {
+  const counted = (id: "plain" | "oldTls" | "oddPorts" | "local" | "randomNx" | "carry" | "dyndns" | "hoster", test: string, n: number | undefined, quiet: boolean, least = 1) => {
     if (n !== undefined) items.push({ id, test, found: n >= least, shown: count(n), value: count(n), quiet });
   };
   counted("plain", "inspect-plain", report.plain, false);
   counted("oldTls", "inspect-old-tls", report.old_tls, false);
   counted("oddPorts", "inspect-odd-ports", report.odd_ports, true);
   counted("local", "inspect-local", report.local, true);
+  counted("dyndns", "inspect-dyndns", report.dyndns, true);
+  counted("hoster", "inspect-hoster", report.hoster, true);
   counted("randomNx", "inspect-random-nx", report.random_nx, true, RANDOM_NX_MIN);
   counted("carry", "inspect-carry", report.carry, true, CARRY_MIN);
   if (report.tcp) {

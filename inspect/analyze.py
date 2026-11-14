@@ -61,6 +61,14 @@ DOH_SOURCES = {
     "doh.txt": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/doh.txt",
     "doh-ips.txt": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/ips/doh.txt",
 }
+# Domains that are not bad in themselves and are often abused: dynamic DNS (a home NAS, a router, a camera, or a
+# scammer's short-lived server) and hosting anyone can put a site on for free. HaGeZi's lists of them, kept apart from
+# SOURCES: they are not kinds of finding, and a hit on one is only counted, never named.
+CAUTION_SOURCES = {
+    "dyndns": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/dyndns.txt",
+    "hoster": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/rpz/hoster.txt",
+}
+CAUTION = "caution"
 # Apple's own resolvers and iCloud Private Relay are on that list too. An iPhone reaches them by itself: nothing the
 # person or an app set up, and nothing to look for in the settings, so they are left out. 17.0.0.0/8 is Apple's.
 DOH_SYSTEM = ("apple.com", "aaplimg.com", "icloud.com")
@@ -153,6 +161,10 @@ def load_lists():
     # the servers a list knows by address alone, by kind: a device that reaches one without looking a name up
     lists[ADDRESSES] = {SPYWARE: servers, "stalkerware": addresses}
     lists[DOH], lists[DOH + "_ips"] = load_doh()
+    lists[CAUTION] = {}
+    for kind in CAUTION_SOURCES:
+        path = HOME / "lists" / f"{kind}.txt"
+        lists[CAUTION][kind] = ({name for parts in words(path) if (name := clean(parts[0]))} - excluded) if path.exists() else set()
     return lists
 
 
@@ -394,7 +406,7 @@ def load_state(node, address):
         return {"node": node, "address": address, "hours": {}, "marks": {}, "dns": {"total": 0, "nx": 0, "ads": 0},
                 "hits": {}, "bypass": 0, "bypass_hours": [], "bypass_last": None, "bypass_filled": True, "plain": 0, "old_tls": 0, "ads_bytes": 0,
                 "odd_ports": 0, "local": 0, "tcp": [0, 0],
-                "random_nx": 0, "carry": 0,
+                "random_nx": 0, "carry": 0, "dyndns": 0, "hoster": 0,
                 "first": None, "last": None}
     state = json.loads(path.read_text())
     # an older state kept the names that did not exist; they go with the next write
@@ -410,6 +422,8 @@ def load_state(node, address):
     state.setdefault("tcp", None)
     state.setdefault("random_nx", None)
     state.setdefault("carry", None)
+    state.setdefault("dyndns", None)
+    state.setdefault("hoster", None)
     for hit in state["hits"].values():
         hit.setdefault("last", hit["first"])
         hit.setdefault("hours", [hour_of(hit["first"])])
@@ -593,6 +607,26 @@ def merge(node, totals, logs, lists):
         state = get(address)
         if state["ads_bytes"] is not None:
             state["ads_bytes"] += size
+    # Visits to dynamic DNS and to hosting that is often abused, by the names looked up and connected to, a visit once
+    # as a site's is (VISIT_SECONDS); the names are not kept
+    seen_caution = []
+    for log, field in (("dns", "query"), ("ssl", "server_name"), ("quic", "server_name"), ("http", "host")):
+        for row in logs[log]:
+            if not ours(row) or not row.get(field):
+                continue
+            name = row[field].lower().split(":")[0]
+            if name == AD_BLOCK_TARGET or system_name(name):
+                continue
+            for kind, names in lists.get(CAUTION, {}).items():
+                if entry := entry_of(name, names):
+                    seen_caution.append((row["ts"], row["id.orig_h"], kind, entry))
+    last_visit = {}
+    for ts, device, kind, entry in sorted(seen_caution):
+        state = get(device)
+        if state[kind] is None or ts - last_visit.get((device, kind, entry), -VISIT_SECONDS) < VISIT_SECONDS:
+            continue
+        last_visit[(device, kind, entry)] = ts
+        state[kind] += 1
     # How the device's connections went: to a port outside the everyday ones, to a local network, and the TCP
     # connections that got no answer or were refused (those to a local network apart: the node drops them)
     for row in logs["conn"]:
@@ -701,6 +735,8 @@ def report(node, address):
         # how the device's connections went; absent where the inspection began before they were counted
         **({"odd_ports": state["odd_ports"], "local": state["local"],
             "tcp": {"total": state["tcp"][0], "failed": state["tcp"][1]}} if state["local"] is not None else {}),
+        # visits to dynamic DNS and to hosting that is often abused
+        **({"dyndns": state["dyndns"], "hoster": state["hoster"]} if state["dyndns"] is not None else {}),
         # lookups for made-up names that do not exist, and lookups that may carry data out
         **({"random_nx": state["random_nx"], "carry": state["carry"]} if state["random_nx"] is not None else {}),
         # of all the traffic in the hours above, the share that went to ad and tracking services
@@ -749,6 +785,7 @@ def seal(payload: bytes, public_key: str, info: bytes = b"vessel-inspection-repo
 def list_files():
     """Every file update-lists downloads, and where it comes from."""
     return {**{f"{kind}.txt": url for kind, url in SOURCES.items()}, f"{APPS}.csv": APPS_SOURCE, **DOH_SOURCES,
+            **{f"{kind}.txt": url for kind, url in CAUTION_SOURCES.items()},
             f"{SPYWARE}.csv": SPYWARE_INDEX}
 
 

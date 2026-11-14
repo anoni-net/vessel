@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  ADS_TRAFFIC_REPORT, ALL_BLOCKED_REPORT, CONNS_QUIET_REPORT, CONNS_REPORT, DNS_QUIET_REPORT, DNS_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  ADS_TRAFFIC_REPORT, ALL_BLOCKED_REPORT, CAUTION_QUIET_REPORT, CAUTION_REPORT, CONNS_QUIET_REPORT, CONNS_REPORT, DNS_QUIET_REPORT, DNS_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -999,6 +999,22 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await page.getByTestId("inspect-figures").locator(":scope > summary").click();
     await expect(page.getByTestId("inspect-random-nx-figure")).toHaveText("9");
     await expect(page.getByTestId("inspect-carry-figure")).toHaveText("19");
+  });
+
+  test("visits to dynamic DNS and abused hosting are listed from the first, with their ordinary uses first", async ({ page }) => {
+    await open(page, endedWith(CAUTION_REPORT));
+    await expect(page.getByTestId("inspect-dyndns").locator("summary")).toHaveText("有 5 次連往動態 DNS 的網址");
+    await expect(page.getByTestId("inspect-hoster").locator("summary")).toHaveText("有 2 次連往常被濫用的網站代管服務");
+    await page.getByTestId("inspect-dyndns").locator("summary").click();
+    await expect(page.getByTestId("inspect-dyndns-why")).toContainText("家裡的 NAS、路由器與監視器");
+    await expect(page.getByTestId("inspect-others")).toHaveCount(0);
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    await page.unrouteAll();
+    await open(page, endedWith(CAUTION_QUIET_REPORT));
+    await expect(page.getByTestId("inspect-dyndns")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-others")).toHaveCount(1);
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    await expect(page.getByTestId("inspect-hoster-figure")).toHaveText("0");
   });
 
   test("a report from before connections without encryption were counted says nothing about them", async ({ page }) => {

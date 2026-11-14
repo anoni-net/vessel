@@ -66,6 +66,9 @@ class Base(unittest.TestCase):
             "$TTL 3600\n@ SOA localhost. root.localhost. 1 2 3 4 5\n  NS  localhost.\n; a comment\n"
             "doh.example CNAME .\n*.doh.example CNAME .\ndoh.dns.apple.com CNAME .\nmask.icloud.com CNAME .\n")
         (analyze.HOME / "lists" / "doh-ips.txt").write_text("# a comment\n192.0.2.53\n17.132.82.11\n2001:db8::53\n")
+        # dynamic DNS and hosting that is often abused: empty unless a test fills them
+        for name in ("dyndns.txt", "hoster.txt"):
+            (analyze.HOME / "lists" / name).write_text("; nothing listed\n")
         self.lists = analyze.load_lists()
 
     def tearDown(self):
@@ -409,6 +412,36 @@ class Checks(Base):
         path.write_text(json.dumps(old))
         r = self.run_one(dns=[dns("kqzvxjtrwplm.com", rcode="NXDOMAIN")])
         self.assertFalse({"random_nx", "carry"} & set(r))
+
+    def caution_lists(self):
+        (analyze.HOME / "lists" / "dyndns.txt").write_text("$TTL 3600\n@ SOA localhost. root.localhost. 1 2 3 4 5\n  NS  localhost.\n"
+                                                          "; a comment\nduck.example CNAME .\n*.duck.example CNAME .\nshared.example CNAME .\n")
+        (analyze.HOME / "lists" / "hoster.txt").write_text("freehost.example CNAME .\n*.freehost.example CNAME .\n")
+        self.lists = analyze.load_lists()
+
+    def test_visits_to_dynamic_dns_and_abused_hosting_are_counted_and_not_named(self):
+        self.caution_lists()
+        self.assertEqual(self.lists["caution"], {"dyndns": {"duck.example"}, "hoster": {"freehost.example"}})
+        rows = [dns("nas.duck.example"), dns("nas.duck.example", ts=T0 + 1), dns("nas.duck.example", ts=T0 + 120),
+                dns("cam.duck.example", ts=T0 + 2), dns("shared.example"), dns("other.example")]
+        r = self.run_one(dns=rows, ssl=[sni("nas.duck.example", ts=T0 + 3), sni("phish.freehost.example")],
+                         http=[{"ts": T0 + 500, "id.orig_h": "10.8.1.3", "uid": "C1", "host": "phish.freehost.example:80", "uri": "/"},
+                               {"ts": T0, "id.orig_h": "10.8.1.4", "uid": "C2", "host": "x.freehost.example", "uri": "/"}])
+        # the dynamic DNS entry twice a minute apart and once more; the hosting once, then again later
+        self.assertEqual((r["dyndns"], r["hoster"]), (2, 2))
+        text = json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text()
+        for name in ("duck.example", "freehost", "nas."):
+            self.assertNotIn(name, text)
+        self.assertNotIn("dyndns", json.dumps(analyze.summary("n1", "10.8.1.3")))
+
+    def test_with_the_two_lists_empty_nothing_is_counted_and_a_state_from_before_does_not_say(self):
+        self.assertEqual(self.run_one(dns=[dns("nas.duck.example")])["dyndns"], 0)
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        del old["dyndns"], old["hoster"]
+        path.write_text(json.dumps(old))
+        self.caution_lists()
+        self.assertFalse({"dyndns", "hoster"} & set(self.run_one(dns=[dns("nas.duck.example")])))
 
     def test_clear_means_a_reused_address_starts_empty(self):
         self.run_one(dns=[dns("api.tracker.example")])
