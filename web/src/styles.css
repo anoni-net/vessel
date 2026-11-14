@@ -1203,6 +1203,33 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .cover__day { display: grid; gap: 2px; justify-items: stretch; text-align: center; }
 .cover__meter { display: flex; align-items: flex-end; height: 36px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); }
 .cover__fill { display: block; width: 100%; background: var(--tile-4); }
+/* the hours of a day with a connection, 0 to 24, as a class: the policy (style-src 'self') drops a style attribute in a
+   prerendered page, such as the sample report's */
+.cover__fill--h0 { height: 0%; }
+.cover__fill--h1 { height: 4.1667%; }
+.cover__fill--h2 { height: 8.3333%; }
+.cover__fill--h3 { height: 12.5%; }
+.cover__fill--h4 { height: 16.6667%; }
+.cover__fill--h5 { height: 20.8333%; }
+.cover__fill--h6 { height: 25%; }
+.cover__fill--h7 { height: 29.1667%; }
+.cover__fill--h8 { height: 33.3333%; }
+.cover__fill--h9 { height: 37.5%; }
+.cover__fill--h10 { height: 41.6667%; }
+.cover__fill--h11 { height: 45.8333%; }
+.cover__fill--h12 { height: 50%; }
+.cover__fill--h13 { height: 54.1667%; }
+.cover__fill--h14 { height: 58.3333%; }
+.cover__fill--h15 { height: 62.5%; }
+.cover__fill--h16 { height: 66.6667%; }
+.cover__fill--h17 { height: 70.8333%; }
+.cover__fill--h18 { height: 75%; }
+.cover__fill--h19 { height: 79.1667%; }
+.cover__fill--h20 { height: 83.3333%; }
+.cover__fill--h21 { height: 87.5%; }
+.cover__fill--h22 { height: 91.6667%; }
+.cover__fill--h23 { height: 95.8333%; }
+.cover__fill--h24 { height: 100%; }
 .cover__day--future .cover__meter { border-style: dashed; border-color: var(--placeholder); background: transparent; }
 .cover__day--today .cover__meter { outline: 2px solid var(--ink); outline-offset: 1px; }
 .cover__label { font: 11px/1.4 var(--mono); color: var(--muted); white-space: nowrap; }

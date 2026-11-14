@@ -12,6 +12,8 @@ test("from the home page to a sample report anyone can read, every card of it ma
   await signedOut(page);
   // nothing of the report is asked of the backend
   const asked: string[] = [];
+  const blocked: string[] = [];
+  page.on("console", (m) => { if (m.type() === "error" && /style-src/.test(m.text())) blocked.push(m.text()); });
   page.on("request", (r) => { if (new URL(r.url()).pathname.startsWith("/api/") && !/\/api\/(me|pickup)$/.test(new URL(r.url()).pathname)) asked.push(r.url()); });
   await page.goto("/");
   await expect(page.locator("#inspect").getByRole("heading", { level: 2 })).toContainText("裝置流量檢測");
@@ -39,8 +41,10 @@ test("from the home page to a sample report anyone can read, every card of it ma
   await expect(page.getByTestId("inspect-timers").locator("summary")).toHaveText("有 1 個目的地定時連線（約每 30 分鐘）");
   // the week's days and hours are drawn
   await expect(page.locator(".inspect-report .tiles__row[data-day]")).toHaveCount(7);
-  // the days' bars have their heights: the policy drops the style attributes of the prerendered page, so it is drawn again
+  // the days' bars have their heights, from classes: the policy (style-src 'self') would drop a style attribute in the
+  // prerendered page, and says so in the console
   for (const fill of await page.locator(".cover__fill").all()) expect(await fill.evaluate((e) => e.getBoundingClientRect().height)).toBeGreaterThan(0);
+  expect(blocked).toEqual([]);
   // nothing to download, and how to start one
   await expect(page.getByTestId("inspect-download")).toHaveCount(0);
   await expect(page.getByTestId("sample-start").getByRole("link", { name: "前往我的裝置" })).toHaveAttribute("href", "/devices/");

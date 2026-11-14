@@ -714,7 +714,9 @@ test.describe("the report says what it comes to, and when each site was seen", (
     expect(html).toContain("名單上的網站在 6 天出現");
     expect(html).toContain("有連線的 6 天中 6 天出現");
     expect(html).toMatch(/class="hit hit--1"/);
-    expect(html).toMatch(/class="cover__fill" style="height: [\d.]+%;?"/);
+    // the days' bars by class, and the rules with them: the file opens with no script and no style attribute to rely on
+    expect(html).toMatch(/class="cover__fill cover__fill--h\d+"/);
+    expect(html).toContain(".cover__fill--h16");
     expect(html).toContain("tile--night");
     expect(html).toContain(".hit--3");
     expect(html.match(/報告只涵蓋檢測期間的連線/g)).toHaveLength(1);

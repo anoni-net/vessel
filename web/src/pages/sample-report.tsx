@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { useCtx } from "../context.ts";
 import { SAMPLE_SPAN, sampleCheck, sampleThreat } from "../sample-report.ts";
 import { ReportView } from "./inspect.tsx";
@@ -13,11 +13,6 @@ type Case = keyof typeof CASES;
 export function SampleReport() {
   const { t, href, locale } = useCtx();
   const [which, setWhich] = useState<Case>("check");
-  // The page is prerendered, and the policy (style-src 'self') drops the style attributes written into its HTML, such as
-  // the heights of the days' bars; hydrating does not set them again. Drawn once more in the browser, they are set
-  // through the DOM, which the policy allows. A real report is only ever drawn in the browser.
-  const [drawn, setDrawn] = useState(false);
-  useEffect(() => setDrawn(true), []);
   const note = (id: "verdict" | "findings" | "details") => (
     <aside class="sample-note" data-testid={`sample-note-${id}`}>
       <p class="sample-note__title">{t[`sample.note.${id}.title`]}</p>
@@ -41,7 +36,7 @@ export function SampleReport() {
         <p data-testid="sample-case-body">{t[`sample.case.${which}.body`]}</p>
       </div>
       <div class="inspect-wide">
-        <ReportView key={`${which}-${drawn}`} report={CASES[which]()} locale={locale} span={SAMPLE_SPAN} sample={t["sample.mark"]}
+        <ReportView key={which} report={CASES[which]()} locale={locale} span={SAMPLE_SPAN} sample={t["sample.mark"]}
           notes={{ verdict: note("verdict"), findings: note("findings"), details: note("details") }} />
       </div>
       <div class="card card--flat stack" data-testid="sample-start">
