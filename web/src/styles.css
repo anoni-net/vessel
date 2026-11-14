@@ -1308,6 +1308,12 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-table__when { white-space: nowrap; }
 .inspect-table__when > span { display: block; }
 .spec--figures { grid-template-columns: minmax(0, 1fr) max-content; }
+/* a row's name opens onto what it means: a question mark after the name, filled while open */
+.figure-help > summary { width: fit-content; min-height: 24px; cursor: pointer; list-style: none; }
+.figure-help > summary::-webkit-details-marker { display: none; }
+.figure-help > summary::after { content: "?" / ""; display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; margin-inline-start: 6px; border: 1px solid currentColor; border-radius: 50%; font-size: 0.85em; font-weight: 700; line-height: 1; vertical-align: 0.05em; }
+.figure-help[open] > summary::after { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.figure-help > p { margin: 6px 0 2px; color: var(--text); }
 /* the consent page while it loads (pages/inspect.tsx): each block as tall as the one it stands for */
 .sk-lead { display: flex; align-items: center; height: 34px; }
 .sk-intro { min-height: 109px; }

@@ -983,6 +983,21 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   const kind = (id: string) => t[`inspect.kind.${id}` as keyof typeof t] ?? id;
   const why = (id: string) => t[`inspect.why.${id}` as keyof typeof t] as string | undefined;
   const percent = (n: number) => `${Math.round(n * 100)}%`;
+  // a row of the numbers: what it means behind a question mark beside its name, so the list stays a list. A <details>
+  // opens without a script, in the downloaded report too
+  const figure = (label: string, help: string | undefined, value: string, test?: string) => (
+    <>
+      <dt>
+        {help ? (
+          <details class="figure-help" data-testid="inspect-figure-help">
+            <summary>{label}</summary>
+            <p>{help}</p>
+          </details>
+        ) : label}
+      </dt>
+      <dd data-testid={test}>{value}</dd>
+    </>
+  );
   const dayLabel = (day: string) => short(day);
   // how serious, in words as well as in the colour of the badge (WCAG 1.4.1)
   const severity = (s: "threat" | "check") => (
@@ -1333,23 +1348,15 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         <details class="small" data-testid="inspect-figures">
           <summary>{t["inspect.check.details"]}</summary>
           <dl class="spec spec--figures">
-            {report.checks?.map((c) => (
-              <>
-                <dt>{kind(c.id)}</dt>
-                <dd>{c.count ? fmt(t["inspect.seen"], { n: formatCount(locale, c.count) }) : t["inspect.report.notFound"]}</dd>
-              </>
-            ))}
-            <dt>{t["inspect.report.dns"]}</dt><dd>{formatCount(locale, report.dns?.total ?? 0)}</dd>
-            <dt>{t["inspect.report.nx"]}</dt><dd>{percent(report.dns?.nx_share ?? 0)}</dd>
-            <dt>{t["inspect.report.ads"]}</dt><dd>{percent(report.dns?.ads_share ?? 0)}</dd>
-            {report.ads_traffic_share !== undefined && <><dt>{t["inspect.report.adsTraffic"]}</dt><dd data-testid="inspect-ads-traffic">{percent(report.ads_traffic_share)}</dd></>}
-            {infos.map(({ id, n }) => <><dt>{t[`inspect.${id}.figure`]}</dt><dd>{formatCount(locale, n)}</dd></>)}
-            <dt>{t["inspect.report.idle"]}</dt>
+            {report.checks?.map((c) => figure(kind(c.id), why(c.id), c.count ? fmt(t["inspect.seen"], { n: formatCount(locale, c.count) }) : t["inspect.report.notFound"]))}
+            {figure(t["inspect.report.dns"], t["inspect.report.dnsHelp"], formatCount(locale, report.dns?.total ?? 0))}
+            {figure(t["inspect.report.nx"], t["inspect.report.nxHelp"], percent(report.dns?.nx_share ?? 0))}
+            {figure(t["inspect.report.ads"], t["inspect.report.adsHelp"], percent(report.dns?.ads_share ?? 0))}
+            {report.ads_traffic_share !== undefined && figure(t["inspect.report.adsTraffic"], t["inspect.report.adsTrafficNote"], percent(report.ads_traffic_share), "inspect-ads-traffic")}
+            {infos.map(({ id, test, n }) => figure(t[`inspect.${id}.figure`], t[`inspect.${id}.why`], formatCount(locale, n), `${test}-figure`))}
             {/* the share of a night is only a share of the nights there were: on the first day it says when it started */}
-            <dd data-testid="inspect-idle">{coverage.total_hours >= 24 ? percent(nightShare(report.hours ?? [])) : t["inspect.report.idleLater"]}</dd>
+            {figure(t["inspect.report.idle"], t["inspect.report.idleHelp"], coverage.total_hours >= 24 ? percent(nightShare(report.hours ?? [])) : t["inspect.report.idleLater"], "inspect-idle")}
           </dl>
-          {/* what the share leaves out, and why a share near 0 is what blocking ads looks like */}
-          {report.ads_traffic_share !== undefined && <p class="muted" data-testid="inspect-ads-traffic-note">{t["inspect.report.adsTrafficNote"]}</p>}
         </details>
       </div>
       {limits && <p class="muted small">{t["inspect.report.limits"]}</p>}
