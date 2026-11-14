@@ -213,9 +213,7 @@ export function App({ url }: { url?: string } = {}) {
                 <li><a href={href("/learn/")}>{t["learn.title"]}</a></li>
                 <li><a href={href("/faq/")}>{t["nav.faq"]}</a></li>
                 <li><a href={href("/dns/")}>{t["dns.title"]}</a></li>
-                <li><a href={href("/dns/lists/")}>{t["lists.title"]}</a></li>
                 <li><a href={href("/for-groups/")}>{t["forGroups.title"]}</a></li>
-                <li><a href={href("/sample-report/")}>{t["sample.title"]}</a></li>
               </ul>
             </nav>
             <nav aria-labelledby="footer-checks" class="title-block__cell footer-group">
@@ -224,6 +222,7 @@ export function App({ url }: { url?: string } = {}) {
               <ul class="plain footer-group__links">
                 <li><a href={href("/check/")}>{t["check.title"]}</a></li>
                 <li><a href={href("/status/")}>{t["status.title"]}</a></li>
+                <li><a href={href("/sample-report/")}>{t["sample.title"]}</a></li>
                 <li><a href={href("/feedback/?from=footer")}>{t["feedback.title"]}</a></li>
               </ul>
             </nav>

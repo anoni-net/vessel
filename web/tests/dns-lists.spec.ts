@@ -280,10 +280,11 @@ test("WCAG 1.3.1: the tables keep their headers on a phone, and loading is annou
   await expect(page.getByTestId("lists-notes-table").getByRole("columnheader")).toHaveCount(5);
 });
 
-test("the page can be reached from the footer, the FAQ and the DNS filter page, and step by anchor", async ({ page }) => {
+test("the page can be reached from the FAQ and the DNS filter page, not the footer, and step by anchor", async ({ page }) => {
   await backend(page);
   await page.goto("/faq/");
-  await expect(page.locator("footer").getByRole("link", { name: "網域過濾的名單" })).toHaveAttribute("href", "/dns/lists/");
+  // the footer keeps to four links a group: the lists are one step from the DNS filter page, linked there
+  await expect(page.locator("footer").getByRole("link", { name: "網域過濾的名單" })).toHaveCount(0);
   const filter = page.locator("details#q-filter");
   await filter.locator("summary").click();
   await expect(filter.getByRole("link", { name: "網域過濾的名單" })).toHaveAttribute("href", "/dns/lists/");
