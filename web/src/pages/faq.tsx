@@ -32,6 +32,7 @@ function Questions({ ids }: { ids: readonly Question[] }) {
           {id === "blockedSite" && <p><a href={href("/dns/lists/#trouble")}>{t["lists.trouble.title"]}</a></p>}
           {id === "phishing" && <p><a href={href("/dns/lists/#beyond-the-lists")}>{t["faq.phishing.link"]}</a></p>}
           {id === "teamApply" && <p><a href={href("/for-groups/")}>{t["home.groups.link"]}</a></p>}
+          {id === "anomaly" && <p><a href={href("/sample-report/")}>{t["home.inspect.link"]}</a></p>}
           {id === "teamSees" && <p><a href={href("/privacy/#groups")}>{t["forGroups.sees.link"]}</a></p>}
           {id === "risky" && <p><a href={`${DOCS_SITE}${LOCALE_PATH[locale]}/scenarios/asia-travel/`} target="_blank" rel="noopener">{t["faq.risky.link"]}</a></p>}
         </details>

@@ -18,6 +18,7 @@ import { Learn } from "./pages/learn.tsx";
 import { Login } from "./pages/login.tsx";
 import { Pickup } from "./pages/pickup.tsx";
 import { Redeem } from "./pages/redeem.tsx";
+import { SampleReport } from "./pages/sample-report.tsx";
 import { StatusPage } from "./pages/status.tsx";
 import { loadNewDevice, loadedNewDevice } from "./pages/lazy.ts";
 import { NewDeviceSkeleton } from "./pages/skeleton.tsx";
@@ -111,6 +112,7 @@ const ROUTES: Record<string, [MessageKey, () => preact.JSX.Element]> = {
   "/learn/": ["learn.title", () => <Learn />],
   "/for-groups/": ["forGroups.title", () => <ForGroups />],
   "/for-groups/apply/": ["groupApply.title", () => <GroupApply />],
+  "/sample-report/": ["sample.title", () => <SampleReport />],
   "/feedback/": ["feedback.title", () => <Feedback />],
   "/status/": ["status.title", () => <StatusPage />],
   "/terms/": ["terms.title", () => <Legal doc="terms" titleKey="terms.title" />],
@@ -213,6 +215,7 @@ export function App({ url }: { url?: string } = {}) {
                 <li><a href={href("/dns/")}>{t["dns.title"]}</a></li>
                 <li><a href={href("/dns/lists/")}>{t["lists.title"]}</a></li>
                 <li><a href={href("/for-groups/")}>{t["forGroups.title"]}</a></li>
+                <li><a href={href("/sample-report/")}>{t["sample.title"]}</a></li>
               </ul>
             </nav>
             <nav aria-labelledby="footer-checks" class="title-block__cell footer-group">

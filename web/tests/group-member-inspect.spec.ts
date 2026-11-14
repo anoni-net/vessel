@@ -66,6 +66,8 @@ test("agreeing says what the leaders see, and starts the group's inspection", as
     { after: { ...BASE, status: "confirming", group: true, confirm_seconds: 1800 } });
   await goto(page);
   const form = page.getByTestId("inspect-group-consent");
+  // what a report shows, before agreeing: the sample, in a tab of its own so the form stays
+  await expect(form.getByTestId("inspect-sample")).toHaveAttribute("href", "/sample-report/");
   const sees = page.getByTestId("inspect-group-sees");
   await expect(sees).toContainText("判斷結果");
   await expect(sees).toContainText("命中的類別");
