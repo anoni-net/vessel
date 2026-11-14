@@ -312,6 +312,37 @@ class Checks(Base):
         path.write_text(json.dumps(old))
         self.assertNotIn("old_tls", self.run_one(ssl=[{"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C1", "version": "TLSv10"}]))
 
+    def ads_traffic(self, **kw):
+        analyze.merge("n1", {("10.8.1.3", analyze.hour_of(T0)): [600, 400]}, logs(**kw), self.lists)
+        return analyze.report("n1", "10.8.1.3")
+
+    @staticmethod
+    def conn(uid, ip, up, down, who="10.8.1.3"):
+        return {"ts": T0, "id.orig_h": who, "uid": uid, "id.resp_h": ip, "id.resp_p": 443, "orig_ip_bytes": up, "resp_ip_bytes": down}
+
+    def test_the_traffic_to_ad_services_is_a_share_of_all_and_names_no_site(self):
+        r = self.ads_traffic(
+            ssl=[{"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C1", "server_name": "cdn.ad.example"},
+                 {"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C2", "server_name": "news.example"}],
+            http=[{"ts": T0, "id.orig_h": "10.8.1.3", "uid": "C3", "host": "ad.example:8080", "uri": "/"}],
+            # by the address a lookup in the same capture answered with
+            dns=[{**dns("pixel.ad.example"), "answers": ["track.cdn.example", "198.51.100.9"]}],
+            conn=[self.conn("C1", "198.51.100.1", 100, 50), self.conn("C2", "198.51.100.2", 300, 300),
+                  self.conn("C3", "198.51.100.3", 20, 30), self.conn("C4", "198.51.100.9", 25, 25),
+                  self.conn("C5", "198.51.100.4", 40, 40), self.conn("C6", "198.51.100.9", 999, 999, who="10.8.1.4")])
+        self.assertEqual(r["ads_traffic_share"], 0.25)
+        text = json.dumps(r) + analyze.state_path("n1", "10.8.1.3").read_text()
+        self.assertNotIn("ad.example", text)
+        self.assertNotIn("ads_traffic", json.dumps(analyze.summary("n1", "10.8.1.3")))
+
+    def test_no_traffic_to_ad_services_is_none_and_a_state_from_before_does_not_say(self):
+        self.assertEqual(self.ads_traffic(conn=[self.conn("C1", "198.51.100.1", 100, 50)])["ads_traffic_share"], 0)
+        path = analyze.state_path("n1", "10.8.1.3")
+        old = json.loads(path.read_text())
+        del old["ads_bytes"]
+        path.write_text(json.dumps(old))
+        self.assertNotIn("ads_traffic_share", self.ads_traffic(conn=[self.conn("C1", "198.51.100.1", 100, 50)]))
+
     def test_clear_means_a_reused_address_starts_empty(self):
         self.run_one(dns=[dns("api.tracker.example")])
         analyze.state_path("n1", "10.8.1.3").unlink()

@@ -158,6 +158,9 @@ export const OLD_TLS_REPORT = { ...PLAIN_REPORT, old_tls: 3 };
 /** Nothing found, every connection encrypted and on a current TLS. */
 export const CLEAN_TLS_REPORT = { ...CLEAN_PLAIN_REPORT, old_tls: 0 };
 
+/** The week from analyze.py since it also counts the traffic to ad and tracking services (2026-11-14): 12% of it. */
+export const ADS_TRAFFIC_REPORT = { ...OLD_TLS_REPORT, ads_traffic_share: 0.123 };
+
 /** Stalkerware that an ad network's list has too. */
 export const THREAT_ADS_REPORT = {
   ...THREAT_REPORT,

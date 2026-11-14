@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  ADS_TRAFFIC_REPORT, ALL_BLOCKED_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -899,6 +899,23 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await open(page, endedWith(PLAIN_REPORT));
     await expect(page.getByTestId("inspect-plain")).toHaveCount(1);
     await expect(page.getByTestId("inspect-old-tls")).toHaveCount(0);
+  });
+
+  test("the share of traffic to ad and tracking services is among the numbers, with what it leaves out", async ({ page }) => {
+    await open(page, endedWith(ADS_TRAFFIC_REPORT));
+    await page.getByTestId("inspect-figures").locator("summary").click();
+    await expect(page.getByTestId("inspect-ads-traffic")).toHaveText("12%");
+    await expect(page.getByTestId("inspect-figures")).toContainText("廣告與追蹤服務的流量比例12%");
+    await expect(page.getByTestId("inspect-ads-traffic-note")).toContainText("比例接近 0 是正常的");
+    // a number, not a check: the state is the lists' alone
+    await expect(page.getByTestId("inspect-check")).toHaveCount(4);
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    // a report from before it was counted says nothing about it
+    await page.unrouteAll();
+    await open(page, endedWith(OLD_TLS_REPORT));
+    await page.getByTestId("inspect-figures").locator("summary").click();
+    await expect(page.getByTestId("inspect-ads-traffic")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-ads-traffic-note")).toHaveCount(0);
   });
 
   test("a report from before connections without encryption were counted says nothing about them", async ({ page }) => {
