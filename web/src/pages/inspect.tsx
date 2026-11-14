@@ -983,6 +983,9 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   const kind = (id: string) => t[`inspect.kind.${id}` as keyof typeof t] ?? id;
   const why = (id: string) => t[`inspect.why.${id}` as keyof typeof t] as string | undefined;
   const percent = (n: number) => `${Math.round(n * 100)}%`;
+  // a kind's name in the numbers, short where its title says what it is in brackets: that goes first in its help
+  const figureName = (id: string) => (t[`inspect.figure.${id}` as keyof typeof t] as string | undefined) ?? kind(id);
+  const figureHelp = (id: string) => join((t[`inspect.figureAbout.${id}` as keyof typeof t] as string | undefined) ?? "", why(id) ?? "") || undefined;
   // a row of the numbers: what it means behind a question mark beside its name, so the list stays a list. A <details>
   // opens without a script, in the downloaded report too
   const figure = (label: string, help: string | undefined, value: string, test?: string) => (
@@ -1348,7 +1351,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         <details class="small" data-testid="inspect-figures">
           <summary>{t["inspect.check.details"]}</summary>
           <dl class="spec spec--figures">
-            {report.checks?.map((c) => figure(kind(c.id), why(c.id), c.count ? fmt(t["inspect.seen"], { n: formatCount(locale, c.count) }) : t["inspect.report.notFound"]))}
+            {report.checks?.map((c) => figure(figureName(c.id), figureHelp(c.id), c.count ? fmt(t["inspect.seen"], { n: formatCount(locale, c.count) }) : t["inspect.report.notFound"]))}
             {figure(t["inspect.report.dns"], t["inspect.report.dnsHelp"], formatCount(locale, report.dns?.total ?? 0))}
             {figure(t["inspect.report.nx"], t["inspect.report.nxHelp"], percent(report.dns?.nx_share ?? 0))}
             {figure(t["inspect.report.ads"], t["inspect.report.adsHelp"], percent(report.dns?.ads_share ?? 0))}

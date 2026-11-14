@@ -876,10 +876,12 @@ test.describe("the report says what it comes to, and when each site was seen", (
   test("connections on an old TLS are counted under the ones without encryption, with what to do, and the state is unchanged", async ({ page }) => {
     await open(page, endedWith(OLD_TLS_REPORT));
     await expect(page.getByTestId("inspect-old-tls")).toHaveAttribute("data-state", "check");
-    await expect(page.getByTestId("inspect-old-tls")).toContainText("有 3 次連線使用舊版的加密（TLS 1.0、1.1）");
+    await expect(page.getByTestId("inspect-old-tls")).toContainText("有 3 次連線使用舊版的加密");
+    await expect(page.getByTestId("inspect-old-tls").locator("summary")).toHaveText("有 3 次連線使用舊版的加密");
     await expect(page.getByTestId("inspect-old-tls-why")).toBeHidden();
     await page.getByTestId("inspect-old-tls").getByText("有 3 次連線使用舊版的加密").click();
     await expect(page.getByTestId("inspect-old-tls-why")).toContainText("可以先更新系統與 App");
+    await expect(page.getByTestId("inspect-old-tls-why")).toContainText("TLS 1.0、1.1 與更舊的 SSL");
     await expect(page.getByTestId("inspect-plain-why")).toBeHidden();
     // in the order they are listed: without encryption first
     await expect(page.locator("[data-testid=inspect-plain] + [data-testid=inspect-old-tls]")).toHaveCount(1);
@@ -935,6 +937,11 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await night.locator("summary").click();
     await expect(night.locator("p")).toContainText("凌晨 1 點到 6 點");
     await expect(page.locator(".figure-help[open]")).toHaveCount(1);
+    // stalkerware goes by its short name here, what it is opening its help
+    const stalkerware = helps.filter({ hasText: "跟蹤軟體" });
+    await expect(stalkerware.locator("summary")).toHaveText("跟蹤軟體");
+    await stalkerware.locator("summary").click();
+    await expect(stalkerware.locator("p")).toHaveText(/^跟蹤軟體是偷偷監看裝置的 App。收錄已知跟蹤軟體/);
     // a list's row says what the list is, as the finding does
     await helps.filter({ hasText: "惡意網站名單" }).locator("summary").click();
     await expect(helps.filter({ hasText: "惡意網站名單" }).locator("p")).toContainText("收錄散布惡意程式");
