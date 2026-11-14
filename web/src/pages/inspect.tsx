@@ -74,6 +74,14 @@ export interface Report {
    * seen with; no site. Absent from reports of inspections that began before it was counted (2026-11-14).
    */
   ads_traffic_share?: number;
+  /**
+   * How the device's connections went, counted since 2026-11-14, absent before: TCP connections made to a port outside the
+   * everyday ones (no port is kept), connections tried to a home or office network, and of the other TCP connections, how
+   * many there were and how many got no answer or were refused.
+   */
+  odd_ports?: number;
+  local?: number;
+  tcp?: { total: number; failed: number };
   /** How many more of each kind the report leaves out (absent from reports made before it listed only the top ones). */
   more?: Record<string, number>;
   /** Older reports only: the names that could not be found. The page no longer shows them. */
@@ -712,6 +720,35 @@ function nightShare(hours: NonNullable<Report["hours"]>) {
  * it too, which is why it is a mark on the hours and not a finding.
  */
 export const UP_HEAVY_BYTES = 20e6;
+/**
+ * TCP connections that got no answer or were refused, listed among the observations from this share of them and this
+ * many on: a few failures happen to every device. Both are a first guess, to be set again from the first week-long reports.
+ */
+export const FAILED_SHARE = 0.2;
+export const FAILED_MIN = 20;
+
+/**
+ * What a report says beside the checks, each in the reports made since it was counted: about privacy and upkeep, and
+ * how the device's connections went. None of it changes what the report comes to. The two first say so when none was
+ * found; the others (`quiet`) say nothing then, and one line says none of them was.
+ */
+export function observations(report: Report, locale: string) {
+  const count = (n: number) => formatCount(locale as Parameters<typeof formatCount>[0], n);
+  const items = [];
+  const counted = (id: "plain" | "oldTls" | "oddPorts" | "local", test: string, n: number | undefined, quiet: boolean) => {
+    if (n !== undefined) items.push({ id, test, found: n > 0, shown: count(n), value: count(n), quiet });
+  };
+  counted("plain", "inspect-plain", report.plain, false);
+  counted("oldTls", "inspect-old-tls", report.old_tls, false);
+  counted("oddPorts", "inspect-odd-ports", report.odd_ports, true);
+  counted("local", "inspect-local", report.local, true);
+  if (report.tcp) {
+    const share = report.tcp.total ? report.tcp.failed / report.tcp.total : 0;
+    const shown = `${Math.round(share * 100)}%`;
+    items.push({ id: "failed" as const, test: "inspect-failed", found: report.tcp.failed >= FAILED_MIN && share >= FAILED_SHARE, shown, value: shown, quiet: true });
+  }
+  return items;
+}
 const upHeavy = (h: { up: number; down: number }) => h.up >= UP_HEAVY_BYTES && h.up > h.down;
 /**
  * Sites seen only within one day are said to have stopped once the device has had at least this many hours of traffic
@@ -1080,9 +1117,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
   // days still to come are left out
   const hourDays = week.days.filter((d) => !week.future(d));
   const coverage = report.coverage ?? { active_hours: 0, total_hours: 0 };
-  // the counts a report has of connections without encryption and on an old TLS; older reports have neither
-  const infos = ([{ id: "plain", test: "inspect-plain", n: report.plain }, { id: "oldTls", test: "inspect-old-tls", n: report.old_tls }] as const)
-    .flatMap(({ id, test, n }) => (n === undefined ? [] : [{ id, test, n }]));
+  const infos = observations(report, locale);
   // against the last moment the report has data for: the report itself does not say when it was made
   const listsOld = !!report.lists_at && (report.last ?? 0) - report.lists_at > LISTS_OLD_SECONDS;
 
@@ -1329,20 +1364,27 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
         </ul>
         {/* about privacy and upkeep, not signs of an intrusion: beside the checks, and they do not change what the report comes to */}
         {/* found: the line opens onto what it means, folded so the card stays a list; none found has nothing to explain */}
-        {infos.map(({ id, test, n }) => n ? (
+        {/* the other observations say nothing until one is found, and then one line says none of them was */}
+        {infos.map(({ id, test, found, shown, quiet }) => found ? (
           <details class="inspect-info" data-testid={test} data-state="check">
             <summary class="inspect-check inspect-check--check">
               <Icon name="error" />
-              <span>{fmt(t[`inspect.${id}.some`], { n: formatCount(locale, n) })}</span>
+              <span>{fmt(t[`inspect.${id}.some`], { n: shown })}</span>
             </summary>
             <p class="muted small" data-testid={`${test}-why`}>{t[`inspect.${id}.why`]}</p>
           </details>
-        ) : (
+        ) : !quiet && (
           <p class="inspect-check inspect-check--ok" data-testid={test} data-state="ok">
             <Icon name="ok" />
-            <span>{t[`inspect.${id}.none`]}</span>
+            <span>{t[`inspect.${id}.none` as keyof typeof t]}</span>
           </p>
         ))}
+        {infos.some((i) => i.quiet) && !infos.some((i) => i.quiet && i.found) && (
+          <p class="inspect-check inspect-check--ok" data-testid="inspect-others" data-state="ok">
+            <Icon name="ok" />
+            <span>{t["inspect.others.none"]}</span>
+          </p>
+        )}
         {report.lists_at && (
           <p class="muted small" data-testid="inspect-lists-at">
             {join(fmt(t["inspect.report.listsAt"], { time: withDay(locale, new Date(report.lists_at * 1000).toISOString()) }), listsOld ? t["inspect.report.listsOld"] : "")}
@@ -1356,7 +1398,7 @@ function ReportView({ report, locale, span, limits = true }: { report: Report; l
             {figure(t["inspect.report.nx"], t["inspect.report.nxHelp"], percent(report.dns?.nx_share ?? 0))}
             {figure(t["inspect.report.ads"], t["inspect.report.adsHelp"], percent(report.dns?.ads_share ?? 0))}
             {report.ads_traffic_share !== undefined && figure(t["inspect.report.adsTraffic"], t["inspect.report.adsTrafficNote"], percent(report.ads_traffic_share), "inspect-ads-traffic")}
-            {infos.map(({ id, test, n }) => figure(t[`inspect.${id}.figure`], t[`inspect.${id}.why`], formatCount(locale, n), `${test}-figure`))}
+            {infos.map(({ id, test, value }) => figure(t[`inspect.${id}.figure`], t[`inspect.${id}.why`], value, `${test}-figure`))}
             {/* the share of a night is only a share of the nights there were: on the first day it says when it started */}
             {figure(t["inspect.report.idle"], t["inspect.report.idleHelp"], coverage.total_hours >= 24 ? percent(nightShare(report.hours ?? [])) : t["inspect.report.idleLater"], "inspect-idle")}
           </dl>
