@@ -1,6 +1,6 @@
 import { type Page, expect, test } from "@playwright/test";
 import {
-  ADS_TRAFFIC_REPORT, ALL_BLOCKED_REPORT, CONNS_QUIET_REPORT, CONNS_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
+  ADS_TRAFFIC_REPORT, ALL_BLOCKED_REPORT, CONNS_QUIET_REPORT, CONNS_REPORT, DNS_QUIET_REPORT, DNS_REPORT, BLOCKED_REPORT, BYPASS_REPORT, CLEAN_PLAIN_REPORT, CLEAN_REPORT, CLEAN_TLS_REPORT, OLD_TLS_REPORT, PLAIN_REPORT, FULL_REPORT, KEY, MANY_REPORT, ONCE_ADS_REPORT, ONCE_LISTS_REPORT, ONCE_REPORT, ONCE_START, ONE_DAY_ADS_REPORT, SPYWARE_REPORT, SPYWARE_TWO_REPORT, THREAT_ADDRESS_REPORT, THREAT_ADS_REPORT, THREAT_APP_REPORT,
   THREAT_APPS_REPORT, THREAT_REPORT, WEEK_ADS_REPORT, WEEK_REPORT, WEEK_START, seal,
 } from "./inspect-fixtures.ts";
 
@@ -980,6 +980,25 @@ test.describe("the report says what it comes to, and when each site was seen", (
     await expect(page.getByTestId("inspect-others")).toHaveCount(0);
     await page.getByTestId("inspect-figures").locator(":scope > summary").click();
     await expect(page.getByTestId("inspect-failed-figure")).toHaveCount(0);
+  });
+
+  test("made-up names and lookups that may carry data are listed from their thresholds on, alone among the others", async ({ page }) => {
+    await open(page, endedWith(DNS_REPORT));
+    await expect(page.getByTestId("inspect-random-nx").locator("summary")).toHaveText("有 42 次查詢像是程式隨機產生的網址");
+    await expect(page.getByTestId("inspect-carry").locator("summary")).toHaveText("有 120 次查詢可能夾帶了資料");
+    await page.getByTestId("inspect-random-nx").locator("summary").click();
+    await expect(page.getByTestId("inspect-random-nx-why")).toContainText("報告不記錄是哪些網址");
+    await expect(page.getByTestId("inspect-others")).toHaveCount(0);
+    await expect(verdict(page)).toHaveAttribute("data-state", "check");
+    // below the thresholds: neither is listed, and the one line says nothing else was found
+    await page.unrouteAll();
+    await open(page, endedWith(DNS_QUIET_REPORT));
+    await expect(page.getByTestId("inspect-random-nx")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-carry")).toHaveCount(0);
+    await expect(page.getByTestId("inspect-others")).toHaveCount(1);
+    await page.getByTestId("inspect-figures").locator(":scope > summary").click();
+    await expect(page.getByTestId("inspect-random-nx-figure")).toHaveText("9");
+    await expect(page.getByTestId("inspect-carry-figure")).toHaveText("19");
   });
 
   test("a report from before connections without encryption were counted says nothing about them", async ({ page }) => {
