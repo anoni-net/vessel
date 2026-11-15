@@ -351,6 +351,10 @@ def usage_counts(data: dict) -> dict[str, int]:
     return counts
 
 
+def mb(n: int) -> str:
+    return f"{n / 1e6:.1f} MB" if n < 1e9 else f"{n / 1e9:.2f} GB"
+
+
 def usage_body(data: dict, now: dict[str, int], before: dict[str, int]) -> str:
     lines = []
     for key, label in USAGE_FLAGS.items():
@@ -362,6 +366,11 @@ def usage_body(data: dict, now: dict[str, int], before: dict[str, int]) -> str:
             if f"{region}:{name}" in now:
                 fresh = "，新出現" if f"{region}:{name}" not in before else ""
                 lines.append(f"- {region} 節點的{label}：{node['counts'][name]} 次（節點 {node['since'][:16]} UTC 啟動以來{fresh}）")
+        # how much those connections moved (node/start.sh, bt-up-bytes and bt-down-bytes); older nodes send none
+        c = node.get("counts", {})
+        if any(f"{region}:{n}" in now for n in NODE_SIGNALS if n.startswith("bt-")) and "bt-down-bytes" in c:
+            lines.append(f"- {region} 節點認出是 BitTorrent 的連線傳了：上傳 {mb(c.get('bt-up-bytes', 0))}、"
+                         f"下載 {mb(c['bt-down-bytes'])}（同一段期間，加密的連線認不出來）")
     for region, value in sorted(data.get("failing", {}).items()):
         if f"{region}:failing" in now:
             lines.append(f"- {region} 節點：今天同時有 {value} 台裝置一直嘗試連線卻連不上（節點收得到，連線沒有建立）")

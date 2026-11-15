@@ -564,6 +564,20 @@ def report(conn: psycopg.Connection, days: int) -> None:
         (policy.personal_quota(conn),),
     )
     print(f"accounts at the monthly quota: {full}")
+    # BitTorrent on each open node since its container started (node/start.sh, node_totals): packets that look like it,
+    # and the bytes of the connections they were in; whole-node totals and lower bounds, since encryption hides some
+    bt = {}
+    for region, name, value in conn.execute(
+        "SELECT t.region_id, t.name, t.value FROM node_totals t JOIN regions r ON r.id = t.region_id "
+        "WHERE r.is_open AND t.name LIKE 'bt-%%' ORDER BY 1"
+    ):
+        bt.setdefault(region, {})[name] = value
+    if bt:
+        print("BitTorrent since each node started: " + "; ".join(
+            f"{region} dht {c.get('bt-dht', 0)}, handshake {c.get('bt-handshake', 0)}, tracker {c.get('bt-tracker', 0)}"
+            + (f", up {size(c['bt-up-bytes'])}, down {size(c['bt-down-bytes'])}"
+               if "bt-up-bytes" in c and "bt-down-bytes" in c else "")
+            for region, c in bt.items()))
     print(f"daily, UTC, last {days} days (active: devices with a handshake that day; failing: the most devices at once"
           " whose handshakes reached the node without a connection being made):")
     print(f"  {'day':10}  {'region':6}  {'active':>6}  {'traffic':>9}  {'expired':>7}  {'failing':>7}")
