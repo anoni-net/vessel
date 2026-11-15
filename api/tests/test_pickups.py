@@ -171,3 +171,16 @@ def test_the_setting_takes_true_or_false(db, capsys):
         assert "true or false" in str(e)
     else:
         raise AssertionError("accepted yes")
+
+
+def test_health_counts_the_waiting_requests_only(client, db):
+    open_requests(db)
+    assert client.get("/internal/health").json()["pickup_waiting"] == 0
+    ask(client)
+    ask(client)
+    ask(client)
+    admin.main(["pickups", "approve", str(request_id(db))])
+    # one ran out
+    db.execute("UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = "
+               "(SELECT min(id) FROM invites WHERE pickup_state = 'waiting')")
+    assert client.get("/internal/health").json()["pickup_waiting"] == 1
