@@ -705,6 +705,18 @@ function Opened({ state, local, setKept, name, partial, aside }: {
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
+const WORDS = typeof Intl.Segmenter === "function" ? new Intl.Segmenter("zh", { granularity: "word" }) : null;
+/**
+ * A short line that may take two on a phone, broken between words rather than anywhere, and evened out (styles.css):
+ * Chinese may break after any character, so a line could leave `鐘）` alone below, and evening it out alone would break
+ * `連線` in two. What is in brackets stays on one line. A browser without Intl.Segmenter breaks it as any other line.
+ */
+const phrased = (words: string) => !WORDS ? words : (
+  <span class="phrased">
+    {words.split(/([（(][^）)]*[）)])/).flatMap((part, i) => i % 2 ? [<span class="phrased__aside">{part}</span>]
+      : [...WORDS.segment(part)].flatMap((w, j) => (j ? [<wbr />, w.segment] : [w.segment])))}
+  </span>
+);
 
 /** An hour as the report writes it (UTC), as a moment; everything drawn from it is on the reader's clock. */
 const atHour = (hour: string) => new Date(`${hour}:00:00Z`);
@@ -1194,10 +1206,10 @@ export function ReportView({ report, locale, span, limits = true, sample, notes 
           <div class="inspect-cover" data-testid="inspect-cover">
             <h3>{t["inspect.cover.title"]}</h3>
             <p class="small">
-              {fmt(t[span.day ? "inspect.cover.running" : "inspect.cover.done"], {
+              {phrased(fmt(t[span.day ? "inspect.cover.running" : "inspect.cover.done"], {
                 day: span.day ?? 0, days: span.days, hours: formatCount(locale, coverage.active_hours),
                 from: dayLabel(week.days[0]), to: dayLabel(week.days.at(-1)!),
-              })}
+              }))}
             </p>
             <div class="cover" aria-hidden="true">
               {week.days.map((day) => {
@@ -1337,7 +1349,7 @@ export function ReportView({ report, locale, span, limits = true, sample, notes 
       <div class="card card--flat stack inspect-hours">
         {mark}
         <h2>{t["inspect.report.hours"]}</h2>
-        <p class="muted small">{fmt(t["inspect.report.coverage"], { active: coverage.active_hours, total: coverage.total_hours })}</p>
+        <p class="muted small">{phrased(fmt(t["inspect.report.coverage"], { active: coverage.active_hours, total: coverage.total_hours }))}</p>
         <div class="tiles" aria-hidden="true" data-testid="inspect-tiles">
           {hourDays.map((day) => !cells.has(day) ? (
             <div class="tiles__row tiles__row--off" data-day={day}>
@@ -1404,7 +1416,7 @@ export function ReportView({ report, locale, span, limits = true, sample, notes 
             return (
               <li class={`inspect-check inspect-check--${sev}`} data-testid="inspect-check" data-state={sev}>
                 <Icon name={sev === "ok" ? "ok" : sev === "threat" ? "cancel" : "warning"} />
-                <span>{words}</span>
+                <span>{phrased(words)}</span>
               </li>
             );
           })}
@@ -1416,20 +1428,20 @@ export function ReportView({ report, locale, span, limits = true, sample, notes 
           <details class="inspect-info" data-testid={test} data-state="check">
             <summary class="inspect-check inspect-check--check">
               <Icon name="error" />
-              <span>{fmt(t[`inspect.${id}.some`], vars ?? { n: shown })}</span>
+              <span>{phrased(fmt(t[`inspect.${id}.some`], vars ?? { n: shown }))}</span>
             </summary>
             <p class="muted small" data-testid={`${test}-why`}>{t[`inspect.${id}.why`]}</p>
           </details>
         ) : !quiet && (
           <p class="inspect-check inspect-check--ok" data-testid={test} data-state="ok">
             <Icon name="ok" />
-            <span>{t[`inspect.${id}.none` as keyof typeof t]}</span>
+            <span>{phrased(t[`inspect.${id}.none` as keyof typeof t])}</span>
           </p>
         ))}
         {infos.some((i) => i.quiet) && !infos.some((i) => i.quiet && i.found) && (
           <p class="inspect-check inspect-check--ok" data-testid="inspect-others" data-state="ok">
             <Icon name="ok" />
-            <span>{t["inspect.others.none"]}</span>
+            <span>{phrased(t["inspect.others.none"])}</span>
           </p>
         )}
         {report.lists_at && (

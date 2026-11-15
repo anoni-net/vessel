@@ -56,7 +56,8 @@ async function downloaded(page: Page) {
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("inspect-download").click()]);
   const chunks: Buffer[] = [];
   for await (const c of await download.createReadStream()) chunks.push(c as Buffer);
-  return { name: download.suggestedFilename(), html: Buffer.concat(chunks).toString() };
+  // a short line breaks between words, at a <wbr> (phrased() in inspect.tsx): the file is read as the words it says
+  return { name: download.suggestedFilename(), html: Buffer.concat(chunks).toString().replaceAll("<wbr>", "") };
 }
 
 const goto = (page: Page) => page.goto(`/devices/inspect/?d=${ID}`);
