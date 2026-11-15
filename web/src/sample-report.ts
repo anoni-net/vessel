@@ -27,14 +27,18 @@ const BYTES = [0, 3e5, 4e6, 2.2e7, 6e7, 1.5e8];
 
 type Marks = Map<number, "x" | "!">;
 
-function hours(marks: Marks, heavy: Set<number>, nights: Set<number>) {
+/** Hours that sent more than they received, to the bytes sent: a backup, a video sent, or the stalkerware's uploads. */
+type Heavy = Map<number, number>;
+
+function hours(marks: Marks, heavy: Heavy, nights: Set<number>) {
   return WEEK.flatMap((row, day) => [...row].map((level, hour) => {
     const ms = at(day, hour);
     let total = BYTES[Number(level)];
     // the stalkerware's hours: a little traffic at night, when the phone should be asleep
     if (nights.has(ms) && !total) total = 2e6;
-    const up = heavy.has(ms) ? 6.4e7 : Math.round(total * 0.14);
-    return { hour: hourOf(ms), up, down: heavy.has(ms) ? 9e6 : total - Math.round(total * 0.14), mark: marks.get(ms) ?? null };
+    const sent = heavy.get(ms);
+    const up = sent ?? Math.round(total * 0.14);
+    return { hour: hourOf(ms), up, down: sent ? 9e6 : total - Math.round(total * 0.14), mark: marks.get(ms) ?? null };
   })).filter((h) => h.up + h.down > 0);
 }
 
@@ -50,13 +54,17 @@ const OBSERVED = {
   random_nx: 0, carry: 2, dyndns: 0, hoster: 0,
 };
 
-/** A phone like most: two ad redirects one evening, both on the ad list too, and nothing after. */
+/**
+ * A phone like most: two ad redirects one evening, both on the ad list too, and nothing after. Three hours sent more than
+ * they received, as a real week has: the photos backed up while charging on two nights, and a video sent one afternoon.
+ */
 export function sampleCheck(): Report {
   const evening = [at(2, 21), at(2, 22)];
   const marks: Marks = new Map(evening.map((ms) => [ms, "!"]));
+  const heavy: Heavy = new Map([[at(0, 1), 4.8e7], [at(4, 13), 3.1e7], [at(6, 0), 7.2e7]]);
   const report: Report = {
     first: secondsOf(0, 0, 4), last: secondsOf(6, 23, 52),
-    hours: hours(marks, new Set(), new Set()),
+    hours: hours(marks, heavy, new Set()),
     coverage: { active_hours: 0, total_hours: 168 },
     dns: { total: 18_420, nx_share: 0.031, ads_share: 0.214 },
     lists_at: LISTS_AT,
@@ -78,7 +86,7 @@ export function sampleCheck(): Report {
 /** A phone with stalkerware: its server reached every night, at a steady interval, with uploads at night. */
 export function sampleThreat(): Report {
   const nights = [0, 1, 2, 3, 4, 5, 6].flatMap((day) => [at(day, 2), at(day, 3)]).filter((_, i) => i % 3 !== 2);
-  const heavy = new Set([at(2, 3), at(4, 2)]);
+  const heavy: Heavy = new Map([[at(2, 3), 6.4e7], [at(4, 2), 6.4e7]]);
   const marks: Marks = new Map(nights.map((ms) => [ms, "x"]));
   const report: Report = {
     first: secondsOf(0, 0, 4), last: secondsOf(6, 23, 52),

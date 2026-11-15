@@ -41,6 +41,9 @@ test("from the home page to a sample report anyone can read, every card of it ma
   await expect(page.getByTestId("inspect-timers").locator("summary")).toHaveText("有 1 個目的地定時連線（約每 30 分鐘）");
   // the week's days and hours are drawn
   await expect(page.locator(".inspect-report .tiles__row[data-day]")).toHaveCount(7);
+  // as a real week has, a few hours that sent more than they received: photos backed up at night, a video sent
+  await expect(page.getByTestId("sample-case-body")).toContainText("上傳偏多的小時是夜裡充電時備份照片");
+  await expect(page.getByTestId("inspect-tiles").locator(".tile--up")).toHaveCount(3);
   // the days' bars have their heights, from classes: the policy (style-src 'self') would drop a style attribute in the
   // prerendered page, and says so in the console
   for (const fill of await page.locator(".cover__fill").all()) expect(await fill.evaluate((e) => e.getBoundingClientRect().height)).toBeGreaterThan(0);

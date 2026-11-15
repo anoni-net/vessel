@@ -906,7 +906,7 @@
   "sample.cases": "Sample case",
   "sample.case.check": "A phone like most",
   "sample.case.threat": "Stalkerware found",
-  "sample.case.check.body": "Most reports look like this: a few ad redirects met while browsing, marked for a check, with a note that they look like ads.",
+  "sample.case.check.body": "Most reports look like this: a few ad redirects met while browsing, marked for a check, with a note that they look like ads. The few hours that sent more than they received are photos backed up overnight while charging and a video sent one afternoon: nothing to worry about when they match what you did.",
   "sample.case.threat.body": "A phone with stalkerware: every night it reaches the same server and uploads data, so the report marks a known threat and lists what to do next.",
   "sample.note.verdict.title": "The conclusion first",
   "sample.note.verdict.body": "At the top of the report is where it stands: nothing found, needs a check, or a known threat, with a sentence on why and what to do next. Only connections to sites on the lists decide it; the other observations below do not change it. The seven squares beside it are the seven days of the inspection, showing on which days the device was connected to Vessel.",
