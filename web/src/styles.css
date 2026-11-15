@@ -1310,6 +1310,11 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
 .inspect-checks { display: grid; gap: 8px; }
 .inspect-check { display: flex; align-items: flex-start; gap: 8px; }
 .inspect-check .icon { flex: none; margin-top: calc((1lh - 1.25em) / 2); }
+/* a short line broken between words (phrased() in inspect.tsx) and evened out, so a phone does not leave one character
+   on the second line: pretty does not do it for Chinese in Chromium, where every character is a word of its own. A block,
+   as balance evens out the lines of a block and the line is all there is in its paragraph */
+.phrased { display: block; word-break: keep-all; overflow-wrap: anywhere; text-wrap: balance; }
+.phrased__aside { white-space: nowrap; }
 .inspect-check--ok .icon { color: var(--ink); }
 .inspect-check--check .icon { color: var(--caution); }
 .inspect-check--threat .icon { color: var(--danger); }

@@ -39,6 +39,8 @@ test("from the home page to a sample report anyone can read, every card of it ma
   await expect(page.getByTestId("inspect-plain").locator("summary")).toHaveText("有 4 次網頁連線沒有加密");
   await expect(page.getByTestId("inspect-local")).toHaveCount(1);
   await expect(page.getByTestId("inspect-timers").locator("summary")).toHaveText("有 1 個目的地定時連線（約每 30 分鐘）");
+  // on a phone the line breaks between words, and what is in brackets goes down whole: never `鐘）` alone on a line
+  await expect(page.getByTestId("inspect-timers").locator(".phrased__aside")).toHaveText("（約每 30 分鐘）");
   // the week's days and hours are drawn
   await expect(page.locator(".inspect-report .tiles__row[data-day]")).toHaveCount(7);
   // as a real week has, a few hours that sent more than they received: photos backed up at night, a video sent
