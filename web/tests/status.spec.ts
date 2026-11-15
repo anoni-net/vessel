@@ -83,7 +83,8 @@ test("a wide screen shows the cities side by side and the notices in columns, a 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-// the last day: jp could not open mvdis for 20 hours and did not check twice; ptt failed everywhere, so it is left out
+// the last day: jp could not open mvdis for 20 hours and did not check twice; tw has not checked bot this hour yet;
+// ptt failed everywhere, so it is left out
 const slots = (fill: string | null, last: Record<number, string | null> = {}) =>
   Array.from({ length: 24 }, (_, i) => (i in last ? last[i] : fill));
 const HISTORY = {
@@ -91,7 +92,7 @@ const HISTORY = {
   until: "2026-11-08T05:30:00Z",
   sites: {
     mvdis: { jp: slots("blocked", { 0: "ok", 1: "ok", 2: null, 3: "ok", 10: null }), tw: slots("ok") },
-    bot: { jp: slots("challenge"), tw: slots("ok") },
+    bot: { jp: slots("challenge"), tw: slots("ok", { 23: null }) },
     ptt: { jp: slots("blocked"), tw: slots("blocked") },
   },
 };
@@ -118,6 +119,8 @@ test("the last day of the sites a node had trouble with, by the region they serv
   await expect(mvdis.locator(".reach-strip").first().locator("rect")).toHaveCount(24);
   await expect(mvdis.locator(".reach-strip").first().locator("rect title").last()).toHaveText("這一小時：打不開");
   await expect(mvdis.locator(".reach-strip").first().locator("rect title").first()).toHaveText("23 小時前：打得開");
+  await expect(mvdis.locator(".reach-strip").first().locator("rect title").nth(2)).toHaveText("21 小時前：沒有檢查");
+  await expect(page.getByTestId("reach-site-bot").locator(".reach-strip").last().locator("rect title").last()).toHaveText("這一小時：還沒檢查");
   await expect(page.getByTestId("status-reach-legend")).toContainText("打得開要通過驗證打不開沒有檢查");
   await expect(page.getByTestId("status-reach-legend")).toContainText("左邊是 24 小時前，右邊是現在");
   await expect(page.getByTestId("reach-site-ptt")).toHaveCount(0);

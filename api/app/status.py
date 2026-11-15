@@ -2,6 +2,8 @@
 maintainers wrote with `admin notices`, and which common sites each node can open (jobs.poll_reach). Public, no
 session; nothing about the visitor is involved."""
 
+from datetime import UTC, timedelta
+
 from fastapi import APIRouter, Response
 
 from app.auth import Conn
@@ -16,7 +18,7 @@ WORKER_STALE_MINUTES = 5
 NOTICE_DAYS = 30
 # the nodes check every hour; a check older than this is from a node whose timer stopped, and is left out
 REACH_STALE_HOURS = 3
-# the status page shows each site that had trouble on some node in the last day, an hour to a slot
+# the status page shows each site that had trouble on some node in the last day, an hour of the clock to a slot
 HISTORY_HOURS = 24
 
 
@@ -55,20 +57,25 @@ def status(conn: Conn, response: Response) -> dict:
 
 def history(conn) -> dict:
     """Each site that some open node could not open, or had to pass a check for, in the last HISTORY_HOURS: per region,
-    one state a slot from the oldest hour to the current one, null where the node did not check (a node checks once an
-    hour, at a minute of its own, so a slot can also hold none). The latest check of a slot wins."""
+    one state a slot from the oldest hour to the current one, null where the node did not check. A slot is an hour of
+    the clock in UTC: each node's timer checks once in every such hour, at a minute between :00 and :20 that changes
+    from run to run, so slots measured back from now would miss a check here and hold two there, and shift with every
+    load. The current hour stays null until the node has checked and the worker has read it. The latest check of a
+    slot wins."""
     now = conn.execute("SELECT now()").fetchone()[0]
+    hour = now.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    start = hour - timedelta(hours=HISTORY_HOURS - 1)
     rows = conn.execute(
         "SELECT h.region_id, h.site, h.state, h.checked_at FROM reach_history h JOIN regions g ON g.id = h.region_id "
-        "WHERE g.is_open AND h.checked_at > now() - make_interval(hours => %s) ORDER BY h.checked_at",
-        (HISTORY_HOURS,),
+        "WHERE g.is_open AND h.checked_at >= %s ORDER BY h.checked_at",
+        (start,),
     ).fetchall()
     troubled = {site for _, site, state, _ in rows if state != "ok"}
     sites: dict[str, dict[str, list]] = {}
     for region, site, state, checked_at in rows:
         if site not in troubled:
             continue
-        slot = HISTORY_HOURS - 1 - int((now - checked_at).total_seconds() // 3600)
+        slot = int((checked_at - start).total_seconds() // 3600)
         if 0 <= slot < HISTORY_HOURS:
             sites.setdefault(site, {}).setdefault(region, [None] * HISTORY_HOURS)[slot] = state
     return {"hours": HISTORY_HOURS, "until": now.isoformat(), "sites": sites}

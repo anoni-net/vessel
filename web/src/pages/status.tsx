@@ -24,7 +24,8 @@ function cell(s: ReachState | null, x: number, w: number, h: number) {
     fill: s === "challenge" ? `url(#${HATCH})` : undefined };
 }
 
-/** One node's last day with a site: a slot an hour, oldest on the left, each named in a title for a pointer. */
+/** One node's last day with a site: a slot an hour of the clock, oldest on the left, each named in a title for a pointer.
+ *  The current hour is empty until the node has checked in it, which is not yet rather than not at all. */
 function Strip({ slots, label, ago }: { slots: (ReachState | null)[]; label: string; ago: (i: number) => string }) {
   const { t } = useCtx();
   const w = 10;
@@ -32,7 +33,7 @@ function Strip({ slots, label, ago }: { slots: (ReachState | null)[]; label: str
     <svg class="reach-strip" viewBox={`0 0 ${slots.length * w} 14`} preserveAspectRatio="none" role="img" aria-label={label}>
       {slots.map((s, i) => (
         <rect {...cell(s, i * w + 1, w - 2, 12)}>
-          <title>{`${ago(slots.length - 1 - i)}${t["status.reach.colon"]}${t[`status.reach.state.${s ?? "none"}`]}`}</title>
+          <title>{`${ago(slots.length - 1 - i)}${t["status.reach.colon"]}${t[`status.reach.state.${s ?? (i === slots.length - 1 ? "pending" : "none")}`]}`}</title>
         </rect>
       ))}
     </svg>
