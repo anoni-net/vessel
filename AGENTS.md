@@ -41,7 +41,7 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 後端取「今天」有兩種寫法，Python 的 `date.today()` 與資料庫的 `current_date`，兩邊要在同一個時區才會是同一天。正式環境的容器與資料庫都是 UTC，測試在 `api/tests/conftest.py` 也把兩邊固定成 UTC。部署時不要替後端的容器或資料庫另外設定時區。
 
 ```bash
-docker run -d --rm --name vessel-pg-test -e POSTGRES_PASSWORD=t -e POSTGRES_DB=vessel -p 127.0.0.1:55432:5432 postgres:18.6-alpine3.24
+docker run -d --rm --name vessel-pg-test -e POSTGRES_PASSWORD=t -e POSTGRES_DB=vessel -p 127.0.0.1:55432:5432 postgres:18.7-alpine3.24
 VESSEL_TEST_DATABASE_URL=postgresql://postgres:t@127.0.0.1:55432/vessel uv run pytest -q
 ```
 
