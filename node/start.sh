@@ -44,17 +44,33 @@ iptables -t nat -A POSTROUTING -s "$SUBNET" -o eth0 -j MASQUERADE
 # packets look like BitTorrent, so we can tell whether blocking is needed. Nothing is counted per device or
 # address, and nothing is dropped: every rule returns. Only the first packets of each connection are looked at,
 # so the jump sits before the ESTABLISHED rule above. `awgctl p2p` prints the counts.
-#   bt-handshake  the peer handshake, when the client does not encrypt it
+#   bt-handshake  the peer handshake, when the client does not encrypt it, over TCP or uTP (BitTorrent over UDP)
 #   bt-dht        a DHT query (bencoded "d1:ad2:id20:")
 #   bt-tracker    a UDP tracker's connect request (its fixed protocol id) or an HTTP tracker announce
+# A connection one of them matches is marked (P2P_MARK, conntrack's mark), and every later packet of it, both ways,
+# adds its bytes to bt-up-bytes (from the devices) or bt-down-bytes (to them): how much BitTorrent moved, for the
+# whole node too. Peers that encrypt their handshake are not recognised, so these are lower bounds as well.
+P2P_MARK=0x10000
 iptables -N VESSEL-NEW
 iptables -A VESSEL-NEW -m comment --comment new-connections -j RETURN
 iptables -N VESSEL-P2P
-iptables -A VESSEL-P2P -p tcp -m string --algo bm --to 100 --string "BitTorrent protocol" -m comment --comment bt-handshake -j RETURN
-iptables -A VESSEL-P2P -p udp -m string --algo bm --to 100 --string "d1:ad2:id20:" -m comment --comment bt-dht -j RETURN
+p2p() { # name, match...: mark the connection, then count the packet under the name
+  name=$1
+  shift
+  iptables -A VESSEL-P2P "$@" -j CONNMARK --set-xmark $P2P_MARK/$P2P_MARK
+  iptables -A VESSEL-P2P "$@" -m comment --comment "$name" -j RETURN
+}
+p2p bt-handshake -p tcp -m string --algo bm --to 100 --string "BitTorrent protocol"
+p2p bt-handshake -p udp -m string --algo bm --to 100 --string "BitTorrent protocol"
+p2p bt-dht -p udp -m string --algo bm --to 100 --string "d1:ad2:id20:"
 # UDP payload starts after the IP header (its length from the first byte) and the 8-byte UDP header
-iptables -A VESSEL-P2P -p udp -m u32 --u32 "0>>22&0x3C@8=0x417&&0>>22&0x3C@12=0x27101980" -m comment --comment bt-tracker -j RETURN
-iptables -A VESSEL-P2P -p tcp -m string --algo bm --to 400 --string "info_hash=" -m comment --comment bt-tracker -j RETURN
+p2p bt-tracker -p udp -m u32 --u32 "0>>22&0x3C@8=0x417&&0>>22&0x3C@12=0x27101980"
+p2p bt-tracker -p tcp -m string --algo bm --to 400 --string "info_hash="
+iptables -N VESSEL-P2P-BYTES
+iptables -A VESSEL-P2P-BYTES -i awg0 -m comment --comment bt-up-bytes -j RETURN
+iptables -A VESSEL-P2P-BYTES -o awg0 -m comment --comment bt-down-bytes -j RETURN
+# inserted first, so it ends up after the VESSEL-P2P jump: the packet that marks a connection is counted too
+iptables -I FORWARD 1 -m connmark --mark $P2P_MARK/$P2P_MARK -j VESSEL-P2P-BYTES
 iptables -I FORWARD 1 -i awg0 -m connbytes --connbytes 0:4 --connbytes-dir original --connbytes-mode packets -j VESSEL-P2P
 # for scale: every new connection from the tunnel
 iptables -I FORWARD 1 -i awg0 -m conntrack --ctstate NEW -j VESSEL-NEW

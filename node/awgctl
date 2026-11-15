@@ -15,8 +15,9 @@
 #   awgctl show <name>                          print a client config created by `add`
 #   awgctl usage --json                         transfer and blocked-lookup counters, when the interface came up
 #   awgctl apply                                rebuild awg0.conf and sync it to the running interface
-#   awgctl p2p                                  whole-node counts of BitTorrent-like packets, and of connections refused
-#                                               over the per-device limit, since the container started
+#   awgctl p2p                                  whole-node counts of BitTorrent-like packets and the bytes of those
+#                                               connections, and of connections refused over the per-device limit,
+#                                               since the container started
 #   awgctl inspect on <name> <until> <code>     copy a device's packets to the inspection stream until <until> (epoch
 #                                               seconds); the node stops by itself at that time (toomore/anoni-net-ws#480).
 #                                               <code> is the confirmation the device itself made on the confirmation
@@ -96,8 +97,9 @@ throttle_clear() { # ipv4
 # container started, nothing per device. A chain a node does not have yet is left out.
 node_totals() {
   local chain
-  for chain in VESSEL-NEW VESSEL-P2P VESSEL-LIMIT; do docker exec $C iptables -nvxL $chain 2>/dev/null || true; done |
-    awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += $1 } END { for (k in n) print k "\t" n[k] }' | sort
+  # packets for each name, bytes for the names that end in -bytes (VESSEL-P2P-BYTES)
+  for chain in VESSEL-NEW VESSEL-P2P VESSEL-P2P-BYTES VESSEL-LIMIT; do docker exec $C iptables -nvxL $chain 2>/dev/null || true; done |
+    awk '$1 ~ /^[0-9]+$/ { for (i = 1; i < NF; i++) if ($i == "/*") n[$(i + 1)] += ($(i + 1) ~ /-bytes$/ ? $2 : $1) } END { for (k in n) print k "\t" n[k] }' | sort
 }
 
 throttle_list() {
@@ -499,7 +501,7 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
     apply
     ;;
   p2p)
-    # VESSEL-NEW, VESSEL-P2P and VESSEL-LIMIT in node/start.sh: totals for the node, nothing per device
+    # VESSEL-NEW, VESSEL-P2P, VESSEL-P2P-BYTES and VESSEL-LIMIT in node/start.sh: totals for the node, nothing per device
     echo "since $(docker inspect -f '{{.State.StartedAt}}' $C)"
     node_totals
     ;;

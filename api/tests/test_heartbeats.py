@@ -3,7 +3,7 @@ from pathlib import Path
 
 from conftest import needs_db
 
-from app import worker
+from app import admin, worker
 
 pytestmark = needs_db
 
@@ -315,3 +315,29 @@ def test_a_failed_pickup_notice_is_tried_again(tmp_path, monkeypatch):
     monkeypatch.setattr(health_warn, "notify", fail)
     health_warn.watch_pickups({"pickup_waiting": 1})
     assert not (tmp_path / "pickup.state").exists()
+
+
+def test_the_bittorrent_notice_says_how_much_moved(tmp_path, monkeypatch):
+    sent = []
+    monkeypatch.setattr(health_warn, "USAGE_STATE", tmp_path / "usage.state")
+    monkeypatch.setattr(health_warn, "notify", lambda title, body, priority, tags: sent.append(body))
+    flags = {"upload": 0, "pace": 0, "quota": 0}
+    node = {"since": "2026-11-09T01:55:17.5Z", "counts": {"bt-dht": 526, "bt-up-bytes": 3_400_000, "bt-down-bytes": 1_250_000_000}}
+    health_warn.watch_usage({"usage_flags": flags, "node_totals": {"tw": node}})
+    assert "- tw 節點認出是 BitTorrent 的連線傳了：上傳 3.4 MB、下載 1.25 GB（同一段期間，加密的連線認不出來）" in sent[0]
+    # a node from before the bytes: the count alone
+    old = {"since": "2026-11-09T01:54:16.7Z", "counts": {"bt-dht": 32}}
+    health_warn.watch_usage({"usage_flags": flags, "node_totals": {"tw": node, "jp": old}})
+    assert "jp 節點的BitTorrent DHT 查詢的封包：32 次" in sent[1] and "jp 節點認出" not in sent[1]
+
+
+def test_report_lists_bittorrent_on_each_open_node(signed_in, node, db, capsys):
+    db.execute("UPDATE regions SET is_open = true WHERE id IN ('sg', 'jp')")
+    db.execute("INSERT INTO node_totals (region_id, name, value, since) VALUES "
+               "('sg', 'bt-dht', 526, '2026-11-09'), ('sg', 'bt-up-bytes', 3400000, '2026-11-09'), "
+               "('sg', 'bt-down-bytes', 1250000000, '2026-11-09'), ('sg', 'new-connections', 900, '2026-11-09'), "
+               "('jp', 'bt-dht', 32, '2026-11-09')")
+    admin.report(db, 1)
+    line = next(l for l in capsys.readouterr().out.splitlines() if l.startswith("BitTorrent"))
+    assert line == ("BitTorrent since each node started: jp dht 32, handshake 0, tracker 0; "
+                    "sg dht 526, handshake 0, tracker 0, up 3.4 MB, down 1.2 GB")
