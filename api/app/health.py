@@ -148,4 +148,8 @@ def internal_health(conn: Conn) -> dict:
         ).fetchall()),
         # those counts over the last 24 hours, next to their usual level (probe_levels)
         "probe": probe_levels(conn),
+        # pickup requests waiting for a maintainer (app/pickups.py), a count only: what a request says stays on the host
+        "pickup_waiting": conn.execute(
+            "SELECT count(*) FROM invites WHERE pickup_state = 'waiting' AND redeemed_at IS NULL AND expires_at > now()"
+        ).fetchone()[0],
     }

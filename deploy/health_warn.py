@@ -21,6 +21,9 @@ VESSEL_DNSBL_STATE。節點不記錄連線的目的地，有裝置寄垃圾信�
 連不上的裝置達到 FAILING_ALERT 台，或比上次更多時推播。都只有總數，
 沒有帳號或裝置，上一次的結果記在 VESSEL_USAGE_STATE。
 
+有人送出取件號碼的申請時，等待審核的數量變多就推播，只有數量，申請的內容在 m6 上用 admin pickups 看。
+上一次的數量記在 VESSEL_PICKUP_STATE。
+
 各節點每小時統計打到 AWG 埠、不是裝置送來的封包（node/host/vessel-probe-watch.sh），worker 收回後端。
 某個節點近 24 小時的數字達到 PROBE_SIGNALS 的下限，而且是前 7 天平均的 PROBE_TIMES 倍以上時推播，
 回到平常時再推一次，上一次的結果記在 VESSEL_PROBE_STATE。節點超過 3 小時沒有新的一筆時算進異常。
@@ -38,6 +41,7 @@ VESSEL_DNSBL_STATE。節點不記錄連線的目的地，有裝置寄垃圾信�
     VESSEL_DNSBL_STATE     預設 ~/.cache/vessel-dnsbl.state
     VESSEL_USAGE_STATE     預設 ~/.cache/vessel-usage.state
     VESSEL_PROBE_STATE     預設 ~/.cache/vessel-probe.state
+    VESSEL_PICKUP_STATE    預設 ~/.cache/vessel-pickup.state
     --force                不管狀態有沒有變都推播一次，用來測試通知
     --dnsbl                只查一次黑名單並印出每一筆的結果，不推播也不更新狀態，用來確認名單可以查詢
 """
@@ -59,6 +63,7 @@ REACH_STATE = Path(os.environ.get("VESSEL_REACH_STATE", Path.home() / ".cache" /
 DNSBL_STATE = Path(os.environ.get("VESSEL_DNSBL_STATE", Path.home() / ".cache" / "vessel-dnsbl.state"))
 USAGE_STATE = Path(os.environ.get("VESSEL_USAGE_STATE", Path.home() / ".cache" / "vessel-usage.state"))
 PROBE_STATE = Path(os.environ.get("VESSEL_PROBE_STATE", Path.home() / ".cache" / "vessel-probe.state"))
+PICKUP_STATE = Path(os.environ.get("VESSEL_PICKUP_STATE", Path.home() / ".cache" / "vessel-pickup.state"))
 # /internal/health probe: what reached a node's port from addresses that are not a device's, over the last 24 hours.
 # Each count's label and the least worth a notice. A day's sources add up each hour's, so one removed device whose
 # app keeps trying is up to 24 handshake sources a day, and with the 4 to 9 packets a client sends before each
@@ -216,6 +221,7 @@ def main() -> int:
         watch_dnsbl(data)
         watch_usage(data)
         watch_probe(data)
+        watch_pickups(data)
     state, body = check(data)
     previous = STATE.read_text().strip() if STATE.exists() else "ok"
     if state == previous and not force:
@@ -439,6 +445,29 @@ def watch_probe(data: dict) -> None:
     PROBE_STATE.parent.mkdir(parents=True, exist_ok=True)
     PROBE_STATE.write_text("".join(f"{k}\n" for k in sorted(now)))
     print(f"vessel probe: {len(before)} → {len(now)} 項，已推播")
+
+
+def watch_pickups(data: dict) -> None:
+    """Notify when more pickup requests are waiting than last time, so none waits unseen until it runs out. Fewer (decided
+    or run out) are only remembered. A failed notice leaves the state as it was, to try again."""
+    if "pickup_waiting" not in data:
+        return  # a backend from before the count
+    now = int(data["pickup_waiting"])
+    text = PICKUP_STATE.read_text().strip() if PICKUP_STATE.exists() else ""
+    before = int(text) if text.isdigit() else 0
+    if now > before:
+        try:
+            notify("Vessel 有取件號碼等待審核",
+                   f"等待審核的申請：{now} 筆（上次 {before} 筆）\n\n只有數量。申請的用途與說明在 m6 上用 "
+                   "python -m app.admin pickups 查看，approve 或 decline 加上編號審核，等待超過 30 天會自動刪除。",
+                   "default", "inbox_tray")
+        except Exception as err:
+            print(f"vessel pickups: 推播失敗：{err}", file=sys.stderr)
+            return
+        print(f"vessel pickups: {before} → {now} 筆等待審核，已推播")
+    if now != before or not PICKUP_STATE.exists():
+        PICKUP_STATE.parent.mkdir(parents=True, exist_ok=True)
+        PICKUP_STATE.write_text(f"{now}\n")
 
 
 if __name__ == "__main__":

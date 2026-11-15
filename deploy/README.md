@@ -74,6 +74,8 @@ worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小
 
 節點打不開的網站另外比對，跟服務狀態頁一樣，只算某個節點打不開、其他節點打得開的網站。有網站新打不開或恢復時，推一則一般優先的通知，列出變化的網站。上一次的清單記在 `VESSEL_REACH_STATE`（預設 `~/.cache/vessel-reach.state`），第一次執行只記下清單，不推播。
 
+取件號碼（`settings pickup_open`）有新的申請時，等待審核的數量比上一次多就推一則一般優先的通知。通知只有數量，申請的用途與說明在 m6 上用 `admin pickups` 查看後審核，等待超過 30 天的申請會自動刪除。上一次的數量記在 `VESSEL_PICKUP_STATE`（預設 `~/.cache/vessel-pickup.state`）。
+
 用主機的 crontab 每 10 分鐘執行一次，`VESSEL_HEALTH_URL` 的埠跟 `deploy/.env` 的 `VESSEL_API_PORT` 一致：
 
 ```bash

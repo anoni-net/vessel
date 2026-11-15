@@ -285,3 +285,33 @@ def test_failing_devices_are_notified_from_two_at_once(tmp_path, monkeypatch):
     health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 0}})
     health_warn.watch_usage({"usage_flags": flags, "failing": {"sg": 2}})
     assert len(sent) == 3
+
+
+def test_more_pickup_requests_waiting_are_notified(tmp_path, monkeypatch):
+    sent = []
+    monkeypatch.setattr(health_warn, "PICKUP_STATE", tmp_path / "pickup.state")
+    monkeypatch.setattr(health_warn, "notify", lambda title, body, priority, tags: sent.append((title, body)))
+    # none waiting on the first run: only remembered
+    health_warn.watch_pickups({"pickup_waiting": 0})
+    assert sent == [] and (tmp_path / "pickup.state").read_text() == "0\n"
+    health_warn.watch_pickups({"pickup_waiting": 2})
+    assert sent[0][0] == "Vessel 有取件號碼等待審核" and sent[0][1].startswith("等待審核的申請：2 筆（上次 0 筆）")
+    # the same, or fewer once decided: nothing
+    health_warn.watch_pickups({"pickup_waiting": 2})
+    health_warn.watch_pickups({"pickup_waiting": 1})
+    assert len(sent) == 1
+    health_warn.watch_pickups({"pickup_waiting": 2})
+    assert len(sent) == 2 and "（上次 1 筆）" in sent[1][1]
+    # an older backend: nothing, and the state stays
+    health_warn.watch_pickups({"worker_age": 3})
+    assert (tmp_path / "pickup.state").read_text() == "2\n"
+
+
+def test_a_failed_pickup_notice_is_tried_again(tmp_path, monkeypatch):
+    monkeypatch.setattr(health_warn, "PICKUP_STATE", tmp_path / "pickup.state")
+
+    def fail(*args):
+        raise OSError("ntfy down")
+    monkeypatch.setattr(health_warn, "notify", fail)
+    health_warn.watch_pickups({"pickup_waiting": 1})
+    assert not (tmp_path / "pickup.state").exists()
