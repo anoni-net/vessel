@@ -1,8 +1,9 @@
 import { useEffect, useState } from "preact/hooks";
-import { ApiError, type DnsFilter, type Me, type Passkey, type UsageMonths, api, last } from "../api.ts";
+import { ApiError, type DnsFilter, type InboxMessage, type Me, type Passkey, type UsageMonths, api, last } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate } from "../format.ts";
-import { errorText } from "../i18n/index.ts";
+import { HTML_LANG, errorText, fmt } from "../i18n/index.ts";
+import { useInboxCount } from "../inbox-state.ts";
 import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { forgetAllKeys, keysHeld } from "../kept-keys.ts";
@@ -48,9 +49,21 @@ export function AccountNav({ leader = false }: { leader?: boolean }) {
     navigate(href("/"));
   };
   // the page shown is marked, for the eye and for screen readers; adding or inspecting a device is under the devices
+  const count = useInboxCount();
+  const fresh = count.messages + count.notes;
   const link = (to: string, label: string, under = false) => {
     const current = under ? path.startsWith(to) : path === to;
-    return <a href={href(to)} class={current ? "is-current" : undefined} aria-current={current ? "page" : undefined}>{label}</a>;
+    return (
+      <a href={href(to)} class={current ? "is-current" : undefined} aria-current={current ? "page" : undefined}>
+        {label}
+        {/* what is new in the inbox; the inbox page itself has just read it */}
+        {to === "/inbox/" && fresh > 0 && path !== "/inbox/" && (
+          <span class="nav-count" data-testid="inbox-count">
+            <span aria-hidden="true">{fresh}</span><span class="sr-only">{fmt(t["nav.inboxNew"], { n: fresh })}</span>
+          </span>
+        )}
+      </a>
+    );
   };
   return (
     <>
@@ -60,13 +73,39 @@ export function AccountNav({ leader = false }: { leader?: boolean }) {
           {link("/devices/", t["nav.devices"], true)}
           {link("/account/", t["nav.account"])}
           {(leader || last.me?.group?.role === "leader") && link("/group/", t["nav.group"])}
+          {link("/inbox/", t["nav.inbox"])}
         </nav>
         <button class="link-button account-bar__logout" type="button" onClick={logout} aria-disabled={leaving} aria-busy={leaving}>
           {leaving ? <Spin /> : <Icon name="logout" />}{t[leaving ? "busy.logout" : "nav.logout"]}
         </button>
       </div>
       {failed && <p class="error" role="alert">{t["nav.logoutFailed"]}</p>}
+      {count.messages > 0 && path !== "/inbox/" && <InboxBanner unread={count.messages} />}
     </>
+  );
+}
+
+/**
+ * Announcements not read yet, at the top of every signed-in page until the inbox is opened: the newest one's title,
+ * and how many more. Notes about the account show only in the count; the pages they are about say them already.
+ */
+function InboxBanner({ unread }: { unread: number }) {
+  const { t, href, locale } = useCtx();
+  const [newest, setNewest] = useState<InboxMessage | null>(null);
+  useEffect(() => {
+    api.inbox().then((box) => setNewest(box.messages.find((m) => m.unread) ?? null)).catch(() => undefined);
+  }, [unread]);
+  if (!newest) return null;
+  const own = newest.texts[locale];
+  return (
+    <p class="card card--tint card--flat inbox-banner" data-testid="inbox-banner">
+      {/* one run of text: the card lays its children out as a column */}
+      <span>
+        <span class="strong">{t["inbox.banner"]}</span>
+        <a href={href("/inbox/")} lang={own ? undefined : HTML_LANG["zh-TW"]}>{(own ?? newest.texts["zh-TW"]).title}</a>
+        {unread > 1 && fmt(t["inbox.bannerMore"], { n: unread - 1 })}
+      </span>
+    </p>
   );
 }
 

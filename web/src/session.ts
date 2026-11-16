@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { api, forgetAccount } from "./api.ts";
+import { forgetSeen } from "./inbox-state.ts";
 
 // Whether this browser has a session. The cookie is HttpOnly, so the page asks /api/me once when it
 // loads, and pages update the answer when they sign in, redeem, sign out or get "signed_out" back.
@@ -41,7 +42,10 @@ function set(value: SessionState) {
 
 export function setSignedIn(value: boolean) {
   writeHint(value);
-  if (!value) forgetAccount();
+  if (!value) {
+    forgetAccount();
+    forgetSeen();
+  }
   set(value);
 }
 
