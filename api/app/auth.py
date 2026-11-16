@@ -281,6 +281,8 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
         "JOIN groups g ON g.code = a.group_code WHERE a.id = %s",
         (account_id,),
     ).fetchone()
+    from app import inbox  # it reads the invites, which need this module
+
     return {
         "created_on": created_on.isoformat(),
         "last_login_on": last_login_on.isoformat() if last_login_on else None,
@@ -292,6 +294,7 @@ def me(account_id: Account, request: Request, response: Response, conn: Conn) ->
             "role": group[0], "label": group[1], "device_revoked_on": group[2].isoformat() if group[2] else None,
             "closing_on": group[3].isoformat() if group[3] else None,
         },
+        "inbox": inbox.summary(conn, account_id),
     }
 
 

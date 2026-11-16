@@ -212,6 +212,11 @@ def forget_expired_invites(conn: psycopg.Connection) -> None:
     conn.execute("DELETE FROM invites WHERE pickup_state IS NOT NULL AND redeemed_at IS NULL AND expires_at <= now()")
 
 
+def forget_expired_messages(conn: psycopg.Connection) -> None:
+    """An announcement goes the day after its last (app/inbox.py)."""
+    conn.execute("DELETE FROM messages WHERE expires_on < current_date")
+
+
 def clear_stale_results(conn: psycopg.Connection) -> None:
     conn.execute("UPDATE jobs SET result = NULL WHERE result IS NOT NULL AND done_at < now() - interval '1 hour'")
 
