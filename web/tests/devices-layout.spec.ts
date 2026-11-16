@@ -18,14 +18,17 @@ async function backend(page: Page, n: number) {
   });
 }
 
-const tops = async (page: Page) =>
-  Promise.all((await page.getByTestId("device").all()).map(async (li) => (await li.boundingBox())!.y));
+// .all() does not wait: wait for the list to be drawn, or a busy machine reads it empty
+const tops = async (page: Page, n: number) => {
+  await expect(page.getByTestId("device")).toHaveCount(n);
+  return Promise.all((await page.getByTestId("device").all()).map(async (li) => (await li.boundingBox())!.y));
+};
 
 test("on a wide screen the three devices are one row", async ({ page, isMobile }) => {
   test.skip(isMobile, "the phone keeps one column");
   await backend(page, 3);
   await page.goto("/devices/");
-  const ys = await tops(page);
+  const ys = await tops(page, 3);
   expect(ys).toHaveLength(3);
   expect(new Set(ys.map(Math.round)).size).toBe(1);
   await expect(page.getByTestId("add-blocked")).toBeVisible();
@@ -39,7 +42,7 @@ test("on a wide screen a free slot is a card in the row, and it is the only add 
   await expect(slot).toBeVisible();
   await expect(page.getByRole("link", { name: "新增裝置" })).toHaveCount(1);
   await expect(page.getByText("還可以新增 1 台")).toBeVisible();
-  const ys = await tops(page);
+  const ys = await tops(page, 2);
   expect(new Set(ys.map(Math.round)).size).toBe(1);
 });
 
@@ -47,7 +50,7 @@ test("on a phone the devices stack and the add button stays under the list", asy
   test.skip(!isMobile, "only the phone");
   await backend(page, 2);
   await page.goto("/devices/");
-  const ys = await tops(page);
+  const ys = await tops(page, 2);
   expect(ys[1]).toBeGreaterThan(ys[0]);
   await expect(page.getByTestId("device-list").getByRole("link", { name: "新增裝置" })).toBeHidden();
   await expect(page.getByRole("link", { name: "新增裝置" })).toHaveCount(1);
