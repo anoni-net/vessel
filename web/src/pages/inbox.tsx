@@ -56,24 +56,29 @@ export function Inbox() {
         </div>
       )}
       {inbox && (
-        <>
-          <h2>{t["inbox.notes"]}</h2>
-          {inbox.notes.length === 0
-            ? <p class="card card--dashed" data-testid="inbox-notes-none">{t["inbox.notesNone"]}</p>
-            : (
-              <ul class="plain stack" data-testid="inbox-notes">
-                {inbox.notes.map((n) => <li><Note note={n} fresh={fresh.has(n.key)} /></li>)}
-              </ul>
-            )}
-          <h2>{t["inbox.messages"]}</h2>
-          {inbox.messages.length === 0
-            ? <p class="card card--dashed" data-testid="inbox-messages-none">{t["inbox.messagesNone"]}</p>
-            : (
-              <ul class="plain stack" data-testid="inbox-messages">
-                {inbox.messages.map((m) => <li><Message message={m} /></li>)}
-              </ul>
-            )}
-        </>
+        // on a wide screen the reminders and the announcements side by side, like the account page (styles.css, .inbox-cols)
+        <div class="inbox-cols">
+          <div class="inbox-col">
+            <h2>{t["inbox.notes"]}</h2>
+            {inbox.notes.length === 0
+              ? <p class="card card--dashed" data-testid="inbox-notes-none">{t["inbox.notesNone"]}</p>
+              : (
+                <ul class="plain stack" data-testid="inbox-notes">
+                  {inbox.notes.map((n) => <li><Note note={n} fresh={fresh.has(n.key)} /></li>)}
+                </ul>
+              )}
+          </div>
+          <div class="inbox-col">
+            <h2>{t["inbox.messages"]}</h2>
+            {inbox.messages.length === 0
+              ? <p class="card card--dashed" data-testid="inbox-messages-none">{t["inbox.messagesNone"]}</p>
+              : (
+                <ul class="plain stack" data-testid="inbox-messages">
+                  {inbox.messages.map((m) => <li><Message message={m} /></li>)}
+                </ul>
+              )}
+          </div>
+        </div>
       )}
     </section>
   );

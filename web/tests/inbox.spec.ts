@@ -126,3 +126,30 @@ test("an older backend without the inbox: no count and no banner", async ({ page
   await expect(page.getByTestId("inbox-count")).toHaveCount(0);
   await expect(page.getByTestId("inbox-banner")).toHaveCount(0);
 });
+
+test("on a wide screen the inbox is as wide as the account page, the reminders beside the announcements", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the phone keeps one column");
+  await backend(page);
+  await page.goto("/account/");
+  await expect(page.getByRole("heading", { level: 1, name: "帳號" })).toBeVisible();
+  const account = (await page.locator("main > section").boundingBox())!;
+  await page.goto("/inbox/");
+  await expect(page.getByTestId("inbox-message")).toHaveCount(2);
+  const inbox = (await page.locator("main > section").boundingBox())!;
+  expect(Math.round(inbox.width)).toBe(Math.round(account.width));
+  const notes = (await page.getByTestId("inbox-notes").boundingBox())!;
+  const messages = (await page.getByTestId("inbox-messages").boundingBox())!;
+  expect(Math.round(messages.y)).toBe(Math.round(notes.y));
+  expect(messages.x).toBeGreaterThan(notes.x + notes.width);
+});
+
+test("on a phone the reminders come before the announcements", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "only the phone");
+  await backend(page);
+  await page.goto("/inbox/");
+  await expect(page.getByTestId("inbox-message")).toHaveCount(2);
+  const notes = (await page.getByTestId("inbox-notes").boundingBox())!;
+  const messages = (await page.getByTestId("inbox-messages").boundingBox())!;
+  expect(messages.y).toBeGreaterThan(notes.y + notes.height);
+  expect(Math.round(messages.x)).toBe(Math.round(notes.x));
+});

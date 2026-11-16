@@ -1116,6 +1116,16 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   .account-delete > .card { max-width: calc((100% - 48px) / 2); box-sizing: border-box; }
 }
 
+/* The inbox (pages/inbox.tsx): on a wide screen as wide as the account page, the reminders and the announcements in two
+   columns. Narrower, the columns are not there for the layout and the two lists stack. */
+.inbox-cols, .inbox-col { display: contents; }
+.inbox-col > h2 { margin: 24px 0 0; }
+@media (min-width: 960px) {
+  .inbox-page { max-width: 1120px; }
+  .inbox-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; align-items: start; }
+  .inbox-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+}
+
 /* the group page (pages/group.tsx): what something is and what can be done about it, on one row */
 .group-issue, .group-device { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .group-issue > span, .group-device > span { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
