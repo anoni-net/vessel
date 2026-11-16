@@ -8,12 +8,13 @@ A leader can ask for an inspection of a member's device (toomore/anoni-net-ws#48
 their own pages (app/inspections.py). The leaders see where it stands, and a summary sealed to each leader's key."""
 
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
+from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
-from app import auth, crypto, devices, jobs, policy
+from app import auth, crypto, devices, inbox, jobs, policy
 from app.auth import Account, Conn, Recent, error, require_app_header
 from app.config import load
 from app.inspections import PUBLIC_KEY, RUNNING
@@ -30,6 +31,13 @@ class NewInvites(BaseModel):
 
 class Member(BaseModel):
     label: str
+
+
+class GroupMessage(BaseModel):
+    title: Annotated[str, Field(min_length=1, max_length=inbox.TITLE_MAX)]
+    body: Annotated[str, Field(min_length=1, max_length=inbox.LEADER_BODY_MAX)]
+    # the language of the leader's page, for the members' browsers to mark it
+    locale: Literal["zh-TW", "zh-CN", "en"]
 
 
 class LeaderKey(BaseModel):
@@ -173,7 +181,56 @@ def group(account_id: Account, conn: Conn) -> dict:
         "inspection_days": policy.INSPECT_DAYS,
         # this leader's key for the summaries, for the browser to tell whether it holds the private half
         "leader_key": key[0] if key else None,
+        # the leaders' announcements in the members' inboxes, without which leader wrote each
+        "messages": leader_messages(conn, code),
+        "message_limit": policy.GROUP_MESSAGES,
+        "message_days": policy.GROUP_MESSAGE_DAYS,
     }
+
+
+def leader_messages(conn, code: str) -> list[dict]:
+    return [
+        {"id": r[0], "texts": r[1], "created_at": r[2].isoformat(), "expires_on": r[3].isoformat()}
+        for r in conn.execute(
+            "SELECT id, texts, created_at, expires_on FROM messages WHERE group_code = %s AND from_leader "
+            "AND expires_on >= current_date ORDER BY id DESC",
+            (code,),
+        )
+    ]
+
+
+@router.post("/group/messages", dependencies=[Depends(require_app_header)])
+def post_message(body: GroupMessage, account_id: Recent, conn: Conn) -> dict:
+    """An announcement in every inbox of the group, members' and leaders'. It shows as the portal's own words to
+    people who trust the portal, so someone holding a signed-in browser for a moment cannot write one: like the
+    leader's key, it needs a recent sign-in or a confirmation."""
+    code = group_of_leader(conn, account_id)
+    title, text = body.title.strip(), body.body.strip()
+    if not title or not text:
+        raise error(422, "message_empty")
+    with conn.transaction():
+        # one at a time per group, so two leaders at once cannot put up more than the limit
+        conn.execute("SELECT 1 FROM groups WHERE code = %s FOR UPDATE", (code,))
+        if len(leader_messages(conn, code)) >= policy.GROUP_MESSAGES:
+            raise error(409, "too_many_messages")
+        # unread for its writer too: marking it read would also mark the announcements before it, and leave the
+        # writer as the one account whose number is this announcement's
+        conn.execute(
+            "INSERT INTO messages (group_code, from_leader, texts, expires_on) VALUES (%s, true, %s, current_date + %s)",
+            (code, Jsonb({body.locale: {"title": title, "body": text}}), policy.GROUP_MESSAGE_DAYS),
+        )
+    return {"messages": leader_messages(conn, code)}
+
+
+@router.delete("/group/messages/{message_id}", dependencies=[Depends(require_app_header)])
+def delete_message(message_id: int, account_id: Account, conn: Conn) -> dict:
+    """Any of the group's leaders can take down its leaders' announcements; the maintainers' stay."""
+    code = group_of_leader(conn, account_id)
+    if conn.execute(
+        "DELETE FROM messages WHERE id = %s AND group_code = %s AND from_leader", (message_id, code)
+    ).rowcount == 0:
+        raise error(404, "not_found")
+    return {"messages": leader_messages(conn, code)}
 
 
 def inspections_in_use(conn, code: str) -> int:

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { ApiError, type DnsFilter, type InboxMessage, type Me, type Passkey, type UsageMonths, api, last } from "../api.ts";
+import { ApiError, type DnsFilter, type InboxMessage, type Me, type Passkey, type UsageMonths, api, last, wordsOf } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate } from "../format.ts";
 import { HTML_LANG, errorText, fmt } from "../i18n/index.ts";
@@ -96,13 +96,13 @@ function InboxBanner({ unread }: { unread: number }) {
     api.inbox().then((box) => setNewest(box.messages.find((m) => m.unread) ?? null)).catch(() => undefined);
   }, [unread]);
   if (!newest) return null;
-  const own = newest.texts[locale];
+  const [lang, words] = wordsOf(newest.texts, locale);
   return (
     <p class="card card--tint card--flat inbox-banner" data-testid="inbox-banner">
       {/* one run of text: the card lays its children out as a column */}
       <span>
         <span class="strong">{t["inbox.banner"]}</span>
-        <a href={href("/inbox/")} lang={own ? undefined : HTML_LANG["zh-TW"]}>{(own ?? newest.texts["zh-TW"]).title}</a>
+        <a href={href("/inbox/")} lang={lang === locale ? undefined : HTML_LANG[lang]}>{words.title}</a>
         {unread > 1 && fmt(t["inbox.bannerMore"], { n: unread - 1 })}
       </span>
     </p>

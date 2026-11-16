@@ -10,6 +10,7 @@ import { navigate } from "../router.ts";
 import { setSignedIn } from "../session.ts";
 import { AccountNav } from "./account.tsx";
 import { DeviceInspection, LeaderKeyCard, useLeaderKey } from "./group-inspect.tsx";
+import { GroupMessages } from "./group-messages.tsx";
 import { useReverify } from "./reverify.tsx";
 import { Spin } from "./skeleton.tsx";
 
@@ -251,6 +252,8 @@ export function GroupPage() {
           <p class="muted small">{t["group.inspect.note"]}</p>
         </div>
       )}
+
+      {group.messages && <GroupMessages group={group} guard={guard} />}
 
       <div class="stack account-section" data-testid="group-accounts">
         <h2>{t["group.accounts.title"]}</h2>

@@ -1,4 +1,4 @@
-"""The inbox: announcements maintainers wrote with `admin messages add`, and notes about the account worked out from
+"""The inbox: announcements maintainers wrote with `admin messages add` or a group's leaders on /group/, and notes about the account worked out from
 what the portal already keeps (a report to download, a leader's request, invites to give, a slowed month, a region
 moving, a group closing).
 
@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api")
 LOCALES = ("zh-TW", "zh-CN", "en")
 TITLE_MAX = 80
 BODY_MAX = 2000
+LEADER_BODY_MAX = 1000
 SHOWN = 50
 
 # the announcements an account can see now; the region is checked against the devices it has today
@@ -97,14 +98,14 @@ def summary(conn: psycopg.Connection, account_id: int) -> dict:
 def inbox(account_id: Account, conn: Conn, response: Response) -> dict:
     response.headers["Cache-Control"] = "no-store"
     rows = conn.execute(
-        "SELECT m.id, m.texts, m.created_at, m.expires_on, m.region_id, m.group_code IS NOT NULL, "
+        "SELECT m.id, m.texts, m.created_at, m.expires_on, m.region_id, m.group_code IS NOT NULL, m.from_leader, "
         f"{UNREAD} {VISIBLE} ORDER BY m.id DESC LIMIT %s",
         (account_id, SHOWN),
     ).fetchall()
     return {
         "messages": [
             {"id": r[0], "texts": r[1], "created_at": r[2].isoformat(), "expires_on": r[3].isoformat(),
-             "region": r[4], "group": r[5], "unread": r[6]}
+             "region": r[4], "group": r[5], "from_leader": r[6], "unread": r[7]}
             for r in rows
         ],
         "notes": notes(conn, account_id),

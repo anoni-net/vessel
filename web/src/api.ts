@@ -1,4 +1,5 @@
 /** Calls to the portal backend. Errors come back as short codes that the pages translate. */
+import { LOCALES, type Locale } from "./i18n/index.ts";
 import type { Reach, ReachHistory } from "./reach.ts";
 
 export class ApiError extends Error {
@@ -62,16 +63,26 @@ export type InboxNote = { key: string } & (
   | { kind: "invites"; left: number }
 );
 
+export type MessageTexts = Partial<Record<Locale, { title: string; body: string }>>;
+
+/** The words in the reader's language, else Traditional Chinese, else whichever the message has; and which it is. */
+export function wordsOf(texts: MessageTexts, locale: Locale): [Locale, { title: string; body: string }] {
+  const found = ([locale, "zh-TW", ...LOCALES] as Locale[]).find((l) => texts[l]);
+  return [found ?? locale, texts[found ?? locale] ?? { title: "", body: "" }];
+}
+
 export interface InboxMessage {
   id: number;
-  /** by language; zh-TW is always there */
-  texts: Partial<Record<string, { title: string; body: string }>> & { "zh-TW": { title: string; body: string } };
+  /** by language: zh-TW is always there for the maintainers'; a leader's is in the one language it was written in */
+  texts: MessageTexts;
   created_at: string;
   expires_on: string;
   /** for the accounts with a device in this region; null for everyone */
   region: string | null;
   /** for the account's group */
   group: boolean;
+  /** written by the group's leaders; an older backend does not send it */
+  from_leader?: boolean;
   unread: boolean;
 }
 
@@ -155,6 +166,18 @@ export interface Group {
   inspection_days?: number;
   /** this leader's public key for the summaries */
   leader_key?: string | null;
+  /** the leaders' announcements in the group's inboxes; an older backend does not send them */
+  messages?: GroupMessage[];
+  message_limit?: number;
+  message_days?: number;
+}
+
+/** A leader's announcement: in the language of the page it was written on, and nothing says which leader wrote it. */
+export interface GroupMessage {
+  id: number;
+  texts: MessageTexts;
+  created_at: string;
+  expires_on: string;
 }
 
 export interface MadeGroupInvite {
@@ -454,6 +477,9 @@ export const api = {
   /** withdraws a request, or clears a no or a deletion */
   withdrawInspection: (deviceId: string) => call("DELETE", `/group/devices/${deviceId}/inspection`),
   /** deletes the member's account; needs a recent sign-in (pages/reverify.tsx) */
+  postGroupMessage: (title: string, body: string, locale: Locale) =>
+    call<{ messages: GroupMessage[] }>("POST", "/group/messages", { title, body, locale }).then((r) => r.data),
+  deleteGroupMessage: (id: number) => call<{ messages: GroupMessage[] }>("DELETE", `/group/messages/${id}`).then((r) => r.data),
   removeGroupMember: (label: string) => call("POST", "/group/members/remove", { label }),
   regions: () => call<Region[]>("GET", "/regions").then((r) => r.data),
   /** the open relay routes, without their addresses */

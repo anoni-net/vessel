@@ -62,7 +62,8 @@
   python -m app.admin notices end ID [--at ISO]
   python -m app.admin notices delete ID
 
-  python -m app.admin messages [list]                          the inbox's announcements, newest first
+  python -m app.admin messages [list]                          the inbox's announcements, newest first; a group
+                                                               leaders' are listed without what they say
   python -m app.admin messages add [--region ID | --group CODE] [--days N] < message.toml
                                                                an announcement for every account, the accounts with
                                                                a device in a region, or a group's accounts, until N
@@ -502,12 +503,13 @@ def messages(conn: psycopg.Connection, args: argparse.Namespace) -> None:
     elif args.action == "delete":
         if conn.execute("DELETE FROM messages WHERE id = %s", (args.id,)).rowcount == 0:
             sys.exit(f"no message {args.id}")
-    for mid, region, group, title, created, until in conn.execute(
-        "SELECT id, region_id, group_code, texts -> 'zh-TW' ->> 'title', created_at, expires_on FROM messages "
-        "ORDER BY id DESC LIMIT 20"
+    # what a group's leaders wrote to their group is theirs: listed, never shown here, like the rest of a group
+    for mid, region, group, leader, title, created, until in conn.execute(
+        "SELECT id, region_id, group_code, from_leader, texts -> 'zh-TW' ->> 'title', created_at, expires_on "
+        "FROM messages ORDER BY id DESC LIMIT 20"
     ):
         to = f"region {region}" if region else f"group {group}" if group else "all"
-        print(f"{mid}  {to}  {created.date()} to {until}  {title}")
+        print(f"{mid}  {to}  {created.date()} to {until}  {'(by its leaders)' if leader else title}")
 
 
 def size(n: float) -> str:
