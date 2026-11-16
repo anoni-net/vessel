@@ -108,7 +108,7 @@ test("signing out clears the notes this browser has seen", async ({ page }) => {
   await expect(page.getByTestId("inbox-note")).toHaveCount(3);
   expect(await page.evaluate(() => localStorage.getItem("vessel-inbox-seen"))).not.toBeNull();
   await page.getByRole("button", { name: "登出" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/:\d+\/$/);
   expect(await page.evaluate(() => localStorage.getItem("vessel-inbox-seen"))).toBeNull();
 });
 
