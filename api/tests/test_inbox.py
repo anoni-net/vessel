@@ -208,3 +208,97 @@ def test_invites_to_give_are_a_note_that_stays_seen(signed_in, db):
     assert box(signed_in)["notes"] == [{"key": "invites:2", "kind": "invites", "left": 1}]
     signed_in.post("/api/invites", headers=HEADERS)
     assert box(signed_in)["notes"] == []
+
+
+def write(client, title="週六聚會改到線上", body="這週六的聚會改到線上，連結晚點貼在群組。", locale="zh-TW"):
+    return client.post("/api/group/messages", json={"title": title, "body": body, "locale": locale}, headers=HEADERS)
+
+
+@pytest.fixture
+def group(client, db, node, capsys):
+    db.execute("INSERT INTO regions (id, node_host, is_open) VALUES ('sg', 'node-sg', true)")
+    leader = new_group(capsys, "g1", client=client)
+    other = browser()
+    admin.main(["groups", "leader-invite", "g1", "--label", "L2"])
+    other.post("/api/redeem", json={"code": capsys.readouterr().out.strip()}, headers=HEADERS)
+    return leader, other, join(leader)
+
+
+def test_a_leaders_announcement_is_for_the_group_and_says_no_leader(group, db, capsys, monkeypatch):
+    leader, other, member = group
+    # an announcement of the maintainers the leader has not read yet stays unread after the leader writes one
+    post(monkeypatch, capsys)
+    r = write(leader)
+    assert r.status_code == 200
+    [shown] = r.json()["messages"]
+    assert shown["texts"] == {"zh-TW": {"title": "週六聚會改到線上", "body": "這週六的聚會改到線上，連結晚點貼在群組。"}}
+    assert shown["expires_on"] == (date.today() + timedelta(days=30)).isoformat()
+    assert leader.get("/api/group").json()["messages"] == [shown]
+    # unread for everyone, its writer too, whose read number does not move
+    assert me(leader)["unread"] == me(other)["unread"] == me(member)["unread"] == 2
+    assert all(m["unread"] for m in box(leader)["messages"])
+    assert len({r[0] for r in db.execute("SELECT messages_read FROM accounts")}) == 1
+    m = box(member)["messages"][0]
+    assert m["from_leader"] and m["group"] and m["texts"] == shown["texts"]
+    # nothing says which leader wrote it
+    assert db.execute("SELECT count(*) FROM information_schema.columns WHERE table_name = 'messages' "
+                      "AND column_name LIKE '%%account%%'").fetchone()[0] == 0
+    personal = browser()
+    personal.post("/api/redeem", json={"code": make_invite(db)}, headers=HEADERS)
+    assert [m["from_leader"] for m in box(personal)["messages"]] == [False]
+    # the maintainers see that there is one, not what it says
+    admin.main(["messages"])
+    out = capsys.readouterr().out
+    assert "group g1" in out and "(by its leaders)" in out and "聚會" not in out
+
+
+def test_only_leaders_write_with_a_recent_sign_in(group, db):
+    leader, _, member = group
+    assert write(member).status_code == 403 and write(member).json() == {"error": "not_leader"}
+    db.execute("UPDATE sessions SET verified_until = now() - interval '1 minute'")
+    assert write(leader).json() == {"error": "verify_required"}
+    assert db.execute("SELECT count(*) FROM messages").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("title, body, locale", [
+    ("", "內文", "zh-TW"), ("  ", "內文", "zh-TW"), ("標題", " \n ", "zh-TW"),
+    ("長" * 81, "內文", "zh-TW"), ("標題", "長" * 1001, "zh-TW"), ("標題", "內文", "ja"),
+])
+def test_what_a_leader_writes_is_checked(group, db, title, body, locale):
+    assert write(group[0], title, body, locale).status_code == 422
+    assert db.execute("SELECT count(*) FROM messages").fetchone()[0] == 0
+
+
+def test_a_leader_writes_in_the_pages_language(group):
+    leader, _, member = group
+    assert write(leader, "Meetup moves online", "See the group chat.", "en").status_code == 200
+    assert box(member)["messages"][0]["texts"] == {"en": {"title": "Meetup moves online", "body": "See the group chat."}}
+
+
+def test_a_group_has_a_few_at_once_and_any_leader_takes_one_down(group, db, monkeypatch, capsys):
+    leader, other, member = group
+    for i in range(5):
+        assert write(leader, title=f"第 {i} 則").status_code == 200
+    r = write(other)
+    assert r.status_code == 409 and r.json() == {"error": "too_many_messages"}
+    first = leader.get("/api/group").json()["messages"][-1]["id"]
+    assert member.delete(f"/api/group/messages/{first}", headers=HEADERS).status_code == 403
+    assert other.delete(f"/api/group/messages/{first}", headers=HEADERS).status_code == 200
+    assert other.delete(f"/api/group/messages/{first}", headers=HEADERS).status_code == 404
+    assert write(other).status_code == 200
+    # an expired one no longer counts
+    db.execute("UPDATE messages SET expires_on = current_date - 1 WHERE from_leader")
+    assert leader.get("/api/group").json()["messages"] == []
+    assert write(leader).status_code == 200
+    # the maintainers' announcement to the group is not the leaders' to take down
+    mid = post(monkeypatch, capsys, "--group", "g1")
+    assert leader.delete(f"/api/group/messages/{mid}", headers=HEADERS).status_code == 404
+
+
+def test_another_groups_leader_cannot_take_one_down(group, capsys):
+    leader = group[0]
+    write(leader)
+    mid = leader.get("/api/group").json()["messages"][0]["id"]
+    outsider = new_group(capsys, "g2", label="X1")
+    assert outsider.delete(f"/api/group/messages/{mid}", headers=HEADERS).status_code == 404
+    assert len(leader.get("/api/group").json()["messages"]) == 1

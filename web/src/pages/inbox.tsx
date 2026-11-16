@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { ApiError, type Inbox as InboxData, type InboxMessage, type InboxNote, api, last } from "../api.ts";
+import { ApiError, type Inbox as InboxData, type InboxMessage, type InboxNote, api, last, wordsOf } from "../api.ts";
 import { useCtx } from "../context.ts";
 import { formatDate, formatDay } from "../format.ts";
 import { HTML_LANG, type MessageKey, errorText, fmt } from "../i18n/index.ts";
@@ -120,10 +120,9 @@ function Note({ note, fresh }: { note: InboxNote; fresh: boolean }) {
 
 function Message({ message }: { message: InboxMessage }) {
   const { t, locale } = useCtx();
-  const own = message.texts[locale];
-  const words = own ?? message.texts["zh-TW"];
-  const to = message.region
-    ? fmt(t["inbox.to.region"], { city: t[`region.${message.region}` as MessageKey] ?? message.region })
+  const [lang, words] = wordsOf(message.texts, locale);
+  const to = message.from_leader ? t["inbox.to.leaders"]
+    : message.region ? fmt(t["inbox.to.region"], { city: t[`region.${message.region}` as MessageKey] ?? message.region })
     : message.group ? t["inbox.to.group"] : t["inbox.to.all"];
   return (
     <article class={`card card--flat inbox-item${message.unread ? " card--tint" : ""}`} data-testid="inbox-message">
@@ -131,12 +130,13 @@ function Message({ message }: { message: InboxMessage }) {
         <span class="muted small">{formatDay(locale, message.created_at)} · {to}</span>
         {message.unread && <NewMark />}
       </div>
-      <div class="inbox-item" lang={own ? undefined : HTML_LANG["zh-TW"]}>
+      <div class="inbox-item" lang={lang === locale ? undefined : HTML_LANG[lang]}>
         <h3>{words.title}</h3>
         {/* plain text as the maintainers wrote it: a blank line starts a paragraph, a line break stays */}
         {words.body.split(/\n\s*\n/).map((para) => <p class="inbox-body">{para}</p>)}
       </div>
-      {!own && <p class="muted small">{t["inbox.onlyTraditional"]}</p>}
+      {/* the maintainers write zh-TW at least; a leader writes one language, which the group shares */}
+      {lang !== locale && !message.from_leader && <p class="muted small">{t["inbox.onlyTraditional"]}</p>}
     </article>
   );
 }

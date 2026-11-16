@@ -36,6 +36,8 @@ INSPECT_CONFIRM_HOST = "confirm.vessel.anoni.net"
 GROUP_INSPECT_CONSENT_VERSION = "2026-11-10g"
 GROUP_INSPECT_REQUEST_DAYS = 7  # a leader's request waits this long for the member, and a no stays on the page as long
 GROUP_CLOSE_DAYS = 30        # how long a closing group goes on, unless the maintainer gives another day
+GROUP_MESSAGES = 5           # announcements a group's leaders can have up at once (app/groups.py)
+GROUP_MESSAGE_DAYS = 30      # and how long each stays in the members' inboxes
 GROUP_BLOCKED_ALERT = 100    # malware lookups in a month that mark a group's device for checking (toomore/anoni-net-ws#464)
 
 
