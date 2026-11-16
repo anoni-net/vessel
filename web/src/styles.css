@@ -105,6 +105,11 @@ html { touch-action: manipulation; }
 
 * { box-sizing: border-box; }
 html { scroll-padding-top: 16px; }
+/* Every page shows the scrollbar: a short page (an empty inbox) would otherwise be 15px wider than a long one, and its
+   centred column would sit 7.5px off from the pages around it. The track looks the same as on a long page;
+   scrollbar-gutter: stable left a bare strip there, past the header and footer. Overlay scrollbars (phones, macOS)
+   take no room, and there nothing changes. */
+html { overflow-y: scroll; }
 body { margin: 0; background: var(--page); color: var(--text); font-family: var(--font); line-height: 1.7; }
 a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 /* only where there is a pointer that hovers: a phone keeps a tapped link "hovered" until the next tap, which left the
