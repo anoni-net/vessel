@@ -11,6 +11,7 @@ from app import (
     devices,
     groups,
     health,
+    inbox,
     inspections,
     invites,
     network,
@@ -39,6 +40,7 @@ app.include_router(pickups.router)
 app.include_router(devices.router)
 app.include_router(groups.router)
 app.include_router(inspections.router)
+app.include_router(inbox.router)
 app.include_router(check.router)
 app.include_router(network.router)
 app.include_router(blocklists.router)

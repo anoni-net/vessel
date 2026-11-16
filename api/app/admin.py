@@ -62,6 +62,15 @@
   python -m app.admin notices end ID [--at ISO]
   python -m app.admin notices delete ID
 
+  python -m app.admin messages [list]                          the inbox's announcements, newest first
+  python -m app.admin messages add [--region ID | --group CODE] [--days N] < message.toml
+                                                               an announcement for every account, the accounts with
+                                                               a device in a region, or a group's accounts, until N
+                                                               days from today (default 30). The TOML on stdin has a
+                                                               table per language, [zh-TW] always, with title and
+                                                               body (`docker compose exec -T` passes stdin on)
+  python -m app.admin messages delete ID
+
 Settings: account_cap (0 means no cap), redeem_paused (true/false), user_invites (how many invites each account
 may make, 0 turns it off; toomore/anoni-net-ws#458), monthly_quota_gb (personal accounts' monthly quota, read by the
 portal and the worker within minutes; a group keeps the quota it was made with), pickup_open (true/false: whether
@@ -72,11 +81,13 @@ import argparse
 import re
 import sys
 import time
+import tomllib
 from datetime import UTC, date, timedelta
 
 import psycopg
+from psycopg.types.json import Jsonb
 
-from app import auth, crypto, jobs, policy
+from app import auth, crypto, inbox, jobs, policy
 from app.config import load
 from app.nodes import ADDRESS, JUMP, NodeError, get_node
 
@@ -173,6 +184,14 @@ def main(argv: list[str] | None = None) -> None:
     ne.add_argument("id", type=int)
     ne.add_argument("--at")
     nt.add_parser("delete").add_argument("id", type=int)
+    ms = sub.add_parser("messages").add_subparsers(dest="action")
+    ms.add_parser("list")
+    ma = ms.add_parser("add")
+    to = ma.add_mutually_exclusive_group()
+    to.add_argument("--region")
+    to.add_argument("--group")
+    ma.add_argument("--days", type=int, default=30)
+    ms.add_parser("delete").add_argument("id", type=int)
     args = parser.parse_args(argv)
 
     settings = load()
@@ -251,6 +270,8 @@ def main(argv: list[str] | None = None) -> None:
             probe_controls(conn, args)
         elif args.cmd == "notices":
             notices(conn, args)
+        elif args.cmd == "messages":
+            messages(conn, args)
         elif args.cmd == "relays":
             relays(conn, args)
         elif args.cmd == "groups":
@@ -438,6 +459,55 @@ def notices(conn: psycopg.Connection, args: argparse.Namespace) -> None:
     ):
         until = end.isoformat(timespec="minutes") if end else "ongoing"
         print(f"{nid}  {region or 'all'}  {kind}  {start.isoformat(timespec='minutes')}  {until}")
+
+
+def message_texts(text: str) -> dict:
+    """The announcement's words from TOML: a table per language, each with a title and a body."""
+    try:
+        parsed = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as e:
+        sys.exit(f"not TOML: {e}")
+    if "zh-TW" not in parsed:
+        sys.exit("[zh-TW] is needed; the other languages fall back to it")
+    texts = {}
+    for locale, table in parsed.items():
+        if locale not in inbox.LOCALES:
+            sys.exit(f"unknown language [{locale}], one of {', '.join(inbox.LOCALES)}")
+        if not isinstance(table, dict) or set(table) != {"title", "body"}:
+            sys.exit(f"[{locale}] has a title and a body, nothing else")
+        title, body = (str(table["title"]).strip(), str(table["body"]).strip())
+        if not title or not body:
+            sys.exit(f"[{locale}] has an empty title or body")
+        if len(title) > inbox.TITLE_MAX or len(body) > inbox.BODY_MAX:
+            sys.exit(f"[{locale}] is too long: title up to {inbox.TITLE_MAX}, body up to {inbox.BODY_MAX} characters")
+        texts[locale] = {"title": title, "body": body}
+    return texts
+
+
+def messages(conn: psycopg.Connection, args: argparse.Namespace) -> None:
+    if args.action == "add":
+        if not 1 <= args.days <= 365:
+            sys.exit("--days is 1 to 365")
+        if args.region and not conn.execute("SELECT 1 FROM regions WHERE id = %s", (args.region,)).fetchone():
+            sys.exit(f"no region {args.region}")
+        if args.group and not conn.execute("SELECT 1 FROM groups WHERE code = %s", (args.group,)).fetchone():
+            sys.exit(f"no group {args.group}")
+        texts = message_texts(sys.stdin.read())
+        row = conn.execute(
+            "INSERT INTO messages (region_id, group_code, texts, expires_on) VALUES (%s, %s, %s, current_date + %s) "
+            "RETURNING id",
+            (args.region, args.group, Jsonb(texts), args.days),
+        ).fetchone()
+        print(f"added message {row[0]}")
+    elif args.action == "delete":
+        if conn.execute("DELETE FROM messages WHERE id = %s", (args.id,)).rowcount == 0:
+            sys.exit(f"no message {args.id}")
+    for mid, region, group, title, created, until in conn.execute(
+        "SELECT id, region_id, group_code, texts -> 'zh-TW' ->> 'title', created_at, expires_on FROM messages "
+        "ORDER BY id DESC LIMIT 20"
+    ):
+        to = f"region {region}" if region else f"group {group}" if group else "all"
+        print(f"{mid}  {to}  {created.date()} to {until}  {title}")
 
 
 def size(n: float) -> str:

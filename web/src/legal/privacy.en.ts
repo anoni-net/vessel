@@ -1,7 +1,7 @@
 import type { LegalDoc } from "./types.ts";
 
 export default {
-  updated: "2026-11-13",
+  updated: "2026-11-16",
   blocks: [
     { p: "Vessel is made up of the portal (vessel.anoni.net) and nodes in several cities, and keeps only the data the service needs to run." },
     { h: "What we keep" },
@@ -24,11 +24,13 @@ export default {
           ["Each passkey's public key, the name you gave it and the day it was added (day only), and a random identifier made for the account", "Signing you in with a passkey, or giving you a new account number", "Until the passkey or the account is deleted"],
           ["If you turn on a device inspection: the version and date of the explanation you agreed to, the inspection's status and start and end times, the public key your browser made, a hash of the confirmation code (deleted once used), and the encrypted report", "To run the inspection and give you the report", "The report until 7 days after the inspection ends; a request not confirmed is deleted 30 minutes after its latest confirmation link was made"],
           ["For an inspection a group's leader asks for: the request's status and dates (not which leader asked), the public key each leader's browser made, and summaries encrypted to those keys", "To let the member answer, and the leaders see the inspection's status and verdict", "Requests and refusals for 7 days; summaries are deleted with the report. If the member deletes the report, a “deleted” status stays until the report would have gone. A leader's public key until the account is deleted"],
+          ["The inbox: announcements maintainers write (title, text, end date and who it is for: every account, a city or a group; the accounts that received one are not recorded), and the number of the latest announcement the account has seen (no time)", "Listing announcements in the inbox, and counting the ones not seen yet", "Announcements until their end date, a year at most. The number until the account is deleted"],
           ["A hash of the sign-in session", "Keeping you signed in", "Until you sign out, or after 30 days without opening the portal"],
         ],
       },
     },
     { p: "You choose the device names, so please avoid your real name or anything that identifies you." },
+    { p: "The inbox's other notes, such as a report ready to download or invites you can give, are worked out from the data above when you open the inbox, and are not stored." },
     { p: "Your browser also keeps a few settings: whether it has signed in before (so a reload shows “My devices” at once), the language you picked, whether you closed the bar that offers another language, and whether you chose in the footer not to be counted in the statistics. They stay in your browser and are never sent to the server. If you turn on a device inspection, your browser also keeps the report key and the confirmation link, and a group leader's browser keeps the key that opens their summaries; these keys are never sent to the server. If you ask for an invite, your browser remembers the pickup number, so you can come back to check it." },
     { h: "What we do not keep" },
     {
