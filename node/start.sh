@@ -84,10 +84,6 @@ iptables -A INPUT -i awg0 -p tcp --dport 53 -j ACCEPT
 # namespace, such as a filter resolver's, stays behind the DROP below.
 iptables -A INPUT -i awg0 -d 10.8.1.1 -p tcp --dport 443 -j ACCEPT
 iptables -A INPUT -i awg0 -j DROP
-# A TCP SYN carrying IPv4 options (Record Route, Timestamp) can trigger a use-after-free in the kernel's handshake
-# code (CVE-2026-98432), and a client reaches the resolvers' TCP port 53. Nothing legitimate sends those options;
-# drop such SYNs in this namespace until every node runs a fixed kernel. The host has its own rule for its ports.
-iptables -t raw -I PREROUTING -p tcp --syn -m u32 --u32 "0>>24&0xF=6:15" -m comment --comment CVE-2026-98432 -j DROP
 
 # --- IPv6: the node has no IPv6 way out, so IPv6 from clients is refused ---
 # Each peer also gets an address in SUBNET6. Without one, iOS does not send IPv6 into the tunnel even with ::/0 in

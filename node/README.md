@@ -17,7 +17,6 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `host/vessel-inspect.conf` | `/etc/modules-load.d/` | 裝置檢測需要的核心模組，見「裝置檢測」 |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
-| `host/cve-2026-98432-ipopt`、`host/cve-2026-98432-ipopt.service` | 腳本放 `/usr/local/sbin/`，服務放 `/etc/systemd/system/` | 核心修正之前丟棄帶 IPv4 選項的 TCP SYN，見「安裝」 |
 | `host/vessel-probe-watch.sh`、`host/vessel-probe-watch.service`、`host/vessel-probe-watch.timer` | 腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 統計打到 AWG 埠、不是使用者的封包，見「探測與掃描的觀察」 |
 | `reach-sites.tsv`、`host/vessel-reach.py`、`host/vessel-reach.service`、`host/vessel-reach.timer` | 清單放根目錄，腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 每小時檢查這個節點打不打得開常用的網站，見「節點打不開的網站」 |
 
@@ -26,14 +25,6 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 ## 安裝
 
 需要 Docker 與 Python 3。雲端防火牆只開 AWG 的 UDP 埠，SSH 限定來源。主機的 ufw 設定同樣的規則，雲端防火牆在主控台誤改或換主機時還有一層：預設擋下所有連入，SSH 只接受跳板主機與 Tailscale，AWG 的 UDP 埠全開，Beszel 的 45876 只開給 Tailscale。ufw 的紀錄要關掉（`sudo ufw logging off`）：被擋下的封包裡，大多是使用者經過節點連到網站之後、網站在連線結束後才送回的回程封包，紀錄會留下網站的 IP 與時間，等於把連線的目的地與時間寫進硬碟。
-
-核心修正 CVE-2026-98432 之前，主機另外用一個 systemd 服務在 `raw` 表丟棄帶 IPv4 選項的 TCP SYN（跟容器內的規則相同，見「容器內的防火牆」）。換上修正的核心之後，停用並刪除這個服務。
-
-```bash
-install -m 755 host/cve-2026-98432-ipopt /usr/local/sbin/
-install -m 644 host/cve-2026-98432-ipopt.service /etc/systemd/system/
-systemctl daemon-reload && systemctl enable --now cve-2026-98432-ipopt.service
-```
 
 ```bash
 mkdir -p /opt/vessel-node/build /opt/vessel-node/unbound
@@ -245,7 +236,6 @@ VPN 使用者只能上網：
 - 對外的 TCP 25 回 reset
 - 每台裝置最多同時 2,000 條連線（`start.sh` 的 `DEVICE_FLOWS`），超過時新的連線立刻被拒絕，已經建立的不受影響。一台裝置失控或被控制時，塞不滿所有裝置共用的連線追蹤表。2026-11-07 到 11-08 在三台節點量測 24 小時，沒有裝置超過 500 條，曾超過 200 條的只有新加坡的兩分鐘。只累計整個節點被拒絕的次數，用 `awgctl p2p` 讀，不分裝置
 - 從隧道連到容器本身只放行 53 埠，以及 `10.8.1.1` 的 TCP 443（檢測的確認頁，見下方「確認頁」）。443 只對確認頁監聽的位址開放，之後在 `.253`、`.254` 等其他位址開了 443 的服務也不會被放行
-- 帶 IPv4 選項（Record Route、Timestamp）的 TCP SYN 一律丟棄。這類 SYN 能觸發核心處理 TCP 握手時的釋放後使用漏洞（CVE-2026-98432），使用者連得到解析器的 TCP 53 埠，而正常的連線不會帶這些選項。所有節點換上修正的核心之後就可以拿掉
 - P2P 只計數、不擋：每條連線最前面 4 個封包裡，符合 BitTorrent 特徵（沒有加密的握手，TCP 與 uTP 都算、DHT 查詢、UDP 與 HTTP tracker 的請求）的封包數，記在 `VESSEL-P2P`，另外 `VESSEL-NEW` 記新連線的總數當作對照。符合的連線在連線追蹤上做記號，之後這條連線往返的每個封包都把位元組數記進 `VESSEL-P2P-BYTES` 的 `bt-up-bytes`（裝置送出）與 `bt-down-bytes`（送往裝置），看得出 BitTorrent 傳了多少資料。都是整個節點的總數，不分裝置，容器重啟時歸零，用 `awgctl p2p` 讀。`awgctl usage --json` 的 `totals` 也帶著這些計數，入口的 worker 每 5 分鐘讀用量時一起存下，計數大於 0 時 `deploy/health_warn.py` 推播。加密的握手看不出來，所以數字是下限
 - IPv6 一律拒絕：從隧道進來的 IPv6 不轉送、也不進容器，回 ICMPv6 的拒絕讓 App 立刻改用 IPv4。節點沒有 IPv6 的對外連線，但每個使用者仍然要有一個 ULA 位址。設定檔只有 IPv4 位址時，iOS 即使在 `AllowedIPs` 寫了 `::/0` 也不會把 IPv6 送進隧道，有 IPv6 的網站會繞過 VPN 直接連線（2026-11-03 在 iPhone 上用連線檢測發現）。有了 ULA，作業系統連網際網路上的位址時會優先選 IPv4（RFC 6724），IPv6 被送進隧道後拒絕，不會外洩。要拒絕而不是丟棄，轉送的封包才會經過 `FORWARD`，所以 `run.sh` 開了 `net.ipv6.conf.all.forwarding`，`FORWARD` 的預設政策仍然是 DROP
 
