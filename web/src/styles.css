@@ -765,6 +765,16 @@ ul { margin: 0; padding-inline-start: 1.2em; display: flex; flex-direction: colu
   color: var(--muted); text-decoration: none; }
 .subnav a:hover { color: var(--ink); border-bottom-color: var(--line); }
 .subnav a.is-current { color: var(--ink); border-bottom-color: var(--ink); }
+/* the inbox's count beside its tab: ink on the page's colour, like the badges, so it reads in both themes */
+.nav-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; margin-left: 6px;
+  padding: 0 6px; border-radius: 11px; background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 700; line-height: 1; }
+/* an announcement not read yet, under the tabs of every signed-in page until the inbox is opened */
+.inbox-banner { margin: 0; overflow-wrap: anywhere; }
+.inbox-banner a { font-weight: 700; }
+.inbox-item { display: flex; flex-direction: column; gap: 8px; }
+.inbox-item p { margin: 0; }
+/* the maintainers' plain text: a line break they wrote stays one */
+.inbox-body { white-space: pre-line; overflow-wrap: anywhere; }
 .account-bar__logout { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; font-weight: 600;
   text-decoration: none; }
 .account-bar__logout:hover { color: var(--ink); text-decoration: underline; }

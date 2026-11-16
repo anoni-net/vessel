@@ -31,7 +31,7 @@ export default {
     },
     { p: "You choose the device names, so please avoid your real name or anything that identifies you." },
     { p: "The inbox's other notes, such as a report ready to download or invites you can give, are worked out from the data above when you open the inbox, and are not stored." },
-    { p: "Your browser also keeps a few settings: whether it has signed in before (so a reload shows “My devices” at once), the language you picked, whether you closed the bar that offers another language, and whether you chose in the footer not to be counted in the statistics. They stay in your browser and are never sent to the server. If you turn on a device inspection, your browser also keeps the report key and the confirmation link, and a group leader's browser keeps the key that opens their summaries; these keys are never sent to the server. If you ask for an invite, your browser remembers the pickup number, so you can come back to check it." },
+    { p: "Your browser also keeps a few settings: whether it has signed in before (so a reload shows “My devices” at once), the language you picked, whether you closed the bar that offers another language, which reminders in the inbox you have seen (cleared when you sign out), and whether you chose in the footer not to be counted in the statistics. They stay in your browser and are never sent to the server. If you turn on a device inspection, your browser also keeps the report key and the confirmation link, and a group leader's browser keeps the key that opens their summaries; these keys are never sent to the server. If you ask for an invite, your browser remembers the pickup number, so you can come back to check it." },
     { h: "What we do not keep" },
     {
       ul: [

@@ -50,7 +50,38 @@ export interface Me {
   usage_as_of: string | null;
   /** null for a personal account; an older backend does not send it */
   group?: { role: "leader" | "member"; label: string; device_revoked_on: string | null; closing_on?: string | null } | null;
+  /** announcements not read yet, and the keys of the notes there are now (app/inbox.py); an older backend does not send it */
+  inbox?: { unread: number; notes: string[] };
 }
+
+/** A note worked out from the account's own state; it goes when the thing it is about is done. */
+export type InboxNote = { key: string } & (
+  | { kind: "report" | "inspect_request"; device: string; name: string; until: string }
+  | { kind: "moved"; region: string; names: string[]; until: string }
+  | { kind: "throttled" | "group_closing"; until: string }
+  | { kind: "invites"; left: number }
+);
+
+export interface InboxMessage {
+  id: number;
+  /** by language; zh-TW is always there */
+  texts: Partial<Record<string, { title: string; body: string }>> & { "zh-TW": { title: string; body: string } };
+  created_at: string;
+  expires_on: string;
+  /** for the accounts with a device in this region; null for everyone */
+  region: string | null;
+  /** for the account's group */
+  group: boolean;
+  unread: boolean;
+}
+
+export interface Inbox {
+  messages: InboxMessage[];
+  notes: InboxNote[];
+}
+
+/** Told each time /api/me answers, for what shows the inbox's count (inbox-state.ts). */
+export const meListeners = new Set<() => void>();
 
 export type GroupIssue = "not_connected" | "suspended" | "throttled" | "new_config" | "blocked_many";
 
@@ -352,7 +383,10 @@ export const api = {
   me: () =>
     call<Me>("GET", "/me").then((r) => {
       // an HTML fallback parses as {}; keep only a real answer
-      if (typeof r.data?.created_on === "string") last.me = r.data;
+      if (typeof r.data?.created_on === "string") {
+        last.me = r.data;
+        for (const f of meListeners) f();
+      }
       return r.data;
     }),
   devices: () =>
@@ -394,6 +428,9 @@ export const api = {
   /** confirming it is the person, before a step that needs a recent sign-in (pages/reverify.tsx) */
   verifyOptions: () => call<WebAuthnJson>("POST", "/account/verify/options").then((r) => r.data),
   verify: (proof: { account_number: string } | { credential: WebAuthnJson }) => call("POST", "/account/verify", proof),
+  inbox: () => call<Inbox>("GET", "/inbox").then((r) => r.data),
+  /** everything the account can see now is read; the server decides what that is */
+  readInbox: () => call<{ unread: number }>("POST", "/inbox/read").then((r) => r.data),
   invites: () =>
     call<Invites>("GET", "/invites").then((r) => {
       if (Array.isArray(r.data?.open)) last.invites = r.data;
