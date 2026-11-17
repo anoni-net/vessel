@@ -6,6 +6,13 @@ D=/opt/vessel-node
 . $D/node.env
 # where unbound keeps the zones it subscribes to; the uid and gid of unbound in the container
 mkdir -p $D/rpz-sub; chown 100:101 $D/rpz-sub
+# the filter resolver's upstream, one of unbound/forward-*.conf: filter.conf includes the link. Checked before the old
+# container goes, so a wrong DNS_FORWARD leaves the node running as it was
+forward=${DNS_FORWARD:-quad9}
+if [[ ! $forward =~ ^[a-z0-9]+$ ]] || [ ! -f $D/unbound/forward-$forward.conf ]; then
+  echo "run.sh: DNS_FORWARD=$forward has no unbound/forward-$forward.conf" >&2; exit 1
+fi
+ln -sfn "forward-$forward.conf" $D/unbound/forward.conf
 docker rm -f vessel-node >/dev/null 2>&1 || true
 # The memory limit leaves the host room if something in the container runs away: the resolvers peak around 1.25 GB while
 # the lists load, and the sshd, Tailscale and Beszel outside it have to keep working on a 2 GB host.
