@@ -234,7 +234,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 有過濾的兩個位址另外對 `use-application-dns.net` 回 NXDOMAIN。這是 Firefox 的偵測網域，Firefox 每次啟動與切換網路時查詢它，查不到就關掉預設開啟的 DNS over HTTPS，查詢才會繼續經過 Vessel、讓過濾生效。不過濾的解析器不回應這個訊號，因為它的意思是「這個網路有過濾」。使用者手動指定其他安全 DNS 服務時不受影響，過濾仍然不會生效。
 
-改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，先用 `docker exec vessel-node unbound-checkconf /etc/unbound/conf.d/filter.conf` 檢查，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。`filter.conf` 引用的 `vessel.zone` 與 `forward-*.conf` 要一起複製，`forward.conf` 的連結由 `run.sh` 建立，還沒執行過這一版 `run.sh` 的節點先用 `ln -sfn forward-quad9.conf /opt/vessel-node/unbound/forward.conf` 補上（台北是 `forward-cloudflare.conf`）。少了其中任何一個，unbound 在 HUP 時會結束，`.253` 與 `.254` 都停止回應，`unbound-checkconf` 可以事先發現。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
+改了 `unbound/*.conf` 之後，用 `deploy.sh` 放到節點的 `/opt/vessel-node/unbound/`，它會用 `docker exec vessel-node unbound-checkconf /etc/unbound/conf.d/filter.conf` 檢查，通過之後在節點上執行 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。`filter.conf` 引用的 `vessel.zone` 與 `forward-*.conf` 由 `deploy.sh` 一起放上去，`forward.conf` 的連結由 `run.sh` 建立，還沒執行過這一版 `run.sh` 的節點先用 `ln -sfn forward-quad9.conf /opt/vessel-node/unbound/forward.conf` 補上（台北是 `forward-cloudflare.conf`）。少了其中任何一個，unbound 在 HUP 時會結束，`.253` 與 `.254` 都停止回應，`unbound-checkconf` 可以事先發現。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
 
 名單更新時不用 HUP。`pull-lists.sh` 先比對序號，主機比較新的名單才用 `unbound-control auth_zone_transfer` 取得變動的部分，這個指令會略過序號檢查，沒有變動的名單也照樣傳送，六份一起約中斷 10 秒。有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。傳送期間 `.253` 與 `.254` 會暫停一下，2026-11-09 在東京實測，廣告名單增減 2,500 個網域約 0.5 秒，CTI 的一般變動約 1.8 秒，不過濾的 `.1` 照常運作。主機無法連線時，節點繼續用手上的名單，unbound 把收到的名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送。
 
@@ -364,6 +364,22 @@ systemctl daemon-reload && systemctl enable --now vessel-reach.timer
 systemctl start vessel-reach.service && cat /opt/vessel-node/reach.json    # 立刻測一次
 ```
 
+## 部署
+
+改了 `node/` 的檔案之後，在維護者的電腦上從 `main` 的 checkout 執行 `deploy.sh`，把 `files.tsv` 列的每個檔案放到節點上的位置，不要只挑改到的檔案複製：
+
+```bash
+node/deploy.sh --dry-run <節點的 SSH 別名>...   # 先看會換掉哪些檔案
+node/deploy.sh <節點的 SSH 別名>...
+```
+
+- 只換檔案，不重建映像、不重啟容器、不重新載入解析器，執行時不會有人斷線。換了 systemd 的檔案時執行 `daemon-reload`
+- 最後印出換掉的檔案還需要的步驟（`files.tsv` 的 `after` 欄），例如重建映像或 HUP，在節點上自行執行，會讓使用者察覺的先寫一筆服務狀態紀錄
+- `unbound/` 有變動時，在執行中的容器裡用 `unbound-checkconf` 檢查兩個解析器的設定，沒通過就把這次換掉的檔案全部放回原本的版本
+- `node/` 有未提交的變動時拒絕執行，節點的 `/opt/vessel-node/REVISION` 記下部署的 commit
+
+`node.env`、`unbound/rpz-zones.conf`、`unbound/forward.conf` 與金鑰這些每台節點各自的檔案不在 `files.tsv` 裡，`deploy.sh` 不會碰到。
+
 ## 升級
 
 ```bash
@@ -382,7 +398,7 @@ AmneziaWG 換協定世代時，舊的設定檔可能不相容，要請所有人�
 
 ### 落差檢查
 
-節點上的檔案是從 repo 複製過去的，每次只複製改到的檔案，沒被複製的就停在舊版。`drift-check.sh` 依 `files.tsv` 比對節點上的每個檔案跟目前的 checkout 是否相同，權限是否一致，只讀不改：
+2026-11-17 以前節點靠手動複製檔案部署，每次只複製改到的檔案，沒被複製的就停在舊版。`drift-check.sh` 依 `files.tsv` 比對節點上的每個檔案跟目前的 checkout 是否相同，權限是否一致，只讀不改：
 
 ```bash
 node/drift-check.sh <節點的 SSH 別名>...   # 有不同時列出檔案，結束碼是 1
