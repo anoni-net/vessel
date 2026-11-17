@@ -323,6 +323,52 @@ test("a device with nothing recorded says so", async ({ page }) => {
   await expect(page.getByTestId("inspect-empty")).toBeVisible();
 });
 
+const keptKey = (page: Page) => page.evaluate((id) => JSON.parse(localStorage.getItem(`vessel-inspection:${id}`) ?? "null")?.key, ID);
+
+test("an ended inspection can be followed by a new one, after saying the report goes", async ({ page }) => {
+  const sent = await backend(page, ended, { after: { ...BASE, status: "confirming", confirm_seconds: 1800 } });
+  await withKey(page);
+  await goto(page);
+  await expect(page.getByTestId("inspect-report")).toBeVisible();
+  await page.getByTestId("inspect-new").click();
+  const replace = page.getByTestId("inspect-replace");
+  await expect(replace).toContainText("目前的報告會立刻刪除");
+  await expect(replace).toBeFocused();
+  await expect(page.getByTestId("inspect-report")).toHaveCount(0);
+  // going back shows the report again, nothing sent
+  await page.getByTestId("inspect-again-back").click();
+  await expect(page.getByTestId("inspect-report")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  await page.getByTestId("inspect-new").click();
+  await page.getByTestId("inspect-agree").check();
+  await page.getByTestId("inspect-consent").getByRole("button", { name: "同意並開始" }).click();
+  await expect(page.getByTestId("inspect-url")).toHaveAttribute("href", URL_);
+  const body = sent.find((s) => s.method === "POST")!.body as { consent_version: string };
+  expect(body.consent_version).toBe(BASE.consent_version);
+  // the new inspection's key in place of the old one's
+  expect(await keptKey(page)).not.toBe(KEY);
+});
+
+test("a new inspection that fails to start leaves the report as it was", async ({ page }) => {
+  await backend(page, ended, { postError: "inspection_unavailable" });
+  await withKey(page);
+  await goto(page);
+  await page.getByTestId("inspect-new").click();
+  await page.getByTestId("inspect-agree").check();
+  await page.getByRole("button", { name: "同意並開始" }).click();
+  await expect(page.getByRole("alert")).toContainText("目前無法使用");
+  await page.getByTestId("inspect-again-back").click();
+  await expect(page.getByTestId("inspect-report")).toContainText("tracker.example");
+  expect(await keptKey(page)).toBe(KEY);
+});
+
+test("a new inspection after one a leader asked for says the leaders are told", async ({ page }) => {
+  await backend(page, { ...ended, group: true });
+  await goto(page);
+  await page.getByTestId("inspect-new").click();
+  await expect(page.getByTestId("inspect-replace")).toContainText("負責人看到的結果也會一起刪除");
+});
+
 test("the key is forgotten once the report is gone", async ({ page }) => {
   await backend(page, { ...BASE, status: "none" });
   await page.goto("/");

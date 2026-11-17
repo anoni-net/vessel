@@ -291,3 +291,26 @@ def test_what_the_leaders_see_goes_on_its_day(client, db, node, capsys, analysis
     db.execute("UPDATE group_inspections SET until = current_date - 1")
     worker.tick(db)
     assert seen(leader, device_id) is None
+
+
+def test_a_request_after_a_finished_one_is_answered_with_the_report_still_there(client, db, node, capsys, analysis):
+    leader, member, device_id = setup(capsys, client, db, node)
+    set_key(leader)
+    ask(leader, device_id)
+    confirmed(member, device_id, node, db)
+    member.delete(f"/api/devices/{device_id}/inspection", headers=HEADERS)
+    finish_it(db)
+    assert ask(leader, device_id).status_code == 200
+    # the member sees the request beside the report that is still kept
+    listed = member.get("/api/devices").json()[0]
+    assert listed["inspection"] == "ended" and listed["inspection_request"] is not None
+    assert read(member, device_id)["requested"] is True
+    # saying no leaves the report as it was
+    assert member.post(f"/api/devices/{device_id}/inspection/decline", headers=HEADERS).status_code == 200
+    assert read(member, device_id)["status"] == "ended"
+    # agreeing replaces it, and the leaders' summaries start again from the new one
+    ask(leader, device_id)
+    assert agree(member, device_id).status_code == 200
+    assert read(member, device_id)["status"] == "confirming"
+    assert seen(leader, device_id)["status"] == "confirming"
+    assert db.execute("SELECT count(*) FROM leader_summaries WHERE device_id = %s", (device_id,)).fetchone()[0] == 1

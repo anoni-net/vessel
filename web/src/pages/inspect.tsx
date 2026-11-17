@@ -269,7 +269,8 @@ export function Inspect() {
       {status === "confirming" && <Confirming id={id} state={state} local={local} setKept={setKept} reload={load} fail={fail} stop={stop} />}
       {status === "active" && <Running state={state} local={local} setKept={setKept} name={name} />}
       {status === "ending" && <p class="card card--tint card--flat">{t["inspect.ending"]}</p>}
-      {status === "ended" && <Ended state={state} local={local} setKept={setKept} name={name} stop={stop} />}
+      {status === "ended" && <Ended id={id} state={state} local={local} setKept={setKept} name={name} stop={stop}
+        grouped={!!me?.group} reload={load} fail={fail} />}
       {status === "none" && state.requested && own && (
         <p class="small"><button class="link-button" type="button" onClick={() => setOwn(false)}>{t["inspect.group.back"]}</button></p>
       )}
@@ -581,16 +582,61 @@ function Running({ state, local, setKept, name }: { state: Inspection; local: Ke
   );
 }
 
-function Ended({ state, local, setKept, name, stop }: {
-  state: Inspection; local: Kept | null; setKept: (k: Kept) => void; name: string; stop: (words?: string) => Promise<void>;
+/**
+ * The report kept after the end, and the way to a new inspection of the same device: the consent again, under what
+ * happens to this report. The portal deletes it the moment a new one is asked for, so the page says so before then.
+ * A leader's request that came after this one ended is answered from here too, with the report still kept until then.
+ */
+function Ended({ id, state, local, setKept, name, stop, grouped, reload, fail }: {
+  id: string; state: Inspection; local: Kept | null; setKept: (k: Kept | null) => void; name: string; stop: (words?: string) => Promise<void>;
+  grouped: boolean; reload: () => Promise<void>; fail: (x: unknown) => void;
 }) {
   const { t, locale } = useCtx();
+  // here, so that it starts over whenever the status changes and the part of the page goes
+  const [again, setAgain] = useState(false);
+  const [own, setOwn] = useState(false);
+  const [saidNo, setSaidNo] = useState(false);
   // one a leader asked for: the leaders are told it was deleted, and nothing else
   const remove = () => window.confirm(t[state.group ? "inspect.group.deleteConfirm" : "inspect.deleteConfirm"]) && stop(t["inspect.said.deleted"]);
+  const open = (theirs: boolean) => {
+    setOwn(!theirs);
+    setSaidNo(false);
+    setAgain(true);
+    focusLater(() => document.querySelector('[data-testid="inspect-replace"]'));
+  };
+  const back = () => {
+    setAgain(false);
+    toHeading();
+  };
+  if (again) {
+    const asked = state.requested && !own;
+    return (
+      <div class="stack inspect-wide" data-testid="inspect-again">
+        {/* a leader's request does not delete the leaders' view of this one: it is theirs again, from the new one */}
+        <p class="card card--warn card--flat" data-testid="inspect-replace">{t[state.group && !asked ? "inspect.again.group" : "inspect.again.note"]}</p>
+        {asked
+          ? <GroupConsent id={id} state={state} setKept={setKept} reload={reload} fail={fail} own={() => setOwn(true)}
+              declined={() => { setAgain(false); setSaidNo(true); announce(t["inspect.group.declined"]); toHeading(); }} />
+          : <Consent id={id} state={state} grouped={grouped} setKept={setKept} reload={reload} fail={fail} />}
+        {state.requested && own && (
+          <p class="small"><button class="link-button" type="button" onClick={() => setOwn(false)}>{t["inspect.group.back"]}</button></p>
+        )}
+        <p class="small"><button class="link-button" type="button" onClick={back} data-testid="inspect-again-back">{t["inspect.again.back"]}</button></p>
+      </div>
+    );
+  }
   return (
     <div class="stack inspect-wide" data-testid="inspect-ended">
+      {saidNo && <p class="card card--tint card--flat" data-testid="inspect-declined">{t["inspect.group.declined"]}</p>}
+      {state.requested && (
+        <div class="card card--warn card--flat stack" data-testid="inspect-asked-again">
+          <p>{t["inspect.group.askedEnded"]}</p>
+          <button class="nb-button" type="button" onClick={() => open(true)}>{t["inspect.group.answer"]}</button>
+        </div>
+      )}
       <p class="card card--warn card--flat" data-testid="inspect-until">{fmt(t["inspect.keepUntil"], { date: formatDate(locale, state.report_until!) })}</p>
       {state.report ? <Opened state={state} local={local} setKept={setKept} name={name} /> : <p class="muted">{t["inspect.noneYet"]}</p>}
+      <button class="nb-button" type="button" onClick={() => open(false)} data-testid="inspect-new">{t["inspect.again"]}</button>
       <button class="link-button" type="button" onClick={remove}>{t["inspect.delete"]}</button>
     </div>
   );
