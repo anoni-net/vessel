@@ -11,7 +11,7 @@ Dockerfile	/opt/vessel-node/build/Dockerfile	644	rebuild
 start.sh	/opt/vessel-node/build/start.sh	755	rebuild
 setup.sh	/opt/vessel-node/setup.sh	700	-	only run once, to install a node
 run.sh	/opt/vessel-node/run.sh	700	-
-awgctl	/opt/vessel-node/awgctl	755	-	linked from /usr/local/sbin/awgctl
+awgctl	/opt/vessel-node/awgctl	700	-	linked from /usr/local/sbin/awgctl
 awgctl-remote	/usr/local/sbin/awgctl-remote	755	-
 pull-lists.sh	/opt/vessel-node/pull-lists.sh	700	-
 reach-sites.tsv	/opt/vessel-node/reach-sites.tsv	644	-
