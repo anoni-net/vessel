@@ -100,6 +100,7 @@ const QUESTIONS = ["log", "speed", "sites", "ads", "allow"] as const;
 // newest first; every change to the lists adds a line, and so does every note on sites added or taken out
 // (src/data/site-notes.json)
 const LOG = [
+  ["2026-11-17", "20261117"],
   ["2026-11-12", "20261112cti"],
   ["2026-11-10", "20261110notes"],
   ["2026-11-09", "20261109c"],
