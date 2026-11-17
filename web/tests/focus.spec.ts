@@ -29,6 +29,10 @@ async function mockApi(page: Page, handlers: Record<string, Handler>) {
 const signedOut = { "GET /api/me": json({ error: "signed_out" }, 401) };
 
 async function noViolations(page: Page) {
+  // let fade-ins (.appear) finish: halfway through one, text is still see-through and fails the contrast check
+  await page.evaluate(() =>
+    Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished)),
+  );
   await page.evaluate(axe.source);
   const found = await page.evaluate(async () => {
     const res = await (window as unknown as { axe: typeof axe }).axe.run(document, {
