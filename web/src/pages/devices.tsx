@@ -350,7 +350,8 @@ function DeviceList({ me, devices, added, deleting, remove, deleteErr }: {
                 </p>
               )}
               {d.inspection === "confirming" && d.status !== "revoking" && !deleting.has(d.id) && <InspectNote d={d} />}
-              {d.inspection_request && !d.inspection && d.status === "active" && !deleting.has(d.id) && <RequestNote d={d} />}
+              {/* after one has ended too: the request is answered beside the report, which stays until then */}
+              {d.inspection_request && (!d.inspection || d.inspection === "ended") && d.status === "active" && !deleting.has(d.id) && <RequestNote d={d} />}
               <div class="row small device-foot">
                 {inspecting(d) && !deleting.has(d.id) ? <InspectLink d={d} /> : d.status === "active" && !d.inspection && !deleting.has(d.id) && (
                   <a data-testid="device-inspect" href={inspectHref(href, d)} aria-label={fmt(t["devices.inspectNamed"], { name: d.name })}>

@@ -18,7 +18,7 @@ const groupInspection = (status: string, over: object = {}) => ({
 
 type Sent = { method: string; path: string; body: unknown };
 
-async function backend(page: Page, inspection: object, opts: { after?: object; device?: object; view?: object } = {}) {
+async function backend(page: Page, inspection: object, opts: { after?: object; device?: object; view?: object; declined?: object } = {}) {
   const sent: Sent[] = [];
   let current = inspection;
   await page.route("**/api/**", (route) => {
@@ -26,7 +26,7 @@ async function backend(page: Page, inspection: object, opts: { after?: object; d
     const path = new URL(req.url()).pathname;
     if (req.method() !== "GET") sent.push({ method: req.method(), path, body: req.postData() ? req.postDataJSON() : null });
     if (path.endsWith("/inspection/decline")) {
-      current = { ...BASE, status: "none", requested: false };
+      current = opts.declined ?? { ...BASE, status: "none", requested: false };
       return route.fulfill({ json: { ok: true } });
     }
     if (path.endsWith("/inspection")) {
@@ -144,4 +144,40 @@ test("a personal account sees nothing of requests", async ({ page }) => {
   await page.goto("/devices/");
   await expect(page.getByTestId("device-inspect")).toBeVisible();
   await expect(page.getByTestId("inspect-request")).toHaveCount(0);
+});
+
+const ENDED = { ...BASE, status: "ended", started_at: "2026-11-01T00:00:00Z", ends_at: "2026-11-08T00:00:00Z",
+  stopped_at: "2026-11-08T00:00:00Z", report: null, report_until: "2026-11-15" };
+
+test("a request after one has ended is shown beside the report, and agreeing replaces it", async ({ page }) => {
+  const sent = await backend(page, { ...ENDED, requested: true },
+    { device: { inspection: "ended", inspection_report_until: "2026-11-15" }, after: { ...BASE, status: "confirming", group: true, confirm_seconds: 1800 } });
+  await page.goto("/devices/");
+  // the card has the report and the request both
+  await expect(page.getByTestId("device-inspect")).toHaveAttribute("data-state", "ended");
+  await page.getByTestId("inspect-request").getByRole("link").click();
+  await expect(page.getByTestId("inspect-until")).toBeVisible();
+  const asked = page.getByTestId("inspect-asked-again");
+  await expect(asked).toContainText("新的檢測會取代目前的報告");
+  await asked.getByRole("button", { name: "回覆負責人的請求" }).click();
+  // the leaders see the new one from the start: not the words about telling them this one was deleted
+  await expect(page.getByTestId("inspect-replace")).toContainText("目前的報告會立刻刪除");
+  await expect(page.getByTestId("inspect-replace")).not.toContainText("負責人看到的結果");
+  const form = page.getByTestId("inspect-group-consent");
+  await page.getByTestId("inspect-agree").check();
+  await form.getByRole("button", { name: "同意並開始" }).click();
+  await expect(page.getByTestId("inspect-url")).toHaveAttribute("href", URL_);
+  const body = sent.find((s) => s.method === "POST")!.body as { group: boolean };
+  expect(body.group).toBe(true);
+});
+
+test("saying no to a request after one has ended keeps the report", async ({ page }) => {
+  await backend(page, { ...ENDED, requested: true }, { declined: { ...ENDED, requested: false } });
+  await goto(page);
+  await page.getByRole("button", { name: "回覆負責人的請求" }).click();
+  await page.getByTestId("inspect-decline").click();
+  await expect(page.getByTestId("inspect-declined")).toContainText("已回覆負責人你不同意");
+  await expect(page.getByTestId("inspect-until")).toBeVisible();
+  await expect(page.getByTestId("inspect-asked-again")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
 });
