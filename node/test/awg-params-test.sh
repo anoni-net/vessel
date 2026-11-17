@@ -1,6 +1,7 @@
 #!/bin/bash
 # The AmneziaWG parameters a node is set up with (setup.sh) and the ones awgctl makes for each device, against two
-# upstream defects that the shipped values stay clear of (amneziawg-go v3.1.20260828):
+# upstream defects that the shipped values stay clear of (amneziawg-go v3.1.20261116 refuses #189's values, but the
+# client apps embed older versions: the iOS app had v3.1.20260814 on 2026-11-11):
 #   amnezia-vpn/amneziawg-go#186  with RandomTrailers on, a data packet is dropped as a broken handshake message
 #                                 unless S1-S4 are equal; H1-H4 as ranges add to it
 #   amnezia-vpn/amneziawg-go#189  Jmin above Jmax, or a negative length in an I1 tag, takes the whole daemon down,

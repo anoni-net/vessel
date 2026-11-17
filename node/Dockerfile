@@ -5,7 +5,7 @@
 # on a node: AmneziaWG's binaries handle the server key and everyone's traffic. A rebuild still picks up Alpine's
 # package fixes within 3.24 (apk). Moving to the next Alpine or AmneziaWG release is a deliberate step: change the tag
 # and the digest, rebuild, then run.sh.
-FROM amneziavpn/amneziawg-go:3.1.20260828@sha256:cbafc02b8373a83f428272db6d8001b37bc02e6211cbd8c0cb4e2e3759b12b72 AS awg
+FROM amneziavpn/amneziawg-go:3.1.20261116@sha256:e6ac67745f024e3e41a4897b8e72f090cd15c375e42c7e3e6f9c981e057edafd AS awg
 
 FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 RUN apk add --no-cache bash iproute2 iptables conntrack-tools unbound ca-certificates \
