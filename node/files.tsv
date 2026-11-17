@@ -42,3 +42,4 @@ host/vessel-reach.service	/etc/systemd/system/vessel-reach.service	644	-
 host/vessel-reach.timer	/etc/systemd/system/vessel-reach.timer	644	restart:vessel-reach.timer
 host/cve-2026-98432-ipopt	-	-	-	installed by hand while a node's kernel is not fixed (安裝 in README.md)
 host/cve-2026-98432-ipopt.service	-	-	-	installed by hand while a node's kernel is not fixed (安裝 in README.md)
+drift-check.sh	-	-	-	runs on the maintainer's computer
