@@ -134,7 +134,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 ### 轉發給 Quad9
 
-台北節點連到的 Quad9 在新加坡，所以台北節點的 `node.env` 設 `DNS_FORWARD=cloudflare`，改轉給 Cloudflare 擋惡意網站的 `1.1.1.2`（`unbound/forward-cloudflare.conf`）。Cloudflare 擋下的網域回 `0.0.0.0`，不回 NXDOMAIN。`filter.conf` 只引用 `forward.conf`，三台節點的 `filter.conf` 相同，直接從 repo 複製即可。改了 `DNS_FORWARD` 之後執行 `run.sh`。
+台北節點連到的 Quad9 在新加坡，所以台北節點的 `node.env` 設 `DNS_FORWARD=cloudflare`，改轉給 Cloudflare 擋惡意網站的 `1.1.1.2`（`unbound/forward-cloudflare.conf`）。Cloudflare 擋下的網域回 `0.0.0.0`，不回 NXDOMAIN。`filter.conf` 只引用 `forward.conf`，三台節點的 `filter.conf` 相同，直接從 repo 複製即可。改了 `DNS_FORWARD` 之後執行 `run.sh`。入口網站寫明各節點轉給誰的地方只有兩處，名單頁的 `lists.quad9.after` 與隱私權政策（`web/src/legal/privacy.*.ts`）提到 Quad9 的那一段，三個語系一起改。其他說明只寫「外部的過濾服務（Quad9 或 Cloudflare）」，不必改。
 
 有過濾的 unbound 比對完名單之後，把其他查詢經 DNS over TLS 轉給 Quad9（`9.9.9.9`）。Quad9 判斷有害的網域回 NXDOMAIN，補上名單涵蓋不到的釣魚網站。不過濾的 unbound 不轉發。
 
