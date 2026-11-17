@@ -93,6 +93,9 @@ jobs:
       # concurrent adds, a failed apply tried again, flows of a reused address
       - name: awgctl
         run: bash node/test/awgctl-test.sh
+      # the stream follows a recreated container instead of staying in its old network namespace
+      - name: inspect stream
+        run: bash node/test/inspect-stream-test.sh
       # the values that stay clear of two open upstream defects
       - name: AmneziaWG parameters
         run: bash node/test/awg-params-test.sh
