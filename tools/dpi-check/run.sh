@@ -38,7 +38,7 @@ awg() { docker run --rm -i --entrypoint awg "$AWG" "$@"; }
 
 # Vessel's parameters, taken from the files the nodes use
 HPK=$(awg genkey </dev/null)
-SHARED=$(sed -n '/^SHARED="/,/"$/p' "$ROOT/node/setup.sh" | sed '1s/^SHARED="//; $s/"$//' | sed "s/\$HPK/$HPK/")
+SHARED=$(sed -n '/^SHARED="/,/"$/p' "$ROOT/node/setup.sh" | sed '1s/^SHARED="//; $s/"$//' | sed "s|\$HPK|$HPK|")
 SERVER_ONLY=$(sed -n '/^Jc = /,/^Jmax = /p' "$ROOT/node/setup.sh")
 mkdir -p "$WORK/node/server"
 printf '%s\n' "$SHARED" > "$WORK/node/server/client-params.conf"
