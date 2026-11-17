@@ -26,6 +26,8 @@
 #   awgctl inspect status --json                the devices being inspected
 #   awgctl inspect confirms --json              confirmation codes opened on devices (host/vessel-inspect-confirm.py)
 #   awgctl inspect ack <code>                   forget a confirmation the portal has read
+#   awgctl inspect restore                      put back the inspections this node accepted, after its container
+#                                               restarted (vessel-inspect-restore.timer, every minute)
 #
 # Layout under /opt/vessel-node:
 #   node.env                  NODE_IP and LISTEN_PORT of this node (not in the repo)
@@ -64,6 +66,11 @@ INSPECT_GROUP=42
 INSPECT_WHOLE=12    # packets of a connection copied whole
 INSPECT_SNAP=128    # bytes copied of the packets after those
 INSPECT_MAX_SECONDS=$(( 8 * 86400 ))
+# The rules live in the container's firewall, so a restart of the container loses them, and the code the device
+# confirmed was used once and forgotten: the portal cannot start them again. The node keeps its own record of each
+# inspection it accepted, a file per tunnel address holding the end time, readable by root only, and `inspect restore`
+# puts back what a restart lost (inspect_restore). Clearing an address's rules removes its record too.
+INSPECTING=$D/inspecting
 
 # Over its monthly quota a device is slowed down rather than taken offline (the portal's worker, enforce_quota). Each
 # direction of its tunnel address is held to THROTTLE_RATE in VESSEL-THROTTLE, which FORWARD checks first; packets over
@@ -134,9 +141,15 @@ throttle_off() { # name
   echo "full speed for $1"
 }
 
-# Remove every inspection rule of a tunnel address. The next device given the address must not be copied, so callers
-# stop when this fails.
+# Remove every inspection rule of a tunnel address, and the node's record of it. The next device given the address must
+# not be copied, so callers stop when this fails.
 inspect_clear() { # ipv4
+  inspect_rules_clear "$1" || return 1
+  rm -f "$INSPECTING/$1"
+}
+
+# the rules alone, the record kept: inspect_restore starts an address over from its record
+inspect_rules_clear() { # ipv4
   local rules line
   rules=$(docker exec $C iptables -t mangle -S) || return 1
   { grep -E -- "--comment \"?vessel-inspect:${1//./\\.}\"?( |\$)" <<<"$rules" || true; } | sed -E 's/^-A /-D /' |
@@ -146,6 +159,19 @@ inspect_clear() { # ipv4
       # shellcheck disable=SC2086  # the rule's own words
       docker exec $C iptables -t mangle $line || exit 1
     done
+}
+
+# both directions of an address until its end time, or nothing: one direction alone would be a wrong report
+inspect_rules_add() { # ipv4, end time
+  if ! { inspect_add PREROUTING "-i awg0 -s $1/32" "$1" "$2" && inspect_add POSTROUTING "-o awg0 -d $1/32" "$1" "$2"; }; then
+    inspect_rules_clear "$1" || true
+    return 1
+  fi
+}
+
+# the record of an inspection the node accepted: the end time, under the address
+inspect_remember() { # ipv4, end time
+  (umask 077; mkdir -p "$INSPECTING" && printf '%s\n' "$2" > "$INSPECTING/.$1" && mv "$INSPECTING/.$1" "$INSPECTING/$1")
 }
 
 # shellcheck disable=SC2086  # $match and $count are lists of words
@@ -178,12 +204,60 @@ inspect_on() { # name, until (epoch seconds), confirmation code
   confirmed "$ip" "$3" || die "$1 has not confirmed this on the device"
   stop=$(date -u -d "@$2" +%Y-%m-%dT%H:%M:%S)
   inspect_clear "$ip" || die "could not read or clear the inspection rules"
-  if ! { inspect_add PREROUTING "-i awg0 -s $ip/32" "$ip" "$stop" && inspect_add POSTROUTING "-o awg0 -d $ip/32" "$ip" "$stop"; }; then
-    # never half of it: one direction alone would be a wrong report
+  inspect_rules_add "$ip" "$stop" || die "could not add the inspection rules"
+  # what a container restart would lose; without the record the inspection stops at the next restart
+  if ! inspect_remember "$ip" "$stop"; then
     inspect_clear "$ip" || true
-    die "could not add the inspection rules"
+    die "could not keep the record of the inspection"
   fi
   echo "inspecting $1 until $stop UTC"
+}
+
+# After a container restart: put back the rules of every record whose end time has not passed and whose address still
+# belongs to a device, with the end time it had. It never starts an inspection the node did not accept, nor moves an end
+# time. Rules running without a record, accepted before the node kept records, get one first, so they are kept too. A
+# record past its end, with an address no device has, or that does not read right is removed. Quiet when nothing
+# changed, since a timer runs it every minute; nothing it prints names an address.
+inspect_restore() {
+  local rules peers f ip stop end now noted=0 restored=0 forgot=0 failed=0
+  if ! rules=$(docker exec $C iptables -t mangle -S 2>/dev/null); then
+    echo "awgctl: the container is not running, nothing to restore" >&2
+    return 0
+  fi
+  (umask 077; mkdir -p "$INSPECTING") || return 1
+  now=$(date +%s)
+  while read -r ip stop; do
+    [ -n "$ip" ] && [ ! -e "$INSPECTING/$ip" ] || continue
+    inspect_remember "$ip" "$stop" || return 1
+    noted=$(( noted + 1 ))
+  done < <(sed -nE 's/.*--comment "?vessel-inspect:([0-9.]+)"? .*--datestop ([0-9T:-]+).*/\1 \2/p' <<<"$rules" | sort -u)
+  peers=$(for f in $D/peers/*.conf $D/suspended/*.conf; do if [ -e "$f" ]; then peer_ip "$f"; fi; done)
+  for f in "$INSPECTING"/*; do
+    [ -f "$f" ] || continue
+    ip=${f##*/}
+    stop=$(head -c 32 "$f" | tr -d '\n')
+    end=0
+    if [[ $stop =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then
+      end=$(date -u -d "${stop/T/ } UTC" +%s 2>/dev/null) || end=0
+    fi
+    if [[ ! $ip =~ ^${SUBNET//./\\.}\.[0-9]{1,3}$ ]] || (( end <= now || end > now + INSPECT_MAX_SECONDS )) ||
+      ! grep -qxF -- "$ip" <<<"$peers"; then
+      inspect_clear "$ip" 2>/dev/null || rm -f "$f"
+      forgot=$(( forgot + 1 ))
+      continue
+    fi
+    # both directions, two rules each: anything else is started over from the record
+    [ "$(grep -cE -- "--comment \"?vessel-inspect:${ip//./\\.}\"? " <<<"$rules")" = 4 ] && continue
+    if inspect_rules_clear "$ip" && inspect_rules_add "$ip" "$stop"; then
+      restored=$(( restored + 1 ))
+    else
+      failed=$(( failed + 1 ))
+    fi
+  done
+  if (( noted + restored + forgot + failed )); then
+    echo "inspections: put back $restored, recorded $noted, forgot $forgot, failed $failed"
+  fi
+  (( failed == 0 ))
 }
 
 inspect_off() { # name
@@ -522,7 +596,8 @@ print(json.dumps({"name": os.environ["NAME"], "interface": iface, "peer": peer})
         [[ ${3:-} =~ ^[A-Z0-9]{16}$ ]] || die "not a confirmation code"
         inspect_ack "$3"
         ;;
-      *) die "inspect on <name> <until> <code> | off <name> | status --json" ;;
+      restore) inspect_restore ;;
+      *) die "inspect on <name> <until> <code> | off <name> | status --json | restore" ;;
     esac
     ;;
   *)
