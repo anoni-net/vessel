@@ -12,7 +12,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
 | `pull-lists.sh` | 根目錄 | 向維護者的主機取得名單的變動。root 的 cron 在 UTC 04:37、10:37、16:37、22:37 執行，名單由主機在 7 分鐘前產生，見 `deploy/rpz/` |
 | `exclude.txt` | 維護者的主機（`deploy/rpz/`） | 不該擋的網域與理由，見「排除清單」 |
-| `unbound/*.conf`、`unbound/vessel.zone` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾。`vessel.zone` 讓廣告名單的 CNAME 目標在本機回 NXDOMAIN，見「擋下次數」 |
+| `unbound/*.conf`、`unbound/vessel.zone` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾。`vessel.zone` 讓廣告名單的 CNAME 目標在本機回 NXDOMAIN，見「擋下次數」。`forward-quad9.conf`、`forward-cloudflare.conf` 是有過濾的解析器轉發的對象，節點的 `forward.conf` 依 `node.env` 的 `DNS_FORWARD` 連到其中一份，由 `run.sh` 建立，見「轉發給 Quad9」 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/vessel-inspect.conf` | `/etc/modules-load.d/` | 裝置檢測需要的核心模組，見「裝置檢測」 |
 | `host/vessel-inspect-restore.service`、`host/vessel-inspect-restore.timer` | `/etc/systemd/system/` | 容器重新啟動之後，每分鐘把節點接受過的檢測加回去，見「裝置檢測」 |
@@ -139,7 +139,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 ### 轉發給 Quad9
 
-台北節點連到的 Quad9 在新加坡，所以台北節點的 `filter.conf` 把 `forward-addr` 改成 Cloudflare 的 `1.1.1.2@853#security.cloudflare-dns.com` 與 `1.0.0.2@853#security.cloudflare-dns.com`，更新 `filter.conf` 時要保留這兩行。
+台北節點連到的 Quad9 在新加坡，所以台北節點的 `node.env` 設 `DNS_FORWARD=cloudflare`，改轉給 Cloudflare 擋惡意網站的 `1.1.1.2`（`unbound/forward-cloudflare.conf`）。Cloudflare 擋下的網域回 `0.0.0.0`，不回 NXDOMAIN。`filter.conf` 只引用 `forward.conf`，三台節點的 `filter.conf` 相同，直接從 repo 複製即可。改了 `DNS_FORWARD` 之後執行 `run.sh`。
 
 有過濾的 unbound 比對完名單之後，把其他查詢經 DNS over TLS 轉給 Quad9（`9.9.9.9`）。Quad9 判斷有害的網域回 NXDOMAIN，補上名單涵蓋不到的釣魚網站。不過濾的 unbound 不轉發。
 
@@ -148,7 +148,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 - Quad9 無法連線時（`forward-first`），前面 1 到 2 分鐘的新查詢會逾時，之後改由 unbound 自行遞迴查詢，名單與 DNSSEC 驗證仍然有效
 - `tls-cert-bundle` 只在 unbound 啟動時讀取，第一次加上轉發時要重啟有過濾的 unbound，`pkill -HUP` 不會生效，查詢會退回自行遞迴：`docker exec vessel-node sh -c 'kill "$(cat /run/unbound-filter.pid)"; sleep 2; unbound -c /etc/unbound/conf.d/filter.conf'`
 - 裝置清單的擋下次數只算名單擋下的，Quad9 的 NXDOMAIN 看起來跟一般的網域不存在相同，無法分開計數
-- Quad9 誤擋時，在 `filter.conf` 替該名稱加一個 `forward-zone`，轉給不過濾的 `9.9.9.10@853#dns10.quad9.net`，並列進名單頁的排除的網域
+- Quad9 誤擋時，在 `unbound/forward-quad9.conf` 替該名稱加一個 `forward-zone`，轉給不過濾的 `9.9.9.10@853#dns10.quad9.net`，並列進名單頁的排除的網域
 - 入口網站的查詢（`api/app/blocklists.py`）同時問 `9.9.9.9` 與 `9.9.9.10`，只有前者回 NXDOMAIN 時，判定為 Quad9 擋下
 
 ### 165 停止解析的涉詐網站
@@ -232,7 +232,7 @@ command="/usr/local/sbin/awgctl-remote",restrict,from="<入口網站主機的 ta
 
 有過濾的兩個位址另外對 `use-application-dns.net` 回 NXDOMAIN。這是 Firefox 的偵測網域，Firefox 每次啟動與切換網路時查詢它，查不到就關掉預設開啟的 DNS over HTTPS，查詢才會繼續經過 Vessel、讓過濾生效。不過濾的解析器不回應這個訊號，因為它的意思是「這個網路有過濾」。使用者手動指定其他安全 DNS 服務時不受影響，過濾仍然不會生效。
 
-改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，先用 `docker exec vessel-node unbound-checkconf /etc/unbound/conf.d/filter.conf` 檢查，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。`filter.conf` 引用的 `vessel.zone` 要一起複製。少了 `vessel.zone`，unbound 在 HUP 時會結束，`.253` 與 `.254` 都停止回應，`unbound-checkconf` 可以事先發現。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
+改了 `unbound/*.conf` 之後，複製到節點的 `/opt/vessel-node/unbound/`，先用 `docker exec vessel-node unbound-checkconf /etc/unbound/conf.d/filter.conf` 檢查，再 `docker exec vessel-node pkill -HUP -x unbound` 重新載入。`filter.conf` 引用的 `vessel.zone` 與 `forward-*.conf` 要一起複製，`forward.conf` 的連結由 `run.sh` 建立，還沒執行過這一版 `run.sh` 的節點先用 `ln -sfn forward-quad9.conf /opt/vessel-node/unbound/forward.conf` 補上（台北是 `forward-cloudflare.conf`）。少了其中任何一個，unbound 在 HUP 時會結束，`.253` 與 `.254` 都停止回應，`unbound-checkconf` 可以事先發現。設定檔是掛進容器的，不必重啟容器，VPN 連線不會中斷。HUP 會讓兩個解析器同時重讀名單，載入期間不回應查詢，2026-10-29 在東京實測擋廣告的解析器停了一兩分鐘，所以先寫一筆服務狀態紀錄。
 
 名單更新時不用 HUP。`pull-lists.sh` 先比對序號，主機比較新的名單才用 `unbound-control auth_zone_transfer` 取得變動的部分，這個指令會略過序號檢查，沒有變動的名單也照樣傳送，六份一起約中斷 10 秒。有過濾的解析器有一個只在容器內的控制 socket（`/run/unbound-filter.ctl`）。傳送期間 `.253` 與 `.254` 會暫停一下，2026-11-09 在東京實測，廣告名單增減 2,500 個網域約 0.5 秒，CTI 的一般變動約 1.8 秒，不過濾的 `.1` 照常運作。主機無法連線時，節點繼續用手上的名單，unbound 把收到的名單存在 `/var/lib/unbound-rpz`，重啟不必重新傳送。
 
