@@ -20,3 +20,6 @@ docker run -d --name vessel-node --restart unless-stopped --log-driver none \
   -v $D/unbound:/etc/unbound/conf.d:ro \
   -v $D/rpz-sub:/var/lib/unbound-rpz \
   vessel-node:latest
+# the inspections this node accepted lost their rules with the old container; put them back now rather than at the next
+# run of vessel-inspect-restore.timer
+/usr/local/sbin/awgctl inspect restore || echo "run.sh: could not put the inspections back; the timer tries again" >&2

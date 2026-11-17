@@ -1,0 +1,11 @@
+[Unit]
+Description=Vessel node: every minute, put back inspections a container restart lost
+
+[Timer]
+# a restart of the container, by run.sh, Docker or a reboot, loses the rules; at most a minute goes uncopied
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

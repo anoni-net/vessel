@@ -145,6 +145,61 @@ awgctl add-pubkey i-3 "$(key)" "$(key)" none > /dev/null 2>&1 && fail "add passe
 rm "$TMP/ipt-fail"
 [ ! -e "$N/peers/i-3.conf" ] || fail "a failed add left a peer"
 
+# a container restart loses the rules: the node's own record puts them back, with the same end time, and nothing else
+awgctl add-pubkey r-1 "$(key)" "$(key)" none > /dev/null
+ip=$(addr r-1)
+confirm
+awgctl inspect on r-1 "$until" "$code" > /dev/null
+[ -f "$N/inspecting/$ip" ] || fail "inspect on kept no record"
+[ "$(stat -c %a "$N/inspecting")" = 700 ] && [ "$(stat -c %a "$N/inspecting/$ip")" = 600 ] || fail "the records can be read by others"
+stop=$(cat "$N/inspecting/$ip")
+[ -z "$(awgctl inspect restore)" ] || fail "restore said something with nothing to do"
+sed -i "/vessel-inspect:$ip /d" "$TMP/mangle"
+[ "$(awgctl inspect restore)" = "inspections: put back 1, recorded 0, forgot 0, failed 0" ] || fail "restore after a restart"
+[ "$(rules "$ip")" = 4 ] || fail "restore did not put back four rules"
+[ "$(grep "vessel-inspect:$ip " "$TMP/mangle" | grep -c -- "--datestop $stop ")" = 4 ] || fail "restore moved the end time"
+# half of them is started over
+sed -i "0,/vessel-inspect:$ip /{/vessel-inspect:$ip /d}" "$TMP/mangle"
+awgctl inspect restore > /dev/null
+[ "$(rules "$ip")" = 4 ] || fail "restore did not start a half over"
+# a failed restore keeps the record for the next try, and leaves no half
+sed -i "/vessel-inspect:$ip /d" "$TMP/mangle"
+touch "$TMP/ipt-add-fail"
+awgctl inspect restore > /dev/null 2>&1 && fail "restore passed although adding failed"
+rm "$TMP/ipt-add-fail"
+[ "$(rules "$ip")" = 0 ] && [ -f "$N/inspecting/$ip" ] || fail "a failed restore left a half or lost the record"
+awgctl inspect restore > /dev/null
+[ "$(rules "$ip")" = 4 ] || fail "the next restore did not put it back"
+# rules from before the records get one
+rm "$N/inspecting/$ip"
+[ "$(awgctl inspect restore)" = "inspections: put back 0, recorded 1, forgot 0, failed 0" ] || fail "restore did not record running rules"
+[ "$(cat "$N/inspecting/$ip")" = "$stop" ] || fail "the recorded end time is not the rules' one"
+# past its end, for an address no device has, or not read right: forgotten, and its rules cleared
+echo 2020-01-01T00:00:00 > "$N/inspecting/$ip"
+awgctl inspect restore > /dev/null
+[ ! -e "$N/inspecting/$ip" ] && [ "$(rules "$ip")" = 0 ] || fail "restore kept an inspection past its end"
+echo "$stop" > "$N/inspecting/10.8.1.250"
+echo "next week" > "$N/inspecting/$ip"
+[ "$(awgctl inspect restore)" = "inspections: put back 0, recorded 0, forgot 2, failed 0" ] || fail "restore kept a record without a device or that does not read"
+[ "$(rules "10.8.1.250")" = 0 ] && [ "$(rules "$ip")" = 0 ] || fail "restore added rules for a record it should forget"
+echo "$(date -u -d "@$(( $(date +%s) + 30 * 86400 ))" +%Y-%m-%dT%H:%M:%S)" > "$N/inspecting/$ip"
+awgctl inspect restore > /dev/null
+[ "$(rules "$ip")" = 0 ] || fail "restore took an end time past the longest inspection"
+# a container that is not running has nothing to restore, and that is not a failure
+touch "$TMP/ipt-fail"
+awgctl inspect restore 2> /dev/null || fail "restore failed while the container was down"
+rm "$TMP/ipt-fail"
+# off and remove forget it with the rules
+confirm
+awgctl inspect on r-1 "$until" "$code" > /dev/null
+awgctl inspect off r-1 > /dev/null
+[ ! -e "$N/inspecting/$ip" ] || fail "inspect off kept the record"
+confirm
+awgctl inspect on r-1 "$until" "$code" > /dev/null
+awgctl remove r-1 > /dev/null
+[ ! -e "$N/inspecting/$ip" ] || fail "remove kept the record"
+[ -z "$(awgctl inspect restore)" ] || fail "restore found something after remove"
+
 # confirmations: what the page wrote, a file per address holding the code, read once, and gone after an ack
 [ "$(awgctl inspect confirms --json)" = "[]" ] || fail "confirms with nothing written"
 mkdir -p "$N/inspect-confirm"; echo -n ABCDEFGH23456789 > "$N/inspect-confirm/10.8.1.7"; touch "$N/inspect-confirm/.tmpx"

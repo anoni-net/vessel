@@ -15,6 +15,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `unbound/*.conf`、`unbound/vessel.zone` | `unbound/` | 解析器的設定：`none.conf` 不過濾，`filter.conf` 同時服務兩種過濾。`vessel.zone` 讓廣告名單的 CNAME 目標在本機回 NXDOMAIN，見「擋下次數」 |
 | `node.env.example` | 複製成 `node.env` | 節點的公開 IP 與 AWG 的埠，不進 repo |
 | `host/vessel-inspect.conf` | `/etc/modules-load.d/` | 裝置檢測需要的核心模組，見「裝置檢測」 |
+| `host/vessel-inspect-restore.service`、`host/vessel-inspect-restore.timer` | `/etc/systemd/system/` | 容器重新啟動之後，每分鐘把節點接受過的檢測加回去，見「裝置檢測」 |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
 | `host/cve-2026-98432-ipopt`、`host/cve-2026-98432-ipopt.service` | 腳本放 `/usr/local/sbin/`，服務放 `/etc/systemd/system/` | 核心修正之前丟棄帶 IPv4 選項的 TCP SYN，見「安裝」 |
@@ -258,11 +259,20 @@ VPN 使用者只能上網：
 規則寫在 `mangle` 表的 `PREROUTING` 與 `POSTROUTING`，以通道位址比對。幾個會影響隱私的地方：
 
 - 每條規則帶著自己的結束時間（`-m time --datestop`），入口網站連不上節點時也會停止
-- `remove` 刪除裝置前先清掉規則，`add` 與 `add-pubkey` 配發位址時再清一次。通道位址會重複使用，沒有清掉的話，下一個拿到這個位址的裝置會被複製
+- `remove` 刪除裝置前先清掉規則，`add` 與 `add-pubkey` 配發位址時再清一次。通道位址會重複使用，沒有清掉的話，下一個取得這個位址的裝置會被複製
 - 清除失敗時 `remove` 與新增都會中止，不會留下規則繼續執行
-- 容器重建時規則會消失，檢測會停止，不會自動恢復
+- 規則存在容器的防火牆裡，容器重新啟動（`run.sh`、Docker 或主機重開機）時會消失。確認碼開始檢測時就用掉了，入口網站無法再開始一次，所以節點自己記下它接受過的檢測：`awgctl inspect on` 加上規則之後，在 `/opt/vessel-node/inspecting/` 寫下一個以通道位址命名的檔案，內容是結束時間，只有 root 能讀。`awgctl inspect restore` 依這些紀錄把規則照原本的結束時間加回去，`vessel-inspect-restore.timer` 每分鐘執行一次，`run.sh` 重建容器後也立刻執行一次，所以重啟最多漏掉約一分鐘
+- 把封包送到分析主機的 `vessel-inspect-stream` 用 `nsenter` 進入容器當時的網路空間讀取。容器重建或重新啟動之後，網路空間是新的，舊的那個不再有封包，也不會自己結束。所以它每 15 秒確認一次容器的行程，換過了就結束，由 systemd 在 15 秒後重新連上新的網路空間
+- 恢復只用節點自己的紀錄，不會開始節點沒有核對過確認碼的檢測，也不會延長結束時間。已經過了結束時間、位址已經沒有裝置，或內容讀不懂的紀錄會被刪除。清除規則的地方（`inspect off`、`remove`、位址配給新的裝置）都會一起刪除紀錄。在有紀錄之前就開始的檢測，`restore` 會先依正在執行的規則補上紀錄
 
 `host/vessel-inspect.conf` 放到 `/etc/modules-load.d/`，開機時載入 `xt_time` 與 `nfnetlink_log`，容器沒有權限自己載入模組。
+
+恢復用的計時器：
+
+```bash
+install -m 644 host/vessel-inspect-restore.service host/vessel-inspect-restore.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now vessel-inspect-restore.timer
+```
 
 ### 確認頁
 

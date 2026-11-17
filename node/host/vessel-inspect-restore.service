@@ -1,0 +1,7 @@
+[Unit]
+Description=Vessel node: put back the inspections this node accepted, after its container restarted (awgctl inspect restore)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/awgctl inspect restore
