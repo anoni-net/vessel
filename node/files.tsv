@@ -1,0 +1,45 @@
+# Where each file of node/ goes on a node, with its mode, and what a change to it takes there. drift-check.sh reads this
+# table; node/test/files-test.sh fails when a file of node/ is missing from it. Tab-separated.
+#   path: under node/   host: where it goes on the node, or - for a file that is not kept on every node (see note)
+#   after: rebuild (docker build, then run.sh: everyone reconnects), hup (unbound-checkconf, then a HUP of unbound),
+#          sysctl (sysctl --system), modules (systemctl restart systemd-modules-load), restart:<unit>, or - (read on
+#          the next run)
+# Not in the table, because each node has its own: node.env, unbound/rpz-zones.conf, unbound/forward.conf (the link
+# run.sh makes), server/, peers/, clients/, conf/, rpz/.
+#path	host	mode	after	note
+Dockerfile	/opt/vessel-node/build/Dockerfile	644	rebuild
+start.sh	/opt/vessel-node/build/start.sh	755	rebuild
+setup.sh	/opt/vessel-node/setup.sh	700	-	only run once, to install a node
+run.sh	/opt/vessel-node/run.sh	700	-
+awgctl	/opt/vessel-node/awgctl	755	-	linked from /usr/local/sbin/awgctl
+awgctl-remote	/usr/local/sbin/awgctl-remote	755	-
+pull-lists.sh	/opt/vessel-node/pull-lists.sh	700	-
+reach-sites.tsv	/opt/vessel-node/reach-sites.tsv	644	-
+unbound/filter.conf	/opt/vessel-node/unbound/filter.conf	644	hup
+unbound/none.conf	/opt/vessel-node/unbound/none.conf	644	hup
+unbound/vessel.zone	/opt/vessel-node/unbound/vessel.zone	644	hup
+unbound/forward-quad9.conf	/opt/vessel-node/unbound/forward-quad9.conf	644	hup
+unbound/forward-cloudflare.conf	/opt/vessel-node/unbound/forward-cloudflare.conf	644	hup
+unbound/rpz-zones.conf.example	-	-	-	setup.sh makes the node's rpz-zones.conf from it
+exclude.txt	-	-	-	on the maintainer's host (deploy/rpz/), not on a node
+host/99-vessel-node.conf	/etc/sysctl.d/99-vessel-node.conf	644	sysctl
+host/vessel-inspect.conf	/etc/modules-load.d/vessel-inspect.conf	644	modules
+host/vessel-net-tune.sh	/opt/vessel-node/host/vessel-net-tune.sh	755	restart:vessel-net-tune.service
+host/vessel-net-tune.service	/etc/systemd/system/vessel-net-tune.service	644	restart:vessel-net-tune.service
+host/vessel-inspect-confirm.sh	/opt/vessel-node/host/vessel-inspect-confirm.sh	755	restart:vessel-inspect-confirm.service
+host/vessel-inspect-confirm.py	/opt/vessel-node/host/vessel-inspect-confirm.py	644	restart:vessel-inspect-confirm.service
+host/vessel-inspect-confirm.service	/etc/systemd/system/vessel-inspect-confirm.service	644	restart:vessel-inspect-confirm.service
+host/vessel-inspect-stream.sh	/opt/vessel-node/host/vessel-inspect-stream.sh	755	restart:vessel-inspect-stream.service
+host/vessel-inspect-send.py	/opt/vessel-node/host/vessel-inspect-send.py	644	restart:vessel-inspect-stream.service
+host/vessel-inspect-stream.service	/etc/systemd/system/vessel-inspect-stream.service	644	restart:vessel-inspect-stream.service
+host/vessel-inspect-restore.service	/etc/systemd/system/vessel-inspect-restore.service	644	-
+host/vessel-inspect-restore.timer	/etc/systemd/system/vessel-inspect-restore.timer	644	restart:vessel-inspect-restore.timer
+host/vessel-probe-watch.sh	/opt/vessel-node/host/vessel-probe-watch.sh	755	-
+host/vessel-probe-watch.service	/etc/systemd/system/vessel-probe-watch.service	644	-
+host/vessel-probe-watch.timer	/etc/systemd/system/vessel-probe-watch.timer	644	restart:vessel-probe-watch.timer
+host/vessel-reach.py	/opt/vessel-node/host/vessel-reach.py	755	-
+host/vessel-reach.service	/etc/systemd/system/vessel-reach.service	644	-
+host/vessel-reach.timer	/etc/systemd/system/vessel-reach.timer	644	restart:vessel-reach.timer
+host/cve-2026-98432-ipopt	-	-	-	installed by hand while a node's kernel is not fixed (安裝 in README.md)
+host/cve-2026-98432-ipopt.service	-	-	-	installed by hand while a node's kernel is not fixed (安裝 in README.md)
+drift-check.sh	-	-	-	runs on the maintainer's computer

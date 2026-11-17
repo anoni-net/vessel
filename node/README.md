@@ -22,6 +22,8 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `host/vessel-probe-watch.sh`、`host/vessel-probe-watch.service`、`host/vessel-probe-watch.timer` | 腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 統計打到 AWG 埠、不是使用者的封包，見「探測與掃描的觀察」 |
 | `reach-sites.tsv`、`host/vessel-reach.py`、`host/vessel-reach.service`、`host/vessel-reach.timer` | 清單放根目錄，腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 每小時檢查這個節點打不打得開常用的網站，見「節點打不開的網站」 |
 
+同樣的對照也寫在 `files.tsv`，加上檔案的權限與變動後要做的事（重建映像、HUP、重啟哪個服務），給 `drift-check.sh` 讀取。新增或搬動檔案時兩邊一起改，`node/test/files-test.sh` 在 `node/` 有檔案沒列進 `files.tsv` 時失敗。
+
 主機上另外有 `server/`（伺服器私鑰與 `HeaderProtectionKey`）、`peers/`、`clients/`、`conf/awg0.conf` 與 `rpz/`，都不進 repo。
 
 ## 安裝
@@ -377,6 +379,16 @@ docker build -t vessel-node:latest /opt/vessel-node/build
 AmneziaWG 換協定世代時，舊的設定檔可能不相容，要請所有人重新建立裝置。
 
 升級 AmneziaWG 之後依序執行 `node/test/awg-params-test.sh`、`tools/dpi-check/run.sh` 與 `tools/handshake-check/run.sh`，並重讀下一節列的上游 issue 是否已經修正。
+
+### 落差檢查
+
+節點上的檔案是從 repo 複製過去的，每次只複製改到的檔案，沒被複製的就停在舊版。`drift-check.sh` 依 `files.tsv` 比對節點上的每個檔案跟目前的 checkout 是否相同，權限是否一致，只讀不改：
+
+```bash
+node/drift-check.sh <節點的 SSH 別名>...   # 有不同時列出檔案，結束碼是 1
+```
+
+比對在節點上的 bash 進行，本機只計算雜湊值與連線，macOS 也能執行。`node.env`、`unbound/rpz-zones.conf`、`unbound/forward.conf` 與金鑰這些每台節點各自的檔案不在比對範圍內。
 
 ### AmneziaWG 的參數
 
