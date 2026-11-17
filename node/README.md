@@ -380,14 +380,14 @@ AmneziaWG 換協定世代時，舊的設定檔可能不相容，要請所有人�
 
 ### AmneziaWG 的參數
 
-`setup.sh` 寫進 `server/interface.conf` 與 `server/client-params.conf` 的共用參數，以及 `awgctl` 替每台裝置產生的參數，有幾個值不能隨意更動。原因是 `amneziawg-go` 目前的版本（`v3.1.20260828`，2026-11-12 確認是最新版）有兩個還沒修正的問題，我們的值剛好避開。官方的用戶端 App 內嵌同一份程式，問題在用戶端同樣存在。
+`setup.sh` 寫進 `server/interface.conf` 與 `server/client-params.conf` 的共用參數，以及 `awgctl` 替每台裝置產生的參數，有幾個值不能隨意更動。原因是 `amneziawg-go` 有兩個問題，節點目前的版本（`v3.1.20261116`，2026-11-17 確認是最新版）只修正了其中一個，我們的值兩個都避開。官方的用戶端 App 內嵌同一份程式，版本通常比節點舊，例如 iOS 版在 2026-11-11 內嵌的是 `v3.1.20260814`，兩個問題在用戶端都還存在。
 
 | 參數 | 值 | 更動的後果 |
 |---|---|---|
 | `S1` 到 `S4` | 都是 12 | 開著 `RandomTrailers` 時，四個值不相等會讓一部分資料封包被當成壞掉的握手訊息丟掉。回報者量到 3.5% 的封包遺失，上傳從 30 Mbit/s 掉到 0.4 Mbit/s，節點上沒有任何紀錄或計數（[amneziawg-go#186](https://github.com/amnezia-vpn/amneziawg-go/issues/186)）。四個值相等時實測是 0。12 是 Header Protection 需要的最小值 |
 | `H1` 到 `H4` | 1、2、3、4 | 有 `HeaderProtectionKey` 時，官方文件建議維持這組值，封包類型由 Header Protection 隱藏。改成範圍會加重上一列的問題，範圍越寬丟得越多 |
-| `Jmin`、`Jmax` | `awgctl` 讓 `Jmax` 一定大於 `Jmin` | `Jmin` 大於 `Jmax` 的設定會被接受，下一次握手時程式當掉或要求數 GB 的記憶體（[amneziawg-go#189](https://github.com/amnezia-vpn/amneziawg-go/issues/189)）。在節點上等於所有人斷線 |
-| `I1` 的 `<r N>` | 長度一定是正數 | 負數同樣會被接受，下一次握手時當掉，同一個 issue |
+| `Jmin`、`Jmax` | `awgctl` 讓 `Jmax` 一定大於 `Jmin` | `Jmin` 大於 `Jmax` 的設定會被接受，下一次握手時程式當掉或要求數 GB 的記憶體（[amneziawg-go#189](https://github.com/amnezia-vpn/amneziawg-go/issues/189)）。`v3.1.20261116` 起改成拒絕這樣的設定，節點不會再因此當掉，用戶端 App 換到這一版之前仍會當掉 |
+| `I1` 的 `<r N>` | 長度一定是正數 | 負數同樣會被接受，下一次握手時當掉，同一個 issue。`v3.1.20261116` 起同樣改成拒絕 |
 
 `node/test/awg-params-test.sh` 檢查 `setup.sh` 的共用參數，並讓 `awgctl` 產生 400 組裝置參數逐一檢查，CI 每次都執行。改了這些值而測試失敗時，先確認上游是否已經修正，再決定要不要改測試。
 
