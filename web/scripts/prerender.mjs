@@ -1,6 +1,6 @@
 // After `vite build` and the SSR build of src/prerender.tsx: write every page's HTML with its own <head> and
 // content, so search engines and link previews see more than an empty <div>. Also writes 404.html,
-// robots.txt and sitemap.xml. nginx serves these files and answers other paths with 404.html (deploy/nginx/).
+// robots.txt, sitemap.xml and .well-known/security.txt. nginx serves these files and answers other paths with 404.html (deploy/nginx/).
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -11,7 +11,7 @@ const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = process.env.VESSEL_TARGET === "onion" ? "dist-onion" : "dist";
 const dist = join(web, out);
 const ssr = await import(join(web, `${out}-ssr`, "prerender.js"));
-const { BUILT, HTML_LANG, LOCALES, PREFIX, PRIVATE_PAGES, PUBLIC_PAGES, REV, REV_URL, ROUTE_PATHS, SITE, headTags, messagesOf, renderPage, titleOf, urlOf } = ssr;
+const { BUILT, CLEARNET, HTML_LANG, LOCALES, ONION_SITE, PREFIX, PRIVATE_PAGES, PUBLIC_PAGES, REV, REV_URL, ROUTE_PATHS, SITE, headTags, messagesOf, renderPage, titleOf, urlOf } = ssr;
 
 // a page the app has but seo.ts does not list would not be prerendered, and nginx would answer it with 404
 const listed = new Set([...PUBLIC_PAGES, ...PRIVATE_PAGES]);
@@ -94,4 +94,19 @@ await write("sitemap.xml", [
 
 await writeFile(stateFile, `${JSON.stringify(lastmod, null, 2)}\n`);
 
-console.log(`prerendered ${count} pages, 404.html, robots.txt and sitemap.xml`);
+// where to report a vulnerability (RFC 9116), the same file on both sites; the policy itself is SECURITY.md.
+// Expires is required and should be under a year away: half a year from the build, so a site left undeployed
+// that long stops pointing people at contacts nobody has checked since
+const expires = new Date(Date.now() + 182 * 864e5).toISOString().replace(/\.\d+Z$/, ".000Z");
+await write(".well-known/security.txt", [
+  "Contact: https://github.com/anoni-net/vessel/security/advisories/new",
+  "Contact: https://matrix.to/#/#community:im.anoni.net",
+  `Expires: ${expires}`,
+  "Preferred-Languages: zh-TW, en, zh-CN",
+  `Canonical: ${CLEARNET}/.well-known/security.txt`,
+  `Canonical: ${ONION_SITE}/.well-known/security.txt`,
+  "Policy: https://github.com/anoni-net/vessel/blob/main/SECURITY.md",
+  "",
+].join("\n"));
+
+console.log(`prerendered ${count} pages, 404.html, robots.txt, sitemap.xml and security.txt`);

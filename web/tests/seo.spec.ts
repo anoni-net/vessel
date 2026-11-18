@@ -42,6 +42,19 @@ test("robots.txt and sitemap.xml", async ({ request }) => {
   expect(sitemap).not.toContain("/devices/");
 });
 
+// where to report a vulnerability (RFC 9116, SECURITY.md); Expires has to be in the future and under a year away
+test(".well-known/security.txt", async ({ request }) => {
+  const res = await request.get("/.well-known/security.txt");
+  expect(res.status()).toBe(200);
+  const text = await res.text();
+  expect(text).toContain("Contact: https://github.com/anoni-net/vessel/security/advisories/new\n");
+  expect(text).toContain("Canonical: https://vessel.anoni.net/.well-known/security.txt\n");
+  expect(text).toContain("Policy: https://github.com/anoni-net/vessel/blob/main/SECURITY.md\n");
+  const expires = Date.parse(text.match(/^Expires: (.+)$/m)![1]);
+  expect(expires).toBeGreaterThan(Date.now());
+  expect(expires).toBeLessThan(Date.now() + 365 * 864e5);
+});
+
 test("the content is there without JavaScript", async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
