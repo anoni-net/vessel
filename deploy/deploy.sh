@@ -19,6 +19,11 @@ docker run --rm -u "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -e VESSEL_R
   sh -c 'npm ci --no-audit --no-fund && npm run build && npm run build:onion'
 rsync -a --delete web/dist/ "$WEB_ROOT/"
 rsync -a --delete web/dist-onion/ "$ONION_ROOT/"
+# The API and the worker run as uid 10001 (api/Dockerfile), and read the SSH key for the nodes from /etc/vessel/ssh:
+# that directory and the two files they use belong to the same uid, readable by it and root only
+sudo chown 10001:10001 /etc/vessel/ssh /etc/vessel/ssh/key /etc/vessel/ssh/known_hosts
+sudo chmod 700 /etc/vessel/ssh
+sudo chmod 600 /etc/vessel/ssh/key /etc/vessel/ssh/known_hosts
 # compose reads the root-only env files in /etc/vessel, so it runs as root
 cd deploy
 sudo docker compose build
