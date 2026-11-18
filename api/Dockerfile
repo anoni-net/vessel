@@ -5,7 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssh-client 
 COPY --from=ghcr.io/astral-sh/uv:0.10.7@sha256:edd1fd89f3e5b005814cc8f777610445d7b7e3ed05361f9ddfae67bebfe8456a /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# no cache: the packages are installed once, and a copy of each would stay in the image (and in its SBOM)
+RUN uv sync --frozen --no-dev --no-install-project --no-cache
 COPY app ./app
 COPY migrations ./migrations
 ENV PATH="/app/.venv/bin:$PATH"
