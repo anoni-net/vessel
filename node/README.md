@@ -6,8 +6,8 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 
 | 檔案 | 放在主機的 | 用途 |
 |---|---|---|
-| `Dockerfile`、`start.sh` | `build/` | 最新穩定版的 Alpine（目前是 3.24）加上 unbound 與 iptables，AmneziaWG 的程式從官方 `amneziavpn/amneziawg-go` 映像的固定版本複製過來。`start.sh` 起 AWG、加 DNS 位址、設防火牆、起兩個 unbound |
-| `setup.sh` | 根目錄 | 一次性安裝：建映像、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
+| `Dockerfile`、`start.sh` | `build/`（只供 `drift-check.sh` 比對，節點不建置映像） | 最新穩定版的 Alpine（目前是 3.24）加上 unbound 與 iptables。AmneziaWG 的 `amneziawg-go` 從上游原始碼建置，`awg`、`awg-quick` 從官方 `amneziavpn/amneziawg-go` 映像的固定版本複製過來，見「升級」。`start.sh` 起 AWG、加 DNS 位址、設防火牆、起兩個 unbound |
+| `setup.sh` | 根目錄 | 一次性安裝：確認映像已經載入（`image.sh`）、產生伺服器金鑰與共用參數、下載名單、設 cron、啟動容器。已經有 `server/interface.conf` 就中止 |
 | `run.sh` | 根目錄 | 重建容器 |
 | `awgctl` | 根目錄，連結到 `/usr/local/sbin/awgctl` | 管理使用者 |
 | `pull-lists.sh` | 根目錄 | 向維護者的主機取得名單的變動。root 的 cron 在 UTC 04:37、10:37、16:37、22:37 執行，名單由主機在 7 分鐘前產生，見 `deploy/rpz/` |
@@ -374,19 +374,35 @@ node/deploy.sh <節點的 SSH 別名>...
 
 ## 升級
 
+節點的映像在一台建置主機上建置一次，再載入每台節點。節點只有一核 CPU，還要服務使用者的流量，所以不編譯任何東西。建置主機要是 x86_64，跟節點相同，目前用 tailnet 上的後端主機。`image.sh` 在維護者的電腦上執行，映像經過維護者的電腦從建置主機轉到節點，建置主機不需要登入節點的權限：
+
 ```bash
-docker tag vessel-node:latest vessel-node:pre-<日期>   # 回滾用
-docker build -t vessel-node:latest /opt/vessel-node/build
-/opt/vessel-node/run.sh    # 所有人斷線幾秒後自動接回
+node/image.sh build <建置主機>                  # 建置 checkout 的 node/，印出 Go 與模組的版本和 govulncheck 的結果
+node/image.sh push <建置主機> <節點>...         # 只接受已在 origin/main 的 commit，載入成 vessel-node:<commit>
 ```
 
-`Dockerfile` 寫死兩個版本：AmneziaWG 來源映像的標籤，以及 Alpine 的次版本號。Alpine 跟著最新的穩定版，unbound 用它提供的套件。重建映像會取得 Alpine 在同一個次版本內補的安全修正。換 Alpine 的次版本（新的穩定版發布時）或 AmneziaWG 的版本都是明確的一步，改 `Dockerfile`、重建映像、執行 `run.sh`。
+`push` 載入之後，比對節點上的映像跟建置主機上的是否相同（每一層的雜湊值、entrypoint 與 commit 的標記），不同就停止。它不動 `vessel-node:latest` 與執行中的容器，最後印出切換的步驟，一次一台、在適合的時間執行：
 
-2026-11-01 以前直接以 `amneziavpn/amneziawg-go:latest` 為基礎，裡面是 Alpine 3.19，unbound 停在 1.20.0。這一版經過遞迴的查詢不檢查 RPZ 的標記（NLnetLabs/unbound#1079，1.21 修正），合併解析器（toomore/anoni-net-ws#447）需要新版，所以改成最新穩定版的 Alpine，只從官方映像取 `amneziawg-go`、`awg`、`awg-quick`。`awg` 只依賴 musl，`amneziawg-go` 是靜態連結。
+```bash
+docker compose exec api python -m app.admin notices add <城市> restart --minutes 5   # 在後端主機，先公告
+docker tag vessel-node:latest vessel-node:pre-<日期>                                 # 在節點，回滾用
+docker tag vessel-node:<commit> vessel-node:latest && /opt/vessel-node/run.sh        # 所有人斷線幾秒後自動接回
+tools/host-sbom/run.sh <節點>                                                        # 在維護者的電腦，記下新映像的內容
+```
+
+### AmneziaWG 的建置
+
+`amneziawg-go` 從上游的原始碼建置，不改原始碼。原始碼經 Go 的模組代理取得，並用 checksum 資料庫驗證，建置時不必連到 GitHub。跟上游自己的建置只差兩件事，都是為了上游還沒跟上的安全修正（amnezia-vpn/amneziawg-go#218）：用仍在支援期的 Go 編譯，以及把 `golang.org/x/crypto`、`x/net`、`x/sys` 升到明確指定的新版本。建置參數照上游的 Dockerfile，建置之前先執行組成 daemon 的每個套件的測試。`awg` 與 `awg-quick` 仍然從官方映像複製。
+
+映像裡的 `/usr/share/vessel-node/amneziawg-go.buildinfo` 記著上游的版本、Go 的版本與每個模組的版本，在節點上用 `docker exec vessel-node cat /usr/share/vessel-node/amneziawg-go.buildinfo` 確認。
+
+`Dockerfile` 寫死幾個版本：上游映像的標籤與 `AWG_VERSION`（兩處要相同，`node/test/awg-version-test.sh` 在不同時失敗，Dependabot 只會改前者）、三個 `x/` 模組、Go 與 Alpine 的映像。Alpine 跟著最新的穩定版，unbound 用它提供的套件，每次建置會取得 Alpine 在同一個次版本內補的安全修正。換 AmneziaWG 的版本時，`AWG_VERSION` 與上游映像的標籤一起改，`x/` 模組也升到當時的最新版，再 `image.sh build`。
+
+2026-11-01 以前直接以 `amneziavpn/amneziawg-go:latest` 為基礎，裡面是 Alpine 3.19，unbound 停在 1.20.0。這一版經過遞迴的查詢不檢查 RPZ 的標記（NLnetLabs/unbound#1079，1.21 修正），合併解析器（toomore/anoni-net-ws#447）需要新版，所以改成最新穩定版的 Alpine，只從官方映像取 AmneziaWG 的程式。2026-11-18 起 `amneziawg-go` 改從原始碼建置：上游用已停止安全更新的 Go 1.25 與舊版的 `x/` 模組，govulncheck 判斷沒有呼叫到已知的漏洞，但掃描工具列出約 60 筆，之後的修正也要等上游更新才能取得。`awg` 只依賴 musl，`amneziawg-go` 是靜態連結。
 
 AmneziaWG 換協定世代時，舊的設定檔可能不相容，要請所有人重新建立裝置。
 
-升級 AmneziaWG 之後依序執行 `node/test/awg-params-test.sh`、`tools/dpi-check/run.sh` 與 `tools/handshake-check/run.sh`，並重讀下一節列的上游 issue 是否已經修正。
+升級 AmneziaWG 或改了 `Dockerfile` 之後，依序執行 `node/test/awg-params-test.sh`、`tools/dpi-check/run.sh` 與 `tools/handshake-check/run.sh`，兩個工具都用 `Dockerfile` 的 `awg` 階段，也就是從原始碼建置的 daemon。另外重讀下一節列的上游 issue 是否已經修正。
 
 ### 落差檢查
 

@@ -102,6 +102,15 @@ jobs:
       # only the lists that changed are transferred
       - name: pull-lists
         run: bash node/test/pull-lists-test.sh
+      # upstream's image and the module the daemon is built from name the same AmneziaWG
+      - name: AmneziaWG version
+        run: bash node/test/awg-version-test.sh
+      # the daemon from source: the tests of its packages run inside the build (node/Dockerfile)
+      - name: node image
+        run: docker build -q node
+      # load onto nodes, check it is the same image, leave the switch-over to the maintainer
+      - name: image.sh
+        run: bash node/test/image-test.sh
       # every file of node/ is in files.tsv, which drift-check.sh reads
       - name: files.tsv
         run: bash node/test/files-test.sh

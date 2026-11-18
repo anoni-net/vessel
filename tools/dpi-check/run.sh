@@ -16,8 +16,9 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
 OUT=$(mkdir -p "${1:-$HERE/out}" && cd "${1:-$HERE/out}" && pwd)
-AWG=$(sed -n 's/^FROM \(amneziavpn\/amneziawg-go:[^ ]*\) AS awg$/\1/p' "$ROOT/node/Dockerfile")  # what the nodes run
-[ -n "$AWG" ] || { echo "no amneziavpn/amneziawg-go stage in node/Dockerfile" >&2; exit 1; }
+# what the nodes run: upstream's image with the daemon node/Dockerfile builds from source (its awg stage); amd64 only
+AWG=$(docker build -q --platform linux/amd64 --target awg "$ROOT/node")
+echo "testing $(docker run --rm --entrypoint cat "$AWG" /usr/share/vessel-node/amneziawg-go.buildinfo | grep -E '^upstream |^/|golang.org/x/crypto' | tr -s '\t\n' '  ')"
 TOOLS=${DPI_TOOLS_IMAGE:-vessel-dpi:latest}
 PORT=443
 WORK=$(mktemp -d)
