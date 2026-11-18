@@ -3,17 +3,29 @@
 # and compiles nothing (Dockerfile). Runs on your computer, which passes the image from the build host to each node,
 # so the build host never logs in to a node.
 #   node/image.sh build <build host>            build this checkout's node/ on the build host (committed files only)
-#   node/image.sh push <build host> <node>...   load that image onto nodes and check it is the same image
+#   node/image.sh push [--via <relay>] <build host> <node>...
+#                                               load that image onto nodes and check it is the same image
+# With --via, the image goes from the build host to each node through the relay instead of through your computer
+# (another host of yours, with the same aliases in its ~/.ssh/config): your computer only gives the commands. Either
+# way the build host never logs in to a node.
 # The hosts are aliases in your ~/.ssh/config; both need sudo. build prints which Go and modules the daemon was built
 # with and what govulncheck finds in it. push takes only a commit that is on origin/main, loads the image as
 # vessel-node:<commit> and nothing more: vessel-node:latest and the running container stay as they are. It prints the
 # steps that switch over, for you to run when it suits, with a notice on the status page first (everyone reconnects).
 set -euo pipefail
 cd "$(dirname "$0")"
-usage() { echo "usage: $0 build <build host> | push <build host> <node>..." >&2; exit 2; }
-[ $# -ge 2 ] || usage
-cmd=$1 builder=$2
-shift 2
+usage() { echo "usage: $0 build <build host> | push [--via <relay>] <build host> <node>..." >&2; exit 2; }
+cmd=${1:-}
+shift || true
+via=""
+if [ "$cmd" = push ] && [ "${1:-}" = --via ]; then via=${2:-}; [ -n "$via" ] || usage; shift 2; fi
+[ $# -ge 1 ] || usage
+builder=$1
+shift
+# the aliases go into commands run on other hosts
+for h in "$builder" "$@" ${via:+"$via"}; do
+  [[ $h =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || { echo "image.sh: not a host alias: $h" >&2; exit 2; }
+done
 git diff --quiet HEAD -- . && [ -z "$(git ls-files --others --exclude-standard .)" ] \
   || { echo "image.sh: node/ has uncommitted changes; commit them or stash them first" >&2; exit 1; }
 rev=$(git rev-parse HEAD)
@@ -58,13 +70,19 @@ case $cmd in
       || { echo "image.sh: $builder has no $tag; run: node/image.sh build $builder" >&2; exit 1; }
     for node in "$@"; do
       echo "== $node"
-      ssh "$builder" "sudo docker save $tag" | ssh "$node" "sudo docker load -q" >/dev/null
+      if [ -n "$via" ]; then
+        printf '%s\n' "set -euo pipefail" \
+          "ssh -o BatchMode=yes $builder 'sudo docker save $tag' | ssh -o BatchMode=yes $node 'sudo docker load -q' >/dev/null" \
+          | ssh "$via" bash -s
+      else
+        ssh "$builder" "sudo docker save $tag" | ssh "$node" "sudo docker load -q" >/dev/null
+      fi
       got=$(ssh "$node" "$fingerprint")
       if [ "$got" != "$want" ]; then
         echo "image.sh: $tag on $node is not the image on $builder ($got, not $want); stopping" >&2
         exit 1
       fi
-      echo "  loaded $tag, the same image as on $builder ($want)"
+      echo "  loaded $tag${via:+ through $via}, the same image as on $builder ($want)"
     done
     day=$(date -u +%Y%m%d)
     cat <<EOF

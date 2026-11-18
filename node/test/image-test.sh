@@ -14,6 +14,8 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 mkdir "$WORK/bin"
 cat > "$WORK/bin/ssh" <<'SSH'
 #!/bin/bash
+while [[ $1 == -* ]]; do [ "$1" = -o ] && shift; shift; done
+echo "$1" >> "${0%/*}/hosts"
 shift
 cmd="$*"
 exec bash -c "${cmd//sudo /}"
@@ -33,6 +35,14 @@ run push builder node1 node2 >"$WORK/out" 2>&1 || fail "push failed: $(cat "$WOR
 grep -q "docker tag $tag vessel-node:latest && /opt/vessel-node/run.sh" "$WORK/out" || fail "no switch-over step"
 grep -q 'notices add' "$WORK/out" || fail "no notice before the switch-over"
 grep -q 'to go back' "$WORK/out" || fail "no way back"
+
+# through a relay: the relay reads from the build host and writes to the node, your computer only asks it to
+: > "$WORK/bin/hosts"
+run push --via relay builder node3 >"$WORK/out" 2>&1 || fail "push --via failed: $(cat "$WORK/out")"
+grep -q "loaded $tag through relay, the same image as on builder" "$WORK/out" || fail "not loaded through the relay: $(cat "$WORK/out")"
+grep -qx relay "$WORK/bin/hosts" || fail "the relay was not used"
+if run push --via 'x;id' builder node1 >/dev/null 2>&1; then fail "took a relay that is not a host alias"; fi
+if run push --via >/dev/null 2>&1; then fail "took --via without a relay"; fi
 
 if PATH="$WORK/bin:$PATH" "$ROOT/node/image.sh" push builder node1 >/dev/null 2>&1; then
   git -C "$ROOT" merge-base --is-ancestor HEAD origin/main 2>/dev/null || fail "pushed a commit that is not on origin/main"
