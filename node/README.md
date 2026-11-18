@@ -52,7 +52,7 @@ bash /opt/vessel-node/setup.sh
 
 容器設了記憶體 1,600 MB 與 256 個行程的上限（`run.sh`），加入 DNSBunker CTI 之前，解析器載入名單時的高峰約 1.25 GB，CTI 只留託管平台的部分之後約佔 190 MB。裡面失控時不會連累容器外的 SSH、Tailscale 與 Beszel。現有的容器不必重建，用 `docker update --memory 1600m --memory-swap 1600m --pids-limit 256 vessel-node` 直接套用，不會斷線。
 
-容器只取得它實際使用的特權（`run.sh`），沒有 Docker 預設的那一整組：網路相關的 `NET_ADMIN`、`NET_RAW`、`NET_BIND_SERVICE`，unbound 切換使用者用的 `SETUID`、`SETGID`，重新載入解析器用的 `KILL`，以及 `start.sh` 準備 unbound 檔案用的 `CHOWN`、`DAC_OVERRIDE`，並加上 `no-new-privileges`。`amneziawg-go` 處理網路上任何人送來的封包，萬一它被攻破，能用的權限只有這些。`node/test/caps-test.sh` 照 `run.sh` 的參數啟動容器，確認通道、轉送規則、兩個解析器，以及 `awgctl`、`pull-lists.sh` 在容器裡做的事都正常，少了需要的特權就會失敗。改特權要重建容器（`run.sh`），所有人會斷線幾秒。
+容器只取得它實際使用的特權（`run.sh`），沒有 Docker 預設的那一整組：網路相關的 `NET_ADMIN`、`NET_RAW`、`NET_BIND_SERVICE`，unbound 切換使用者用的 `SETUID`、`SETGID`，重新載入解析器用的 `KILL`，以及 `start.sh` 準備 unbound 檔案用的 `CHOWN`、`DAC_OVERRIDE`，並加上 `no-new-privileges`。`amneziawg-go` 處理網路上任何人送來的封包，萬一它被攻破，能用的權限只有這些。`node/test/caps-test.sh` 照 `run.sh` 的參數啟動容器，確認通道、轉送規則、兩個解析器，以及 `awgctl`、`pull-lists.sh` 在容器裡做的事都正常，少了需要的特權就會失敗。容器的檔案系統是唯讀的，節點寫入的東西只在記憶體裡：`/run`（AmneziaWG 的控制 socket、unbound 的 pid 與控制 socket、iptables 的鎖）、`/tmp`（`awgctl` 同步使用者時的暫存檔）與 `/var/lib/unbound`（`start.sh` 每次啟動時產生的 DNSSEC 根金鑰），其他都在掛載的目錄裡。萬一容器被攻破，也無法改掉映像裡的程式。改特權或寫入的位置都要重建容器（`run.sh`），所有人會斷線幾秒。
 
 UDP 的 socket 緩衝不用調，`amneziawg-go` 有 `NET_ADMIN`，會自己強制取得它要的大小。
 

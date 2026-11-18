@@ -1,5 +1,6 @@
 #!/bin/bash
-# The node container with the capabilities and security options run.sh gives it, taken from run.sh itself: it comes up
+# The node container with the capabilities, security options and read-only files run.sh gives it, taken from run.sh
+# itself: it comes up
 # (the tunnel, its three addresses, the forwarding rules, two resolvers that answer and run as unbound), and what awgctl
 # does to it from the host still works (peers, iptables in every table, conntrack, a HUP to the resolvers). A
 # capability run.sh leaves out that the node needs fails here, not on a node.
@@ -15,8 +16,8 @@ trap cleanup EXIT
 fail() { echo "FAIL: $*" >&2; docker logs $NAME 2>&1 | tail -20 >&2 || true; exit 1; }
 docker rm -f $NAME >/dev/null 2>&1 || true
 
-# what run.sh grants: every --cap-*, --security-opt and --device flag, as written there
-mapfile -t GRANTS < <(grep -oE -- '--(cap-add|cap-drop|security-opt|device) [^ ]+' "$ROOT/node/run.sh" | tr ' ' '\n')
+# what run.sh grants: every --cap-*, --security-opt, --device and --tmpfs flag and --read-only, as written there
+mapfile -t GRANTS < <(grep -oE -- '--(cap-add|cap-drop|security-opt|device|tmpfs) [^ ]+|--read-only' "$ROOT/node/run.sh" | tr ' ' '\n')
 [ ${#GRANTS[@]} -gt 0 ] || fail "no capability flags in run.sh"
 echo "run.sh grants: ${GRANTS[*]}"
 
@@ -33,6 +34,7 @@ Jmin = 10
 Jmax = 50
 $(sed -n '/^SHARED="/,/"$/p' "$ROOT/node/setup.sh" | sed '1s/^SHARED="//; $s/"$//' | sed "s|\$HPK|$(key)|")
 C
+chmod 600 "$WORK/conf/awg0.conf"  # as setup.sh leaves it (umask 077)
 cp "$ROOT"/node/unbound/*.conf "$ROOT/node/unbound/vessel.zone" "$WORK/unbound/"
 sed "s/RPZ_PRIMARY/127.0.0.9/" "$ROOT/node/unbound/rpz-zones.conf.example" > "$WORK/unbound/rpz-zones.conf"
 ln -s forward-quad9.conf "$WORK/unbound/forward.conf"
@@ -91,4 +93,9 @@ sleep 3
 [ "$(x sh -c 'pgrep -x unbound | wc -l')" = 2 ] || fail "a resolver went away after the HUP"
 x nslookup -timeout=3 localhost 10.8.1.253 >/dev/null || fail "no answer after the HUP"
 ok "the resolvers reload on a HUP"
+if [[ " ${GRANTS[*]} " == *" --read-only "* ]]; then
+  for f in /usr/bin/x /etc/x /var/lib/x /opt/x; do x sh -c "touch $f" 2>/dev/null && fail "$f is writable"; done
+  [ "$(x stat -c %U /var/lib/unbound/root-filter.key)" = unbound ] || fail "the filter resolver's root key is not unbound's"
+  ok "the image's files are read-only; the node writes only to memory and its volumes"
+fi
 echo "caps: ok"
