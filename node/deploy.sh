@@ -76,7 +76,8 @@ todo=\$(printf '%s\\n' \"\${afters[@]}\" | grep -v '^-\$' | sort -u || true)
 echo '  then, on this node:'
 while read -r a; do
   case \$a in
-    rebuild) echo '    docker build -t vessel-node:latest /opt/vessel-node/build && /opt/vessel-node/run.sh   (everyone reconnects)' ;;
+    rebuild) echo '    docker build -t vessel-node:latest /opt/vessel-node/build && /opt/vessel-node/run.sh   (everyone reconnects)'
+             echo '    and afterwards, on your machine: tools/host-sbom/run.sh <this node>   (what the new image holds)' ;;
     hup) echo '    docker exec vessel-node pkill -HUP -x unbound   (the resolvers pause while the lists reload)' ;;
     sysctl) echo '    sysctl --system' ;;
     modules) echo '    systemctl restart systemd-modules-load' ;;

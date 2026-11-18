@@ -81,9 +81,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: shell syntax
-        run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh; do bash -n "$f"; done
+        run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh tools/host-sbom/*.sh; do bash -n "$f"; done
       - name: shellcheck
-        run: shellcheck -S warning -x node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh
+        run: shellcheck -S warning -x node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh tools/host-sbom/*.sh
       # block entries only, no shared names
       - name: blocklists
         run: bash deploy/rpz/test/lists-test.sh
@@ -112,6 +112,9 @@ jobs:
       - name: device connection limit
         run: sudo bash node/test/device-limit-test.sh
       # a device that changed address within the hour is not counted as a probe; someone imitating a handshake is
+      # the SBOM of a container's image, read over a stand-in ssh
+      - name: host SBOM
+        run: bash tools/host-sbom/test.sh
       - name: probe watch
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq nftables
