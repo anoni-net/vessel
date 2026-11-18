@@ -16,6 +16,11 @@ services:
       POSTGRES_DB: vessel
       POSTGRES_USER: vessel
     env_file: /etc/vessel/db.env
+    # as postgres (uid 70 in the image) from the start, so the entrypoint needs none of root's capabilities to chown and
+    # drop privileges: the data directory and the socket's are already postgres's
+    user: "70:70"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     volumes:
       - db:/var/lib/postgresql
     # a fresh database takes a few seconds to initialize; migrations and the API wait for it

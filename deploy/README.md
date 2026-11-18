@@ -33,7 +33,7 @@ sudo install -d -o "$USER" /srv/vessel/web /srv/vessel/web-onion
 deploy/deploy.sh
 ```
 
-後端與 worker 在容器裡以 UID 10001 執行（`api/Dockerfile`），不是 root，容器的檔案系統是唯讀的，只有 `/tmp` 可以寫入，而且只存在記憶體裡。`/etc/vessel/ssh` 與裡面的 `key`、`known_hosts` 因此屬於 UID 10001、權限 600，由 `deploy.sh` 每次部署時設定。手動改了 `known_hosts` 之後（例如換主機、加對照主機），執行一次 `sudo chown 10001:10001 /etc/vessel/ssh/known_hosts`，或重新部署，否則後端讀不到新的檔案，連不上節點。
+資料庫容器以映像裡的 postgres 使用者（UID 70）執行，拿掉所有特權。後端與 worker 在容器裡以 UID 10001 執行（`api/Dockerfile`），不是 root，容器的檔案系統是唯讀的，只有 `/tmp` 可以寫入，而且只存在記憶體裡。`/etc/vessel/ssh` 與裡面的 `key`、`known_hosts` 因此屬於 UID 10001、權限 600，由 `deploy.sh` 每次部署時設定。手動改了 `known_hosts` 之後（例如換主機、加對照主機），執行一次 `sudo chown 10001:10001 /etc/vessel/ssh/known_hosts`，或重新部署，否則後端讀不到新的檔案，連不上節點。
 
 接著在節點的 root `authorized_keys` 加上 `/etc/vessel/ssh/key.pub`，綁定 `awgctl-remote` 並限定來源（見 `node/README.md`），再設定 region 與開關：
 

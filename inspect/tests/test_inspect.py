@@ -1207,16 +1207,30 @@ class Leftovers(Base):
             self.assertFalse(left.exists())
 
     def test_zeek_works_under_the_directory_that_is_cleared(self):
-        seen = []
+        seen, runs = [], []
+        capture = analyze.HOME / "spool" / "n" / "a.pcap"
+        capture.parent.mkdir(parents=True)
+        capture.write_bytes(pcap(101, [(T0, ip("10.8.1.3", "1.1.1.1", 100))]))
 
         def fake(cmd, **kw):
             seen.append(next(a for a in cmd if a.endswith(":/logs")).split(":")[0])
+            runs.append((cmd, kw))
             return analyze.subprocess.CompletedProcess(cmd, 0)
 
         with mock.patch.object(analyze.subprocess, "run", fake):
-            ZEEK_LOGS(analyze.HOME / "spool" / "n" / "a.pcap")
+            ZEEK_LOGS(capture)
         self.assertEqual(Path(seen[0]).parent, analyze.HOME / "work")
         self.assertFalse(Path(seen[0]).exists())
+
+        # Zeek reads what anyone can put into a packet: as nobody, without a network, capabilities or writable files,
+        # and the capture on stdin rather than its directory mounted
+        cmd, kw = runs[0]
+        for flags in (["--network", "none"], ["--user", "65534:65534"], ["--cap-drop", "ALL"],
+                      ["--security-opt", "no-new-privileges:true"], ["-r", "-"]):
+            self.assertIn(flags, [cmd[i:i + len(flags)] for i in range(len(cmd))], flags)
+        self.assertIn("--read-only", cmd)
+        self.assertEqual([a for a in cmd if a.endswith(":ro") or a.startswith(str(capture.parent))], [])
+        self.assertEqual(kw["stdin"].name, str(capture))
 
     def test_a_capture_that_breaks_the_analysis_does_not_hold_back_the_ones_after_it(self):
         spool = analyze.HOME / "spool" / "n"

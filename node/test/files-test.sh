@@ -24,7 +24,7 @@ while IFS=$'\t' read -r path host mode after note; do
   fi
   [[ $host == /* ]] || fail "$path: host path $host is not absolute"
   [[ $mode =~ ^[0-7]{3}$ ]] || fail "$path: mode $mode"
-  [[ $after =~ ^(-|rebuild|hup|sysctl|modules|restart:[a-z0-9-]+\.(service|timer))$ ]] || fail "$path: after $after"
+  [[ $after =~ ^(-|rebuild|hup|sysctl|modules|restart:[a-z0-9-]+\.(service|timer)|reload:docker\.service)$ ]] || fail "$path: after $after"
   if [[ $after == restart:* ]]; then
     unit=${after#restart:}
     awk -F'\t' -v u="host/$unit" '$1 == u { found = 1 } END { exit !found }' files.tsv \
