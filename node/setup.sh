@@ -1,6 +1,6 @@
 #!/bin/bash
-# One-time setup of a Vessel node. Expects build/ (Dockerfile, start.sh), unbound/, awgctl, run.sh, pull-lists.sh
-# and node.env (copy node.env.example) beside it in /opt/vessel-node.
+# One-time setup of a Vessel node. Expects unbound/, awgctl, run.sh, pull-lists.sh and node.env (copy node.env.example)
+# beside it in /opt/vessel-node, and the image as vessel-node:latest: node/image.sh push, then docker tag.
 # Server params mirror AmneziaVPN 5.0.4.2's AWG 3.1 defaults (awgInstaller.cpp).
 set -euo pipefail
 D=/opt/vessel-node
@@ -15,7 +15,9 @@ chmod 755 $D/unbound; chmod 644 $D/unbound/*.conf $D/unbound/vessel.zone
 chmod 700 $D/awgctl $D/run.sh $D/pull-lists.sh
 chmod 600 $D/node.env
 
-docker build -q -t vessel-node:latest $D/build
+# built on the build host (image.sh): a node compiles nothing
+docker image inspect vessel-node:latest >/dev/null 2>&1 \
+  || { echo "no vessel-node:latest: load it with node/image.sh push, then docker tag vessel-node:<commit> vessel-node:latest"; exit 1; }
 key() { docker run --rm --entrypoint awg vessel-node:latest genkey </dev/null; }
 PRIV=$(key); HPK=$(key)
 

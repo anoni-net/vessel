@@ -1,7 +1,7 @@
 # Where each file of node/ goes on a node, with its mode, and what a change to it takes there. drift-check.sh reads this
 # table; node/test/files-test.sh fails when a file of node/ is missing from it. Tab-separated.
 #   path: under node/   host: where it goes on the node, or - for a file that is not kept on every node (see note)
-#   after: rebuild (docker build, then run.sh: everyone reconnects), hup (unbound-checkconf, then a HUP of unbound),
+#   after: rebuild (image.sh build and push, then run.sh: everyone reconnects), hup (unbound-checkconf, then a HUP of unbound),
 #          sysctl (sysctl --system), modules (systemctl restart systemd-modules-load), restart:<unit>, or - (read on
 #          the next run)
 # Not in the table, because each node has its own: node.env, unbound/rpz-zones.conf, unbound/forward.conf (the link
@@ -42,3 +42,4 @@ host/vessel-reach.service	/etc/systemd/system/vessel-reach.service	644	-
 host/vessel-reach.timer	/etc/systemd/system/vessel-reach.timer	644	restart:vessel-reach.timer
 drift-check.sh	-	-	-	runs on the maintainer's computer
 deploy.sh	-	-	-	runs on the maintainer's computer
+image.sh	-	-	-	runs on the maintainer's computer
