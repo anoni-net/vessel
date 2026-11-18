@@ -4,7 +4,8 @@
 # the database dumps never hold the account pepper and HMAC key next to the data (see README.md).
 #   /etc/vessel/db.env    POSTGRES_PASSWORD
 #   /etc/vessel/api.env   VESSEL_DATABASE_URL, VESSEL_ACCOUNT_PEPPER, VESSEL_HMAC_KEY
-#   /etc/vessel/ssh/      key and known_hosts for reaching the nodes' awgctl-remote
+#   /etc/vessel/ssh/      key and known_hosts for reaching the nodes' awgctl-remote, owned by the API's uid (10001,
+#                         api/Dockerfile) so that it can read them: deploy.sh sets this
 name: vessel
 
 services:
@@ -49,6 +50,10 @@ services:
     # files and start ssh. Without them, a way into the process is a smaller step towards the host
     cap_drop: &caps [ALL]
     security_opt: &nonew ["no-new-privileges:true"]
+    # they run as an unprivileged user (api/Dockerfile) and write nothing to their own files: the code, the packages
+    # and the compiled .pyc are read-only, and only /tmp is writable, in memory, with nothing in it run
+    read_only: true
+    tmpfs: &tmp ["/tmp:size=64m,mode=1777,noexec,nosuid,nodev"]
     logging: *logging
 
   # runs queued node jobs, expires devices, clears unfetched configs, polls usage and enforces the quota
@@ -62,6 +67,8 @@ services:
     volumes: *ssh
     cap_drop: *caps
     security_opt: *nonew
+    read_only: true
+    tmpfs: *tmp
     logging: *logging
 
 volumes:
