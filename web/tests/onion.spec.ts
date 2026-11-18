@@ -95,3 +95,9 @@ test("feedback goes to the form server's onion address", async ({ page }) => {
   await expect(page.getByTestId("feedback-sent")).toBeVisible();
   expect(sent).toHaveLength(1);
 });
+
+test("the onion site has the same security.txt, listing its own address", async ({ request }) => {
+  const text = await (await request.get("/.well-known/security.txt")).text();
+  expect(text).toContain("Contact: https://github.com/anoni-net/vessel/security/advisories/new\n");
+  expect(text).toMatch(/^Canonical: http:\/\/vessel\.[a-z2-7]{56}\.onion\/\.well-known\/security\.txt$/m);
+});
