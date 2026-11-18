@@ -409,20 +409,33 @@ def clear_work():
     shutil.rmtree(HOME / "work", ignore_errors=True)
 
 
+# Zeek reads packets that anyone on the internet can shape, so it runs with as little as it needs: as nobody, no network,
+# no capabilities, read-only files but its log directory, bounded memory and processes. The capture comes in on stdin,
+# so no host directory but the logs' is in the container.
+ZEEK_UID = 65534
+ZEEK_RUN = ["docker", "run", "--rm", "-i", "--network", "none", "--user", f"{ZEEK_UID}:{ZEEK_UID}", "--read-only",
+            "--tmpfs", "/tmp:size=64m,noexec,nosuid,nodev", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+            "--memory", "1536m", "--memory-swap", "1536m", "--pids-limit", "64"]
+
+
 def zeek_logs(path):
     (HOME / "work").mkdir(mode=0o700, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=HOME / "work") as work:
-        subprocess.run(
-            ["docker", "run", "--rm", "--network", "none", "-v", f"{path.parent}:/p:ro", "-v", f"{work}:/logs", "-w", "/logs",
-             ZEEK_IMAGE, "zeek", "-C", "-r", f"/p/{path.name}", "local", "LogAscii::use_json=T"],
-            check=True, capture_output=True,
-        )
+        # writable for Zeek's user; work/ itself stays the host user's alone, so nobody else on the host reaches it
+        os.chmod(work, 0o777)
+        with path.open("rb") as capture:
+            subprocess.run(
+                [*ZEEK_RUN, "-v", f"{work}:/logs", "-w", "/logs",
+                 ZEEK_IMAGE, "zeek", "-C", "-r", "-", "local", "LogAscii::use_json=T"],
+                stdin=capture, check=True, capture_output=True,
+            )
         logs = {}
         for name in ("conn", "dns", "ssl", "quic", "http"):
             log = Path(work) / f"{name}.log"
             logs[name] = [json.loads(line) for line in log.open() if line.startswith("{")] if log.exists() else []
-        # Zeek ran as root in the container; its files go with the directory
-        subprocess.run(["docker", "run", "--rm", "--network", "none", "-v", f"{work}:/logs", ZEEK_IMAGE, "sh", "-c", "rm -rf /logs/*"], check=False)
+        # what Zeek wrote is its user's; that user deletes it, then the directory goes
+        subprocess.run([*ZEEK_RUN, "-v", f"{work}:/logs", ZEEK_IMAGE, "sh", "-c", "rm -rf /logs/* /logs/.[!.]*"],
+                       stdin=subprocess.DEVNULL, check=False)
         return logs
 
 

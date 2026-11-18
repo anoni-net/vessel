@@ -82,6 +82,7 @@ while read -r a; do
     sysctl) echo '    sysctl --system' ;;
     modules) echo '    systemctl restart systemd-modules-load' ;;
     restart:*) echo \"    systemctl restart \${a#restart:}\" ;;
+    reload:*) echo \"    systemctl reload \${a#reload:}   (rereads its configuration; the containers keep running)\" ;;
   esac
 done <<< \"\$todo\"
 "

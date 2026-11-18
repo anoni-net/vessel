@@ -2,7 +2,8 @@
 # table; node/test/files-test.sh fails when a file of node/ is missing from it. Tab-separated.
 #   path: under node/   host: where it goes on the node, or - for a file that is not kept on every node (see note)
 #   after: rebuild (image.sh build and push, then run.sh: everyone reconnects), hup (unbound-checkconf, then a HUP of unbound),
-#          sysctl (sysctl --system), modules (systemctl restart systemd-modules-load), restart:<unit>, or - (read on
+#          sysctl (sysctl --system), modules (systemctl restart systemd-modules-load), restart:<unit>, reload:<unit>
+#          (systemctl reload: the daemon rereads its configuration, nothing restarts), or - (read on
 #          the next run)
 # Not in the table, because each node has its own: node.env, unbound/rpz-zones.conf, unbound/forward.conf (the link
 # run.sh makes), server/, peers/, clients/, conf/, rpz/.
@@ -23,6 +24,7 @@ unbound/forward-cloudflare.conf	/opt/vessel-node/unbound/forward-cloudflare.conf
 unbound/rpz-zones.conf.example	-	-	-	setup.sh makes the node's rpz-zones.conf from it
 exclude.txt	-	-	-	on the maintainer's host (deploy/rpz/), not on a node
 host/99-vessel-node.conf	/etc/sysctl.d/99-vessel-node.conf	644	sysctl
+host/docker-daemon.json	/etc/docker/daemon.json	644	reload:docker.service
 host/vessel-inspect.conf	/etc/modules-load.d/vessel-inspect.conf	644	modules
 host/vessel-net-tune.sh	/opt/vessel-node/host/vessel-net-tune.sh	755	restart:vessel-net-tune.service
 host/vessel-net-tune.service	/etc/systemd/system/vessel-net-tune.service	644	restart:vessel-net-tune.service

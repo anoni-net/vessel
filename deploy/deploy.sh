@@ -15,7 +15,8 @@ fi
 # build in a container, so the host needs no particular Node.js version
 # (the container has no git, so pass the commit for the footer's REV cell)
 # the build leaves web/.lastmod-*.json in this checkout, the sitemap's dates for the next deploy; keep it
-docker run --rm -u "$(id -u):$(id -g)" -e npm_config_cache=/tmp/.npm -e VESSEL_REV="$(git rev-parse HEAD)" -v "$PWD/web:/web" -w /web node:22.23-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a \
+# npm runs the packages' install scripts: no capabilities and no way to gain any, as you
+docker run --rm -u "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true -e npm_config_cache=/tmp/.npm -e VESSEL_REV="$(git rev-parse HEAD)" -v "$PWD/web:/web" -w /web node:22.23-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a \
   sh -c 'npm ci --no-audit --no-fund && npm run build && npm run build:onion'
 rsync -a --delete web/dist/ "$WEB_ROOT/"
 rsync -a --delete web/dist-onion/ "$ONION_ROOT/"

@@ -17,6 +17,7 @@ Vessel 的節點。每台主機執行一個容器 `vessel-node`，裡面是 Amne
 | `host/vessel-inspect.conf` | `/etc/modules-load.d/` | 裝置檢測需要的核心模組，見「裝置檢測」 |
 | `host/vessel-inspect-restore.service`、`host/vessel-inspect-restore.timer` | `/etc/systemd/system/` | 容器重新啟動之後，每分鐘把節點接受過的檢測加回去，見「裝置檢測」 |
 | `host/99-vessel-node.conf` | `/etc/sysctl.d/` | 主機的核心參數，見「主機的調校」 |
+| `host/docker-daemon.json` | `/etc/docker/daemon.json` | Docker 的設定：`live-restore`，見「主機的調校」 |
 | `host/vessel-net-tune.sh`、`host/vessel-net-tune.service` | `host/`，服務放 `/etc/systemd/system/` | 開機時調整對外網卡的佇列與 UDP 轉送，見「主機的調校」 |
 | `host/vessel-probe-watch.sh`、`host/vessel-probe-watch.service`、`host/vessel-probe-watch.timer` | 腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 統計打到 AWG 埠、不是使用者的封包，見「探測與掃描的觀察」 |
 | `reach-sites.tsv`、`host/vessel-reach.py`、`host/vessel-reach.service`、`host/vessel-reach.timer` | 清單放根目錄，腳本放 `host/`，服務與計時器放 `/etc/systemd/system/` | 每小時檢查這個節點打不打得開常用的網站，見「節點打不開的網站」 |
@@ -42,11 +43,12 @@ bash /opt/vessel-node/setup.sh
 
 ## 主機的調校
 
-雲端映像的預設值是給一般主機用的，VPN 節點要轉送很多人的流量，調整三件事。都可以在線上直接套用，不必重啟容器，使用者不會斷線：
+雲端映像的預設值是給一般主機用的，VPN 節點要轉送很多人的流量，調整四件事。都可以在線上直接套用，不必重啟容器，使用者不會斷線：
 
 - 對外網卡的佇列改成 `fq_codel`：雲端映像留著 `pfifo_fast`，所有封包排同一個隊。有人大量下載時，其他人的網頁與 DNS 封包會排在後面。`fq_codel` 每條連線各自排隊，短小的封包先過
 - 開啟網卡的 `rx-udp-gro-forwarding`：VPN 的 UDP 封包經 Docker 轉送，合併之後每個封包的 CPU 負擔比較低
 - `vm.swappiness` 調到 10：解析器的名單佔約 1 GB 記憶體，換到 swap 的話，查詢會突然變慢
+- Docker 開啟 `live-restore`（`host/docker-daemon.json`）：Docker 本身升級或重新啟動時，容器繼續執行，使用者不會斷線。沒有開啟的話，系統自動更新 Docker 時，所有人都會斷線。用 `systemctl reload docker` 生效，不必重啟 Docker 或容器
 
 容器設了記憶體 1,600 MB 與 256 個行程的上限（`run.sh`），加入 DNSBunker CTI 之前，解析器載入名單時的高峰約 1.25 GB，CTI 只留託管平台的部分之後約佔 190 MB。裡面失控時不會連累容器外的 SSH、Tailscale 與 Beszel。現有的容器不必重建，用 `docker update --memory 1600m --memory-swap 1600m --pids-limit 256 vessel-node` 直接套用，不會斷線。
 
@@ -54,6 +56,7 @@ UDP 的 socket 緩衝不用調，`amneziawg-go` 有 `NET_ADMIN`，會自己強�
 
 ```bash
 install -m 644 host/99-vessel-node.conf /etc/sysctl.d/99-vessel-node.conf && sysctl --system
+install -m 644 host/docker-daemon.json /etc/docker/daemon.json && systemctl reload docker
 install -m 644 host/vessel-net-tune.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now vessel-net-tune.service
 ```

@@ -100,6 +100,8 @@ command="/opt/vessel-inspect-app/inspect-remote",restrict,from="<入口主機的
 
 分析主機需要 Docker、Python 3、`python3-cryptography` 與 Tailscale，節點需要 `tcpdump`，以及 `node/README.md` 的「裝置檢測」。
 
+Zeek 讀取的封包內容可能被任何人操控，所以容器以 `nobody`（UID 65534）執行，不連網路、拿掉所有特權、檔案系統唯讀，記憶體與行程數有上限（`analyze.py` 的 `ZEEK_RUN`）。封包從標準輸入讀取，容器裡只掛載這一次的紀錄目錄。
+
 ```bash
 # 分析主機
 install -d /opt/vessel-inspect-app; cp inspect/recv.py inspect/analyze.py inspect/inspect-remote node/exclude.txt /opt/vessel-inspect-app/
