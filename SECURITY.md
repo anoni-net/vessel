@@ -9,7 +9,8 @@
 ## 通報方式
 
 1. GitHub 的私下通報：到[這個 repo 的通報頁](https://github.com/anoni-net/vessel/security/advisories/new)填寫，只有維護者看得到內容，修正也在同一個地方討論
-2. Matrix：到社群的 [Matrix 聊天室](https://matrix.to/#/#community:im.anoni.net)，請維護者開一個加密的私訊，細節只寫在私訊裡，不要貼在聊天室
+2. Email：寄到社群的信箱 `whisper@anoni.net`，內容請用社群的 [PGP 公鑰](https://anoni.net/B7DF84305C7911D90D59A66061F66CF36EE386D4.asc)加密，指紋是 `B7DF 8430 5C79 11D9 0D59 A660 61F6 6CF3 6EE3 86D4`
+3. Matrix：到社群的 [Matrix 聊天室](https://matrix.to/#/#community:im.anoni.net)，請維護者開一個加密的私訊，細節只寫在私訊裡，不要貼在聊天室
 
 請盡量附上受影響的元件與版本（commit）、重現的步驟，以及你判斷的影響範圍。
 
@@ -46,7 +47,8 @@ If you find a vulnerability in Vessel, please tell us privately first and keep t
 ## How to report
 
 1. GitHub private reporting: use [this repository's report form](https://github.com/anoni-net/vessel/security/advisories/new). Only the maintainers can read it, and the fix is discussed there too.
-2. Matrix: join the community's [Matrix room](https://matrix.to/#/#community:im.anoni.net) and ask a maintainer to open an encrypted direct message. Put the details only in that message, never in the room.
+2. Email: write to the community at `whisper@anoni.net`, encrypted to the community's [PGP key](https://anoni.net/B7DF84305C7911D90D59A66061F66CF36EE386D4.asc), fingerprint `B7DF 8430 5C79 11D9 0D59 A660 61F6 6CF3 6EE3 86D4`.
+3. Matrix: join the community's [Matrix room](https://matrix.to/#/#community:im.anoni.net) and ask a maintainer to open an encrypted direct message. Put the details only in that message, never in the room.
 
 Where you can, include the component and version (commit) affected, steps to reproduce, and what you think the impact is. Reports in English, Traditional Chinese or Simplified Chinese are all welcome.
 

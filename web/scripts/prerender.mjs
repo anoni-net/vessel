@@ -100,7 +100,10 @@ await writeFile(stateFile, `${JSON.stringify(lastmod, null, 2)}\n`);
 const expires = new Date(Date.now() + 182 * 864e5).toISOString().replace(/\.\d+Z$/, ".000Z");
 await write(".well-known/security.txt", [
   "Contact: https://github.com/anoni-net/vessel/security/advisories/new",
+  "Contact: mailto:whisper@anoni.net",
   "Contact: https://matrix.to/#/#community:im.anoni.net",
+  // the same contact and key as the one the anoni.net zone serves at Cloudflare for every clearnet host
+  "Encryption: https://anoni.net/B7DF84305C7911D90D59A66061F66CF36EE386D4.asc",
   `Expires: ${expires}`,
   "Preferred-Languages: zh-TW, en, zh-CN",
   `Canonical: ${CLEARNET}/.well-known/security.txt`,

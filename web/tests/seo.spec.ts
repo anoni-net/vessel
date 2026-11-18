@@ -48,6 +48,8 @@ test(".well-known/security.txt", async ({ request }) => {
   expect(res.status()).toBe(200);
   const text = await res.text();
   expect(text).toContain("Contact: https://github.com/anoni-net/vessel/security/advisories/new\n");
+  expect(text).toContain("Contact: mailto:whisper@anoni.net\n");
+  expect(text).toContain("Encryption: https://anoni.net/B7DF84305C7911D90D59A66061F66CF36EE386D4.asc\n");
   expect(text).toContain("Canonical: https://vessel.anoni.net/.well-known/security.txt\n");
   expect(text).toContain("Policy: https://github.com/anoni-net/vessel/blob/main/SECURITY.md\n");
   const expires = Date.parse(text.match(/^Expires: (.+)$/m)![1]);
