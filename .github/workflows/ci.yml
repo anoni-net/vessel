@@ -76,14 +76,15 @@ jobs:
       - run: uv run ruff check .
       - run: uv run pytest -q
       # as deploy/docker-compose.yml runs it: uid 10001, read-only files, no capabilities. It imports, migrates the
-      # test database, starts ssh, and cannot write to its own files
+      # test database, starts ssh, cannot write to its own files, and has no pip or uv to install anything with
       - name: api image
         run: |
           docker build -q -t vessel-api .
           docker run --rm --network host --read-only --tmpfs /tmp:size=64m,mode=1777,noexec,nosuid,nodev \
             --cap-drop ALL --security-opt no-new-privileges:true -e VESSEL_DATABASE_URL="$VESSEL_TEST_DATABASE_URL" -e VESSEL_ACCOUNT_PEPPER=test-pepper -e VESSEL_HMAC_KEY=test-hmac-key \
             vessel-api sh -c '[ "$(id -u)" = 10001 ] && python -c "import app.main, app.worker, app.admin" \
-              && python -m app.migrate && ssh -V && ! touch /app/app/x 2>/dev/null && ! ls app/__pycache__ | grep -v cpython-315'
+              && python -m app.migrate && ssh -V && ! touch /app/app/x 2>/dev/null && ! ls app/__pycache__ | grep -v cpython-315 \
+              && ! python -m pip --version 2>/dev/null && ! command -v uv'
 
   node:
     runs-on: ubuntu-latest
