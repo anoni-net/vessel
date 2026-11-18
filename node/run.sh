@@ -16,8 +16,15 @@ ln -sfn "forward-$forward.conf" $D/unbound/forward.conf
 docker rm -f vessel-node >/dev/null 2>&1 || true
 # The memory limit leaves the host room if something in the container runs away: the resolvers peak around 1.25 GB while
 # the lists load, and the sshd, Tailscale and Beszel outside it have to keep working on a 2 GB host.
+# Only the capabilities the node uses, not Docker's default set: the network (NET_ADMIN for the tunnel, iptables, tc and
+# conntrack, NET_RAW for iptables, NET_BIND_SERVICE for the resolvers' port 53), SETUID and SETGID for unbound to
+# drop to its user, KILL for the HUP that reloads it, CHOWN and DAC_OVERRIDE for start.sh to set up unbound's files.
+# amneziawg-go handles packets from anyone on the internet; a way into it gets no more than this, and nothing it runs
+# can gain more (no-new-privileges). node/test/caps-test.sh fails when the node needs one that is not here.
 docker run -d --name vessel-node --restart unless-stopped --log-driver none \
-  --cap-add NET_ADMIN --device /dev/net/tun \
+  --cap-drop ALL --cap-add NET_ADMIN --cap-add NET_RAW --cap-add NET_BIND_SERVICE --cap-add SETUID --cap-add SETGID --cap-add KILL \
+  --cap-add CHOWN --cap-add DAC_OVERRIDE \
+  --security-opt no-new-privileges:true --device /dev/net/tun \
   --memory 1600m --memory-swap 1600m --pids-limit 256 \
   --sysctl net.ipv4.ip_forward=1 --sysctl net.ipv4.conf.all.src_valid_mark=1 \
   --sysctl net.ipv6.conf.all.forwarding=1 \

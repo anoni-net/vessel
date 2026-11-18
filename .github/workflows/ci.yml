@@ -117,6 +117,9 @@ jobs:
       # the daemon from source: the tests of its packages run inside the build (node/Dockerfile)
       - name: node image
         run: docker build -q node
+      # the container with only the capabilities run.sh grants comes up, and awgctl can still do its work in it
+      - name: node container capabilities
+        run: bash node/test/caps-test.sh
       # load onto nodes, check it is the same image, leave the switch-over to the maintainer
       - name: image.sh
         run: bash node/test/image-test.sh
