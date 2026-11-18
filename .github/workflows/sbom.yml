@@ -1,21 +1,26 @@
 name: SBOM
 
-# What Vessel is made of, as CycloneDX: the lockfiles of the code (source), the images the hosts build from this
-# repo (api, node, rpz), and the images the deployment pulls as they are (postgres, the Zeek of inspect/, the
-# Node.js that deploy.sh builds the web with). A scan of the repo alone reads only the lockfiles, so the images are
-# built and pulled here. Every push to main keeps the files as a workflow artifact for 90 days.
+# What Vessel is made of, as CycloneDX: the lockfiles of the code, build tools included (source), the images the
+# hosts build from this repo (api, node, rpz), and the images the deployment pulls as they are (postgres, the Zeek of
+# inspect/, the Node.js that deploy.sh builds the web with). A scan of the repo alone reads only the lockfiles, so the
+# images are built and pulled here.
 #
-# The node image installs Alpine's packages with apk at build time, so a node rebuilt on another day can hold newer
-# packages than the SBOM here lists.
+# Only the source SBOM is kept, as a workflow artifact for 90 days: the lockfiles are public anyway. The images'
+# SBOMs stay inside the run, and so does what Grype finds in them. The node image installs Alpine's packages with apk
+# at build time, so a node rebuilt on another day can hold newer packages than these; tools/host-sbom reads what a
+# host actually runs.
 #
-# Once a week, and by hand, Grype compares the files with the vulnerability databases and lists what has a fixed
-# version in the repository's code scanning alerts (Security tab), so a new advisory is noticed even when nobody
-# pushes. Alerts that do not apply, such as the Go runtime inside postgres's gosu, are dismissed there once and
-# stay dismissed. Pull requests do not run it: a CVE published today has nothing to do with the change.
+# Once a week, and by hand, Grype compares every SBOM with the vulnerability databases and lists what has a fixed
+# version in the repository's code scanning alerts (Security tab, maintainers only), so a new advisory is noticed
+# even when nobody pushes. Alerts that do not apply, such as the Go runtime inside postgres's gosu, are dismissed
+# there once and stay dismissed. Other pull requests do not run this: a CVE published today has nothing to do with
+# them. A pull request that changes this file runs it all except the upload to code scanning.
 
 on:
   push:
     branches: [main]
+  pull_request:
+    paths: [.github/workflows/sbom.yml]
   schedule:
     - cron: "41 2 * * 1"
   workflow_dispatch:
@@ -26,6 +31,9 @@ permissions:
 jobs:
   sbom:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
@@ -40,55 +48,47 @@ jobs:
           SYFT: ${{ steps.syft.outputs.cmd }}
           # packages only; the list of every file in an image adds thousands of entries and no vulnerability
           SYFT_FILE_METADATA_SELECTION: none
+          # vite and the rest run on the portal's host at every deploy (deploy/deploy.sh)
+          SYFT_JAVASCRIPT_INCLUDE_DEV_DEPENDENCIES: "true"
         run: |
           set -euo pipefail
-          mkdir sbom
+          mkdir sbom images
           "$SYFT" scan dir:. --source-name vessel --source-version "$GITHUB_SHA" -o cyclonedx-json=sbom/source.cdx.json
           for name in api node rpz; do
-            "$SYFT" scan "docker:vessel-$name" --source-name "vessel-$name" --source-version "$GITHUB_SHA" -o "cyclonedx-json=sbom/image-$name.cdx.json"
+            "$SYFT" scan "docker:vessel-$name" --source-name "vessel-$name" --source-version "$GITHUB_SHA" -o "cyclonedx-json=images/image-$name.cdx.json"
           done
           # the images fixed by digest outside a Dockerfile; Dependabot proposes updates for none of the last two
           refs=$(grep -ohE '[a-z0-9][a-z0-9./_-]*(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}' deploy/docker-compose.yml inspect/analyze.py deploy/deploy.sh | sort -u)
           [ "$(echo "$refs" | wc -l)" -eq 3 ] || { echo "expected three pulled images, found:"; echo "$refs"; exit 1; }
           for ref in $refs; do
             name=$(echo "${ref%%[:@]*}" | tr / -)
-            "$SYFT" scan "registry:$ref" -o "cyclonedx-json=sbom/pulled-$name.cdx.json"
+            "$SYFT" scan "registry:$ref" -o "cyclonedx-json=images/pulled-$name.cdx.json"
           done
-          ls -l sbom
+          ls -l sbom images
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom-${{ github.sha }}
-          path: sbom/
+          path: sbom/source.cdx.json
           retention-days: 90
-
-  scan:
-    needs: sbom
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: sbom-${{ github.sha }}
-          path: sbom/
       - uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        if: github.event_name != 'push'
         id: grype
       - name: known vulnerabilities
+        if: github.event_name != 'push'
         env:
           GRYPE: ${{ steps.grype.outputs.cmd }}
         run: |
           set -euo pipefail
           mkdir sarif
-          for f in sbom/*.cdx.json; do
+          for f in sbom/*.cdx.json images/*.cdx.json; do
             name=$(basename "$f" .cdx.json)
-            "$GRYPE" "sbom:$f" --only-fixed -o "sarif=$RUNNER_TEMP/$name.sarif" -o "table=$RUNNER_TEMP/$name.txt"
+            # into a file only: the run's log is public, the findings go to the Security tab
+            "$GRYPE" "sbom:$f" --only-fixed -o "sarif=$RUNNER_TEMP/$name.sarif"
             # one category per file, or code scanning would take each upload as replacing the last
             jq --arg id "grype/$name/" '.runs[].automationDetails.id = $id' "$RUNNER_TEMP/$name.sarif" > "sarif/$name.sarif"
-            printf '### %s\n\n```\n%s\n```\n\n' "$name" "$(cat "$RUNNER_TEMP/$name.txt")" >> "$GITHUB_STEP_SUMMARY"
+            echo "$name: $(jq '[.runs[].results[]] | length' "sarif/$name.sarif") findings"
           done
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         with:
           sarif_file: sarif/
