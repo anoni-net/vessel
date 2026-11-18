@@ -28,6 +28,8 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 | `tools/dpi-check/` | 在本機檢查 AmneziaWG 的偽裝在 DPI 工具眼中的樣子，改了混淆參數或升級 AmneziaWG 之後執行，說明見 `tools/dpi-check/README.md` | `tools/dpi-check/run.sh` |
 | `tools/handshake-check/` | 在本機確認節點看得出「連線請求到了、連線卻沒有建立」的裝置，worker 判斷連不上的依據，升級 AmneziaWG 之後執行，說明見 `tools/handshake-check/README.md` | `tools/handshake-check/run.sh` |
 
+`.github/workflows/sbom.yml` 在每次合併進 `main` 時產生 CycloneDX 格式的 SBOM，包含程式的 lockfile、主機從這個 repo 建置的映像（api、node、rpz），以及部署時直接使用的現成映像（postgres、`inspect/` 的 Zeek、`deploy/deploy.sh` 建置前端用的 Node.js）。程式的 SBOM 保存成 workflow 的 artifact，映像的 SBOM 不保存。每週一次比對漏洞資料庫，有修正版本的漏洞列在 Security 分頁的 code scanning（只有維護者能檢視），不適用的在那裡標記一次即可。部署新增一個以 digest 固定、但不在 Dockerfile 裡的映像時，workflow 裡預期的映像數量要一起改。
+
 首頁「Vessel 的做法」的四張圖（FIG. 02 到 05）由 `web/scripts/hero-figures.py` 產生，寫進 `web/src/hero-figures-data.ts`，要改圖時改腳本再執行 `python3 web/scripts/hero-figures.py`，不要手改資料檔。標籤的寬度取自三個語系的文字，改了圖上標籤的文字也要重新執行，CI 會用 `--check` 確認資料檔與腳本畫出的一致。
 
 檢測報告的網站說明在 `web/src/data/site-notes.json`，跟著前端打包，報告在使用者的瀏覽器裡比對命中的網站，不逐一查詢伺服器。說明只補充，不影響報告的判斷，名單頁（`/dns/lists/#site-notes`）公開整份資料。新增一筆時寫上網域、類別、營運者（選填）、至少一個 `https://` 來源與審查日期，新的類別要在三個語系補上 `notes.<類別>.name` 與 `.about`。說明有增減時，在名單頁的變動紀錄（`web/src/pages/dns-lists.tsx` 的 `LOG`）加一行。CI 用 `node web/scripts/site-notes.mjs` 檢查格式，審查日期超過一年會失敗，重新確認來源後更新日期。
