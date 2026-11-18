@@ -43,16 +43,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir sbom
-          "$SYFT" scan dir:. --source-name vessel --source-version "$GITHUB_SHA" -q -o cyclonedx-json=sbom/source.cdx.json
+          "$SYFT" scan dir:. --source-name vessel --source-version "$GITHUB_SHA" -o cyclonedx-json=sbom/source.cdx.json
           for name in api node rpz; do
-            "$SYFT" scan "docker:vessel-$name" --source-name "vessel-$name" --source-version "$GITHUB_SHA" -q -o "cyclonedx-json=sbom/image-$name.cdx.json"
+            "$SYFT" scan "docker:vessel-$name" --source-name "vessel-$name" --source-version "$GITHUB_SHA" -o "cyclonedx-json=sbom/image-$name.cdx.json"
           done
           # the images fixed by digest outside a Dockerfile; Dependabot proposes updates for none of the last two
           refs=$(grep -ohE '[a-z0-9][a-z0-9./_-]*(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}' deploy/docker-compose.yml inspect/analyze.py deploy/deploy.sh | sort -u)
           [ "$(echo "$refs" | wc -l)" -eq 3 ] || { echo "expected three pulled images, found:"; echo "$refs"; exit 1; }
           for ref in $refs; do
             name=$(echo "${ref%%[:@]*}" | tr / -)
-            "$SYFT" scan "registry:$ref" -q -o "cyclonedx-json=sbom/pulled-$name.cdx.json"
+            "$SYFT" scan "registry:$ref" -o "cyclonedx-json=sbom/pulled-$name.cdx.json"
           done
           ls -l sbom
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -84,7 +84,7 @@ jobs:
           mkdir sarif
           for f in sbom/*.cdx.json; do
             name=$(basename "$f" .cdx.json)
-            "$GRYPE" "sbom:$f" --only-fixed -q -o "sarif=$RUNNER_TEMP/$name.sarif" -o "table=$RUNNER_TEMP/$name.txt"
+            "$GRYPE" "sbom:$f" --only-fixed -o "sarif=$RUNNER_TEMP/$name.sarif" -o "table=$RUNNER_TEMP/$name.txt"
             # one category per file, or code scanning would take each upload as replacing the last
             jq --arg id "grype/$name/" '.runs[].automationDetails.id = $id' "$RUNNER_TEMP/$name.sarif" > "sarif/$name.sarif"
             printf '### %s\n\n```\n%s\n```\n\n' "$name" "$(cat "$RUNNER_TEMP/$name.txt")" >> "$GITHUB_STEP_SUMMARY"
