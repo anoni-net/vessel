@@ -40,10 +40,10 @@ case $cmd in
     go=$(sed -n 's/^FROM \(golang:[^ ]*\) AS build$/\1/p' Dockerfile)
     [ -n "$go" ] || { echo "image.sh: no golang build stage in Dockerfile" >&2; exit 1; }
     echo "== $builder: building $tag"
-    git archive HEAD Dockerfile start.sh | ssh "$builder" "set -euo pipefail
+    git archive HEAD Dockerfile start.sh amneziawg-deps/go.mod | ssh "$builder" "set -euo pipefail
       d=\$(mktemp -d)
       trap 'sudo rm -rf -- \"\$d\"' EXIT
-      tar -x -C \"\$d\"   # Dockerfile and start.sh: git archive in node/ leaves out the directory
+      tar -x -C \"\$d\"   # the build's files: git archive in node/ leaves out the directory
       sudo docker build -q --label org.opencontainers.image.revision=$rev -t $tag \"\$d\" >/dev/null
       echo \"  built, fingerprint \$($fingerprint)\"
       echo '== the daemon was built with'

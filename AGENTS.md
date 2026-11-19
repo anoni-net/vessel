@@ -79,7 +79,7 @@ repo 是公開的。下面這些只放在主機上：
 
 ## 節點
 
-`node/` 是節點部署檔的權威來源，改節點時先改這裡，合併之後在維護者的電腦上從 `main` 的 checkout 執行 `node/deploy.sh <SSH 別名>...`。它依 `node/files.tsv` 把跟節點不同的檔案全部放上去，不要手動挑檔案複製，只挑改到的檔案會讓其他檔案停在舊版。`deploy.sh` 只換檔案，最後印出還需要的步驟（重建映像、HUP、重啟服務），會讓使用者斷線的步驟先寫一筆服務狀態紀錄再執行。`node/drift-check.sh` 比對節點上的檔案跟 repo 是否一致。節點的映像不在節點上建置，用 `node/image.sh build <建置主機>` 在一台 x86_64 的建置主機建置一次，`node/image.sh push <建置主機> <節點>...` 經維護者的電腦載入各節點並確認是同一份，切換到新映像（`run.sh`）由維護者在公告之後執行。`amneziawg-go` 從上游原始碼建置，只升級 Go 與 `x/` 模組，不改原始碼，見 `node/README.md` 的「升級」。新增或搬動 `node/` 的檔案時，`files.tsv` 一起改。增刪使用者時用 `awg syncconf`，不能重啟容器，否則所有人都會斷線。
+`node/` 是節點部署檔的權威來源，改節點時先改這裡，合併之後在維護者的電腦上從 `main` 的 checkout 執行 `node/deploy.sh <SSH 別名>...`。它依 `node/files.tsv` 把跟節點不同的檔案全部放上去，不要手動挑檔案複製，只挑改到的檔案會讓其他檔案停在舊版。`deploy.sh` 只換檔案，最後印出還需要的步驟（重建映像、HUP、重啟服務），會讓使用者斷線的步驟先寫一筆服務狀態紀錄再執行。`node/drift-check.sh` 比對節點上的檔案跟 repo 是否一致。節點的映像不在節點上建置，用 `node/image.sh build <建置主機>` 在一台 x86_64 的建置主機建置一次，`node/image.sh push <建置主機> <節點>...` 經維護者的電腦載入各節點並確認是同一份，切換到新映像（`run.sh`）由維護者在公告之後執行。`amneziawg-go` 從上游原始碼建置，只升級 Go 與 `x/` 模組（版本在 `node/amneziawg-deps/go.mod`，Dependabot 會提出新版），不改原始碼，見 `node/README.md` 的「升級」。新增或搬動 `node/` 的檔案時，`files.tsv` 一起改。增刪使用者時用 `awg syncconf`，不能重啟容器，否則所有人都會斷線。
 
 ## 圖片
 

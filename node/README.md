@@ -397,11 +397,13 @@ tools/host-sbom/run.sh <節點>                                                 
 
 ### AmneziaWG 的建置
 
-`amneziawg-go` 從上游的原始碼建置，不改原始碼。原始碼經 Go 的模組代理取得，並用 checksum 資料庫驗證，建置時不必連到 GitHub。跟上游自己的建置只差兩件事，都是為了上游還沒跟上的安全修正（amnezia-vpn/amneziawg-go#218）：用仍在支援期的 Go 編譯，以及把 `golang.org/x/crypto`、`x/net`、`x/sys` 升到明確指定的新版本。建置參數照上游的 Dockerfile，建置之前先執行組成 daemon 的每個套件的測試。`awg` 與 `awg-quick` 仍然從官方映像複製。
+`amneziawg-go` 從上游的原始碼建置，不改原始碼。原始碼經 Go 的模組代理取得，並用 checksum 資料庫驗證，建置時不必連到 GitHub。跟上游自己的建置只差兩件事，都是為了上游還沒跟上的安全修正（amnezia-vpn/amneziawg-go#218）：用仍在支援期的 Go 編譯，以及把 `golang.org/x/crypto`、`x/net`、`x/sys` 升到 `amneziawg-deps/go.mod` 指定的新版本。建置參數照上游的 Dockerfile，建置之前先執行組成 daemon 的每個套件的測試。`awg` 與 `awg-quick` 仍然從官方映像複製。
 
 映像裡的 `/usr/share/vessel-node/amneziawg-go.buildinfo` 記著上游的版本、Go 的版本與每個模組的版本，在節點上用 `docker exec vessel-node cat /usr/share/vessel-node/amneziawg-go.buildinfo` 確認。
 
-`Dockerfile` 寫死幾個版本：上游映像的標籤與 `AWG_VERSION`（兩處要相同，`node/test/awg-version-test.sh` 在不同時失敗，Dependabot 只會改前者）、三個 `x/` 模組、Go 與 Alpine 的映像。Alpine 跟著最新的穩定版，unbound 用它提供的套件，每次建置會取得 Alpine 在同一個次版本內補的安全修正。換 AmneziaWG 的版本時，`AWG_VERSION` 與上游映像的標籤一起改，`x/` 模組也升到當時的最新版，再 `image.sh build`。
+`Dockerfile` 寫死幾個版本：上游映像的標籤與 `AWG_VERSION`（兩處要相同，`node/test/awg-version-test.sh` 在不同時失敗，Dependabot 只會改前者）、Go 與 Alpine 的映像。三個 `x/` 模組的版本寫在 `amneziawg-deps/go.mod`，這個模組不會被編譯，只為了讓 Dependabot 看得到它們：有新版時開 PR，有已知漏洞時發出警示，跟 Go 與 Alpine 的映像一樣。`deps.go` 匯入這三個模組，`go mod tidy` 才不會把它們刪掉。Alpine 跟著最新的穩定版，unbound 用它提供的套件，每次建置會取得 Alpine 在同一個次版本內補的安全修正。
+
+Dependabot 的 PR 會在 CI 建置節點映像，並執行上游的測試，有問題會在 PR 上失敗。合併之後節點不會自動更新，照上面的步驟 `image.sh build`、執行兩支檢查工具、`image.sh push`，先換一台節點，再換其他台。換 AmneziaWG 的版本時，`AWG_VERSION` 與上游映像的標籤一起改。
 
 2026-11-01 以前直接以 `amneziavpn/amneziawg-go:latest` 為基礎，裡面是 Alpine 3.19，unbound 停在 1.20.0。這一版經過遞迴的查詢不檢查 RPZ 的標記（NLnetLabs/unbound#1079，1.21 修正），合併解析器（toomore/anoni-net-ws#447）需要新版，所以改成最新穩定版的 Alpine，只從官方映像取 AmneziaWG 的程式。2026-11-18 起 `amneziawg-go` 改從原始碼建置：上游用已停止安全更新的 Go 1.25 與舊版的 `x/` 模組，govulncheck 判斷沒有呼叫到已知的漏洞，但掃描工具列出約 60 筆，之後的修正也要等上游更新才能取得。`awg` 只依賴 musl，`amneziawg-go` 是靜態連結。
 

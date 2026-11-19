@@ -9,6 +9,10 @@ updates:
   - package-ecosystem: docker
     directories: [/api, /node, /deploy/rpz]
     schedule: { interval: weekly }
+  # the golang.org/x modules node/Dockerfile builds amneziawg-go with (node/amneziawg-deps/go.mod)
+  - package-ecosystem: gomod
+    directory: /node/amneziawg-deps
+    schedule: { interval: weekly }
   - package-ecosystem: docker-compose
     directory: /deploy
     schedule: { interval: weekly }
