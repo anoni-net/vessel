@@ -10,24 +10,25 @@
 # The daemon (amneziawg-go) is upstream's source unchanged, at the version below, fetched through the Go module proxy
 # and checked against the checksum database. Two things differ from upstream's own build, both for security fixes
 # upstream has not taken yet (amnezia-vpn/amneziawg-go#218): a supported Go release, and newer golang.org/x/crypto,
-# x/net and x/sys. The build flags are upstream's (its Dockerfile). The tests of every package the daemon is made of
-# run before it is built. To upgrade: change AWG_VERSION and the upstream image's tag together (node/test/
-# awg-version-test.sh fails when they differ), raise the x/ modules to their latest, then image.sh build, the tests
-# in README.md's 升級, and image.sh push.
+# x/net and x/sys, at the versions in amneziawg-deps/go.mod, where Dependabot proposes their new releases and flags
+# their known vulnerabilities. The build flags are upstream's (its Dockerfile). The tests of every package the daemon
+# is made of run before it is built. To upgrade AmneziaWG: change AWG_VERSION and the upstream image's tag together
+# (node/test/awg-version-test.sh fails when they differ). Either way, then image.sh build, the tests in README.md's
+# 升級, and image.sh push.
 FROM amneziavpn/amneziawg-go:3.1.20261116@sha256:e6ac67745f024e3e41a4897b8e72f090cd15c375e42c7e3e6f9c981e057edafd AS upstream
 
 FROM golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS build
 ARG AWG_VERSION=v3.1.20261116
-ARG X_CRYPTO=v0.59.0
-ARG X_NET=v0.63.0
-ARG X_SYS=v0.50.0
 RUN apk add --no-cache build-base
+COPY amneziawg-deps/go.mod /deps/go.mod
 WORKDIR /src
 RUN set -eu; \
+    deps=$(awk '$1 ~ /^golang\.org\/x\/(crypto|net|sys)$/ && $2 ~ /^v[0-9]/ { print $1 "@" $2 }' /deps/go.mod); \
+    test "$(echo "$deps" | wc -l)" -eq 3; \
     dir=$(cd / && go mod download -json "github.com/amnezia-vpn/amneziawg-go/v3@$AWG_VERSION" | grep '"Dir":' | cut -d'"' -f4); \
     test -n "$dir" && test -f "$dir/go.mod"; \
     cp -r "$dir"/. /src && chmod -R u+w /src; \
-    go get "golang.org/x/crypto@$X_CRYPTO" "golang.org/x/net@$X_NET" "golang.org/x/sys@$X_SYS"; \
+    go get $deps; \
     go mod tidy; \
     go mod verify; \
     go test $(go list -deps . | grep '^github.com/amnezia-vpn/amneziawg-go/v3'); \

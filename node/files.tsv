@@ -45,3 +45,6 @@ host/vessel-reach.timer	/etc/systemd/system/vessel-reach.timer	644	restart:vesse
 drift-check.sh	-	-	-	runs on the maintainer's computer
 deploy.sh	-	-	-	runs on the maintainer's computer
 image.sh	-	-	-	runs on the maintainer's computer
+amneziawg-deps/go.mod	-	-	-	read by Dockerfile on the build host: the x/ modules' versions, for Dependabot
+amneziawg-deps/go.sum	-	-	-	go.mod's checksums, for Dependabot
+amneziawg-deps/deps.go	-	-	-	keeps go mod tidy from dropping the modules; never built
