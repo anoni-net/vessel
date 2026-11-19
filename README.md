@@ -24,7 +24,7 @@ Vessel 是[匿名網路社群 anoni.net](https://anoni.net/) 架設的 VPN。連
 | `deploy/` | 後端的 compose 與 nginx 設定範例 |
 | `relay/` | 其他團體營運的入口：轉送 UDP 到節點的腳本與營運規範 |
 
-開發的方式與規則見 [AGENTS.md](AGENTS.md)。
+回報問題與參與開發見 [CONTRIBUTING.md](CONTRIBUTING.md)，開發的方式與規則見 [AGENTS.md](AGENTS.md)。安全性問題請照 [SECURITY.md](SECURITY.md) 私下通報。
 
 節點的 IP、伺服器金鑰與使用者的設定檔都不在 repo 裡。
 
@@ -58,7 +58,7 @@ Vessel is under development and will start as an invite-only test at <https://ve
 | `deploy/` | Compose file and nginx example for the backend |
 | `relay/` | Entries run by other groups: a script that forwards UDP to a node, and the rules for running one (in Chinese) |
 
-See [AGENTS.md](AGENTS.md) (in Chinese) for how to develop.
+See [CONTRIBUTING.md](CONTRIBUTING.md) to report a problem or send a change, and [AGENTS.md](AGENTS.md) (in Chinese) for how to develop. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 Node IPs, server keys and client configs are not in this repository.
 

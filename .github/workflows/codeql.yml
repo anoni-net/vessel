@@ -1,0 +1,40 @@
+name: CodeQL
+
+# Static analysis for security problems in the code itself: the backend, the analysis host and the scripts (Python),
+# the portal (TypeScript), and these workflows. Findings go to the repository's code scanning alerts (Security tab),
+# next to Grype's (sbom.yml). Pull requests see what they would add; main is checked on every merge and once a week,
+# so a new query finds old code too. Nothing here needs building: all three are analysed from the source.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          # the default queries and the security-extended ones: more kinds of vulnerability, a few more false positives
+          queries: security-extended
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:${{ matrix.language }}
