@@ -60,6 +60,18 @@ deploy/deploy.sh
 
 會拉最新的 main、建置前端、更新 `/srv/vessel/web` 與 `/srv/vessel/web-onion`、重建映像、先執行遷移，再重啟後端與 worker。`/etc/vessel` 的檔案只有 root 能讀，所以 compose 用 sudo 執行。重啟後端與 worker 不影響已經連上的裝置，連線只經過節點。
 
+## 發行
+
+Vessel 是部署給使用者的服務，沒有讓人下載安裝的版本。每次把變動部署到後端或節點之後，在維護者的電腦上建立一個發行，記錄這次部署了什麼：
+
+```bash
+deploy/release.sh --dry-run                    # 先看標籤與說明
+deploy/release.sh                              # 建立 origin/main 的發行
+deploy/release.sh --fixes 修正.txt <commit>    # 這次修正了已公開的漏洞
+```
+
+標籤是部署當天的日期（`2026.11.19`，同一天第二次是 `2026.11.19.2`），GitHub 的發行說明列出上一次發行之後合併的 PR。說明的第一段是這次修正的已公開漏洞，`--fixes` 的檔案一行一筆，寫上 CVE 或 GHSA 編號與影響的部分，沒有時寫「無」。
+
 ## 告警
 
 worker 停擺時容器與 API 照樣是健康的，2026-10-27 就有一個多小時沒有讀到任何用量。worker 每完成一輪、每讀完一個節點的用量，都會在 `heartbeats` 表留下時間，後端在 `/internal/health` 回報這些時間與卡住的工作。這個路徑不在 `/api/` 底下，nginx 不轉送，只能從主機連後端的埠。

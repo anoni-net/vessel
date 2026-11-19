@@ -22,7 +22,7 @@ Vessel 是社群為身邊的人架設的 VPN。我們看到大家在學校、旅
 | `node/` | 節點的容器與 `awgctl`，說明見 `node/README.md` | `bash -n`、`shellcheck -S warning`、`node/deploy.sh <SSH 別名>...`、`node/drift-check.sh <SSH 別名>...`、`node/image.sh build\|push <建置主機> ...` |
 | `api/` | 入口網站的後端，FastAPI 與 PostgreSQL 18 | `uv sync`、`uv run pytest -q`、`uv run ruff check .`、`uv run python -m app.migrate` |
 | `web/` | 入口網站的前端，Vite、Preact、TypeScript | `npm ci`、`npm run dev`、`npm run typecheck`、`npm run build`、`npm test` |
-| `deploy/` | 後端的 compose、部署腳本、nginx 設定範例，部署步驟見 `deploy/README.md` | `deploy/deploy.sh` |
+| `deploy/` | 後端的 compose、部署腳本、nginx 設定範例，部署步驟見 `deploy/README.md`。部署到後端或節點之後用 `release.sh` 建立發行 | `deploy/deploy.sh`、`deploy/release.sh` |
 | `relay/` | 其他團體營運的入口：`vessel-relay` 用 nftables 把 UDP 轉送到節點，營運規範在 `relay/NORMS.md` | `sudo bash relay/test/netns-test.sh` |
 | `inspect/` | 裝置流量檢測的分析端：接收節點的封包、自動分析、產生結果，說明見 `inspect/README.md` | `python3 -m unittest discover -s inspect/tests` |
 | `tools/dpi-check/` | 在本機檢查 AmneziaWG 的偽裝在 DPI 工具眼中的樣子，改了混淆參數或升級 AmneziaWG 之後執行，說明見 `tools/dpi-check/README.md` | `tools/dpi-check/run.sh` |
@@ -91,4 +91,4 @@ repo 是公開的。下面這些只放在主機上：
 
 ## commit 與 PR
 
-每個 PR 處理一件事，PR 內文寫清楚改了什麼、怎麼驗證。規劃與待決定的事項記錄在維護者的內部 issue。
+每個 PR 處理一件事，PR 內文寫清楚改了什麼、怎麼驗證。新功能與錯誤修正要一起加上自動化測試（`CONTRIBUTING.md` 的「測試」）。CodeQL（`.github/workflows/codeql.yml`）與每週的漏洞比對（`sbom.yml`）的結果在 Security 分頁，中度以上的要處理，或寫明不適用的理由再標記。規劃與待決定的事項記錄在維護者的內部 issue。
