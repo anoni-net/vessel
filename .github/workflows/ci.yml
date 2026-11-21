@@ -85,15 +85,18 @@ jobs:
             vessel-api sh -c '[ "$(id -u)" = 10001 ] && python -c "import app.main, app.worker, app.admin" \
               && python -m app.migrate && ssh -V && ! touch /app/app/x 2>/dev/null && ! ls app/__pycache__ | grep -v cpython-315 \
               && ! python -m pip --version 2>/dev/null && ! command -v uv'
+      # ssh through a jump host leaves its ProxyCommand for PID 1 to reap: compose gives the API and the worker an init
+      - name: api and worker reap ssh's leftovers
+        run: bash ../deploy/test/reap-test.sh vessel-api
 
   node:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: shell syntax
-        run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh tools/host-sbom/*.sh; do bash -n "$f"; done
+        run: for f in node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh deploy/test/*.sh tools/host-sbom/*.sh; do bash -n "$f"; done
       - name: shellcheck
-        run: shellcheck -S warning -x node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh tools/host-sbom/*.sh
+        run: shellcheck -S warning -x node/*.sh node/host/vessel-inspect-stream.sh node/host/vessel-inspect-confirm.sh node/awgctl node/test/*.sh deploy/rpz/*.sh deploy/rpz/test/*.sh deploy/test/*.sh tools/host-sbom/*.sh
       # block entries only, no shared names
       - name: blocklists
         run: bash deploy/rpz/test/lists-test.sh

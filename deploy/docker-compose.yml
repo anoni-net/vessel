@@ -59,6 +59,10 @@ services:
     # and the compiled .pyc are read-only, and only /tmp is writable, in memory, with nothing in it run
     read_only: true
     tmpfs: &tmp ["/tmp:size=64m,mode=1777,noexec,nosuid,nodev"]
+    # ssh through a jump host (app/nodes.py) leaves its ProxyCommand behind when it exits, for PID 1 to reap. Python
+    # as PID 1 never does, so each such call left a zombie (the worker reads a probe control every 30 minutes). Docker's
+    # init runs as PID 1 instead and reaps them (deploy/test/reap-test.sh)
+    init: true
     logging: *logging
 
   # runs queued node jobs, expires devices, clears unfetched configs, polls usage and enforces the quota
@@ -74,6 +78,7 @@ services:
     security_opt: *nonew
     read_only: true
     tmpfs: *tmp
+    init: true
     logging: *logging
 
 volumes:
